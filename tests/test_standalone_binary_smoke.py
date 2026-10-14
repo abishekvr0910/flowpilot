@@ -35,8 +35,8 @@ def main():
     proc = subprocess.Popen([exe_path])
     
     try:
-        # Give it 2.5 seconds to initialize PySide6, SingleInstance mutex, and HUD
-        time.sleep(2.5)
+        # Give it 4.0 seconds to initialize PySide6, SingleInstance mutex, and HUD
+        time.sleep(4.0)
         poll = proc.poll()
         if poll is not None:
             print(f"FAILED: Process exited prematurely with code {poll}")

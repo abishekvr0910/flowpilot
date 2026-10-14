@@ -3,4 +3,4 @@ FlowPilot Core Engine
 Local-first speech-to-text and deterministic writing intelligence.
 """
 
-__version__ = "3.0.1"
+__version__ = "3.0.2"
