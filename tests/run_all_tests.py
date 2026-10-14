@@ -19,6 +19,7 @@ TESTS = [
     ("Multilingual Script Validation", "tests/test_multilingual_validation.py"),
     ("Multilingual Acoustic Reality Assessment", "tests/test_multilingual_speech_reality.py"),
     ("Personalization & Voice Snippets", "tests/test_personalization.py"),
+    ("Settings Dialog & Hotkey Conflict Inspector", "tests/test_settings_dialog.py"),
     ("Extended Speech Model Benchmarks", "tests/test_model_benchmarks_extended.py"),
     ("End-to-End 5-Cycle Notepad Dictation", "tests/test_notepad_dictation_e2e.py"),
 ]
