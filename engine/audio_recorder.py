@@ -30,15 +30,18 @@ class AudioRecorder:
         self.level_callback: Optional[Callable[[float], None]] = None
 
     def _audio_callback(self, indata, frames, time_info, status):
-        if status:
-            print(f"[Audio Warning] {status}")
-        if self.is_recording:
+        if not self.is_recording:
+            return
+        try:
+            if status:
+                print(f"[Audio Warning] {status}")
             self.audio_frames.append(indata.copy())
             if self.level_callback:
-                # Compute Root Mean Square (RMS) for audio level meter
                 rms = np.sqrt(np.mean(indata**2))
                 level = min(1.0, float(rms * 10.0))
                 self.level_callback(level)
+        except Exception:
+            pass
 
     def start_recording(self):
         if self.is_recording:
@@ -94,7 +97,7 @@ class AudioRecorder:
         self.is_recording = False
         if self.stream:
             try:
-                self.stream.stop()
+                self.stream.abort()
                 self.stream.close()
             except Exception:
                 pass

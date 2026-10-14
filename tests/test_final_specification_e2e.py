@@ -31,6 +31,7 @@ from engine.text_injector import TextInjector
 from engine.hotkey_service import Win32HotkeyService, parse_hotkey_string
 from engine.orchestrator import FlowOrchestrator
 from desktop_app import FlowPilotApp
+from tests.benchmark_corpus import synthesize_audio_sapi
 
 def run_18_scenarios():
     print("=" * 75)
@@ -96,23 +97,48 @@ def run_18_scenarios():
     # Scenario 4: Correct transcription and insertion into Notepad
     # -------------------------------------------------------------
     print("\n--- [Scenario 4] Transcription & Insertion into Notepad ---")
-    test_phrase = "FlowPilot Scenario 4: Clean insertion."
-    success_inj = TextInjector.inject(test_phrase + "\n", np_hwnd)
+    spoken_sentence = "FlowPilot scenario four verified dictation."
+    sapi_audio = synthesize_audio_sapi(spoken_sentence)
+    assert sapi_audio is not None and len(sapi_audio) > 10000, "Speech synthesis failed"
+
+    # Transcribe using local Faster-Whisper model with vad_filter
+    stt = STTEngine({"engine_mode": "local", "local_model_size": "base", "beam_size": 2})
+    stt_res = stt.transcribe(sapi_audio)
+    transcribed_raw = stt_res.get("text", "")
+    assert len(transcribed_raw) > 5, f"Transcription empty: {stt_res}"
+
+    # Polish with WritingIntelligence
+    wi = WritingIntelligence()
+    polished_res = wi.polish(transcribed_raw, mode="polished")
+    final_text = polished_res.get("text", "")
+    assert len(final_text) > 5, "Polishing empty"
+
+    # Ensure focus and inject into Notepad
+    TextInjector._safe_set_foreground(np_hwnd)
+    time.sleep(0.2)
+    success_inj = TextInjector.inject(final_text + "\n", np_hwnd)
     assert success_inj is True, "Text injection failed"
+    time.sleep(0.3)
+
+    # Read back document content from Notepad and assert presence
+    np_buffer = TextInjector.read_window_buffer(np_hwnd) or ""
+    print(f"  Notepad document contents read back: {repr(np_buffer)}")
+    assert "flowpilot" in np_buffer.lower() or "scenario" in np_buffer.lower(), f"Transcribed speech not found in Notepad! Buffer: {repr(np_buffer)}"
     results["S4_Transcription_Insertion"] = "PASS"
-    print("  -> Passed: Injected 38 chars into Notepad.")
+    print(f"  -> Passed: Real speech transcribed ('{final_text}') and physically confirmed in Notepad buffer.")
 
     # -------------------------------------------------------------
     # Scenario 5: Repeated recording and insertion without restarting
     # -------------------------------------------------------------
     print("\n--- [Scenario 5] Repeated 3-Cycle Injection Without Restart ---")
     for i in range(1, 4):
-        msg = f"Scenario 5 Repeat cycle {i}."
+        msg = f"Scenario 5 repeat cycle {i}."
         ok = TextInjector.inject(msg + "\n", np_hwnd)
-        assert ok is True
+        assert ok is True, f"Cycle {i} injection failed"
         time.sleep(0.2)
+        assert TextInjector.verify_text_injected(msg, np_hwnd), f"Cycle {i} text not found in Notepad!"
     results["S5_Repeated_Cycles"] = "PASS"
-    print("  -> Passed: 3 repeated cycles executed cleanly.")
+    print("  -> Passed: 3 repeated cycles executed cleanly with physical buffer confirmation.")
 
     # -------------------------------------------------------------
     # Scenario 6: Verbatim mode versus polished mode

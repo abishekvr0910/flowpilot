@@ -1,5 +1,7 @@
 import time
 import threading
+import json
+from pathlib import Path
 from typing import Dict, Any, Callable, Optional, List
 from engine.config import load_config, save_config
 from engine.audio_recorder import AudioRecorder
@@ -249,9 +251,14 @@ class FlowOrchestrator:
                         print(f"[Orchestrator] Expanded voice snippet trigger: '{trigger}'")
                         formatted_text = expanded_text
 
-                # 5. Inject formatted text into target window
+                # 5. Inject formatted text into target window with confirmed fallback
                 target_hwnd = self.target_window_info.get("hwnd")
+                injection_method = "clipboard_paste"
                 success = TextInjector.inject(formatted_text, target_hwnd)
+                if not success:
+                    print("[Orchestrator] Standard clipboard paste failed. Falling back to direct SendInput Unicode typing...")
+                    injection_method = "sendinput_unicode"
+                    success = TextInjector.inject_unicode_sendinput(formatted_text, target_hwnd)
 
                 # 6. Save into history and recovery buffer
                 total_duration = round(time.time() - start_time, 2)
@@ -262,16 +269,50 @@ class FlowOrchestrator:
                     "target_app": self.target_window_info.get("process_name"),
                     "language": detected_lang,
                     "duration_sec": total_duration,
-                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "injection_status": "SUCCESS" if success else "FAILED",
+                    "injection_method": injection_method
                 }
                 self.last_dictation = history_entry
                 
+                # Write local telemetry for pilot program metrics
+                self._record_telemetry({
+                    "timestamp": time.time(),
+                    "datetime": history_entry["timestamp"],
+                    "target_app": history_entry["target_app"],
+                    "audio_duration_sec": round(len(wav_bytes) / 32000.0, 2),
+                    "stt_duration_sec": stt_duration,
+                    "format_duration_sec": format_duration,
+                    "total_duration_sec": total_duration,
+                    "char_count": len(formatted_text),
+                    "injection_method": injection_method,
+                    "injection_success": success
+                })
+
                 history = self.config.get("history", [])
                 history.insert(0, history_entry)
                 self.config["history"] = history[:50]
                 save_config(self.config)
 
-                # 7. Transition to SUCCESS
+                if not success:
+                    print("[Orchestrator Error] Text injection failed. Preserving text in clipboard for manual paste.")
+                    TextInjector._safe_clipboard_copy(formatted_text)
+                    with self._state_lock:
+                        self.state = AppState.ERROR
+                        self.is_processing = False
+                    self.feedback.play_error()
+                    self._notify(AppState.ERROR, {
+                        "message": "Paste failed (saved to clipboard)",
+                        "notice": "Paste failed - saved to clipboard"
+                    })
+                    time.sleep(2.0)
+                    with self._state_lock:
+                        if self.state == AppState.ERROR:
+                            self.state = AppState.IDLE
+                            self._notify(AppState.IDLE)
+                    return
+
+                # 7. Transition to SUCCESS only when injection was confirmed
                 with self._state_lock:
                     self.state = AppState.SUCCESS
                     self.is_processing = False
@@ -399,3 +440,14 @@ class FlowOrchestrator:
     def stop(self):
         """Clean shutdown of all orchestrator services."""
         self.stop_hotkey_listener()
+
+    def _record_telemetry(self, data: Dict[str, Any]):
+        """Records local-only anonymous telemetry for pilot metrics. Zero network egress."""
+        try:
+            log_dir = Path.home() / ".flowpilot"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            log_file = log_dir / "dictation_telemetry.log"
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(data) + "\n")
+        except Exception:
+            pass
