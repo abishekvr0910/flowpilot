@@ -54,7 +54,7 @@ DEFAULT_SNIPPETS: List[Dict[str, str]] = [
     },
     {
         "trigger": "insert bug report template",
-        "expansion": "### Bug Description\n- **Steps to reproduce:**\n- **Expected behavior:**\n- **Actual behavior:**\n- **Environment:** Windows 11 / FlowPilot v1.2"
+        "expansion": "### Bug Description\n- **Steps to reproduce:**\n- **Expected behavior:**\n- **Actual behavior:**\n- **Environment:** Windows 11 / FlowPilot v2.1"
     }
 ]
 

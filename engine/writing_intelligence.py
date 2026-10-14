@@ -259,13 +259,13 @@ class WritingIntelligence:
                 if re.search(r"\b" + re.escape(neg) + r"\b", superseded_text.lower()):
                     retracted_negs.append(neg)
 
-        # 1. Specific targeted Tuesday -> actually, Wednesday / for X -> actually, Y
-        specific_pattern = r"(?i)(.*?)(?:\s+for\s+|\s+on\s+)(\$?\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)actually,?\s+(\$?\w+)(.*)"
+        # 1. Specific targeted Tuesday -> actually, Wednesday / for/on/at/by/in X -> actually, Y
+        specific_pattern = r"(?i)(.*?)\b(for|on|at|by|in)\s+(\$?\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)actually,?\s+(\$?\w+)(.*)"
         match = re.search(specific_pattern, text)
         if match:
-            prefix, old_val, new_val, suffix = match.groups()
+            prefix, prep, old_val, new_val, suffix = match.groups()
             record_retractions(old_val)
-            text = f"{prefix} for {new_val}{suffix}"
+            text = f"{prefix}{prep} {new_val}{suffix}"
             return text.strip(), True, retracted_nums, retracted_negs
 
         # 2. Spoken Negation Retraction / Inversion ("do not proceed -- actually, proceed")
