@@ -42,6 +42,7 @@ class FlowPilotApp:
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("FlowPilot")
         self.app.setApplicationDisplayName("FlowPilot Voice Intelligence")
+        self.app.setApplicationVersion("2.1.0")
         self.app.setQuitOnLastWindowClosed(False)
 
         self.bridge = StateBridge()
