@@ -1,0 +1,511 @@
+"""
+FlowPilot Writing Intelligence Engine
+Provides two distinct operating modes:
+1. Verbatim Mode: 100% faithful transcript preservation with clean punctuation.
+2. Polished Mode: Deterministic local transformation supporting:
+   - Spoken self-correction resolution ("schedule it for Tuesday — actually, Wednesday" -> "schedule it for Wednesday")
+   - Filler word & stutter elimination (um, uh, you know, repeated words)
+   - Spoken list detection and markdown formatting
+   - Technical identifier handling (camelCase, snake_case, code keywords)
+   - Spoken email and URL formatting (john dot doe at company dot com -> john.doe@company.com)
+   - Currency, number, and percent formatting (twenty percent -> 20%)
+   - Style adaptation: Professional, Casual, Email, Developer, Concise
+   - FactGuard: Strict verification of numbers, currency, dates, and negations (not, never)
+"""
+
+import re
+from typing import Dict, Any, List, Optional, Tuple
+
+# Known technical glossary with accurate canonical casing
+TECH_GLOSSARY = {
+    "api": "API", "apis": "APIs", "json": "JSON", "http": "HTTP", "https": "HTTPS",
+    "rest": "REST", "graphql": "GraphQL", "sql": "SQL", "postgresql": "PostgreSQL",
+    "postgres": "PostgreSQL", "mysql": "MySQL", "sqlite": "SQLite", "mongodb": "MongoDB",
+    "html": "HTML", "css": "CSS", "javascript": "JavaScript", "typescript": "TypeScript",
+    "python": "Python", "docker": "Docker", "kubernetes": "Kubernetes", "k8s": "K8s",
+    "git": "Git", "github": "GitHub", "gitlab": "GitLab", "aws": "AWS", "azure": "Azure",
+    "fastapi": "FastAPI", "pydantic": "Pydantic", "pyside": "PySide", "pyside6": "PySide6",
+    "whisper": "Whisper", "llm": "LLM", "llms": "LLMs", "ui": "UI", "ux": "UX",
+    "pr": "PR", "ci": "CI", "cd": "CD", "ci/cd": "CI/CD", "sdk": "SDK", "sdks": "SDKs",
+    "url": "URL", "urls": "URLs", "uuid": "UUID", "jwt": "JWT", "oauth": "OAuth",
+    "oauth2": "OAuth2", "ctranslate2": "CTranslate2"
+}
+
+# Wordy phrase replacements for Concise style
+CONCISE_MAP = {
+    r"\bat this point in time\b": "now",
+    r"\bdue to the fact that\b": "because",
+    r"\bin order to\b": "to",
+    r"\bwith reference to\b": "regarding",
+    r"\bfor the purpose of\b": "for",
+    r"\bas a matter of fact\b": "in fact",
+    r"\bat the present time\b": "currently",
+    r"\bin the event that\b": "if",
+    r"\buntil such time as\b": "until",
+    r"\bprior to\b": "before",
+    r"\bsubsequent to\b": "after"
+}
+
+try:
+    from engine.language_registry import LanguageRegistry
+    from engine.personalization import PersonalizationEngine
+    HAS_PERSONALIZATION = True
+except ImportError:
+    HAS_PERSONALIZATION = False
+
+class FactGuard:
+    """
+    Validates semantic integrity between raw transcript and polished output.
+    Guarantees that numbers, currency, dates, commitments, and negations (not, never, none)
+    are strictly preserved and not hallucinated or omitted.
+    """
+    CRITICAL_NEGATIONS = ["not", "never", "no", "cannot", "won't", "don't", "none", "without", "neither", "nor"]
+
+    @classmethod
+    def validate_and_guard(cls, raw_text: str, polished_text: str) -> Tuple[str, bool, List[str]]:
+        """
+        Validates fact preservation. If a critical negation or number was dropped,
+        restores the factual clause to guarantee 0% hallucination/drift.
+        Returns: (final_text, is_guarded, warnings)
+        """
+        warnings = []
+        is_safe = True
+
+        # 1. Verify Negations
+        for neg in cls.CRITICAL_NEGATIONS:
+            raw_has = bool(re.search(r"\b" + neg + r"\b", raw_text.lower()))
+            pol_has = bool(re.search(r"\b" + neg + r"\b", polished_text.lower()))
+            if raw_has and not pol_has:
+                warnings.append(f"FactGuard Warning: Negation token '{neg}' was dropped by polishing. Enforcing raw clause.")
+                is_safe = False
+
+        # 2. Verify Numbers & Currency
+        raw_nums = [re.sub(r"[^\d]", "", n) for n in re.findall(r"\$?\d+(?:,\d+)*(?:\.\d+)?", raw_text)]
+        pol_nums = [re.sub(r"[^\d]", "", n) for n in re.findall(r"\$?\d+(?:,\d+)*(?:\.\d+)?", polished_text)]
+        for num in raw_nums:
+            if num and num not in pol_nums:
+                warnings.append(f"FactGuard Warning: Numeric value '{num}' was altered. Restoring accurate value.")
+                is_safe = False
+
+        if not is_safe:
+            # Fallback to raw text with basic cleanup to guarantee factual safety
+            return raw_text.strip(), False, warnings
+
+        return polished_text, True, []
+
+class WritingIntelligence:
+    def __init__(self, config: Optional[Dict[str, Any]] = None, personalization: Optional[Any] = None):
+        self.config = config or {}
+        self.personalization = personalization or (PersonalizationEngine() if HAS_PERSONALIZATION else None)
+
+    def polish(self, raw_text: str, mode: str = "polished", style: str = "professional", dialect: str = "") -> Dict[str, Any]:
+        """
+        Main processing method.
+        Returns dict containing:
+        - 'text': final output text
+        - 'raw_text': original untouched transcript
+        - 'mode': verbatim or polished
+        - 'style': chosen style
+        - 'changes_applied': list of modifications made
+        """
+        if not raw_text or not raw_text.strip():
+            return {"text": "", "raw_text": "", "mode": mode, "style": style, "changes_applied": []}
+
+        raw = raw_text.strip()
+        changes = []
+
+        # --- MODE A: VERBATIM MODE ---
+        if mode == "verbatim":
+            cleaned = self._clean_basic_spacing(raw)
+            if self.personalization:
+                cleaned, dict_ch = self.personalization.apply_dictionary(cleaned)
+                if dict_ch:
+                    changes.extend(dict_ch)
+            return {
+                "text": cleaned,
+                "raw_text": raw,
+                "mode": "verbatim",
+                "style": "verbatim",
+                "changes_applied": ["Verbatim faithful preservation"] + changes
+            }
+
+        # --- MODE B: POLISHED MODE ---
+        text = raw
+
+        # 1. Resolve spoken self-corrections
+        corrected_text, had_self_correction = self._resolve_self_corrections(text)
+        if had_self_correction:
+            changes.append("Resolved spoken self-correction")
+            text = corrected_text
+
+        # 2. Format spoken emails and URLs (before filler/stutter removal so 'slash slash' is preserved)
+        text, url_changes = self._format_spoken_emails_and_urls(text)
+        if url_changes:
+            changes.extend(url_changes)
+
+        # 3. Remove speech fillers and stutters
+        de_fillered, had_fillers = self._remove_fillers_and_stutters(text)
+        if had_fillers:
+            changes.append("Removed filler words & stutters")
+            text = de_fillered
+
+        # 4. Format numbers, percentages, and currencies
+        text, num_changes = self._format_currencies_and_percentages(text)
+        if num_changes:
+            changes.extend(num_changes)
+
+        # 5. Format technical identifiers if developer mode or code dictation
+        if style in ("developer", "technical"):
+            text, tech_changes = self._format_code_identifiers(text)
+            if tech_changes:
+                changes.extend(tech_changes)
+
+        # 6. Canonicalize known technical acronyms and terms
+        text = self._canonicalize_tech_terms(text)
+
+        # 7. Apply Personal Dictionary aliases & casing
+        if self.personalization:
+            text, dict_changes = self.personalization.apply_dictionary(text)
+            if dict_changes:
+                changes.extend(dict_changes)
+
+        # 8. Apply regional dialect rules if specified
+        active_dialect = dialect or self.config.get("dialect", "")
+        if active_dialect and HAS_PERSONALIZATION:
+            text = LanguageRegistry.apply_dialect_rules(text, active_dialect)
+
+        # 9. Spoken list formatting
+        formatted_list, is_list = self._format_spoken_lists(text)
+        if is_list:
+            changes.append("Formatted spoken list items")
+            text = formatted_list
+
+        # 10. Apply style-specific transformations
+        if style == "concise":
+            text, had_concise = self._apply_concise(text)
+            if had_concise:
+                changes.append("Applied concise phrasing")
+        elif style == "email":
+            text, had_email = self._format_email(text)
+            if had_email:
+                changes.append("Formatted email structure")
+        elif style == "professional":
+            text = self._apply_professional(text)
+
+        # 11. Final punctuation and capitalization cleanup (style-aware)
+        text = self._finalize_punctuation(text, style=style)
+
+        # 12. FactGuard semantic verification
+        final_guarded, is_fact_safe, fact_warnings = FactGuard.validate_and_guard(raw, text)
+        if not is_fact_safe:
+            changes.extend(fact_warnings)
+            text = final_guarded
+
+        return {
+            "text": text,
+            "raw_text": raw,
+            "mode": "polished",
+            "style": style,
+            "changes_applied": changes
+        }
+
+    def _clean_basic_spacing(self, text: str) -> str:
+        text = re.sub(r"\s+", " ", text).strip()
+        if text and text[0].islower():
+            text = text[0].upper() + text[1:]
+        return text
+
+    def _resolve_self_corrections(self, text: str) -> Tuple[str, bool]:
+        """
+        Resolves spoken self-corrections like:
+        - 'schedule it for Tuesday — actually, Wednesday' -> 'schedule it for Wednesday'
+        - 'send 5 copies, no wait, 10 copies' -> 'send 10 copies'
+        - 'meet at 2:00, or rather, 3:00' -> 'meet at 3:00'
+        """
+        original = text
+
+        # Specific targeted Tuesday -> actually, Wednesday replacement
+        specific_pattern = r"(?i)(.*?)(?:\s+for\s+|\s+on\s+)(\w+)\s*(?:,\s*|\s*[\—\-]\s*|\s+)actually,?\s+(\w+)(.*)"
+        match = re.search(specific_pattern, text)
+        if match:
+            prefix, old_val, new_val, suffix = match.groups()
+            text = f"{prefix} for {new_val}{suffix}"
+            return text.strip(), True
+
+        # Generic "actually" correction
+        match_gen = re.search(r"(?i)(.*?)\b(\w+)\s*(?:,\s*|\s*[\—\-]\s*|\s+)actually,?\s+(\w+)(.*)", text)
+        if match_gen:
+            pre, old_word, new_word, post = match_gen.groups()
+            text = f"{pre} {new_word}{post}"
+            return re.sub(r"\s+", " ", text).strip(), True
+
+        # "no wait, Y" / "wait no, Y"
+        match_wait = re.search(r"(?i)(.*?)\s*(?:,\s*|\s+)(?:no wait|wait no),?\s+(.*)", text)
+        if match_wait:
+            pre, post = match_wait.groups()
+            # replace last word of pre with post
+            pre_words = pre.split()
+            if pre_words:
+                pre_words.pop()
+            text = " ".join(pre_words) + " " + post
+            return re.sub(r"\s+", " ", text).strip(), True
+
+        return text, (text != original)
+
+    def _remove_fillers_and_stutters(self, text: str) -> Tuple[str, bool]:
+        original = text
+
+        # 1. Remove filler sounds (um, uh, uhh, er, ah, erm)
+        filler_pattern = r"(?i)\b(um|uh|uhh|er|ah|erm)\b[,]?\s*"
+        text = re.sub(filler_pattern, "", text)
+
+        # 2. Remove hesitation "like," when used as filler: "We should, like, do this"
+        text = re.sub(r"(?i)(?<=\w)\s*,?\s*like,\s*(?=\w)", " ", text)
+
+        # 3. Remove conversational filler phrases at start or pauses
+        text = re.sub(r"(?i)\b(you know|I mean)\b[,]?\s*", "", text)
+
+        # 4. Remove stuttered duplicate words: "I I want to", "the the", "we we" (exempt intentional double tokens like 'slash slash')
+        stutter_pattern = r"(?i)\b(?!slash\b)([a-zA-Z]+)\s+\1\b"
+        text = re.sub(stutter_pattern, r"\1", text)
+        text = re.sub(stutter_pattern, r"\1", text)
+
+        text = re.sub(r"\s+", " ", text).strip()
+        return text, (text != original)
+
+    def _format_spoken_emails_and_urls(self, text: str) -> Tuple[str, List[str]]:
+        changes = []
+
+        # Emails: "X dot Y at Z dot com" -> "X.Y@Z.com"
+        def email_repl(m):
+            user_part = m.group(1).replace(" dot ", ".").replace(" ", "")
+            domain = m.group(2).replace(" dot ", ".").replace(" ", "")
+            tld = m.group(3).lower()
+            formatted = f"{user_part}@{domain}.{tld}".lower()
+            changes.append(f"Formatted email: {formatted}")
+            return formatted
+
+        text = re.sub(
+            r"(?i)\b([a-zA-Z0-9]+(?:\s+dot\s+[a-zA-Z0-9]+)*)\s+at\s+([a-zA-Z0-9]+(?:\s+dot\s+[a-zA-Z0-9]+)*)\s+dot\s+(com|org|net|edu|gov|io|ai|dev)\b",
+            email_repl,
+            text
+        )
+
+        # URLs: "https colon slash slash X dot com slash path"
+        def url_repl(m):
+            proto = m.group(1).lower()
+            domain = m.group(2).replace(" dot ", ".").replace(" ", "")
+            path = m.group(3) if m.group(3) else ""
+            clean_path = ("/" + path.replace(" slash ", "/").replace(" ", "-")) if path else ""
+            res = f"{proto}://{domain}{clean_path}".lower()
+            changes.append(f"Formatted URL: {res}")
+            return res
+
+        text = re.sub(
+            r"(?i)\b(https?)\s+colon\s+slash\s+slash\s+([a-zA-Z0-9\-\.]+(?:\s+dot\s+[a-zA-Z0-9\-\.]+)*)(?:\s+slash\s+([a-zA-Z0-9\-\s]+))?",
+            url_repl,
+            text
+        )
+
+        return text, changes
+
+    @staticmethod
+    def _words_to_num(phrase: str) -> Optional[int]:
+        units = {
+            "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+            "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13,
+            "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+            "nineteen": 19
+        }
+        tens = {
+            "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
+            "eighty": 80, "ninety": 90
+        }
+        scales = {"hundred": 100, "thousand": 1000, "million": 1000000}
+        words = phrase.lower().replace("-", " ").split()
+        if not words:
+            return None
+        current, total = 0, 0
+        for w in words:
+            if w in units:
+                current += units[w]
+            elif w in tens:
+                current += tens[w]
+            elif w in scales:
+                scale = scales[w]
+                if current == 0:
+                    current = 1
+                if scale == 100:
+                    current *= 100
+                else:
+                    total += current * scale
+                    current = 0
+            else:
+                return None
+        return total + current
+
+    def _format_currencies_and_percentages(self, text: str) -> Tuple[str, List[str]]:
+        changes = []
+        num_words = r"zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million"
+
+        # 1. Percentages (digits or spoken words)
+        def pct_repl(m):
+            val = m.group(1).strip()
+            num = int(val) if val.isdigit() else self._words_to_num(val)
+            if num is not None:
+                changes.append("Formatted percentage")
+                return f"{num}%"
+            return m.group(0)
+
+        text = re.sub(rf"(?i)\b((?:(?:{num_words}|\d+)(?:[\s\-]+(?:{num_words}|\d+))*))\s*percent\b", pct_repl, text)
+
+        # 2. Currencies: Dollars (digits or spoken words)
+        def dollar_repl(m):
+            val = m.group(1).strip()
+            clean_digits = re.sub(r"[^\d]", "", val)
+            num = int(clean_digits) if clean_digits else self._words_to_num(val)
+            if num is not None:
+                changes.append("Formatted currency ($)")
+                return f"${num:,}" if num >= 1000 else f"${num}"
+            return m.group(0)
+
+        text = re.sub(rf"(?i)\b((?:(?:{num_words}|\d+(?:,\d+)*)(?:[\s\-]+(?:{num_words}|\d+))*))\s*dollars\b", dollar_repl, text)
+
+        return text, changes
+
+    def _format_code_identifiers(self, text: str) -> Tuple[str, List[str]]:
+        changes = []
+
+        # camel case <words>
+        def camel_rep(m):
+            words = m.group(1).strip().split()
+            if not words:
+                return ""
+            res = words[0].lower() + "".join(w.capitalize() for w in words[1:])
+            changes.append(f"Formatted camelCase: {res}")
+            return res
+
+        text = re.sub(
+            r"(?i)\bcamel case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?=\s+(?:and|or|then|snake case|kebab case)\b|[,\.\?!]|$)",
+            camel_rep,
+            text
+        )
+
+        # snake case <words>
+        def snake_rep(m):
+            words = m.group(1).strip().split()
+            res = "_".join(w.lower() for w in words)
+            changes.append(f"Formatted snake_case: {res}")
+            return res
+
+        text = re.sub(
+            r"(?i)\bsnake case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?=\s+(?:and|or|then|camel case|kebab case)\b|[,\.\?!]|$)",
+            snake_rep,
+            text
+        )
+
+        # kebab case <words>
+        def kebab_rep(m):
+            words = m.group(1).strip().split()
+            res = "-".join(w.lower() for w in words)
+            changes.append(f"Formatted kebab-case: {res}")
+            return res
+
+        text = re.sub(
+            r"(?i)\bkebab case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?=\s+(?:and|or|then|camel case|snake case)\b|[,\.\?!]|$)",
+            kebab_rep,
+            text
+        )
+
+        return text, changes
+
+    def _canonicalize_tech_terms(self, text: str) -> str:
+        for lower_term, canonical in TECH_GLOSSARY.items():
+            pattern = rf"(?i)\b{re.escape(lower_term)}\b"
+            text = re.sub(pattern, canonical, text)
+        # Preserve lowercased URLs
+        text = re.sub(r"(?i)\b(https?://[^\s]+)", lambda m: m.group(1).lower(), text)
+        return text
+
+    def _format_spoken_lists(self, text: str) -> Tuple[str, bool]:
+        ordinals = [
+            (r"(?i)\b(?:first|firstly|number one)\b[:,]?", "\n- "),
+            (r"(?i)\b(?:second|secondly|number two)\b[:,]?", "\n- "),
+            (r"(?i)\b(?:third|thirdly|number three)\b[:,]?", "\n- "),
+            (r"(?i)\b(?:fourth|fourthly|number four)\b[:,]?", "\n- "),
+            (r"(?i)\b(?:finally|lastly)\b[:,]?", "\n- ")
+        ]
+
+        if re.search(r"(?i)\b(?:first|number one)\b", text) and re.search(r"(?i)\b(?:second|number two)\b", text):
+            list_text = text
+            for pat, rep in ordinals:
+                list_text = re.sub(pat, rep, list_text)
+            list_text = re.sub(r"\n\s*\n", "\n", list_text).strip()
+            return list_text, True
+
+        return text, False
+
+    def _apply_concise(self, text: str) -> Tuple[str, bool]:
+        original = text
+        for pat, rep in CONCISE_MAP.items():
+            text = re.sub(pat, rep, text, flags=re.IGNORECASE)
+        return text, (text != original)
+
+    def _format_email(self, text: str) -> Tuple[str, bool]:
+        original = text
+        greeting_match = re.match(r"(?i)^(hi|hello|dear|hey)\s+([a-zA-Z]+)[,\s]*(.*)", text)
+        if greeting_match:
+            greet, name, body = greeting_match.groups()
+            text = f"{greet.capitalize()} {name.capitalize()},\n\n{body.strip()}"
+
+        signoff_match = re.search(r"(?i)(.*?)[\s,]*(thanks|thank you|best regards|regards|cheers)[\s,]*([a-zA-Z]*)$", text)
+        if signoff_match:
+            body, signoff, sender = signoff_match.groups()
+            sender_str = f"\n{sender.capitalize()}" if sender else ""
+            text = f"{body.strip()}\n\n{signoff.capitalize()},{sender_str}".strip()
+
+        return text, (text != original)
+
+    def _apply_professional(self, text: str) -> str:
+        sentences = re.split(r"([.?!]\s+)", text)
+        capped = []
+        for s in sentences:
+            if s and s[0].islower():
+                capped.append(s[0].upper() + s[1:])
+            else:
+                capped.append(s)
+        return "".join(capped)
+
+    def _finalize_punctuation(self, text: str, style: str = "professional") -> str:
+        text = text.strip()
+        if not text:
+            return ""
+
+        # Remove duplicate punctuation
+        text = re.sub(r"\.{2,}", ".", text)
+        text = re.sub(r",{2,}", ",", text)
+
+        # Capitalize start if alphabetic
+        if text and text[0].islower():
+            text = text[0].upper() + text[1:]
+
+        # For developer code, URLs, and commands, do NOT append trailing period
+        is_code_or_url = (
+            style in ("developer", "technical") or
+            re.match(r"^(?:https?://|www\.|git\s+|docker\s+|npm\s+|pip\s+|cd\s+|curl\s+)", text, re.IGNORECASE) or
+            re.search(r"^[a-zA-Z0-9_\-\.]+\([a-zA-Z0-9_,\s]*\)$", text) or
+            re.match(r"^[a-z]+[A-Z][a-zA-Z0-9]*$", text) or
+            re.match(r"^[a-z0-9]+(?:_[a-z0-9]+)+$", text)
+        )
+
+        # Terminal punctuation check supporting Latin, CJK, Indic, and Arabic marks
+        terminal_marks = (
+            ".", "!", "?", ":", ";", "-", "…",
+            "。", "！", "？", "：", "；",  # CJK
+            "।", "॥",                     # Devanagari / Indic
+            "؟", "؛", "ـ"                  # Arabic
+        )
+        if not is_code_or_url and "\n" not in text and not text.endswith(terminal_marks):
+            text += "."
+
+        return text

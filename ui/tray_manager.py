@@ -1,0 +1,124 @@
+"""
+FlowPilot System Tray Manager
+Handles background presence, system tray notifications, and tray context menu.
+"""
+
+from PySide6.QtWidgets import QSystemTrayIcon, QMenu
+from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush, QPen
+from PySide6.QtCore import Qt, Signal, QObject
+
+class TrayManager(QObject):
+    toggle_requested = Signal()
+    cancel_requested = Signal()
+    recopy_requested = Signal()
+    toggle_hud_requested = Signal()
+    settings_requested = Signal()
+    quit_requested = Signal()
+    ducking_toggled = Signal(bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.tray_icon = QSystemTrayIcon(parent)
+        self._init_icons()
+        self._init_menu()
+        self.set_state("idle")
+        self.tray_icon.show()
+
+    def _create_icon_pixmap(self, bg_color: str, symbol: str) -> QIcon:
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Draw circular background
+        painter.setBrush(QBrush(QColor(bg_color)))
+        painter.setPen(QPen(QColor(255, 255, 255, 180), 1.5))
+        painter.drawEllipse(2, 2, 28, 28)
+
+        # Draw symbol/text
+        painter.setPen(QColor("#FFFFFF"))
+        font = painter.font()
+        font.setPixelSize(14)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(pixmap.rect(), Qt.AlignCenter, symbol)
+        painter.end()
+
+        return QIcon(pixmap)
+
+    def _init_icons(self):
+        self.icon_idle = self._create_icon_pixmap("#0284C7", "FP")
+        self.icon_recording = self._create_icon_pixmap("#DC2626", "REC")
+        self.icon_processing = self._create_icon_pixmap("#D97706", "STT")
+
+    def _init_menu(self):
+        self.menu = QMenu()
+        self.menu.setStyleSheet("""
+            QMenu {
+                background-color: #0F172A;
+                color: #F8FAFC;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 20px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #0284C7;
+                color: #FFFFFF;
+            }
+        """)
+
+        self.action_toggle = self.menu.addAction("Dictate (Ctrl+Shift+Space)")
+        self.action_toggle.triggered.connect(self.toggle_requested.emit)
+
+        self.action_hud = self.menu.addAction("Show/Hide Floating Mic")
+        self.action_hud.triggered.connect(self.toggle_hud_requested.emit)
+
+        self.menu.addSeparator()
+
+        self.action_duck = self.menu.addAction("Silence Background Audio")
+        self.action_duck.setCheckable(True)
+        self.action_duck.setChecked(True)
+        self.action_duck.toggled.connect(self.ducking_toggled.emit)
+
+        self.action_recopy = self.menu.addAction("Copy Last Dictation")
+        self.action_recopy.triggered.connect(self.recopy_requested.emit)
+
+        self.action_settings = self.menu.addAction("Settings & History...")
+        self.action_settings.triggered.connect(self.settings_requested.emit)
+
+        self.menu.addSeparator()
+
+        self.action_quit = self.menu.addAction("Exit FlowPilot")
+        self.action_quit.triggered.connect(self.quit_requested.emit)
+
+        self.tray_icon.setContextMenu(self.menu)
+        self.tray_icon.activated.connect(self._on_tray_activated)
+
+    def _on_tray_activated(self, reason):
+        if reason == QSystemTrayIcon.Trigger:
+            # Single click toggles dictation
+            self.toggle_requested.emit()
+        elif reason == QSystemTrayIcon.DoubleClick:
+            self.settings_requested.emit()
+
+    def set_state(self, state: str):
+        if state == "listening":
+            self.tray_icon.setIcon(self.icon_recording)
+            self.tray_icon.setToolTip("FlowPilot: Listening... (Recording Voice)")
+            self.action_toggle.setText("Stop & Paste (Ctrl+Shift+Space)")
+        elif state in ("processing", "formatting"):
+            self.tray_icon.setIcon(self.icon_processing)
+            self.tray_icon.setToolTip("FlowPilot: Transcribing speech...")
+            self.action_toggle.setText("Processing...")
+        else:
+            self.tray_icon.setIcon(self.icon_idle)
+            self.tray_icon.setToolTip("FlowPilot: Ready (Press Ctrl+Shift+Space or F9)")
+            self.action_toggle.setText("Start Dictation (Ctrl+Shift+Space)")
+
+    def show_notification(self, title: str, message: str, is_error: bool = False):
+        icon = QSystemTrayIcon.Critical if is_error else QSystemTrayIcon.Information
+        self.tray_icon.showMessage(title, message, icon, 3000)

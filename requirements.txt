@@ -1,0 +1,12 @@
+faster-whisper>=1.0.0
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0
+pynput>=1.7.6
+pyperclip>=1.8.2
+pywin32>=306
+psutil>=5.9.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+websockets>=11.0
+openai>=1.0.0

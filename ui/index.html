@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowPilot - Universal Voice Intelligence</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- FLOATING FLOW PILL HUD (Interactive Preview) -->
+    <section class="hud-section">
+      <div class="hud-pill" id="hudPill">
+        <div class="hud-status-indicator" id="hudIndicator"></div>
+        <div class="hud-content">
+          <div class="hud-state-label" id="hudStateLabel">FlowPilot Idle</div>
+          <div class="hud-context-tag" id="hudContextTag">Press F8 (or Ctrl + Alt + Space)</div>
+        </div>
+        
+        <!-- Live Waveform Animation -->
+        <div class="hud-waveform" id="hudWaveform">
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+        </div>
+
+        <button class="hud-mic-btn" id="hudMicBtn" title="Toggle Dictation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- MAIN DASHBOARD -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo">
+          <span>⚡</span>
+        </div>
+        <div>
+          <h1>FlowPilot <span class="badge">Next-Gen</span></h1>
+          <p>Privacy-First, Multilingual Voice Intelligence Engine</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="status-chip" id="wsStatusChip">
+          <span class="status-dot"></span>
+          <span id="wsStatusText">Connecting...</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <!-- LEFT COLUMN: CONTROLS & CONFIGURATION -->
+      <div class="column-left">
+
+        <!-- TONE MODES SELECTOR -->
+        <div class="card">
+          <div class="card-header">
+            <h3>🎯 Active Tone Mode</h3>
+            <span class="tooltip-text">Controls how the AI formats your speech</span>
+          </div>
+          <div class="tone-modes-grid" id="toneModesContainer">
+            <div class="tone-card active" data-mode="developer">
+              <div class="tone-icon">⚡</div>
+              <div class="tone-title">Developer</div>
+              <div class="tone-desc">Formats code, variables, and bash commands</div>
+            </div>
+            <div class="tone-card" data-mode="cleaned">
+              <div class="tone-icon">✍️</div>
+              <div class="tone-title">Cleaned</div>
+              <div class="tone-desc">Removes filler stutters, adds crisp punctuation</div>
+            </div>
+            <div class="tone-card" data-mode="verbatim">
+              <div class="tone-icon">🎙️</div>
+              <div class="tone-title">Verbatim</div>
+              <div class="tone-desc">0% AI rewrites. Exact transcription</div>
+            </div>
+            <div class="tone-card" data-mode="casual">
+              <div class="tone-icon">💬</div>
+              <div class="tone-title">Casual</div>
+              <div class="tone-desc">Uncensored. Preserves authentic slang & profanity</div>
+            </div>
+            <div class="tone-card" data-mode="email">
+              <div class="tone-icon">📧</div>
+              <div class="tone-title">Email</div>
+              <div class="tone-desc">Structured paragraphs and professional tone</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENGINE SETTINGS: LOCAL VS CLOUD -->
+        <div class="card">
+          <div class="card-header">
+            <h3>⚙️ Engine & Privacy</h3>
+            <span class="tag" id="engineModeTag">Cloud BYOK</span>
+          </div>
+          
+          <div class="tab-switch">
+            <button class="tab-btn active" id="tabCloud" onclick="switchEngineTab('cloud')">Ultra-Fast Cloud (Groq/OpenAI)</button>
+            <button class="tab-btn" id="tabLocal" onclick="switchEngineTab('local')">100% Offline (Local Whisper)</button>
+          </div>
+
+          <div id="cloudSettingsPanel" class="tab-panel">
+            <div class="form-group">
+              <label>Cloud Provider</label>
+              <select id="cloudProviderSelect" class="input-select">
+                <option value="groq">Groq (Ultra-Fast ~300ms, Whisper Large-v3)</option>
+                <option value="openai">OpenAI (Official Whisper-1)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Groq API Key <span class="hint">(Free at console.groq.com)</span></label>
+              <input type="password" id="groqApiKeyInput" class="input-text" placeholder="gsk_...">
+            </div>
+            <div class="form-group">
+              <label>OpenAI API Key <span class="hint">(Optional)</span></label>
+              <input type="password" id="openaiApiKeyInput" class="input-text" placeholder="sk-...">
+            </div>
+          </div>
+
+          <div id="localSettingsPanel" class="tab-panel" style="display: none;">
+            <div class="info-banner">
+              🔒 <strong>Zero Cloud Calls:</strong> Runs completely on your device via <code>faster-whisper</code>. Completely private & offline.
+            </div>
+            <div class="form-group">
+              <label>Local Model Size</label>
+              <select id="localModelSizeSelect" class="input-select">
+                <option value="tiny">Tiny (Fastest, ~75MB RAM)</option>
+                <option value="base" selected>Base (Recommended, Balanced)</option>
+                <option value="small">Small (Higher accuracy, ~450MB RAM)</option>
+                <option value="medium">Medium (High accuracy)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- MULTILINGUAL & CODE-SWITCHING -->
+        <div class="card">
+          <div class="card-header">
+            <h3>🌐 Multilingual & Polyglot Engine</h3>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Primary Language</label>
+              <select id="languageSelect" class="input-select">
+                <option value="auto">Auto-Detect (100+ Languages)</option>
+                <option value="en">English (US/UK/Global)</option>
+                <option value="es">Spanish (Español)</option>
+                <option value="fr">French (Français)</option>
+                <option value="de">German (Deutsch)</option>
+                <option value="hi">Hindi (हिंदी / Hinglish)</option>
+                <option value="zh">Chinese (Mandarin / 简体中文)</option>
+                <option value="ja">Japanese (日本語)</option>
+                <option value="ar">Arabic (العربية)</option>
+                <option value="pt">Portuguese (Português)</option>
+                <option value="ru">Russian (Русский)</option>
+                <option value="it">Italian (Italiano)</option>
+                <option value="ko">Korean (한국어)</option>
+                <option value="nl">Dutch (Nederlands)</option>
+                <option value="tr">Turkish (Türkçe)</option>
+              </select>
+            </div>
+            <div class="form-group toggle-group">
+              <label>Polyglot Code-Switching</label>
+              <div class="toggle-wrapper">
+                <input type="checkbox" id="codeSwitchingToggle" checked>
+                <span class="toggle-slider"></span>
+              </div>
+              <p class="toggle-desc">Accurately transcribes mid-sentence bilingual language switching</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CUSTOM JARGON & VOCABULARY -->
+        <div class="card">
+          <div class="card-header">
+            <h3>📚 Custom Jargon & Glossary</h3>
+            <span class="tag">Zero Butchering</span>
+          </div>
+          <p class="card-desc">Whisper is phonetically biased towards these exact terms so they are never misheard.</p>
+          <div class="vocab-input-row">
+            <input type="text" id="newVocabInput" class="input-text" placeholder="Add word (e.g. Supabase, PyTorch, GraphQL)">
+            <button class="btn btn-primary" id="addVocabBtn">Add</button>
+          </div>
+          <div class="tags-container" id="vocabTagsContainer">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: LIVE HISTORY & REAL-TIME LOG -->
+      <div class="column-right">
+        <div class="card history-card">
+          <div class="card-header">
+            <h3>📜 Dictation History</h3>
+            <button class="btn btn-ghost" id="clearHistoryBtn">Clear</button>
+          </div>
+          <div class="history-list" id="historyList">
+            <div class="history-empty">
+              <span>🎙️</span>
+              <p>No dictations recorded yet.<br>Press <strong>Ctrl + Shift + Space</strong> anywhere to start!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- SAVE BAR -->
+    <div class="save-bar">
+      <span>Settings are auto-saved to <code>~/.flowpilot/config.json</code></span>
+      <button class="btn btn-success" id="saveSettingsBtn">Save Configuration</button>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
