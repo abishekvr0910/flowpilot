@@ -265,7 +265,7 @@ class FlowOrchestrator:
                 raw_text = stt_result.get("text", "")
                 detected_lang = stt_result.get("detected_language", "unknown")
                 stt_duration = round(t_stt_end - t_stt_start, 3)
-                print(f"[Orchestrator] STT done ({stt_duration}s, lang={detected_lang}): {raw_text}")
+                print(f"[Orchestrator] STT completed ({stt_duration}s, lang={detected_lang}, chars={len(raw_text)}).")
 
                 if not raw_text or not raw_text.strip():
                     with self._state_lock:
@@ -277,7 +277,7 @@ class FlowOrchestrator:
                 # 4. Transition to INSERTING_TEXT
                 with self._state_lock:
                     self.state = AppState.INSERTING_TEXT
-                self._notify(AppState.INSERTING_TEXT, {"raw_text": raw_text})
+                self._notify(AppState.INSERTING_TEXT, {"char_count": len(raw_text)})
 
                 # Post-process via ContextProcessor
                 t_clean_start = time.perf_counter()
@@ -285,11 +285,11 @@ class FlowOrchestrator:
                 if self.personalization:
                     expanded_text, trigger = self.personalization.expand_snippets(formatted_text)
                     if trigger:
-                        print(f"[Orchestrator] Expanded voice snippet trigger: '{trigger}'")
+                        print("[Orchestrator] Expanded voice snippet trigger matched.")
                         formatted_text = expanded_text
                 t_clean_end = time.perf_counter()
                 format_duration = round(t_clean_end - t_clean_start, 3)
-                print(f"[Orchestrator] Formatted ({format_duration}s): {formatted_text}")
+                print(f"[Orchestrator] Formatting completed ({format_duration}s, chars={len(formatted_text)}).")
 
                 # 5. Inject formatted text into target window with confirmed fallback
                 t_inj_start = time.perf_counter()

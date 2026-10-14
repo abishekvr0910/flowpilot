@@ -1,10 +1,39 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
 *.pyd
-.pytest_cache/
-*.log
+
+# C extensions
+*.so
+
+# Distribution / packaging
 build/
 dist/
-_backup*/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE and Editor configs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing and diagnostics
+.pytest_cache/
+pytest-cache-files-*/
+*.log
 flowpilot_diagnostic_report.txt
+scratch/
+
+# Local configuration overrides and backups
+_backup*/
+*.bak
+*.tmp
