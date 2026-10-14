@@ -3,6 +3,7 @@
 import sys
 import os
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 block_cipher = None
 
@@ -10,9 +11,17 @@ added_files = [
     ('engine', 'engine'),
     ('ui', 'ui'),
 ]
+added_files += collect_data_files('faster_whisper')
+added_files += collect_data_files('onnxruntime')
+
+added_binaries = []
+added_binaries += collect_dynamic_libs('onnxruntime')
+added_binaries += collect_dynamic_libs('ctranslate2')
 
 hidden_imports = [
     'faster_whisper',
+    'onnxruntime',
+    'onnxruntime.capi._pybind_state',
     'sounddevice',
     'soundfile',
     'cffi',
@@ -34,7 +43,7 @@ hidden_imports = [
 a = Analysis(
     ['desktop_app.py'],
     pathex=['.'],
-    binaries=[],
+    binaries=added_binaries,
     datas=added_files,
     hiddenimports=hidden_imports,
     hookspath=[],
