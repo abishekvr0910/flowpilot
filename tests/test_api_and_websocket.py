@@ -15,10 +15,13 @@ if str(PROJECT_ROOT) not in sys.path:
 import uvicorn
 from engine.server import app
 
+test_server = None
+
 def run_test_server():
+    global test_server
     config = uvicorn.Config(app, host="127.0.0.1", port=8765, log_level="warning")
-    server = uvicorn.Server(config)
-    server.run()
+    test_server = uvicorn.Server(config)
+    test_server.run()
 
 async def client_test():
     print("=" * 60)
@@ -100,5 +103,17 @@ async def client_test():
 if __name__ == "__main__":
     t = threading.Thread(target=run_test_server, daemon=True)
     t.start()
-    success = asyncio.run(client_test())
+    success = False
+    try:
+        success = asyncio.run(client_test())
+    finally:
+        if test_server:
+            test_server.should_exit = True
+        try:
+            from engine.server import orchestrator
+            if orchestrator:
+                orchestrator.stop()
+        except Exception:
+            pass
+        t.join(timeout=2.0)
     sys.exit(0 if success else 1)
