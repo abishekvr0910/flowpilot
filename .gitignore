@@ -7,3 +7,4 @@ __pycache__/
 build/
 dist/
 _backup*/
+flowpilot_diagnostic_report.txt
