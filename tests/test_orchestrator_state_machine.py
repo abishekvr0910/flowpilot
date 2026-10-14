@@ -97,6 +97,9 @@ def test_explicit_state_machine():
     print("\n[Phase 6] Testing 5 rapid back-to-back dictation cycles...")
     for cycle in range(1, 6):
         orch.start_dictation()
+        t0 = time.time()
+        while orch.state != AppState.RECORDING and time.time() - t0 < 2.0:
+            time.sleep(0.02)
         time.sleep(0.4)
         orch.stop_dictation_and_process()
         t0 = time.time()
@@ -105,9 +108,18 @@ def test_explicit_state_machine():
         # Verify user can immediately start next cycle from SUCCESS
         if orch.state == AppState.SUCCESS:
             orch.start_dictation()
+            t0 = time.time()
+            while orch.state != AppState.RECORDING and time.time() - t0 < 2.0:
+                time.sleep(0.02)
             time.sleep(0.3)
             orch.stop_dictation_and_process()
-            time.sleep(1.0)
+            t0 = time.time()
+            while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < 6.0:
+                time.sleep(0.05)
+        # Ensure settled to IDLE
+        t0 = time.time()
+        while orch.state != AppState.IDLE and time.time() - t0 < 2.0:
+            time.sleep(0.05)
         print(f"  -> Cycle {cycle}/5 completed successfully.")
 
     orch.stop()
@@ -115,5 +127,10 @@ def test_explicit_state_machine():
     return True
 
 if __name__ == "__main__":
-    success = test_explicit_state_machine()
-    sys.exit(0 if success else 1)
+    import traceback
+    try:
+        success = test_explicit_state_machine()
+        sys.exit(0 if success else 1)
+    except Exception as e:
+        traceback.print_exc()
+        sys.exit(1)

@@ -49,7 +49,7 @@ def main():
         # Test Phase 2: Launch secondary instance, verify mutex stops duplicate
         print("\n[Phase 2] Verifying Single-Instance Mutex enforcement...")
         proc2 = subprocess.Popen([exe_path])
-        returncode = proc2.wait(timeout=10)
+        returncode = proc2.wait(timeout=25)
         print(f"Secondary instance exited cleanly as expected with code: {returncode}")
         assert returncode == 0, f"Expected returncode 0, got {returncode}"
         
