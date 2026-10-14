@@ -51,7 +51,7 @@ Unlike conventional cloud-tethered voice assistants, FlowPilot is built on an **
 
 | Capability | Standard Cloud Assistants (e.g. Wispr Flow) | FlowPilot v2.0 Desktop |
 |---|---|---|
-| **Data Privacy & Compliance** | Transmits raw audio & transcripts to cloud servers. Ineligible for defense, banking, or strict HIPAA environments. | **100% Local-First:** Audio and text never leave the device. Air-gapped enterprise compliant. |
+| **Data Privacy & Compliance** | Transmits raw audio & transcripts to cloud servers. Requires cloud BAA and vendor review for healthcare/finance. | **100% Local-First:** Audio and text never leave the device. HIPAA-eligible zero-cloud-egress architecture. |
 | **Offline Reliability** | Ceases functioning on flights, trains, or poor connectivity. | **Full Offline Autonomy:** Local Faster-Whisper Base model runs on CPU INT8 with zero internet connection. |
 | **Spoken Self-Correction** | Often relies on cloud LLMs which can hallucinate facts or change numbers/dates. | **Deterministic Rule Engine:** Guaranteed resolution of self-corrections ("X — actually, Y") while preserving negations, dates, and numbers. |
 | **Window Focus Integrity** | Floating widgets often steal active focus, breaking text delivery into complex IDEs. | **`WS_EX_NOACTIVATE` Guaranteed:** Clicking the floating mic pill never takes focus from the active document. |

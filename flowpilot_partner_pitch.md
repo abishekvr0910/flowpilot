@@ -13,7 +13,7 @@
 Voice dictation has experienced a generational resurgence led by consumer-grade tools like Wispr Flow. However, enterprise adoption in regulated industries has stalled completely. 
 
 ### Why Regulated Industries Cannot Buy Wispr Flow:
-1. **Mandatory Cloud Egress:** Wispr Flow streams microphone audio across WAN connections to third-party endpoints. Under HIPAA, GDPR, SOC2, and defense regulations (ITAR), this is an immediate compliance violation.
+1. **Mandatory Cloud Egress:** Wispr Flow streams microphone audio across WAN connections to third-party endpoints. In regulated environments governed by HIPAA, GDPR, SOC2, or defense rules (ITAR), transmitting employee or patient voice data to external cloud processors creates significant compliance hurdles and requires extensive Business Associate Agreements (BAAs).
 2. **Screen Scraping Privacy Risk:** Wispr Flow inspects user screens and transmits UI context to external LLMs. Enterprise legal teams and clients under strict NDAs reject this outright.
 3. **Electron Overhead & Instability:** Corporate IT environments reject background tools that consume 600MB+ RAM and induce laptop fan noise or keyboard conflicts.
 
@@ -70,7 +70,7 @@ We offer four distinct integration models for strategic partners, system integra
 |---|---|---|---|
 | **Average Dictation Speed** | 40 WPM (Typing) | 140 WPM (Speech) | **140 WPM (Speech)** |
 | **Annual License Cost / Seat**| $0 | $144 – $180 / year | **Fixed Perpetual or $48/seat/year** |
-| **Compliance Liability Risk** | $0 | High (Data breach / HIPAA) | **Zero (Air-gapped local execution)** |
+| **Compliance Liability Risk** | $0 | High (Data breach / Cloud BAA exposure) | **Negligible Third-Party Risk (Air-gapped local execution)** |
 | **Hardware Overhead** | 0 MB | 450MB – 850MB RAM | **~115MB RAM** |
 | **Developer Productivity Gain**| Baseline | +3.5 hours / week | **+4.2 hours / week (No manual jargon fixes)**|
 

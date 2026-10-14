@@ -9,7 +9,7 @@
 ## Executive Summary & Competitive Thesis
 
 Wispr Flow has established notable market visibility as an AI dictation assistant with strong marketing around "speech-to-polished-text". However, an empirical review of official documentation, release notes, user community feedback, and Windows desktop behavior reveals systemic weaknesses:
-1. **Mandatory Cloud Egress:** Wispr Flow is fundamentally cloud-reliant. Every syllable of audio and context is transmitted to remote servers. This completely disqualifies it for defense, healthcare (HIPAA), legal confidentiality (client privilege), and enterprise NDA environments.
+1. **Mandatory Cloud Egress:** Wispr Flow is fundamentally cloud-reliant. Every syllable of audio and context is transmitted to remote servers. In regulated sectors (healthcare HIPAA, defense ITAR, legal confidentiality), this creates significant compliance friction and requires vendor risk review and BAA agreements.
 2. **Electron Bloat & Resource Footprint:** Consistently uses 400MB–800MB RAM across multiple background helper processes, inducing mouse stutter and thermal fan spin on developer laptops.
 3. **Aggressive Hallucination & Censorship:** Generic cloud LLM rewriting frequently hallucinates completions, sanitizes colloquial expressions, or drops critical negations ("not", "never") and numbers.
 4. **Subscription Pricing Wall:** $144–$180/year recurring subscription with a restrictive free cap (~2,000 words/week).
@@ -88,7 +88,7 @@ Wispr Flow has established notable market visibility as an AI dictation assistan
 | **E-01** | **Zero Cloud Data Egress** | **Not Supported** | Requires constant internet connection; audio streamed to cloud. | **Supported (100% Offline)** | Audio recorded to local memory, transcribed locally via CTranslate2, processed locally. 0 network calls. |
 | **E-02** | **No Model Training on User Voice** | Supported (Paid/Opt-Out) | Flow Pro allows opting out; Free tier trains models by default. | **Supported (Default)** | 100% private by architecture. No data collection infrastructure exists. |
 | **E-03** | **No Screen Capture / OCR Scraping** | **Not Supported** | Inspects active window and sends screen context to cloud LLM. | **Supported (100% Private)** | Window metadata acquired via Win32 process APIs (`GetWindowTextW`, `GetWindowThreadProcessId`). Zero pixel scraping. |
-| **E-04** | **HIPAA / Enterprise NDA Compliance** | Partial (Enterprise only) | Requires custom enterprise contract for HIPAA Business Associate Agreement. | **Supported (Native)** | Air-gapped compliance by design. No audio leaves local host RAM. |
+| **E-04** | **HIPAA-Eligible / Enterprise NDA Readiness** | Partial (Enterprise only) | Requires custom enterprise contract for HIPAA Business Associate Agreement. | **Supported (Native)** | HIPAA-eligible architecture by design: zero audio egress eliminates cloud BAA requirement. Audio lives strictly in local host RAM. |
 
 ---
 

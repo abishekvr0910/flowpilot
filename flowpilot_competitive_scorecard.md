@@ -20,7 +20,7 @@ FlowPilot eliminates cloud privacy risks, network latency variability, recurring
 | Feature / Dimension | FlowPilot 2.0 (Verified) | Wispr Flow (Windows) | Nuance Dragon Professional | Vanilla Whisper Desktop |
 |:---|:---|:---|:---|:---|
 | **Architecture** | **100% Local / Offline** | Cloud Streaming (Supabase/Deepgram/LLM) | Hybrid Cloud / Enterprise Server | 100% Local / Offline |
-| **Data Privacy & Compliance** | **Zero Network Egress (HIPAA/GDPR/SOC2 compliant by design)** | Transmits raw audio & text to third-party cloud | Hosted cloud server under enterprise agreement | Zero Network Egress |
+| **Data Privacy & Compliance** | **Zero Network Egress (HIPAA-Eligible Architecture & GDPR Privacy-by-Design)** | Transmits raw audio & text to third-party cloud | Hosted cloud server under enterprise agreement | Zero Network Egress |
 | **End-to-End Latency (3s dictation)** | **~290 ms** (Local CPU base model) | 1,200 ms – 3,500 ms (Network + Cloud LLM) | 800 ms – 1,500 ms | ~450 ms (Local CPU) |
 | **Writing Intelligence Latency** | **2.4 ms** (Local deterministic engine) | 800 ms – 2,000 ms (Cloud LLM call) | N/A (Basic grammar formatting only) | None (Raw transcript only) |
 | **FactGuard Hallucination Protection** | **100% Guaranteed** (Audits numbers, dates, negations) | Risk of LLM hallucination / omission | Rule-based grammar rules | Not applicable (No LLM layer) |
