@@ -4,6 +4,37 @@ All notable changes, bug fixes, and architectural evolutions to FlowPilot are do
 
 ---
 
+## [3.0.1] - 2026-10-15 — *Wispr Flow Parity & Release Verification*
+
+### Added
+- **Wispr Flow Parity (Push-to-Talk & Silence Auto-Finalization):**
+  - Configured `F9` for true single-key Push-to-Talk (`hotkey_mode="push_to_talk"`): press & hold `F9`, speak, release `F9` to paste instantly into the focused application.
+  - Implemented intelligent post-speech silence auto-finalization in Toggle Mode (`auto_stop_on_silence=True`, `silence_timeout_sec=1.4s`): automatically finalizes, transcribes, and inserts text after natural conversational pauses without requiring a second shortcut press.
+- **Physical Text Injection Confirmation & Unicode Fallback:**
+  - Added physical active window buffer verification (`read_window_buffer()`) to guarantee text appears before marking status as `SUCCESS`.
+  - Added native Win32 `SendInput` Unicode typing fallback (`KEYEVENTF_UNICODE`) if clipboard paste is intercepted or refused by target window.
+  - Non-destructive emergency clipboard preservation with HUD alert `"Paste failed - saved to clipboard"` on injection failure.
+- **Privacy Hardening & Opt-In Telemetry:**
+  - Disabled telemetry by default (`"telemetry_enabled": false`). Zero diagnostic logs written to disk unless explicitly opted in.
+  - Disabled audio/text persistence by default (`"save_history_text": false`). Speech transcripts reside exclusively in volatile memory for the Tray "Copy Last Dictation" buffer.
+  - Verified 100% offline model loading and transcription with zero network egress.
+
+### Fixed
+- **PortAudio Callback Race & SystemError:**
+  - Added `self.stream.abort()` before `close()` in `engine/audio_recorder.py`, preventing CFFI callback races during rapid start/stop dictation cycles.
+- **Silero VAD ONNX Path Independence:**
+  - Fixed path-resolution failure by packaging Silero ONNX assets into both `dist/FlowPilot/assets/` and `_internal/faster_whisper/assets/`, ensuring reliable launches from arbitrary working directories or `%TEMP%`.
+- **Test Server Shutdown Race:**
+  - Added structured shutdown for Uvicorn and Win32 message pump in `tests/test_api_and_websocket.py` to prevent interpreter exit races.
+
+---
+
+## [3.0.0] - 2026-10-14 — *Codex Overhaul & Win32 Native Shell*
+- Upgraded desktop shell to PySide6 with frameless floating HUD and multi-tab settings.
+- Added Win32 RegisterHotKey integration and single-instance named mutex.
+
+---
+
 ## [2.0.0] - 2026-10-14 — *Production Overhaul & Release*
 
 ### Added

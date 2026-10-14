@@ -47,6 +47,11 @@ class FlowOrchestrator:
         self.hotkey_listener = None
         self.last_dictation: Dict[str, Any] = {}
         self._auto_stop_timer: Optional[threading.Timer] = None
+
+        # Silence auto-stop tracking (Wispr Flow behavior)
+        self._last_speech_time: float = 0.0
+        self._speech_detected: bool = False
+        self._speech_start_time: float = 0.0
         
         # Link audio level callback
         self.recorder.level_callback = self._on_audio_level
@@ -81,6 +86,24 @@ class FlowOrchestrator:
         if self.state == AppState.RECORDING or self.recorder.is_recording:
             self._notify("audio_level", {"level": round(level, 3)})
 
+            # Wispr Flow behavior: intelligent silence auto-finalization
+            if self.config.get("auto_stop_on_silence", True) and self.state == AppState.RECORDING:
+                now = time.time()
+                # Threshold for speech presence (RMS level > 0.025)
+                if level > 0.025:
+                    if not self._speech_detected:
+                        self._speech_detected = True
+                        self._speech_start_time = now
+                    self._last_speech_time = now
+                elif self._speech_detected:
+                    speech_duration = self._last_speech_time - self._speech_start_time
+                    silence_duration = now - self._last_speech_time
+                    timeout = self.config.get("silence_timeout_sec", 1.4)
+                    if speech_duration >= 0.4 and silence_duration >= timeout:
+                        print(f"[Orchestrator] Post-speech silence ({silence_duration:.2f}s) detected. Auto-finalizing dictation (Wispr Flow mode)...")
+                        self._speech_detected = False
+                        self.stop_dictation_and_process()
+
     def _on_auto_stop(self):
         print("[Orchestrator] Maximum recording duration (120s) reached. Auto-stopping...")
         self.stop_dictation_and_process()
@@ -93,6 +116,9 @@ class FlowOrchestrator:
             self.state = AppState.STARTING_RECORDING
             self._stop_pending = False
             self.is_processing = False
+            self._last_speech_time = 0.0
+            self._speech_detected = False
+            self._speech_start_time = 0.0
 
         # 1. Capture target window immediately at T0
         self.target_window_info = WindowInspector.get_active_window_info()
@@ -262,10 +288,11 @@ class FlowOrchestrator:
 
                 # 6. Save into history and recovery buffer
                 total_duration = round(time.time() - start_time, 2)
+                save_text = self.config.get("save_history_text", False)
                 history_entry = {
                     "id": int(time.time() * 1000),
-                    "raw_text": raw_text,
-                    "formatted_text": formatted_text,
+                    "raw_text": raw_text if save_text else "",
+                    "formatted_text": formatted_text if save_text else "",
                     "target_app": self.target_window_info.get("process_name"),
                     "language": detected_lang,
                     "duration_sec": total_duration,
@@ -273,9 +300,10 @@ class FlowOrchestrator:
                     "injection_status": "SUCCESS" if success else "FAILED",
                     "injection_method": injection_method
                 }
-                self.last_dictation = history_entry
+                # Keep active formatted_text in volatile memory for Tray 'Copy Last Dictation'
+                self.last_dictation = {**history_entry, "formatted_text": formatted_text}
                 
-                # Write local telemetry for pilot program metrics
+                # Write local telemetry for pilot program metrics (strictly anonymous, no text)
                 self._record_telemetry({
                     "timestamp": time.time(),
                     "datetime": history_entry["timestamp"],
@@ -411,15 +439,17 @@ class FlowOrchestrator:
             if mode == "push_to_talk":
                 # Push-to-talk: keydown starts, keyup stops
                 self.hotkey_service.register(clean_hk, self.start_dictation, on_release=self.stop_dictation_and_process)
+                if clean_hk.lower() != "f9":
+                    self.hotkey_service.register("F9", self.start_dictation, on_release=self.stop_dictation_and_process)
+                if clean_hk.lower() != "ctrl+alt+space":
+                    self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
             else:
                 # Toggle: press once to start, press again to stop
                 self.hotkey_service.register(clean_hk, self.toggle_dictation)
-
-            # Register backup toggles if distinct
-            if clean_hk.lower() != "ctrl+alt+space":
-                self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
-            if clean_hk.lower() != "f9":
-                self.hotkey_service.register("F9", self.toggle_dictation)
+                if clean_hk.lower() != "ctrl+alt+space":
+                    self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
+                if clean_hk.lower() != "f9":
+                    self.hotkey_service.register("F9", self.toggle_dictation)
             
             success = self.hotkey_service.start(timeout=3.0)
             if success:
@@ -443,6 +473,8 @@ class FlowOrchestrator:
 
     def _record_telemetry(self, data: Dict[str, Any]):
         """Records local-only anonymous telemetry for pilot metrics. Zero network egress."""
+        if not self.config.get("telemetry_enabled", False):
+            return
         try:
             log_dir = Path.home() / ".flowpilot"
             log_dir.mkdir(parents=True, exist_ok=True)

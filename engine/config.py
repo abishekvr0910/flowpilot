@@ -21,6 +21,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "Kubernetes", "GraphQL", "FastAPI", "Pydantic", "PostgreSQL",
         "Next.js", "TypeScript", "Python", "Whisper", "Docker", "AWS Lambda"
     ],
+    "telemetry_enabled": False,  # Default disabled; opt-in required for pilot diagnostics
+    "save_history_text": False,  # Default disabled; zero retention of transcribed speech on disk
+    "auto_stop_on_silence": True,  # Wispr Flow behavior: auto-finalize after pause in speech
+    "silence_timeout_sec": 1.4,  # Duration of silence (seconds) to trigger auto-finalization
     "history": []
 }
 
