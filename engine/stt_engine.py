@@ -23,20 +23,41 @@ class STTEngine:
         self.personalization = personalization or (PersonalizationEngine() if HAS_REGISTRY else None)
         self._local_model: Optional[Any] = None
 
+    def preload_model(self):
+        """Asynchronously preloads the local faster-whisper model on CPU during application startup."""
+        try:
+            self._get_local_model()
+        except Exception as e:
+            print(f"[STT Warning] Preload failed: {e}")
+
     def _get_local_model(self):
         if not HAS_FASTER_WHISPER:
             raise RuntimeError("faster-whisper is not installed. Please use cloud mode or install faster-whisper.")
         if self._local_model is None:
             size = self.config.get("local_model_size", "base")
-            print(f"[STT] Loading local faster-whisper model '{size}' on CPU (int8)...")
+            import os
+            threads = self.config.get("cpu_threads") or min(8, os.cpu_count() or 4)
+            print(f"[STT] Loading local faster-whisper model '{size}' on CPU (int8, threads={threads})...")
             try:
                 # First attempt: strictly local offline load without querying Hugging Face Hub
-                self._local_model = WhisperModel(size, device="cpu", compute_type="int8", local_files_only=True)
+                self._local_model = WhisperModel(
+                    size,
+                    device="cpu",
+                    compute_type="int8",
+                    cpu_threads=threads,
+                    local_files_only=True
+                )
             except Exception as e:
                 # If local cache missing on fresh install, download once explicitly
                 print(f"[STT] Local offline cache not found ({e}). Downloading model '{size}' once for offline use...")
-                self._local_model = WhisperModel(size, device="cpu", compute_type="int8", local_files_only=False)
-            print("[STT] Local model loaded on CPU (int8). Zero-egress offline mode active.")
+                self._local_model = WhisperModel(
+                    size,
+                    device="cpu",
+                    compute_type="int8",
+                    cpu_threads=threads,
+                    local_files_only=False
+                )
+            print(f"[STT] Local model '{size}' loaded on CPU (int8, threads={threads}). Zero-egress offline mode active.")
         return self._local_model
 
     def build_bias_prompt(self, custom_vocabulary: List[str], language: str) -> str:
@@ -82,13 +103,14 @@ class STTEngine:
 
         whisper_lang = None if language == "auto" else language
 
+        beam_size = self.config.get("beam_size", 2)
         segments, info = model.transcribe(
             audio_stream,
-            beam_size=5,
+            beam_size=beam_size,
             language=whisper_lang,
             initial_prompt=initial_prompt,
             vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=500)
+            vad_parameters=dict(min_silence_duration_ms=400)
         )
 
         full_text = " ".join([segment.text for segment in segments]).strip()

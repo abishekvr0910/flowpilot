@@ -98,6 +98,16 @@ class TrayManager(QObject):
         self.tray_icon.setContextMenu(self.menu)
         self.tray_icon.activated.connect(self._on_tray_activated)
 
+    def set_hotkey_info(self, hotkey_str: str, mode: str = "toggle"):
+        clean_hk = hotkey_str.replace("<", "").replace(">", "").strip()
+        self._hotkey_str = clean_hk
+        self._mode = mode
+        if hasattr(self, 'action_toggle'):
+            if mode == "push_to_talk":
+                self.action_toggle.setText(f"Dictate (Hold {clean_hk})")
+            else:
+                self.action_toggle.setText(f"Dictate ({clean_hk})")
+
     def _on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.Trigger:
             # Single click toggles dictation
@@ -106,18 +116,24 @@ class TrayManager(QObject):
             self.settings_requested.emit()
 
     def set_state(self, state: str):
-        if state == "listening":
+        st = state.lower()
+        hk = getattr(self, '_hotkey_str', 'Ctrl+Shift+Space')
+        if st in ("listening", "recording"):
             self.tray_icon.setIcon(self.icon_recording)
             self.tray_icon.setToolTip("FlowPilot: Listening... (Recording Voice)")
-            self.action_toggle.setText("Stop & Paste (Ctrl+Shift+Space)")
-        elif state in ("processing", "formatting"):
+            self.action_toggle.setText(f"Stop & Paste ({hk})")
+        elif st in ("starting", "starting_recording"):
+            self.tray_icon.setIcon(self.icon_processing)
+            self.tray_icon.setToolTip("FlowPilot: Starting microphone...")
+            self.action_toggle.setText("Starting mic...")
+        elif st in ("processing", "transcribing", "formatting", "inserting_text"):
             self.tray_icon.setIcon(self.icon_processing)
             self.tray_icon.setToolTip("FlowPilot: Transcribing speech...")
             self.action_toggle.setText("Processing...")
         else:
             self.tray_icon.setIcon(self.icon_idle)
-            self.tray_icon.setToolTip("FlowPilot: Ready (Press Ctrl+Shift+Space or F9)")
-            self.action_toggle.setText("Start Dictation (Ctrl+Shift+Space)")
+            self.tray_icon.setToolTip(f"FlowPilot: Ready ({hk})")
+            self.action_toggle.setText(f"Start Dictation ({hk})")
 
     def show_notification(self, title: str, message: str, is_error: bool = False):
         icon = QSystemTrayIcon.Critical if is_error else QSystemTrayIcon.Information
