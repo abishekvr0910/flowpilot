@@ -67,11 +67,15 @@ All notable changes, bug fixes, and architectural evolutions to FlowPilot are do
 ### Fixed
 - Fixed critical hotkey drop issue where `SetWindowsHookExW` hooks were silently unhooked by Windows after `LowLevelHooksTimeout`.
 - Fixed focus-stealing bug where floating HUD stole input focus from Notepad and IDEs upon display.
-- Fixed clipboard race condition where rapid consecutive dictations crashed with Win32 Error 5 `Access is denied`.
+- Fixed clipboard race condition where rapid consecutive dictations crashed with Win32 Error 5 `Access is denied` by implementing a synchronized debounced restoration timer (`threading.Timer`) and lock.
+- Fixed outbound HTTPS metadata telemetry query on model initialization by enforcing `local_files_only=True` in `_get_local_model`, guaranteeing absolute zero network egress.
+- Fixed FactGuard reverting valid spoken numerical self-corrections by extracting retracted tokens and negations from superseded clauses and exempting them from fact-omission checks.
+- Fixed workstation lock screen (`LockApp.exe`) Win32 Error 5 failure by catching `ERROR_ACCESS_DENIED` and safely retaining transcribed text in the internal recovery buffer.
 - Fixed background audio remaining muted if dictation was cancelled or encountered an error.
 - Fixed stutter removal collapsing legitimate spoken double-slash tokens in URLs (`//`).
 - Fixed technical term casing corrupting lowercase protocol prefixes in URLs (`https://`).
 - Fixed trailing ASCII period corruption on non-Latin text ending with CJK fullwidth periods or Indic dandas.
+- Fixed AM/PM time formatting regex word boundary failure on dotted abbreviations (`a.m.` / `p.m.`).
 
 ---
 

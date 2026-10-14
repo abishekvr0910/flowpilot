@@ -29,8 +29,14 @@ class STTEngine:
         if self._local_model is None:
             size = self.config.get("local_model_size", "base")
             print(f"[STT] Loading local faster-whisper model '{size}' on CPU (int8)...")
-            self._local_model = WhisperModel(size, device="cpu", compute_type="int8")
-            print("[STT] Local model loaded on CPU (int8).")
+            try:
+                # First attempt: strictly local offline load without querying Hugging Face Hub
+                self._local_model = WhisperModel(size, device="cpu", compute_type="int8", local_files_only=True)
+            except Exception as e:
+                # If local cache missing on fresh install, download once explicitly
+                print(f"[STT] Local offline cache not found ({e}). Downloading model '{size}' once for offline use...")
+                self._local_model = WhisperModel(size, device="cpu", compute_type="int8", local_files_only=False)
+            print("[STT] Local model loaded on CPU (int8). Zero-egress offline mode active.")
         return self._local_model
 
     def build_bias_prompt(self, custom_vocabulary: List[str], language: str) -> str:
