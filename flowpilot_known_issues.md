@@ -72,3 +72,15 @@
 - **Air-Gapped Deployment:** For secure, offline-only, or classified environments with zero internet access, administrators can pre-provision the model weights by placing the model directory in:
   `C:\Users\<Username>\.cache\huggingface\hub\models--Systran--faster-whisper-base\`
   Once provisioned, FlowPilot functions 100% offline with zero external network connectivity.
+
+---
+
+## 8. Windows Workstation Lock Screen (`LockApp.exe`)
+
+- **Root Cause:** When Windows locks (e.g., `Win + L` or screen saver timeout), the OS switches the active desktop from `Default` to `Winlogon` / `LockApp.exe`. Under the Windows NT security architecture, non-elevated user processes cannot open or manipulate the clipboard on an inactive desktop session (`ERROR_ACCESS_DENIED (5)`).
+- **Mitigation & Handling:**
+  - FlowPilot's `TextInjector` catches `ERROR_ACCESS_DENIED` without crashing.
+  - The transcribed, polished dictation is automatically safeguarded in the internal recovery buffer (`get_last_injected_text()`).
+  - Upon unlocking the workstation, the user can right-click the FlowPilot tray icon and select **"Copy Last Dictation"** to retrieve their text.
+
+

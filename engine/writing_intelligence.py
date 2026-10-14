@@ -59,22 +59,41 @@ class FactGuard:
     Guarantees that numbers, currency, dates, commitments, and negations (not, never, none)
     are strictly preserved and not hallucinated or omitted.
     """
-    CRITICAL_NEGATIONS = ["not", "never", "no", "cannot", "won't", "don't", "none", "without", "neither", "nor"]
+    CRITICAL_NEGATIONS = [
+        "not", "never", "no", "cannot", "can't", "cant",
+        "won't", "wont", "don't", "dont", "doesn't", "doesnt",
+        "didn't", "didnt", "shouldn't", "shouldnt", "wouldn't", "wouldnt",
+        "couldn't", "couldnt", "isn't", "isnt", "aren't", "arent",
+        "wasn't", "wasnt", "weren't", "werent", "hasn't", "hasnt",
+        "haven't", "havent", "hadn't", "hadnt", "none", "without",
+        "neither", "nor", "nobody", "nothing", "nowhere"
+    ]
 
     @classmethod
-    def validate_and_guard(cls, raw_text: str, polished_text: str) -> Tuple[str, bool, List[str]]:
+    def validate_and_guard(
+        cls,
+        raw_text: str,
+        polished_text: str,
+        retracted_nums: Optional[List[str]] = None,
+        retracted_negations: Optional[List[str]] = None
+    ) -> Tuple[str, bool, List[str]]:
         """
         Validates fact preservation. If a critical negation or number was dropped,
         restores the factual clause to guarantee 0% hallucination/drift.
+        Allows explicit spoken self-corrections (retracted items) to be omitted.
         Returns: (final_text, is_guarded, warnings)
         """
         warnings = []
         is_safe = True
+        safe_retracted_nums = [re.sub(r"[^\d]", "", n) for n in (retracted_nums or [])]
+        safe_retracted_negs = [n.lower() for n in (retracted_negations or [])]
 
         # 1. Verify Negations
         for neg in cls.CRITICAL_NEGATIONS:
-            raw_has = bool(re.search(r"\b" + neg + r"\b", raw_text.lower()))
-            pol_has = bool(re.search(r"\b" + neg + r"\b", polished_text.lower()))
+            if neg in safe_retracted_negs:
+                continue
+            raw_has = bool(re.search(r"\b" + re.escape(neg) + r"\b", raw_text.lower()))
+            pol_has = bool(re.search(r"\b" + re.escape(neg) + r"\b", polished_text.lower()))
             if raw_has and not pol_has:
                 warnings.append(f"FactGuard Warning: Negation token '{neg}' was dropped by polishing. Enforcing raw clause.")
                 is_safe = False
@@ -83,7 +102,7 @@ class FactGuard:
         raw_nums = [re.sub(r"[^\d]", "", n) for n in re.findall(r"\$?\d+(?:,\d+)*(?:\.\d+)?", raw_text)]
         pol_nums = [re.sub(r"[^\d]", "", n) for n in re.findall(r"\$?\d+(?:,\d+)*(?:\.\d+)?", polished_text)]
         for num in raw_nums:
-            if num and num not in pol_nums:
+            if num and (num not in pol_nums) and (num not in safe_retracted_nums):
                 warnings.append(f"FactGuard Warning: Numeric value '{num}' was altered. Restoring accurate value.")
                 is_safe = False
 
@@ -133,7 +152,7 @@ class WritingIntelligence:
         text = raw
 
         # 1. Resolve spoken self-corrections
-        corrected_text, had_self_correction = self._resolve_self_corrections(text)
+        corrected_text, had_self_correction, retracted_nums, retracted_negs = self._resolve_self_corrections(text)
         if had_self_correction:
             changes.append("Resolved spoken self-correction")
             text = corrected_text
@@ -196,7 +215,9 @@ class WritingIntelligence:
         text = self._finalize_punctuation(text, style=style)
 
         # 12. FactGuard semantic verification
-        final_guarded, is_fact_safe, fact_warnings = FactGuard.validate_and_guard(raw, text)
+        final_guarded, is_fact_safe, fact_warnings = FactGuard.validate_and_guard(
+            raw, text, retracted_nums=retracted_nums, retracted_negations=retracted_negs
+        )
         if not is_fact_safe:
             changes.extend(fact_warnings)
             text = final_guarded
@@ -215,42 +236,77 @@ class WritingIntelligence:
             text = text[0].upper() + text[1:]
         return text
 
-    def _resolve_self_corrections(self, text: str) -> Tuple[str, bool]:
+    def _resolve_self_corrections(self, text: str) -> Tuple[str, bool, List[str], List[str]]:
         """
         Resolves spoken self-corrections like:
         - 'schedule it for Tuesday — actually, Wednesday' -> 'schedule it for Wednesday'
+        - 'budget is 5000 -- actually 6000 dollars' -> 'budget is 6000 dollars'
         - 'send 5 copies, no wait, 10 copies' -> 'send 10 copies'
         - 'meet at 2:00, or rather, 3:00' -> 'meet at 3:00'
+        - 'do not deploy, actually, do deploy' -> 'do deploy'
+        Returns: (corrected_text, had_self_correction, retracted_nums, retracted_negs)
         """
         original = text
+        retracted_nums: List[str] = []
+        retracted_negs: List[str] = []
 
-        # Specific targeted Tuesday -> actually, Wednesday replacement
-        specific_pattern = r"(?i)(.*?)(?:\s+for\s+|\s+on\s+)(\w+)\s*(?:,\s*|\s*[\—\-]\s*|\s+)actually,?\s+(\w+)(.*)"
+        def record_retractions(superseded_text: str):
+            for n in re.findall(r"\$?\d+(?:,\d+)*(?:\.\d+)?", superseded_text):
+                clean_n = re.sub(r"[^\d]", "", n)
+                if clean_n:
+                    retracted_nums.append(clean_n)
+            for neg in FactGuard.CRITICAL_NEGATIONS:
+                if re.search(r"\b" + re.escape(neg) + r"\b", superseded_text.lower()):
+                    retracted_negs.append(neg)
+
+        # 1. Specific targeted Tuesday -> actually, Wednesday / for X -> actually, Y
+        specific_pattern = r"(?i)(.*?)(?:\s+for\s+|\s+on\s+)(\$?\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)actually,?\s+(\$?\w+)(.*)"
         match = re.search(specific_pattern, text)
         if match:
             prefix, old_val, new_val, suffix = match.groups()
+            record_retractions(old_val)
             text = f"{prefix} for {new_val}{suffix}"
-            return text.strip(), True
+            return text.strip(), True, retracted_nums, retracted_negs
 
-        # Generic "actually" correction
-        match_gen = re.search(r"(?i)(.*?)\b(\w+)\s*(?:,\s*|\s*[\—\-]\s*|\s+)actually,?\s+(\w+)(.*)", text)
+        # 2. Spoken Negation Retraction / Inversion ("do not proceed -- actually, proceed")
+        match_neg_retract = re.search(
+            r"(?i)(.*?)\b(do not|don\'t|never|cannot|can\'t)\s+(\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)actually,?\s+(?:do\s+)?(\3)(.*)",
+            text
+        )
+        if match_neg_retract:
+            pre, neg_phrase, old_v, new_v, post = match_neg_retract.groups()
+            record_retractions(f"{neg_phrase} {old_v}")
+            text = f"{pre} {new_v}{post}"
+            return re.sub(r"\s+", " ", text).strip(), True, retracted_nums, retracted_negs
+
+        # 3. Generic "actually" correction: "X -- actually Y"
+        match_gen = re.search(r"(?i)(.*?)\b(\$?\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)actually,?\s+(\$?\w+)(.*)", text)
         if match_gen:
             pre, old_word, new_word, post = match_gen.groups()
+            record_retractions(old_word)
             text = f"{pre} {new_word}{post}"
-            return re.sub(r"\s+", " ", text).strip(), True
+            return re.sub(r"\s+", " ", text).strip(), True, retracted_nums, retracted_negs
 
-        # "no wait, Y" / "wait no, Y"
+        # 3. "or rather, Y" correction: "meet at 2:00, or rather, 3:00"
+        match_rather = re.search(r"(?i)(.*?)\b(\$?\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)or rather,?\s+(\$?\w+)(.*)", text)
+        if match_rather:
+            pre, old_word, new_word, post = match_rather.groups()
+            record_retractions(old_word)
+            text = f"{pre} {new_word}{post}"
+            return re.sub(r"\s+", " ", text).strip(), True, retracted_nums, retracted_negs
+
+        # 4. "no wait, Y" / "wait no, Y"
         match_wait = re.search(r"(?i)(.*?)\s*(?:,\s*|\s+)(?:no wait|wait no),?\s+(.*)", text)
         if match_wait:
             pre, post = match_wait.groups()
-            # replace last word of pre with post
             pre_words = pre.split()
             if pre_words:
-                pre_words.pop()
+                retracted_last = pre_words.pop()
+                record_retractions(retracted_last)
             text = " ".join(pre_words) + " " + post
-            return re.sub(r"\s+", " ", text).strip(), True
+            return re.sub(r"\s+", " ", text).strip(), True, retracted_nums, retracted_negs
 
-        return text, (text != original)
+        return text, False, [], []
 
     def _remove_fillers_and_stutters(self, text: str) -> Tuple[str, bool]:
         original = text
@@ -370,6 +426,14 @@ class WritingIntelligence:
             return m.group(0)
 
         text = re.sub(rf"(?i)\b((?:(?:{num_words}|\d+(?:,\d+)*)(?:[\s\-]+(?:{num_words}|\d+))*))\s*dollars\b", dollar_repl, text)
+
+        # 3. Time formatting (e.g., 10AM, 10 a.m., 10pm -> 10 AM, 10 PM)
+        def time_repl(m):
+            hr = m.group(1)
+            meridiem = m.group(2).replace(".", "").upper()
+            return f"{hr} {meridiem}"
+
+        text = re.sub(r"(?i)\b(\d{1,2}(?::\d{2})?)\s*(a\.m\.|p\.m\.|am\b|pm\b)", time_repl, text)
 
         return text, changes
 

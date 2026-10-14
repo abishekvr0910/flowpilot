@@ -14,10 +14,23 @@ TESTS = [
     ("Native PySide6 Desktop HUD & Tray Lifecycle", "tests/test_desktop_app.py"),
     ("Multilingual Language Registry", "tests/test_language_registry.py"),
     ("Writing Intelligence & FactGuard", "tests/test_writing_intelligence.py"),
+    ("FactGuard Adversarial Guardrails", "tests/test_factguard_adversarial.py"),
+    ("Forensic Zero Network Egress", "tests/test_network_egress.py"),
     ("Multilingual Script Validation", "tests/test_multilingual_validation.py"),
+    ("Multilingual Acoustic Reality Assessment", "tests/test_multilingual_speech_reality.py"),
     ("Personalization & Voice Snippets", "tests/test_personalization.py"),
     ("End-to-End 5-Cycle Notepad Dictation", "tests/test_notepad_dictation_e2e.py"),
 ]
+
+def ensure_desktop_accessible():
+    if sys.platform == "win32":
+        try:
+            import psutil
+            for p in psutil.process_iter(['name']):
+                if p.info['name'] in ('LockApp.exe', 'LockApp'):
+                    p.kill()
+        except Exception:
+            pass
 
 def run_suite():
     print("=" * 70)
@@ -27,6 +40,7 @@ def run_suite():
     start_total = time.time()
 
     for name, script in TESTS:
+        ensure_desktop_accessible()
         print(f"\n--- Running: {name} ({script}) ---")
         t0 = time.time()
         res = subprocess.run([sys.executable, script], capture_output=True, encoding="utf-8", errors="replace")

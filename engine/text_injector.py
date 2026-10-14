@@ -1,5 +1,6 @@
 import sys
 import time
+import threading
 from typing import Optional
 import pyperclip
 
@@ -23,9 +24,12 @@ class TextInjector:
     """
 
     last_injected_text: str = ""
+    _restore_lock = threading.Lock()
+    _restore_timer: Optional[threading.Timer] = None
+    _original_clipboard: Optional[str] = None
 
     @classmethod
-    def _safe_clipboard_copy(cls, text: str, max_retries: int = 5, retry_delay: float = 0.05) -> bool:
+    def _safe_clipboard_copy(cls, text: str, max_retries: int = 8, retry_delay: float = 0.08) -> bool:
         """Copies text to clipboard with retry backoff and lock recovery to survive OpenClipboard locks."""
         for attempt in range(max_retries):
             try:
@@ -106,12 +110,18 @@ class TextInjector:
         if not text:
             return False
 
-        cls.last_injected_text = text
+        # 1. Coordinate clipboard backup without race conditions
+        with cls._restore_lock:
+            if cls._restore_timer is not None:
+                cls._restore_timer.cancel()
+                cls._restore_timer = None
+            if preserve_clipboard:
+                current_clip = cls._safe_clipboard_paste()
+                # If clipboard holds new external content (not FlowPilot's prior injection), update original backup
+                if current_clip != cls.last_injected_text or cls._original_clipboard is None:
+                    cls._original_clipboard = current_clip
 
-        # 1. Backup current clipboard content safely
-        previous_clipboard = None
-        if preserve_clipboard:
-            previous_clipboard = cls._safe_clipboard_paste()
+        cls.last_injected_text = text
 
         try:
             # 2. Restore focus to target window if provided
@@ -168,16 +178,21 @@ class TextInjector:
             return False
 
         finally:
-            # 6. Restore previous clipboard after a safe 1.5s delay to prevent IDE paste race
-            if preserve_clipboard and previous_clipboard is not None and previous_clipboard != text:
-                def restore():
-                    time.sleep(1.5)
+            # 6. Schedule restoration of original clipboard after burst quiet period (1.5s)
+            if preserve_clipboard and cls._original_clipboard is not None and cls._original_clipboard != text:
+                saved_to_restore = cls._original_clipboard
+                def restore_worker():
                     try:
                         current = cls._safe_clipboard_paste()
-                        # Only restore if the user hasn't copied something new in the meantime
                         if current == text:
-                            cls._safe_clipboard_copy(previous_clipboard)
+                            cls._safe_clipboard_copy(saved_to_restore)
                     except Exception:
                         pass
-                import threading
-                threading.Thread(target=restore, daemon=True, name="FlowPilot-ClipboardRestore").start()
+                    with cls._restore_lock:
+                        cls._original_clipboard = None
+                        cls._restore_timer = None
+
+                with cls._restore_lock:
+                    cls._restore_timer = threading.Timer(1.5, restore_worker)
+                    cls._restore_timer.daemon = True
+                    cls._restore_timer.start()

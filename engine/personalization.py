@@ -31,12 +31,17 @@ DEFAULT_DICTIONARY: List[Dict[str, str]] = [
     {"term": "CTranslate2", "alias": "c translate two"},
     {"term": "OAuth2", "alias": "o auth two"},
     {"term": "Calendly", "alias": "michael endley"},
+    {"term": "Calendly", "alias": "michael endly"},
     {"term": "Calendly", "alias": "micolendly"}
 ]
 
 DEFAULT_SNIPPETS: List[Dict[str, str]] = [
     {
         "trigger": "insert my calendly",
+        "expansion": "https://calendly.com/flowpilot-demo/15min"
+    },
+    {
+        "trigger": "insert calendly",
         "expansion": "https://calendly.com/flowpilot-demo/15min"
     },
     {
@@ -72,8 +77,21 @@ class PersonalizationEngine:
         try:
             with open(self.storage_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                self.dictionary = data.get("dictionary", list(DEFAULT_DICTIONARY))
-                self.snippets = data.get("snippets", list(DEFAULT_SNIPPETS))
+                loaded_dict = data.get("dictionary", [])
+                loaded_snips = data.get("snippets", [])
+
+                existing_aliases = {(item.get("term", "").lower(), item.get("alias", "").lower()) for item in loaded_dict}
+                for d in DEFAULT_DICTIONARY:
+                    if (d["term"].lower(), d["alias"].lower()) not in existing_aliases:
+                        loaded_dict.append(dict(d))
+
+                existing_triggers = {item.get("trigger", "").lower() for item in loaded_snips}
+                for s in DEFAULT_SNIPPETS:
+                    if s["trigger"].lower() not in existing_triggers:
+                        loaded_snips.append(dict(s))
+
+                self.dictionary = loaded_dict
+                self.snippets = loaded_snips
         except Exception as e:
             print(f"[Personalization] Error loading personalization config: {e}. Falling back to defaults.")
             self.dictionary = list(DEFAULT_DICTIONARY)
