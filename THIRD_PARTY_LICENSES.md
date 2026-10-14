@@ -1,8 +1,8 @@
 # FlowPilot Open-Source Licensing & Third-Party Attribution Inventory
 
-**Product:** FlowPilot Desktop v2.0.0  
+**Product:** FlowPilot Desktop v3.0.2  
 **Classification:** Legal & Licensing Compliance Documentation  
-**Date:** October 14, 2026  
+**Date:** October 15, 2026  
 
 FlowPilot integrates several high-performance open-source libraries. This document lists all third-party components, their respective licenses, and compliance statements.
 
@@ -16,6 +16,8 @@ FlowPilot integrates several high-performance open-source libraries. This docume
 | **PySide6 (Qt for Python)** | 6.x | LGPL v3 / Commercial | Native desktop GUI, Floating HUD, System Tray |
 | **faster-whisper** | 1.x | MIT License | Local Whisper ASR inference pipeline |
 | **CTranslate2** | 4.x | MIT License | High-performance C++ inference engine for Whisper |
+| **Silero VAD** | v5 | MIT License | Voice Activity Detection (encoder/decoder ONNX) |
+| **ONNX Runtime** | 1.16+ | MIT License | Cross-platform runtime for Silero VAD model execution |
 | **sounddevice** | 0.4.x | MIT License | Windows CoreAudio recording via PortAudio |
 | **PortAudio** | v19 | MIT-style License | Cross-platform audio I/O binding |
 | **soundfile** | 0.12.x | BSD 3-Clause License | Audio WAV encoding and decoding |
@@ -43,7 +45,7 @@ In full compliance with LGPL v3 requirements:
 ## 3. License Texts & Copyright Notices
 
 ### MIT License
-*Applicable to: faster-whisper, CTranslate2, sounddevice, pycaw, comtypes*
+*Applicable to: faster-whisper, CTranslate2, Silero VAD, ONNX Runtime, sounddevice, pycaw, comtypes*
 > Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:  
 > The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
@@ -56,7 +58,7 @@ In full compliance with LGPL v3 requirements:
 
 ### PortAudio License
 > PortAudio Portable Audio Library. Copyright (c) 1999-2026 Ross Bencina and Phil Burk.  
-> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction...
+> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction...
 
 ### Python Software Foundation License
 *Applicable to: Python runtime, pywin32*
@@ -67,4 +69,4 @@ In full compliance with LGPL v3 requirements:
 
 ## 4. Proprietary & Application Code Notice
 
-The proprietary business logic, deterministic writing intelligence algorithms, FactGuard™ verification routines, and custom UI implementations of FlowPilot are Copyright © 2026 FlowPilot Contributors.
+FlowPilot application source code and custom utilities are licensed under the MIT License (see `LICENSE` file in the project root).

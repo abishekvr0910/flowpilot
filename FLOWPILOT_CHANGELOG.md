@@ -4,6 +4,20 @@ All notable changes, bug fixes, and architectural evolutions to FlowPilot are do
 
 ---
 
+## [3.0.2] - 2026-10-15 — *Release Hardening, Privacy Audit & Distribution Manifest*
+
+### Added
+- **Licensing & Third-Party Attribution:** Added MIT `LICENSE` and updated `THIRD_PARTY_LICENSES.md` to cover Silero VAD, ONNX Runtime, and full sub-component licensing statements.
+- **Packaging & Dependency Manifests:** Created PEP 518/621 `pyproject.toml` and updated `requirements.txt` to include `PySide6`, `onnxruntime`, `pycaw`, `comtypes`, and complete platform dependencies.
+- **Friend-Ready Onboarding Suite:** Authored comprehensive `README.md`, `QUICKSTART.md` (60-second launch guide), `PRIVACY.md` (zero data collection guarantees), `SECURITY.md` (zero egress verification), and `CONTRIBUTING.md`.
+- **Release Verification & Artifact Integrity:** Standalone Windows 64-bit production binary and `dist/FlowPilot-v3.0.2-win64.zip` packaged with verified SHA-256 checksums and zero external dependencies.
+
+### Security & Privacy
+- **Console Log Sanitization:** Removed raw speech transcripts and voice trigger contents from stdout in `engine/orchestrator.py`; now logs strictly duration, character counts, and sanitized lifecycle events to protect user dictation privacy in diagnostic streams.
+- **Forensic Network Audit Verification:** Re-verified zero network egress during model initialization, VAD inference, audio recording, transcription, and text insertion.
+
+---
+
 ## [3.0.1] - 2026-10-15 — *Wispr Flow Parity, Latency Optimization & Release Gate*
 
 ### Added
