@@ -61,10 +61,14 @@ async def client_test():
         print("\n[Step 4] Sending WebSocket action: 'start'...")
         await ws.send(json.dumps({"action": "start"}))
 
-        # Expect listening event
+        # Expect starting and/or listening event
         listening_msg = await asyncio.wait_for(ws.recv(), timeout=3.0)
         listening_data = json.loads(listening_msg)
         print(f"  Received event: '{listening_data.get('state')}' (target={listening_data.get('target_app')})")
+        if listening_data.get("state") == "starting":
+            listening_msg = await asyncio.wait_for(ws.recv(), timeout=3.0)
+            listening_data = json.loads(listening_msg)
+            print(f"  Received event: '{listening_data.get('state')}' (target={listening_data.get('target_app')})")
         assert listening_data.get("state") == "listening", "Did not receive 'listening' state"
 
         # Receive at least one audio level event
@@ -84,10 +88,11 @@ async def client_test():
         print("\n[Step 6] Sending WebSocket action: 'stop'...")
         await ws.send(json.dumps({"action": "stop"}))
 
-        # Expect processing event
+        # Expect stopping or transcribing/processing event
         proc_msg = await asyncio.wait_for(ws.recv(), timeout=5.0)
         proc_data = json.loads(proc_msg)
         print(f"  Received event: '{proc_data.get('state')}'")
+        assert proc_data.get("state") in ("stopping", "processing", "transcribing"), f"Unexpected stop event: {proc_data.get('state')}"
 
     print("\n[RESULT] UI-to-backend REST API & WebSocket pipeline PASSED.")
     return True

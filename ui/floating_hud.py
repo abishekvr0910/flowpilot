@@ -29,7 +29,17 @@ class FloatingHUD(QWidget):
         super().__init__(parent)
         self._drag_pos = QPoint()
         self._current_state = "idle"
+        self._idle_text = "Ready • Ctrl+Shift+Space"
         self._init_ui()
+
+    def set_hotkey_info(self, hotkey_str: str, mode: str = "toggle"):
+        clean_hk = hotkey_str.replace("<", "").replace(">", "").strip()
+        if mode == "push_to_talk":
+            self._idle_text = f"Ready • Hold {clean_hk}"
+        else:
+            self._idle_text = f"Ready • {clean_hk}"
+        if self._current_state in ("idle", "IDLE"):
+            self.status_label.setText(self._idle_text)
 
     def _init_ui(self):
         # Frameless, Always on Top, Tool Window (no taskbar item)
@@ -56,7 +66,7 @@ class FloatingHUD(QWidget):
         layout.addWidget(self.mic_btn)
 
         # Status & Context Info Label
-        self.status_label = QLabel("Ready • Ctrl+Shift+Space", self)
+        self.status_label = QLabel(self._idle_text, self)
         font = QFont("Segoe UI", 10, QFont.Medium)
         self.status_label.setFont(font)
         self.status_label.setStyleSheet("color: #E2E8F0;")
@@ -109,37 +119,50 @@ class FloatingHUD(QWidget):
         self._current_state = state
         extra = extra or {}
 
-        if state == "idle":
+        if extra.get("notice"):
+            self.status_label.setText(extra["notice"])
+            return
+
+        st = state.lower()
+        if st in ("idle",):
             self.level_bar.hide()
-            self.status_label.setText("Ready • Ctrl+Shift+Space")
+            self.status_label.setText(self._idle_text)
             self._update_style("idle")
-        elif state == "listening":
+        elif st in ("starting", "starting_recording"):
+            self.level_bar.hide()
+            self.status_label.setText("Starting mic...")
+            self._update_style("starting")
+        elif st in ("listening", "recording"):
             self.level_bar.setValue(0)
             self.level_bar.show()
             target = extra.get("target_app", "")
             target_str = f" ({target})" if target and target != "unknown" else ""
             self.status_label.setText(f"Listening...{target_str}")
             self._update_style("listening")
-        elif state == "audio_level":
+        elif st == "audio_level":
             lvl = int(extra.get("level", 0) * 100)
             self.level_bar.setValue(min(lvl, 100))
-        elif state == "processing":
+        elif st in ("stopping", "stopping_recording"):
+            self.level_bar.hide()
+            self.status_label.setText("Finalizing...")
+            self._update_style("stopping")
+        elif st in ("processing", "transcribing"):
             self.level_bar.hide()
             self.status_label.setText("Transcribing...")
             self._update_style("processing")
-        elif state == "formatting":
+        elif st in ("formatting", "inserting_text"):
             self.level_bar.hide()
-            self.status_label.setText("Formatting...")
+            self.status_label.setText("Pasting...")
             self._update_style("formatting")
-        elif state == "pasted":
+        elif st in ("pasted", "success"):
             self.level_bar.hide()
             self.status_label.setText("Pasted!")
             self._update_style("pasted")
-        elif state == "cancelled":
+        elif st in ("cancelled",):
             self.level_bar.hide()
             self.status_label.setText("Cancelled")
             self._update_style("cancelled")
-        elif state == "error":
+        elif st in ("error",):
             self.level_bar.hide()
             err_msg = extra.get("message", "Error")
             self.status_label.setText(f"Err: {err_msg[:20]}")
@@ -151,10 +174,20 @@ class FloatingHUD(QWidget):
             border = "rgba(255, 255, 255, 0.15)"
             btn_bg = "#334155"
             btn_color = "#F8FAFC"
+        elif state == "starting":
+            bg = "rgba(25, 23, 15, 0.95)"
+            border = "#F59E0B"
+            btn_bg = "#D97706"
+            btn_color = "#FFFFFF"
         elif state == "listening":
             bg = "rgba(23, 15, 25, 0.95)"
             border = "#EF4444"
             btn_bg = "#DC2626"
+            btn_color = "#FFFFFF"
+        elif state == "stopping":
+            bg = "rgba(28, 20, 15, 0.95)"
+            border = "#F97316"
+            btn_bg = "#EA580C"
             btn_color = "#FFFFFF"
         elif state in ("processing", "formatting"):
             bg = "rgba(24, 20, 15, 0.95)"
