@@ -1,12 +1,57 @@
 import io
 import os
+import sys
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 from openai import OpenAI
 
 # Check if faster-whisper is available for offline transcription
 try:
     from faster_whisper import WhisperModel
+    import faster_whisper.utils
     HAS_FASTER_WHISPER = True
+
+    # Multi-location fallback hook for Silero VAD assets
+    _orig_get_assets = faster_whisper.utils.get_assets_path
+
+    def _robust_get_assets_path() -> str:
+        # 1. Try original get_assets_path
+        try:
+            orig = _orig_get_assets()
+            if os.path.isdir(orig) and os.path.isfile(os.path.join(orig, "silero_encoder_v5.onnx")):
+                return orig
+        except Exception:
+            pass
+
+        # 2. Check sys._MEIPASS (PyInstaller bundled internal directory)
+        if hasattr(sys, "_MEIPASS"):
+            meipass_vad = os.path.join(sys._MEIPASS, "faster_whisper", "assets")
+            if os.path.isdir(meipass_vad) and os.path.isfile(os.path.join(meipass_vad, "silero_encoder_v5.onnx")):
+                return meipass_vad
+            meipass_root = os.path.join(sys._MEIPASS, "assets")
+            if os.path.isdir(meipass_root) and os.path.isfile(os.path.join(meipass_root, "silero_encoder_v5.onnx")):
+                return meipass_root
+
+        # 3. Check relative to sys.executable directory (for packaged binary)
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        candidates = [
+            os.path.join(exe_dir, "_internal", "faster_whisper", "assets"),
+            os.path.join(exe_dir, "faster_whisper", "assets"),
+            os.path.join(exe_dir, "assets"),
+        ]
+        for c in candidates:
+            if os.path.isdir(c) and os.path.isfile(os.path.join(c, "silero_encoder_v5.onnx")):
+                return c
+
+        # 4. Check relative to project root
+        proj_root = Path(__file__).resolve().parent.parent
+        root_candidate = proj_root / "assets"
+        if root_candidate.is_dir() and (root_candidate / "silero_encoder_v5.onnx").is_file():
+            return str(root_candidate)
+
+        return _orig_get_assets()
+
+    faster_whisper.utils.get_assets_path = _robust_get_assets_path
 except ImportError:
     HAS_FASTER_WHISPER = False
 
