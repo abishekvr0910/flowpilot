@@ -24,6 +24,13 @@ def main():
     print(f"Binary size: {size_mb:.2f} MB")
     assert size_mb > 10, f"Binary too small ({size_mb:.2f} MB), packaging may be incomplete"
     
+    # Phase 0: Verify bundled Faster-Whisper & Silero VAD assets
+    vad_enc = os.path.join(os.path.dirname(exe_path), "_internal", "faster_whisper", "assets", "silero_encoder_v5.onnx")
+    vad_dec = os.path.join(os.path.dirname(exe_path), "_internal", "faster_whisper", "assets", "silero_decoder_v5.onnx")
+    assert os.path.isfile(vad_enc), f"Missing Silero VAD encoder asset at {vad_enc}"
+    assert os.path.isfile(vad_dec), f"Missing Silero VAD decoder asset at {vad_dec}"
+    print(f"Verified bundled Silero VAD assets:\n  Encoder: {vad_enc} ({os.path.getsize(vad_enc)} bytes)\n  Decoder: {vad_dec} ({os.path.getsize(vad_dec)} bytes)")
+
     print("\n[Phase 1] Launching FlowPilot.exe...")
     proc = subprocess.Popen([exe_path])
     

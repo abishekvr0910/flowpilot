@@ -104,16 +104,29 @@ class STTEngine:
         whisper_lang = None if language == "auto" else language
 
         beam_size = self.config.get("beam_size", 2)
-        segments, info = model.transcribe(
-            audio_stream,
-            beam_size=beam_size,
-            language=whisper_lang,
-            initial_prompt=initial_prompt,
-            vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=400)
-        )
+        try:
+            segments, info = model.transcribe(
+                audio_stream,
+                beam_size=beam_size,
+                language=whisper_lang,
+                initial_prompt=initial_prompt,
+                vad_filter=True,
+                vad_parameters=dict(min_silence_duration_ms=400)
+            )
+            segment_list = list(segments)
+        except Exception as e:
+            print(f"[STT Warning] Transcribe with vad_filter failed ({e}). Falling back without vad_filter...")
+            audio_stream.seek(0)
+            segments, info = model.transcribe(
+                audio_stream,
+                beam_size=beam_size,
+                language=whisper_lang,
+                initial_prompt=initial_prompt,
+                vad_filter=False
+            )
+            segment_list = list(segments)
 
-        full_text = " ".join([segment.text for segment in segments]).strip()
+        full_text = " ".join([segment.text for segment in segment_list]).strip()
         detected_language = info.language if hasattr(info, "language") else "unknown"
 
         return {
