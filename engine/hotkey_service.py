@@ -34,6 +34,10 @@ VK_MAPPING = {
     "K": 0x4B, "L": 0x4C, "M": 0x4D, "N": 0x4E, "O": 0x4F,
     "P": 0x50, "Q": 0x51, "R": 0x52, "S": 0x53, "T": 0x54,
     "U": 0x55, "V": 0x56, "W": 0x57, "X": 0x58, "Y": 0x59, "Z": 0x5A,
+    "0": 0x30, "1": 0x31, "2": 0x32, "3": 0x33, "4": 0x34,
+    "5": 0x35, "6": 0x36, "7": 0x37, "8": 0x38, "9": 0x39,
+    "ESC": 0x1B, "ESCAPE": 0x1B, "TAB": 0x09, "ENTER": 0x0D, "RETURN": 0x0D,
+    "GRAVE": 0xC0, "TILDE": 0xC0, "BACKTICK": 0xC0,
 }
 
 
@@ -42,7 +46,8 @@ def parse_hotkey_string(hotkey_str: str) -> Tuple[int, int]:
     Parses strings like 'Ctrl+Shift+Space', 'Ctrl+Alt+Space', 'F9'
     Returns: (modifiers_mask, vk_code)
     """
-    parts = [p.strip().upper() for p in hotkey_str.replace(" ", "").split("+")]
+    clean = hotkey_str.replace("<", "").replace(">", "").strip()
+    parts = [p.strip().upper() for p in clean.replace(" ", "").split("+")]
     mods = 0
     vk = 0
     for part in parts:
@@ -67,6 +72,7 @@ def parse_hotkey_string(hotkey_str: str) -> Tuple[int, int]:
     return mods, vk
 
 
+
 class Win32HotkeyService:
     def __init__(self):
         self._hotkeys: Dict[int, Dict] = {}
@@ -79,9 +85,50 @@ class Win32HotkeyService:
         self._kernel32 = ctypes.windll.kernel32
         self.stats = {"events_received": 0, "registered_count": 0, "errors": []}
 
-    def register(self, hotkey_str: str, callback: Callable[[], None]) -> int:
+    @staticmethod
+    def test_hotkey_availability(hotkey_str: str, currently_active_hotkey: Optional[str] = None) -> Tuple[bool, str]:
+        """
+        Tests whether a given hotkey string can be successfully registered via Win32 RegisterHotKey.
+        Returns (is_available: bool, message: str).
+        """
+        clean = hotkey_str.replace("<", "").replace(">", "").strip()
+        parts = [p.strip().upper() for p in clean.replace(" ", "").split("+")]
+        has_primary = any(p in VK_MAPPING or (len(p) == 1 and p.isalnum()) for p in parts if p not in ("CTRL", "CONTROL", "ALT", "SHIFT", "WIN"))
+        
+        if not has_primary:
+            return False, "Modifier-only combination. Windows RegisterHotKey requires a primary key (e.g. Ctrl+Shift+Space, Ctrl+Win+D, or F9)."
+
+        try:
+            mods, vk = parse_hotkey_string(clean)
+        except ValueError as e:
+            return False, f"Invalid format: {e}"
+
+        if currently_active_hotkey:
+            try:
+                cur_clean = currently_active_hotkey.replace("<", "").replace(">", "").strip()
+                cur_mods, cur_vk = parse_hotkey_string(cur_clean)
+                if (cur_mods, cur_vk) == (mods, vk):
+                    return True, "Currently active and registered by FlowPilot."
+            except Exception:
+                pass
+
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        test_id = 0xBEEF
+        res = user32.RegisterHotKey(None, test_id, mods | MOD_NOREPEAT, vk)
+        if res:
+            user32.UnregisterHotKey(None, test_id)
+            return True, "Available and ready for registration."
+        else:
+            err = kernel32.GetLastError()
+            if err == 1409:
+                return False, "Conflict: Key already registered by another application or reserved by Windows (Error 1409)."
+            return False, f"Registration failed (Win32 Error {err})."
+
+    def register(self, hotkey_str: str, callback: Callable[[], None], on_release: Optional[Callable[[], None]] = None) -> int:
         """
         Registers a hotkey string (e.g. 'Ctrl+Shift+Space' or 'F9') with a callback.
+        Optionally accepts an on_release callback for Push-to-Talk monitoring.
         Returns the integer registration ID.
         """
         mods, vk = parse_hotkey_string(hotkey_str)
@@ -92,6 +139,7 @@ class Win32HotkeyService:
             "mods": mods,
             "vk": vk,
             "callback": callback,
+            "on_release": on_release,
             "registered": False,
         }
         logger.info(f"[HotkeyService] Queued hotkey ID {hk_id}: {hotkey_str} (mods={hex(mods)}, vk={hex(vk)})")
@@ -160,9 +208,31 @@ class Win32HotkeyService:
                 self.stats["events_received"] += 1
                 logger.info(f"[HotkeyService] WM_HOTKEY received for ID {hk_id}")
                 if hk_id in self._hotkeys:
-                    callback = self._hotkeys[hk_id]["callback"]
-                    # Execute callback asynchronously to keep message queue free
-                    threading.Thread(target=callback, daemon=True, name=f"FlowPilot-HotkeyAction-{hk_id}").start()
+                    info = self._hotkeys[hk_id]
+                    callback = info["callback"]
+                    on_release = info.get("on_release")
+                    vk = info["vk"]
+
+                    def run_action(cb=callback, rel=on_release, target_vk=vk):
+                        import time
+                        try:
+                            cb()
+                        except Exception as e:
+                            logger.error(f"[HotkeyService] Callback error: {e}")
+                        if rel:
+                            # Push-to-talk release monitor
+                            time.sleep(0.06)
+                            while not self._stop_event.is_set():
+                                state = self._user32.GetAsyncKeyState(target_vk)
+                                if not (state & 0x8000):
+                                    try:
+                                        rel()
+                                    except Exception as e:
+                                        logger.error(f"[HotkeyService] OnRelease error: {e}")
+                                    break
+                                time.sleep(0.02)
+
+                    threading.Thread(target=run_action, daemon=True, name=f"FlowPilot-HotkeyAction-{hk_id}").start()
 
             self._user32.TranslateMessage(ctypes.byref(msg))
             self._user32.DispatchMessageW(ctypes.byref(msg))

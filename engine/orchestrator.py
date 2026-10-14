@@ -203,12 +203,24 @@ class FlowOrchestrator:
             self.start_dictation()
 
     def update_config(self, new_config: Dict[str, Any]):
+        old_hk = self.config.get("hotkey")
+        old_mode = self.config.get("hotkey_mode")
         self.config.update(new_config)
         save_config(self.config)
         # Update submodules
         self.stt.config = self.config
         self.processor.config = self.config
         print("[Orchestrator] Configuration updated.")
+
+        # Re-bind hotkeys dynamically if shortcut or mode changed
+        new_hk = self.config.get("hotkey")
+        new_mode = self.config.get("hotkey_mode")
+        if (new_hk and new_hk != old_hk) or (new_mode and new_mode != old_mode):
+            print(f"[Orchestrator] Re-registering hotkey service with updated shortcut '{new_hk}' (mode={new_mode})...")
+            self.stop_hotkey_listener()
+            from engine.hotkey_service import Win32HotkeyService
+            self.hotkey_service = Win32HotkeyService()
+            self.start_hotkey_listener()
 
     def re_copy_last(self) -> bool:
         """Copies the last dictation text directly to clipboard."""
@@ -224,18 +236,25 @@ class FlowOrchestrator:
 
     def start_hotkey_listener(self):
         """
-        Registers native Win32 global hotkeys using RegisterHotKey:
-        - Primary toggle from config: Ctrl + Shift + Space (default)
+        Registers native Win32 global hotkeys using RegisterHotKey.
+        Supports both Toggle Mode and Push-to-Talk Mode.
+        - Primary shortcut from config (default: Ctrl + Shift + Space)
         - Alternative toggle: Ctrl + Alt + Space
         - Single-key toggle: F9
-        (Note: Ctrl + Win is intentionally not used to avoid collision with Wispr Flow)
         """
         try:
             primary_hk = self.config.get("hotkey", "Ctrl+Shift+Space")
-            # Normalize angle brackets if any
             clean_hk = primary_hk.replace("<", "").replace(">", "").strip()
+            mode = self.config.get("hotkey_mode", "toggle")
 
-            self.hotkey_service.register(clean_hk, self.toggle_dictation)
+            if mode == "push_to_talk":
+                # Push-to-talk: keydown starts, keyup stops
+                self.hotkey_service.register(clean_hk, self.start_dictation, on_release=self.stop_dictation_and_process)
+            else:
+                # Toggle: press once to start, press again to stop
+                self.hotkey_service.register(clean_hk, self.toggle_dictation)
+
+            # Register backup toggles if distinct
             if clean_hk.lower() != "ctrl+alt+space":
                 self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
             if clean_hk.lower() != "f9":
@@ -243,7 +262,7 @@ class FlowOrchestrator:
             
             success = self.hotkey_service.start(timeout=3.0)
             if success:
-                print(f"[Orchestrator] Native Win32 Hotkey Service active: '{clean_hk}', 'Ctrl + Alt + Space', 'F9'")
+                print(f"[Orchestrator] Native Win32 Hotkey Service active: '{clean_hk}' (mode={mode}), 'Ctrl + Alt + Space', 'F9'")
             else:
                 print(f"[Orchestrator Warning] Win32 Hotkey Service encountered errors: {self.hotkey_service.stats['errors']}")
         except Exception as e:
@@ -256,3 +275,7 @@ class FlowOrchestrator:
         if self.hotkey_service:
             self.hotkey_service.stop()
             print("[Orchestrator] Hotkey service stopped.")
+
+    def stop(self):
+        """Clean shutdown of all orchestrator services."""
+        self.stop_hotkey_listener()

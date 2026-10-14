@@ -254,6 +254,7 @@ def run_18_scenarios():
     t_start = time.time()
     orch_thread = FlowOrchestrator()
     t_init = time.time() - t_start
+    orch_thread.stop()
     assert t_init < 0.5, f"Orchestrator initialization too slow: {t_init:.2f}s"
     results["S16_Responsiveness"] = "PASS"
     print(f"  -> Passed: Orchestrator initialized in {t_init:.3f}s without blocking.")
