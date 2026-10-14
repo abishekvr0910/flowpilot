@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QWidget,
     QLabel, QComboBox, QCheckBox, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QLineEdit,
-    QTextEdit, QFileDialog, QSplitter
+    QTextEdit, QFileDialog, QSplitter, QRadioButton, QButtonGroup
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -21,6 +21,7 @@ import json
 
 from engine.language_registry import LanguageRegistry
 from engine.personalization import PersonalizationEngine
+from engine.hotkey_service import Win32HotkeyService
 
 class SettingsDialog(QDialog):
     def __init__(
@@ -35,7 +36,7 @@ class SettingsDialog(QDialog):
         self.on_save = on_save
         self.personalization = personalization or PersonalizationEngine()
         self.setWindowTitle("FlowPilot - Settings & Personalization")
-        self.resize(750, 560)
+        self.resize(760, 640)
         self._init_ui()
 
     def _init_ui(self):
@@ -83,9 +84,20 @@ class SettingsDialog(QDialog):
                 padding: 6px 12px;
                 font-size: 13px;
             }
-            QCheckBox {
+            QCheckBox, QRadioButton {
                 color: #F8FAFC;
                 font-size: 13px;
+            }
+            QRadioButton::indicator {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                border: 1px solid #475569;
+                background: #0F172A;
+            }
+            QRadioButton::indicator:checked {
+                background-color: #38BDF8;
+                border: 2px solid #0F172A;
             }
             QPushButton {
                 background-color: #0284C7;
@@ -196,18 +208,59 @@ class SettingsDialog(QDialog):
                 break
         vbox.addWidget(self.combo_tone)
 
-        # Primary Shortcut Selector
+        # Dictation Mode (Toggle vs Push-to-Talk)
+        lbl_mode = QLabel("Dictation Trigger Mode:")
+        vbox.addWidget(lbl_mode)
+        
+        mode_layout = QHBoxLayout()
+        self.btn_group_mode = QButtonGroup(self)
+        self.radio_toggle = QRadioButton("Toggle Mode (Press to start, press again to stop)")
+        self.radio_ptt = QRadioButton("Push-to-Talk (Hold to speak, release to stop)")
+        self.btn_group_mode.addButton(self.radio_toggle)
+        self.btn_group_mode.addButton(self.radio_ptt)
+        
+        cur_mode = self.config.get("hotkey_mode", "toggle")
+        if cur_mode == "push_to_talk":
+            self.radio_ptt.setChecked(True)
+        else:
+            self.radio_toggle.setChecked(True)
+            
+        mode_layout.addWidget(self.radio_toggle)
+        mode_layout.addWidget(self.radio_ptt)
+        vbox.addLayout(mode_layout)
+
+        # Primary Shortcut Selector & Availability Check
         lbl_shortcut = QLabel("Primary Global Keyboard Shortcut:")
         vbox.addWidget(lbl_shortcut)
+
+        hk_row = QHBoxLayout()
         self.combo_shortcut = QComboBox()
-        self.combo_shortcut.addItems(["Ctrl+Shift+Space", "Ctrl+Alt+Space", "F9", "F8"])
+        self.combo_shortcut.setEditable(True)
+        self.combo_shortcut.addItems([
+            "Ctrl+Shift+Space",
+            "Ctrl+Alt+Space",
+            "F9",
+            "F8",
+            "Win+Alt+Space",
+            "Ctrl+F9",
+            "Ctrl+Alt+D"
+        ])
         cur_hk = self.config.get("hotkey", "Ctrl+Shift+Space").replace("<", "").replace(">", "").strip()
         self.combo_shortcut.setCurrentText(cur_hk)
-        vbox.addWidget(self.combo_shortcut)
+        hk_row.addWidget(self.combo_shortcut, 3)
+
+        self.btn_test_hk = QPushButton("Test Availability")
+        self.btn_test_hk.setStyleSheet("background-color: #0369A1;")
+        self.btn_test_hk.clicked.connect(self._test_current_hotkey)
+        hk_row.addWidget(self.btn_test_hk, 1)
+        vbox.addLayout(hk_row)
+
+        self.lbl_hotkey_status = QLabel("")
+        vbox.addWidget(self.lbl_hotkey_status)
 
         # Audio Ducking Checkbox
         self.chk_ducking = QCheckBox("Silence background music / video while dictating")
-        self.chk_ducking.setChecked(True)
+        self.chk_ducking.setChecked(self.config.get("ducking_enabled", True))
         vbox.addWidget(self.chk_ducking)
 
         # Audio Feedback Chimes Checkbox
@@ -216,8 +269,15 @@ class SettingsDialog(QDialog):
         vbox.addWidget(self.chk_sound)
 
         # Hotkey safety banner
-        lbl_hotkeys = QLabel("Configured Global Hotkeys:\n• Primary:  Ctrl + Shift + Space\n• Secondary: Ctrl + Alt + Space\n• Single-Key: F9\n(Wispr Flow's Ctrl + Win is intentionally avoided to prevent Windows OS collisions)")
-        lbl_hotkeys.setStyleSheet("color: #94A3B8; background: #0F172A; padding: 10px; border-radius: 6px; font-size: 11px;")
+        lbl_hotkeys = QLabel(
+            "Global Shortcut Architecture:\n"
+            "• Default Toggle: Ctrl + Shift + Space (Instant conflict-free toggle from any app)\n"
+            "• Single-Key Push-to-Talk: F9 (Seamless hold-to-speak without modifier clutter)\n"
+            "• Note on Ctrl+Win: Windows 11 kernel intercepts raw Ctrl+Win (Win32 vk=0 cannot dispatch WM_HOTKEY) "
+            "and reserves Win+Ctrl+Space for IME/Emoji switching. FlowPilot provides reliable, collision-free shortcuts "
+            "that work side-by-side with Wispr Flow."
+        )
+        lbl_hotkeys.setStyleSheet("color: #94A3B8; background: #0F172A; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.4;")
         vbox.addWidget(lbl_hotkeys)
 
         vbox.addStretch()
@@ -450,6 +510,21 @@ class SettingsDialog(QDialog):
         self._populate_history()
         self.on_save(self.config)
 
+    def _test_current_hotkey(self):
+        hk = self.combo_shortcut.currentText().strip()
+        if not hk:
+            self.lbl_hotkey_status.setStyleSheet("color: #EF4444; font-size: 12px;")
+            self.lbl_hotkey_status.setText("Please enter or select a hotkey to test.")
+            return
+        cur_hk = self.config.get("hotkey", "")
+        avail, msg = Win32HotkeyService.test_hotkey_availability(hk, currently_active_hotkey=cur_hk)
+        if avail:
+            self.lbl_hotkey_status.setStyleSheet("color: #10B981; font-weight: bold; font-size: 12px;")
+            self.lbl_hotkey_status.setText(f"[AVAILABLE] {msg}")
+        else:
+            self.lbl_hotkey_status.setStyleSheet("color: #EF4444; font-weight: bold; font-size: 12px;")
+            self.lbl_hotkey_status.setText(f"[CONFLICT/INVALID] {msg}")
+
     # --- SAVE ---
 
     def _save_settings(self):
@@ -474,7 +549,9 @@ class SettingsDialog(QDialog):
         if 0 <= idx < len(self.tone_options):
             self.config["active_tone_mode"] = self.tone_options[idx][0]
 
-        self.config["hotkey"] = self.combo_shortcut.currentText()
+        self.config["hotkey"] = self.combo_shortcut.currentText().strip()
+        self.config["hotkey_mode"] = "push_to_talk" if self.radio_ptt.isChecked() else "toggle"
+        self.config["ducking_enabled"] = self.chk_ducking.isChecked()
         self.config["sound_effects_enabled"] = self.chk_sound.isChecked()
         
         # Save personalization items
