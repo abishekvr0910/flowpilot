@@ -89,8 +89,12 @@ def run_5_consecutive_injections():
             # Inject phrase into target window
             success = TextInjector.inject(phrase + "\n", target_hwnd)
             assert success is True, f"Failed to inject text on cycle {i}"
-            print(f"  -> Successfully injected: '{phrase}'")
-            time.sleep(0.3)
+            time.sleep(0.2)
+
+            # Physically confirm that the phrase arrived in Notepad buffer
+            assert TextInjector.verify_text_injected(phrase, target_hwnd), f"Cycle {i} text was not physically found in Notepad document!"
+            print(f"  -> Successfully injected & verified in Notepad buffer: '{phrase}'")
+            time.sleep(0.2)
 
         orchestrator.stop_hotkey_listener()
         print("\n" + "=" * 65)

@@ -121,18 +121,24 @@ class TextInjector:
                 if current_clip != cls.last_injected_text or cls._original_clipboard is None:
                     cls._original_clipboard = current_clip
 
+        # 2. Validate target window and restore focus
+        if HAS_WIN32 and target_hwnd and sys.platform == "win32":
+            if not win32gui.IsWindow(target_hwnd):
+                print(f"[Injector Warning] Target HWND {target_hwnd} is no longer valid. Falling back to active foreground window.")
+                target_hwnd = win32gui.GetForegroundWindow()
+
         cls.last_injected_text = text
 
         try:
-            # 2. Restore focus to target window if provided
+            # Restore focus to target window if provided
             if target_hwnd:
                 cls._safe_set_foreground(target_hwnd)
                 time.sleep(0.08)
 
             # 3. Copy text to clipboard with lock retry
             if not cls._safe_clipboard_copy(text):
-                print("[Injector Error] Failed to set clipboard for injection.")
-                return False
+                print("[Injector Warning] Clipboard copy failed. Falling back directly to SendInput Unicode typing...")
+                return cls.inject_unicode_sendinput(text, target_hwnd)
             time.sleep(0.04)
 
             # 4. Detect if target window is a legacy console/terminal requiring Shift+Insert
@@ -174,8 +180,8 @@ class TextInjector:
             return True
 
         except Exception as e:
-            print(f"[Injector Error] Text injection failed: {e}")
-            return False
+            print(f"[Injector Warning] Standard clipboard paste failed ({e}). Attempting direct SendInput Unicode fallback...")
+            return cls.inject_unicode_sendinput(text, target_hwnd)
 
         finally:
             # 6. Schedule restoration of original clipboard after burst quiet period (1.5s)
@@ -196,3 +202,128 @@ class TextInjector:
                     cls._restore_timer = threading.Timer(1.5, restore_worker)
                     cls._restore_timer.daemon = True
                     cls._restore_timer.start()
+
+    @classmethod
+    def inject_unicode_sendinput(cls, text: str, target_hwnd: Optional[int] = None) -> bool:
+        """
+        Direct-typing fallback via Windows SendInput with KEYEVENTF_UNICODE.
+        Bypasses the system clipboard entirely and types characters directly into the target control.
+        """
+        if not HAS_WIN32 or sys.platform != "win32":
+            return False
+
+        if target_hwnd and win32gui.IsWindow(target_hwnd):
+            cls._safe_set_foreground(target_hwnd)
+            time.sleep(0.06)
+
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            user32 = ctypes.windll.user32
+
+            class KEYBDINPUT(ctypes.Structure):
+                _fields_ = [
+                    ('wVk', wintypes.WORD),
+                    ('wScan', wintypes.WORD),
+                    ('dwFlags', wintypes.DWORD),
+                    ('time', wintypes.DWORD),
+                    ('dwExtraInfo', ctypes.c_ulong)
+                ]
+
+            class INPUT(ctypes.Structure):
+                class _INPUT(ctypes.Union):
+                    _fields_ = [('ki', KEYBDINPUT)]
+                _anonymous_ = ('_input',)
+                _fields_ = [('type', wintypes.DWORD), ('_input', _INPUT)]
+
+            KEYEVENTF_KEYUP = 0x0002
+            KEYEVENTF_UNICODE = 0x0004
+            VK_RETURN = 0x0D
+
+            inputs = []
+            for ch in text:
+                if ch == '\r':
+                    continue
+                if ch == '\n':
+                    inp_down = INPUT(type=1)
+                    inp_down.ki.wVk = VK_RETURN
+                    inp_up = INPUT(type=1)
+                    inp_up.ki.wVk = VK_RETURN
+                    inp_up.ki.dwFlags = KEYEVENTF_KEYUP
+                    inputs.extend([inp_down, inp_up])
+                else:
+                    code = ord(ch)
+                    inp_down = INPUT(type=1)
+                    inp_down.ki.wScan = code
+                    inp_down.ki.dwFlags = KEYEVENTF_UNICODE
+                    inp_up = INPUT(type=1)
+                    inp_up.ki.wScan = code
+                    inp_up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+                    inputs.extend([inp_down, inp_up])
+
+            if not inputs:
+                return True
+
+            arr = (INPUT * len(inputs))(*inputs)
+            sent = user32.SendInput(len(inputs), arr, ctypes.sizeof(INPUT))
+            cls.last_injected_text = text
+            print(f"[Injector] Successfully sent {sent // 2} Unicode keystrokes directly to target window.")
+            return sent == len(inputs)
+        except Exception as e:
+            print(f"[Injector Error] SendInput Unicode typing failed: {e}")
+            return False
+
+    @classmethod
+    def read_window_buffer(cls, target_hwnd: int) -> Optional[str]:
+        """
+        Safely reads the current document buffer from a window using Ctrl+A / Ctrl+C.
+        Preserves and restores pre-existing clipboard contents afterwards.
+        """
+        if not HAS_WIN32 or not target_hwnd or sys.platform != "win32":
+            return None
+        if not win32gui.IsWindow(target_hwnd):
+            return None
+
+        # Backup current clipboard
+        orig_clip = cls._safe_clipboard_paste()
+        try:
+            cls._safe_set_foreground(target_hwnd)
+            time.sleep(0.08)
+
+            # Select All (Ctrl+A), Copy (Ctrl+C)
+            win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
+            win32api.keybd_event(ord('A'), 0, 0, 0)
+            time.sleep(0.04)
+            win32api.keybd_event(ord('A'), 0, win32con.KEYEVENTF_KEYUP, 0)
+            win32api.keybd_event(ord('C'), 0, 0, 0)
+            time.sleep(0.04)
+            win32api.keybd_event(ord('C'), 0, win32con.KEYEVENTF_KEYUP, 0)
+            win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+            time.sleep(0.12)
+
+            content = cls._safe_clipboard_paste()
+
+            # Deselect by pressing Right Arrow
+            win32api.keybd_event(win32con.VK_RIGHT, 0, 0, 0)
+            win32api.keybd_event(win32con.VK_RIGHT, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+            return content
+        finally:
+            # Restore original clipboard
+            if orig_clip is not None:
+                cls._safe_clipboard_copy(orig_clip)
+
+    @classmethod
+    def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 1.0) -> bool:
+        """
+        Verifies that expected_text was physically received and is present inside the target document buffer.
+        """
+        start = time.time()
+        clean_expected = expected_text.strip()
+        while time.time() - start < timeout:
+            buf = cls.read_window_buffer(target_hwnd)
+            if buf and clean_expected in buf:
+                return True
+            time.sleep(0.1)
+        return False
