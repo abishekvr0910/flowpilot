@@ -56,6 +56,11 @@ class FlowPilotApp:
         self.tray = TrayManager()
         self.settings_dlg = None
 
+        hk_str = self.config.get("hotkey", "Ctrl+Shift+Space")
+        hk_mode = self.config.get("hotkey_mode", "toggle")
+        self.hud.set_hotkey_info(hk_str, hk_mode)
+        self.tray.set_hotkey_info(hk_str, hk_mode)
+
         # 3. Connect UI Signals
         self.bridge.state_changed.connect(self._handle_state_update)
 
@@ -135,6 +140,10 @@ class FlowPilotApp:
 
     def _on_save_settings(self, new_config: dict):
         self.orchestrator.update_config(new_config)
+        hk_str = self.orchestrator.config.get("hotkey", "Ctrl+Shift+Space")
+        hk_mode = self.orchestrator.config.get("hotkey_mode", "toggle")
+        self.hud.set_hotkey_info(hk_str, hk_mode)
+        self.tray.set_hotkey_info(hk_str, hk_mode)
 
     def _on_recopy_last(self):
         success = self.orchestrator.re_copy_last()

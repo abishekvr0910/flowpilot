@@ -21,6 +21,7 @@ TESTS = [
     ("Personalization & Voice Snippets", "tests/test_personalization.py"),
     ("Settings Dialog & Hotkey Conflict Inspector", "tests/test_settings_dialog.py"),
     ("Extended Speech Model Benchmarks", "tests/test_model_benchmarks_extended.py"),
+    ("Orchestrator 9-State Machine & Robustness", "tests/test_orchestrator_state_machine.py"),
     ("End-to-End 5-Cycle Notepad Dictation", "tests/test_notepad_dictation_e2e.py"),
 ]
 

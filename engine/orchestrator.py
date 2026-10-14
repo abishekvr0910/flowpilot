@@ -12,6 +12,17 @@ from engine.hotkey_service import Win32HotkeyService
 from engine.audio_feedback import AudioFeedback
 from engine.personalization import PersonalizationEngine
 
+class AppState:
+    IDLE = "IDLE"
+    STARTING_RECORDING = "STARTING_RECORDING"
+    RECORDING = "RECORDING"
+    STOPPING_RECORDING = "STOPPING_RECORDING"
+    TRANSCRIBING = "TRANSCRIBING"
+    INSERTING_TEXT = "INSERTING_TEXT"
+    SUCCESS = "SUCCESS"
+    ERROR = "ERROR"
+    CANCELLED = "CANCELLED"
+
 class FlowOrchestrator:
     def __init__(self, on_state_change: Optional[Callable[[Dict[str, Any]], None]] = None):
         self.config = load_config()
@@ -25,7 +36,11 @@ class FlowOrchestrator:
         self.feedback = AudioFeedback(enabled=self.config.get("sound_effects_enabled", True))
         
         self.target_window_info: Dict[str, Any] = {}
+        self.state = AppState.IDLE
+        self._state_lock = threading.RLock()
+        self._stop_pending = False
         self.is_processing = False
+        
         self.hotkey_service = Win32HotkeyService()
         self.hotkey_listener = None
         self.last_dictation: Dict[str, Any] = {}
@@ -34,15 +49,34 @@ class FlowOrchestrator:
         # Link audio level callback
         self.recorder.level_callback = self._on_audio_level
 
+        # Asynchronously preload model in background to eliminate cold start
+        threading.Thread(target=self.stt.preload_model, daemon=True, name="FlowPilot-ModelPreload").start()
+
     def _notify(self, state: str, extra: Optional[Dict[str, Any]] = None):
-        payload = {"state": state, "timestamp": time.time()}
+        legacy_map = {
+            AppState.IDLE: "idle",
+            AppState.STARTING_RECORDING: "starting",
+            AppState.RECORDING: "listening",
+            AppState.STOPPING_RECORDING: "stopping",
+            AppState.TRANSCRIBING: "processing",
+            AppState.INSERTING_TEXT: "formatting",
+            AppState.SUCCESS: "pasted",
+            AppState.ERROR: "error",
+            AppState.CANCELLED: "cancelled"
+        }
+        legacy_state = legacy_map.get(state, state.lower() if isinstance(state, str) else "idle")
+        payload = {
+            "state": legacy_state,
+            "app_state": state,
+            "timestamp": time.time()
+        }
         if extra:
             payload.update(extra)
         if self.on_state_change:
             self.on_state_change(payload)
 
     def _on_audio_level(self, level: float):
-        if self.recorder.is_recording:
+        if self.state == AppState.RECORDING or self.recorder.is_recording:
             self._notify("audio_level", {"level": round(level, 3)})
 
     def _on_auto_stop(self):
@@ -50,42 +84,80 @@ class FlowOrchestrator:
         self.stop_dictation_and_process()
 
     def start_dictation(self):
-        if self.recorder.is_recording or self.is_processing:
-            return
+        with self._state_lock:
+            if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.INSERTING_TEXT):
+                print(f"[Orchestrator] start_dictation ignored: currently in state {self.state}")
+                return
+            self.state = AppState.STARTING_RECORDING
+            self._stop_pending = False
+            self.is_processing = False
 
-        # 1. Capture the exact window handle that has focus RIGHT NOW
+        # 1. Capture target window immediately at T0
         self.target_window_info = WindowInspector.get_active_window_info()
         print(f"[Orchestrator] Active window target: {self.target_window_info.get('process_name')} ('{self.target_window_info.get('title')}')")
 
-        # 2. Silence background audio (YouTube, Spotify, etc.) so mic captures clean voice
-        self.ducker.start_ducking()
+        # 2. Immediately notify UI of STARTING_RECORDING (zero latency visual feedback)
+        self._notify(AppState.STARTING_RECORDING, {
+            "target_app": self.target_window_info.get("process_name"),
+            "mode": self.config.get("active_tone_mode")
+        })
 
-        # 3. Start audio recording
-        try:
-            self.recorder.start_recording()
-            self.feedback.play_start()
-            
-            # Start safety auto-stop timer (120 seconds max recording)
-            if self._auto_stop_timer:
-                self._auto_stop_timer.cancel()
-            self._auto_stop_timer = threading.Timer(120.0, self._on_auto_stop)
-            self._auto_stop_timer.daemon = True
-            self._auto_stop_timer.start()
+        # 3. Silence background audio asynchronously
+        threading.Thread(target=self.ducker.start_ducking, daemon=True, name="FlowPilot-DuckerStart").start()
 
-            self._notify("listening", {
-                "target_app": self.target_window_info.get("process_name"),
-                "mode": self.config.get("active_tone_mode")
-            })
-        except Exception as e:
-            self.ducker.stop_ducking()
-            self.feedback.play_error()
-            print(f"[Orchestrator Error] Failed to start recorder: {e}")
-            self._notify("error", {"message": str(e)})
+        def start_worker():
+            try:
+                self.recorder.start_recording()
+                
+                with self._state_lock:
+                    if self.state != AppState.STARTING_RECORDING:
+                        print(f"[Orchestrator] Recording startup aborted because state changed to {self.state}")
+                        self.recorder.stop_recording()
+                        return
+                    if self._stop_pending:
+                        print("[Orchestrator] Stop was requested during microphone initialization.")
+                        self._stop_pending = False
+                        self.state = AppState.RECORDING
+                        self.stop_dictation_and_process()
+                        return
+                    self.state = AppState.RECORDING
+
+                self.feedback.play_start()
+                
+                # Start safety auto-stop timer (120 seconds max recording)
+                if self._auto_stop_timer:
+                    self._auto_stop_timer.cancel()
+                self._auto_stop_timer = threading.Timer(120.0, self._on_auto_stop)
+                self._auto_stop_timer.daemon = True
+                self._auto_stop_timer.start()
+
+                self._notify(AppState.RECORDING, {
+                    "target_app": self.target_window_info.get("process_name"),
+                    "mode": self.config.get("active_tone_mode")
+                })
+            except Exception as e:
+                with self._state_lock:
+                    self.state = AppState.ERROR
+                threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
+                self.feedback.play_error()
+                print(f"[Orchestrator Error] Failed to start recorder: {e}")
+                self._notify(AppState.ERROR, {"message": str(e)})
+                time.sleep(2.0)
+                with self._state_lock:
+                    if self.state == AppState.ERROR:
+                        self.state = AppState.IDLE
+                        self._notify(AppState.IDLE)
+
+        threading.Thread(target=start_worker, daemon=True, name="FlowPilot-MicStarter").start()
 
     def cancel_dictation(self):
         """Emergency cancel: Discards recording immediately without transcribing or inserting."""
-        if not self.recorder.is_recording and not self.is_processing:
-            return
+        with self._state_lock:
+            if self.state == AppState.IDLE:
+                return
+            self.state = AppState.CANCELLED
+            self._stop_pending = False
+            self.is_processing = False
 
         print("[Orchestrator] Dictation cancelled by user.")
         if self._auto_stop_timer:
@@ -95,40 +167,56 @@ class FlowOrchestrator:
         if self.recorder.is_recording:
             self.recorder.stop_recording()
 
-        self.ducker.stop_ducking()
+        threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
         self.feedback.play_cancel()
-        self.is_processing = False
 
-        self._notify("cancelled", {"message": "Dictation discarded."})
+        self._notify(AppState.CANCELLED, {"message": "Dictation discarded."})
         time.sleep(0.5)
-        self._notify("idle")
+        with self._state_lock:
+            if self.state == AppState.CANCELLED:
+                self.state = AppState.IDLE
+                self._notify(AppState.IDLE)
 
     def stop_dictation_and_process(self):
-        if not self.recorder.is_recording or self.is_processing:
-            return
+        with self._state_lock:
+            if self.state == AppState.STARTING_RECORDING:
+                print("[Orchestrator] Stop queued while starting recording.")
+                self._stop_pending = True
+                return
+            if self.state != AppState.RECORDING:
+                return
+
+            self.state = AppState.STOPPING_RECORDING
+            self.is_processing = True
 
         if self._auto_stop_timer:
             self._auto_stop_timer.cancel()
             self._auto_stop_timer = None
 
-        self.is_processing = True
         self.feedback.play_stop()
-        self._notify("processing")
+        self._notify(AppState.STOPPING_RECORDING)
 
-        # Immediately restore background audio
-        self.ducker.stop_ducking()
+        # Immediately restore background audio asynchronously
+        threading.Thread(target=self.ducker.stop_ducking, daemon=True, name="FlowPilot-DuckerStop").start()
 
-        def worker():
+        def process_worker():
             try:
                 # 1. Stop recorder and get WAV bytes
                 wav_bytes = self.recorder.stop_recording()
                 if not wav_bytes:
                     print("[Orchestrator] Dictation was too brief or empty.")
-                    self._notify("idle")
-                    self.is_processing = False
+                    with self._state_lock:
+                        self.state = AppState.IDLE
+                        self.is_processing = False
+                    self._notify(AppState.IDLE, {"notice": "Audio too short."})
                     return
 
-                # 2. Transcribe audio (STT)
+                # 2. Transition to TRANSCRIBING
+                with self._state_lock:
+                    self.state = AppState.TRANSCRIBING
+                self._notify(AppState.TRANSCRIBING)
+
+                # 3. Transcribe audio (STT)
                 start_time = time.time()
                 stt_result = self.stt.transcribe(wav_bytes)
                 raw_text = stt_result.get("text", "")
@@ -136,19 +224,25 @@ class FlowOrchestrator:
                 stt_duration = round(time.time() - start_time, 2)
                 print(f"[Orchestrator] STT done ({stt_duration}s, lang={detected_lang}): {raw_text}")
 
-                if not raw_text:
-                    self._notify("idle", {"message": "No speech detected."})
-                    self.is_processing = False
+                if not raw_text or not raw_text.strip():
+                    with self._state_lock:
+                        self.state = AppState.IDLE
+                        self.is_processing = False
+                    self._notify(AppState.IDLE, {"notice": "No speech detected."})
                     return
 
-                # 3. Post-process / Format via LLM with context
-                self._notify("formatting", {"raw_text": raw_text})
+                # 4. Transition to INSERTING_TEXT
+                with self._state_lock:
+                    self.state = AppState.INSERTING_TEXT
+                self._notify(AppState.INSERTING_TEXT, {"raw_text": raw_text})
+
+                # Post-process via ContextProcessor
                 format_start = time.time()
                 formatted_text = self.processor.process(raw_text, self.target_window_info)
                 format_duration = round(time.time() - format_start, 2)
                 print(f"[Orchestrator] Formatted ({format_duration}s): {formatted_text}")
 
-                # 4. Check Voice Snippets expansion (e.g. "insert my calendly")
+                # Voice snippets expansion
                 if self.personalization:
                     expanded_text, trigger = self.personalization.expand_snippets(formatted_text)
                     if trigger:
@@ -159,7 +253,7 @@ class FlowOrchestrator:
                 target_hwnd = self.target_window_info.get("hwnd")
                 success = TextInjector.inject(formatted_text, target_hwnd)
 
-                # 5. Save into history and recovery buffer
+                # 6. Save into history and recovery buffer
                 total_duration = round(time.time() - start_time, 2)
                 history_entry = {
                     "id": int(time.time() * 1000),
@@ -172,34 +266,60 @@ class FlowOrchestrator:
                 }
                 self.last_dictation = history_entry
                 
-                # Keep last 50 history entries
                 history = self.config.get("history", [])
                 history.insert(0, history_entry)
                 self.config["history"] = history[:50]
                 save_config(self.config)
 
-                self._notify("pasted", {
+                # 7. Transition to SUCCESS
+                with self._state_lock:
+                    self.state = AppState.SUCCESS
+                    self.is_processing = False
+                self._notify(AppState.SUCCESS, {
                     "text": formatted_text,
                     "total_duration": total_duration,
                     "history_entry": history_entry
                 })
 
+                # Show "Pasted!" briefly (0.8s), then transition to IDLE
+                time.sleep(0.8)
+                with self._state_lock:
+                    if self.state == AppState.SUCCESS:
+                        self.state = AppState.IDLE
+                        self._notify(AppState.IDLE)
+
             except Exception as e:
                 print(f"[Orchestrator Error] Processing failed: {e}")
-                self._notify("error", {"message": str(e)})
-            finally:
-                self.is_processing = False
-                time.sleep(1.2)  # Keep pill showing "Pasted!" briefly before returning to idle
-                # Only notify idle if a new recording hasn't already been started
-                if not self.recorder.is_recording and not self.is_processing:
-                    self._notify("idle")
+                with self._state_lock:
+                    self.state = AppState.ERROR
+                    self.is_processing = False
+                self._notify(AppState.ERROR, {"message": str(e)})
+                time.sleep(2.0)
+                with self._state_lock:
+                    if self.state == AppState.ERROR:
+                        self.state = AppState.IDLE
+                        self._notify(AppState.IDLE)
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(target=process_worker, daemon=True, name="FlowPilot-Processor").start()
 
     def toggle_dictation(self):
-        if self.recorder.is_recording:
+        with self._state_lock:
+            cur = self.state
+
+        if cur == AppState.IDLE:
+            self.start_dictation()
+        elif cur == AppState.STARTING_RECORDING:
+            with self._state_lock:
+                self._stop_pending = True
+            print("[Orchestrator] Stop queued while starting recording.")
+        elif cur == AppState.RECORDING:
             self.stop_dictation_and_process()
-        else:
+        elif cur in (AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.INSERTING_TEXT):
+            print(f"[Orchestrator] Shortcut pressed while {cur}. Displaying progress notification.")
+            self._notify(cur, {"notice": "Processing dictation. Please wait..."})
+        elif cur == AppState.SUCCESS:
+            self.start_dictation()
+        elif cur in (AppState.ERROR, AppState.CANCELLED):
             self.start_dictation()
 
     def update_config(self, new_config: Dict[str, Any]):
