@@ -10,6 +10,7 @@ block_cipher = None
 added_files = [
     ('engine', 'engine'),
     ('ui', 'ui'),
+    ('assets', 'assets'),
 ]
 added_files += collect_data_files('faster_whisper')
 added_files += collect_data_files('onnxruntime')
