@@ -50,8 +50,10 @@ class FlowOrchestrator:
 
         # Silence auto-stop tracking (Wispr Flow behavior)
         self._last_speech_time: float = 0.0
+        self._last_speech_perf: float = 0.0
         self._speech_detected: bool = False
         self._speech_start_time: float = 0.0
+        self.last_pipeline_timing: Dict[str, Any] = {}
         
         # Link audio level callback
         self.recorder.level_callback = self._on_audio_level
@@ -89,17 +91,19 @@ class FlowOrchestrator:
             # Wispr Flow behavior: intelligent silence auto-finalization
             if self.config.get("auto_stop_on_silence", True) and self.state == AppState.RECORDING:
                 now = time.time()
+                perf_now = time.perf_counter()
                 # Threshold for speech presence (RMS level > 0.025)
                 if level > 0.025:
                     if not self._speech_detected:
                         self._speech_detected = True
                         self._speech_start_time = now
                     self._last_speech_time = now
+                    self._last_speech_perf = perf_now
                 elif self._speech_detected:
                     speech_duration = self._last_speech_time - self._speech_start_time
                     silence_duration = now - self._last_speech_time
-                    timeout = self.config.get("silence_timeout_sec", 1.4)
-                    if speech_duration >= 0.4 and silence_duration >= timeout:
+                    timeout = self.config.get("silence_timeout_sec", 0.85)
+                    if speech_duration >= 0.3 and silence_duration >= timeout:
                         print(f"[Orchestrator] Post-speech silence ({silence_duration:.2f}s) detected. Auto-finalizing dictation (Wispr Flow mode)...")
                         self._speech_detected = False
                         self.stop_dictation_and_process()
@@ -117,6 +121,7 @@ class FlowOrchestrator:
             self._stop_pending = False
             self.is_processing = False
             self._last_speech_time = 0.0
+            self._last_speech_perf = 0.0
             self._speech_detected = False
             self._speech_start_time = 0.0
 
@@ -206,6 +211,7 @@ class FlowOrchestrator:
                 self._notify(AppState.IDLE)
 
     def stop_dictation_and_process(self):
+        t_stop_action = time.perf_counter()
         with self._state_lock:
             if self.state == AppState.STARTING_RECORDING:
                 print("[Orchestrator] Stop queued while starting recording.")
@@ -227,10 +233,14 @@ class FlowOrchestrator:
         # Immediately restore background audio asynchronously
         threading.Thread(target=self.ducker.stop_ducking, daemon=True, name="FlowPilot-DuckerStop").start()
 
-        def process_worker():
+        def process_worker(stop_action_time: float):
             try:
-                # 1. Stop recorder and get WAV bytes
+                # 1. Stop recorder and get audio data
+                t_cap_start = time.perf_counter()
                 wav_bytes = self.recorder.stop_recording()
+                audio_array = self.recorder.get_last_audio_array()
+                t_cap_end = time.perf_counter()
+
                 if not wav_bytes:
                     print("[Orchestrator] Dictation was too brief or empty.")
                     with self._state_lock:
@@ -239,17 +249,22 @@ class FlowOrchestrator:
                     self._notify(AppState.IDLE, {"notice": "Audio too short."})
                     return
 
+                t_audio_finalized = time.perf_counter()
+
                 # 2. Transition to TRANSCRIBING
                 with self._state_lock:
                     self.state = AppState.TRANSCRIBING
                 self._notify(AppState.TRANSCRIBING)
 
-                # 3. Transcribe audio (STT)
-                start_time = time.time()
-                stt_result = self.stt.transcribe(wav_bytes)
+                # 3. Transcribe audio (STT) - pass zero-copy float32 array if available
+                t_stt_start = time.perf_counter()
+                stt_input = audio_array if audio_array is not None else wav_bytes
+                stt_result = self.stt.transcribe(stt_input)
+                t_stt_end = time.perf_counter()
+
                 raw_text = stt_result.get("text", "")
                 detected_lang = stt_result.get("detected_language", "unknown")
-                stt_duration = round(time.time() - start_time, 2)
+                stt_duration = round(t_stt_end - t_stt_start, 3)
                 print(f"[Orchestrator] STT done ({stt_duration}s, lang={detected_lang}): {raw_text}")
 
                 if not raw_text or not raw_text.strip():
@@ -265,19 +280,19 @@ class FlowOrchestrator:
                 self._notify(AppState.INSERTING_TEXT, {"raw_text": raw_text})
 
                 # Post-process via ContextProcessor
-                format_start = time.time()
+                t_clean_start = time.perf_counter()
                 formatted_text = self.processor.process(raw_text, self.target_window_info)
-                format_duration = round(time.time() - format_start, 2)
-                print(f"[Orchestrator] Formatted ({format_duration}s): {formatted_text}")
-
-                # Voice snippets expansion
                 if self.personalization:
                     expanded_text, trigger = self.personalization.expand_snippets(formatted_text)
                     if trigger:
                         print(f"[Orchestrator] Expanded voice snippet trigger: '{trigger}'")
                         formatted_text = expanded_text
+                t_clean_end = time.perf_counter()
+                format_duration = round(t_clean_end - t_clean_start, 3)
+                print(f"[Orchestrator] Formatted ({format_duration}s): {formatted_text}")
 
                 # 5. Inject formatted text into target window with confirmed fallback
+                t_inj_start = time.perf_counter()
                 target_hwnd = self.target_window_info.get("hwnd")
                 injection_method = "clipboard_paste"
                 success = TextInjector.inject(formatted_text, target_hwnd)
@@ -285,6 +300,35 @@ class FlowOrchestrator:
                     print("[Orchestrator] Standard clipboard paste failed. Falling back to direct SendInput Unicode typing...")
                     injection_method = "sendinput_unicode"
                     success = TextInjector.inject_unicode_sendinput(formatted_text, target_hwnd)
+                t_inj_end = time.perf_counter()
+
+                # Stage-level high-precision timing calculations
+                user_stop_to_cap_ms = round((t_cap_end - stop_action_time) * 1000, 2)
+                cap_to_finalize_ms = round((t_audio_finalized - t_cap_end) * 1000, 2)
+                finalize_to_stt_ms = round((t_stt_start - t_audio_finalized) * 1000, 2)
+                stt_ms = round((t_stt_end - t_stt_start) * 1000, 2)
+                cleanup_ms = round((t_clean_end - t_clean_start) * 1000, 2)
+                inj_ms = round((t_inj_end - t_inj_start) * 1000, 2)
+                stop_to_visible_text_ms = round((t_inj_end - stop_action_time) * 1000, 2)
+                acoustic_to_visible_text_ms = round((t_inj_end - self._last_speech_perf) * 1000, 2) if self._last_speech_perf > 0 else None
+
+                self.last_pipeline_timing = {
+                    "stop_to_capture_shutdown_ms": user_stop_to_cap_ms,
+                    "capture_to_audio_finalization_ms": cap_to_finalize_ms,
+                    "audio_finalization_to_stt_start_ms": finalize_to_stt_ms,
+                    "transcription_ms": stt_ms,
+                    "cleanup_ms": cleanup_ms,
+                    "text_insertion_ms": inj_ms,
+                    "stop_action_to_visible_text_ms": stop_to_visible_text_ms,
+                    "acoustic_end_to_visible_text_ms": acoustic_to_visible_text_ms
+                }
+
+                print(
+                    f"[Latency Breakdown] Stop->Cap: {user_stop_to_cap_ms}ms | Finalize: {cap_to_finalize_ms}ms | "
+                    f"STT: {stt_ms}ms | Clean: {cleanup_ms}ms | Inject: {inj_ms}ms | "
+                    f"StopAction->VisibleText: {stop_to_visible_text_ms}ms"
+                    + (f" | AcousticEnd->VisibleText: {acoustic_to_visible_text_ms}ms" if acoustic_to_visible_text_ms else "")
+                )
 
                 # 6. Save into history and recovery buffer
                 total_duration = round(time.time() - start_time, 2)
@@ -312,6 +356,8 @@ class FlowOrchestrator:
                     "stt_duration_sec": stt_duration,
                     "format_duration_sec": format_duration,
                     "total_duration_sec": total_duration,
+                    "stop_to_visible_text_ms": stop_to_visible_text_ms,
+                    "acoustic_end_to_visible_text_ms": acoustic_to_visible_text_ms,
                     "char_count": len(formatted_text),
                     "injection_method": injection_method,
                     "injection_success": success
@@ -369,7 +415,7 @@ class FlowOrchestrator:
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
 
-        threading.Thread(target=process_worker, daemon=True, name="FlowPilot-Processor").start()
+        threading.Thread(target=process_worker, args=(t_stop_action,), daemon=True, name="FlowPilot-Processor").start()
 
     def toggle_dictation(self):
         with self._state_lock:

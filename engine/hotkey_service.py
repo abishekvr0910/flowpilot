@@ -220,8 +220,8 @@ class Win32HotkeyService:
                         except Exception as e:
                             logger.error(f"[HotkeyService] Callback error: {e}")
                         if rel:
-                            # Push-to-talk release monitor
-                            time.sleep(0.06)
+                            # Push-to-talk release monitor: responsive 10ms polling
+                            time.sleep(0.01)
                             while not self._stop_event.is_set():
                                 state = self._user32.GetAsyncKeyState(target_vk)
                                 if not (state & 0x8000):
@@ -230,7 +230,7 @@ class Win32HotkeyService:
                                     except Exception as e:
                                         logger.error(f"[HotkeyService] OnRelease error: {e}")
                                     break
-                                time.sleep(0.02)
+                                time.sleep(0.01)
 
                     threading.Thread(target=run_action, daemon=True, name=f"FlowPilot-HotkeyAction-{hk_id}").start()
 

@@ -130,16 +130,24 @@ class TextInjector:
         cls.last_injected_text = text
 
         try:
-            # Restore focus to target window if provided
+            # Restore focus to target window only if not already foreground
             if target_hwnd:
-                cls._safe_set_foreground(target_hwnd)
-                time.sleep(0.08)
+                if HAS_WIN32 and sys.platform == "win32":
+                    try:
+                        cur_fg = win32gui.GetForegroundWindow()
+                        if cur_fg != target_hwnd:
+                            cls._safe_set_foreground(target_hwnd)
+                            time.sleep(0.02)
+                    except Exception:
+                        pass
+                else:
+                    cls._safe_set_foreground(target_hwnd)
 
             # 3. Copy text to clipboard with lock retry
             if not cls._safe_clipboard_copy(text):
                 print("[Injector Warning] Clipboard copy failed. Falling back directly to SendInput Unicode typing...")
                 return cls.inject_unicode_sendinput(text, target_hwnd)
-            time.sleep(0.04)
+            time.sleep(0.01)
 
             # 4. Detect if target window is a legacy console/terminal requiring Shift+Insert
             is_legacy_console = False
@@ -151,20 +159,20 @@ class TextInjector:
                 except Exception:
                     pass
 
-            # 5. Simulate keystrokes
+            # 5. Simulate keystrokes with lean 15ms key hold
             if HAS_WIN32 and sys.platform == "win32":
                 if is_legacy_console:
                     # Shift + Insert for legacy console
                     win32api.keybd_event(win32con.VK_SHIFT, 0, 0, 0)
                     win32api.keybd_event(win32con.VK_INSERT, 0, 0, 0)
-                    time.sleep(0.05)
+                    time.sleep(0.015)
                     win32api.keybd_event(win32con.VK_INSERT, 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_SHIFT, 0, win32con.KEYEVENTF_KEYUP, 0)
                 else:
                     # Standard Ctrl + V
                     win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
                     win32api.keybd_event(ord('V'), 0, 0, 0)
-                    time.sleep(0.05)
+                    time.sleep(0.015)
                     win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
             else:
@@ -172,7 +180,7 @@ class TextInjector:
                 kb = Controller()
                 kb.press(Key.ctrl)
                 kb.press('v')
-                time.sleep(0.05)
+                time.sleep(0.015)
                 kb.release('v')
                 kb.release(Key.ctrl)
 

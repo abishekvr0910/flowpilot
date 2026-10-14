@@ -11,11 +11,14 @@ import time
 class AudioFeedback:
     def __init__(self, enabled: bool = True):
         self.enabled = enabled
+        self._lock = threading.Lock()
 
     def _play(self, tones):
         if not self.enabled or sys.platform != "win32":
             return
         def worker():
+            if not self._lock.acquire(blocking=False):
+                return
             try:
                 import winsound
                 for freq, dur in tones:
@@ -23,6 +26,8 @@ class AudioFeedback:
                     time.sleep(0.02)
             except Exception:
                 pass
+            finally:
+                self._lock.release()
         threading.Thread(target=worker, daemon=True, name="FlowPilot-AudioFeedback").start()
 
     def play_start(self):
