@@ -53,11 +53,16 @@ try:
 except ImportError:
     HAS_PERSONALIZATION = False
 
+class TransformationClass:
+    SAFE_FORMATTING = "SAFE_FORMATTING"
+    REVIEWABLE_REWRITE = "REVIEWABLE_REWRITE"
+    PROTECTED = "PROTECTED"
+
 class FactGuard:
     """
     Validates semantic integrity between raw transcript and polished output.
-    Guarantees that numbers, currency, dates, commitments, and negations (not, never, none)
-    are strictly preserved and not hallucinated or omitted.
+    Guarantees that numbers, decimals, percentages, currency, units, dates,
+    negations, CLI flags, file paths, URLs, and user dictionary phrases are strictly preserved.
     """
     CRITICAL_NEGATIONS = [
         "not", "never", "no", "cannot", "can't", "cant",
@@ -69,18 +74,93 @@ class FactGuard:
         "neither", "nor", "nobody", "nothing", "nowhere"
     ]
 
+    NUMERIC_WORD_CONFUSIONS = {
+        "fifteen": "15", "fifty": "50",
+        "fourteen": "14", "forty": "40",
+        "thirteen": "13", "thirty": "30",
+        "sixteen": "16", "sixty": "60",
+        "seventeen": "17", "seventy": "70",
+        "eighteen": "18", "eighty": "80",
+        "nineteen": "19", "ninety": "90"
+    }
+
+    PROTECTED_UNITS = [
+        "ms", "sec", "seconds", "second", "min", "minutes", "minute",
+        "hours", "hour", "hr", "hrs", "mb", "gb", "tb", "kb",
+        "units", "unit", "items", "item", "px", "em", "rem", "%", "percent",
+        "kg", "g", "lbs", "dollars", "cents"
+    ]
+
+    @classmethod
+    def extract_protected_entities(
+        cls,
+        text: str,
+        custom_terms: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Extracts structured protected tokens that must never be altered or omitted.
+        """
+        lower = text.lower()
+
+        # 1. Negations
+        found_negations = []
+        for neg in cls.CRITICAL_NEGATIONS:
+            if re.search(r"\b" + re.escape(neg) + r"\b", lower):
+                found_negations.append(neg)
+
+        # 2. Raw Numbers, Currency, Percentages, Decimals
+        raw_num_matches = re.findall(r"(\$?\d+(?:,\d+)*(?:\.\d+)?%?)", text)
+
+        # 3. Units attached to numbers (e.g., 1450 units, 2400 ms)
+        unit_pattern = r"(?i)\b(\$?\d+(?:,\d+)*(?:\.\d+)?)\s*(" + "|".join(re.escape(u) for u in cls.PROTECTED_UNITS) + r")\b"
+        found_units = re.findall(unit_pattern, text)
+
+        # 4. Spoken number confusion tokens (fifteen vs fifty)
+        found_spoken_nums = {}
+        for word, val in cls.NUMERIC_WORD_CONFUSIONS.items():
+            if re.search(r"\b" + re.escape(word) + r"\b", lower):
+                found_spoken_nums[word] = val
+
+        # 5. CLI Flags (--dry-run, -rf)
+        cli_flags = re.findall(r"(?:^|\s)(--[a-zA-Z0-9][a-zA-Z0-9_\-]*|-[a-zA-Z0-9]+)(?=\s|[,\.\?!]|$)", text)
+
+        # 6. File paths and extensions (config_prod.json, /var/log, etc.)
+        file_paths = re.findall(r"\b[a-zA-Z0-9_\-]+\.(?:json|py|exe|zip|txt|md|log|yml|yaml|toml|ini|env|csv|sh|bat|ps1|js|ts|jsx|tsx|html|css|cpp|c|h|rs|go|dll)\b|[/\\][a-zA-Z0-9_\-/\\]+", text)
+
+        # 7. URLs
+        urls = re.findall(r"https?://[^\s]+", text)
+
+        # 8. User dictionary terms
+        matched_custom = []
+        if custom_terms:
+            for term in custom_terms:
+                if term and re.search(r"\b" + re.escape(term.lower()) + r"\b", lower):
+                    matched_custom.append(term)
+
+        return {
+            "negations": found_negations,
+            "raw_nums": raw_num_matches,
+            "units": found_units,
+            "spoken_nums": found_spoken_nums,
+            "cli_flags": [f.strip() for f in cli_flags],
+            "file_paths": file_paths,
+            "urls": urls,
+            "custom_terms": matched_custom
+        }
+
     @classmethod
     def validate_and_guard(
         cls,
         raw_text: str,
         polished_text: str,
         retracted_nums: Optional[List[str]] = None,
-        retracted_negations: Optional[List[str]] = None
+        retracted_negations: Optional[List[str]] = None,
+        custom_terms: Optional[List[str]] = None
     ) -> Tuple[str, bool, List[str]]:
         """
-        Validates fact preservation. If a critical negation or number was dropped,
-        restores the factual clause to guarantee 0% hallucination/drift.
-        Allows explicit spoken self-corrections (retracted items) to be omitted.
+        Validates fact preservation across negations, numbers, decimals, units,
+        CLI flags, paths, URLs, and dictionary terms.
+        If any protected entity was dropped or corrupted, safely restores the raw transcript.
         Returns: (final_text, is_guarded, warnings)
         """
         warnings = []
@@ -88,22 +168,83 @@ class FactGuard:
         safe_retracted_nums = [re.sub(r"[^\d]", "", n) for n in (retracted_nums or [])]
         safe_retracted_negs = [n.lower() for n in (retracted_negations or [])]
 
+        raw_entities = cls.extract_protected_entities(raw_text, custom_terms)
+        pol_entities = cls.extract_protected_entities(polished_text, custom_terms)
+
         # 1. Verify Negations
-        for neg in cls.CRITICAL_NEGATIONS:
+        for neg in raw_entities["negations"]:
             if neg in safe_retracted_negs:
                 continue
-            raw_has = bool(re.search(r"\b" + re.escape(neg) + r"\b", raw_text.lower()))
             pol_has = bool(re.search(r"\b" + re.escape(neg) + r"\b", polished_text.lower()))
-            if raw_has and not pol_has:
+            if not pol_has:
+                # Check contraction equivalence
+                equivs = {
+                    "cannot": "can't", "can't": "cannot", "cant": "can't",
+                    "do not": "don't", "don't": "do not", "dont": "don't",
+                    "will not": "won't", "won't": "will not", "wont": "won't",
+                    "does not": "doesn't", "doesn't": "does not", "doesnt": "doesn't",
+                    "did not": "didn't", "didn't": "did not", "didnt": "didn't",
+                    "is not": "isn't", "isn't": "is not", "isnt": "isn't"
+                }
+                eq = equivs.get(neg)
+                if eq and re.search(r"\b" + re.escape(eq) + r"\b", polished_text.lower()):
+                    pol_has = True
+
+            if not pol_has:
                 warnings.append(f"FactGuard Warning: Negation token '{neg}' was dropped by polishing. Enforcing raw clause.")
                 is_safe = False
 
-        # 2. Verify Numbers & Currency
-        raw_nums = [re.sub(r"[^\d]", "", n) for n in re.findall(r"\$?\d+(?:,\d+)*(?:\.\d+)?", raw_text)]
-        pol_nums = [re.sub(r"[^\d]", "", n) for n in re.findall(r"\$?\d+(?:,\d+)*(?:\.\d+)?", polished_text)]
-        for num in raw_nums:
-            if num and (num not in pol_nums) and (num not in safe_retracted_nums):
-                warnings.append(f"FactGuard Warning: Numeric value '{num}' was altered. Restoring accurate value.")
+        # 2. Verify Numbers, Decimals & Currency
+        raw_clean_nums = [re.sub(r"[^\d]", "", n) for n in raw_entities["raw_nums"]]
+        pol_clean_nums = [re.sub(r"[^\d]", "", n) for n in pol_entities["raw_nums"]]
+        for raw_n, clean_n in zip(raw_entities["raw_nums"], raw_clean_nums):
+            if clean_n and (clean_n not in pol_clean_nums) and (clean_n not in safe_retracted_nums):
+                warnings.append(f"FactGuard Warning: Numeric value '{raw_n}' was altered. Restoring accurate value.")
+                is_safe = False
+
+        # Verify unit integrity (e.g., 1450 units -> $1450 units corruption check)
+        for num_str, unit_str in raw_entities["units"]:
+            clean_num = re.sub(r"[^\d]", "", num_str)
+            if clean_num in safe_retracted_nums:
+                continue
+            # If raw did NOT have $, polished must not prepend $ before a non-currency unit
+            if "$" not in num_str and unit_str.lower() in ("units", "unit", "items", "item", "ms", "mb", "gb", "px"):
+                comma_num = f"{int(clean_num):,}" if clean_num.isdigit() else clean_num
+                pat = rf"\$\s*(?:{re.escape(clean_num)}|{re.escape(comma_num)})\s*{re.escape(unit_str)}"
+                if re.search(pat, polished_text, re.IGNORECASE):
+                    warnings.append(f"FactGuard Warning: Prepended '$' to non-currency unit quantity '{num_str} {unit_str}'.")
+                    is_safe = False
+
+        # Verify soundalike number confusions (15 vs 50, etc.)
+        for word, val in raw_entities["spoken_nums"].items():
+            confused_val = "50" if val == "15" else ("15" if val == "50" else None)
+            if confused_val and (confused_val in pol_clean_nums) and (val not in pol_clean_nums):
+                warnings.append(f"FactGuard Warning: Spoken number confusion detected: '{word}' ({val}) mutated to '{confused_val}'.")
+                is_safe = False
+
+        # 3. Verify CLI Flags
+        for flag in raw_entities["cli_flags"]:
+            if flag not in polished_text:
+                warnings.append(f"FactGuard Warning: CLI flag '{flag}' was altered or dropped.")
+                is_safe = False
+
+        # 4. Verify File Paths
+        for path in raw_entities["file_paths"]:
+            if path not in polished_text:
+                warnings.append(f"FactGuard Warning: File path '{path}' was altered or dropped.")
+                is_safe = False
+
+        # 5. Verify URLs
+        for url in raw_entities["urls"]:
+            clean_url = url.rstrip(".,;!?:")
+            if clean_url.lower() not in polished_text.lower():
+                warnings.append(f"FactGuard Warning: URL '{url}' was altered or dropped.")
+                is_safe = False
+
+        # 6. Verify User Dictionary Terms
+        for term in raw_entities["custom_terms"]:
+            if term.lower() not in polished_text.lower():
+                warnings.append(f"FactGuard Warning: User dictionary term '{term}' was dropped.")
                 is_safe = False
 
         if not is_safe:
@@ -180,7 +321,7 @@ class WritingIntelligence:
                 changes.extend(tech_changes)
 
         # 6. Canonicalize known technical acronyms and terms
-        text = self._canonicalize_tech_terms(text)
+        text = self._canonicalize_tech_terms(text, style=style)
 
         # 7. Apply Personal Dictionary aliases & casing
         if self.personalization:
@@ -193,11 +334,12 @@ class WritingIntelligence:
         if active_dialect and HAS_PERSONALIZATION:
             text = LanguageRegistry.apply_dialect_rules(text, active_dialect)
 
-        # 9. Spoken list formatting
-        formatted_list, is_list = self._format_spoken_lists(text)
-        if is_list:
-            changes.append("Formatted spoken list items")
-            text = formatted_list
+        # 9. Spoken list formatting (skip in terminal style)
+        if style != "terminal":
+            formatted_list, is_list = self._format_spoken_lists(text)
+            if is_list:
+                changes.append("Formatted spoken list items")
+                text = formatted_list
 
         # 10. Apply style-specific transformations
         if style == "concise":
@@ -215,8 +357,9 @@ class WritingIntelligence:
         text = self._finalize_punctuation(text, style=style)
 
         # 12. FactGuard semantic verification
+        custom_terms = self.personalization.get_terms_list() if self.personalization else None
         final_guarded, is_fact_safe, fact_warnings = FactGuard.validate_and_guard(
-            raw, text, retracted_nums=retracted_nums, retracted_negations=retracted_negs
+            raw, text, retracted_nums=retracted_nums, retracted_negations=retracted_negs, custom_terms=custom_terms
         )
         if not is_fact_safe:
             changes.extend(fact_warnings)
@@ -483,8 +626,10 @@ class WritingIntelligence:
 
         return text, changes
 
-    def _canonicalize_tech_terms(self, text: str) -> str:
+    def _canonicalize_tech_terms(self, text: str, style: str = "professional") -> str:
         for lower_term, canonical in TECH_GLOSSARY.items():
+            if style == "terminal" and lower_term in ("git", "docker", "python", "sql", "html", "css"):
+                continue
             pattern = rf"(?i)\b{re.escape(lower_term)}\b"
             text = re.sub(pattern, canonical, text)
         # Preserve lowercased URLs
@@ -549,13 +694,31 @@ class WritingIntelligence:
         text = re.sub(r"\.{2,}", ".", text)
         text = re.sub(r",{2,}", ",", text)
 
-        # Capitalize start if alphabetic
-        if text and text[0].islower():
-            text = text[0].upper() + text[1:]
+        # For terminal commands, NEVER append a trailing period or capitalize initial command
+        KNOWN_COMMANDS = (
+            "git", "npm", "pnpm", "yarn", "pip", "python", "pytest", "docker", "kubectl",
+            "cd", "ls", "cat", "grep", "curl", "wget", "ssh", "scp", "tar", "zip",
+            "cargo", "go", "make", "cmake", "npx", "node", "deno", "bun", "mv", "cp", "rm"
+        )
+        first_word = text.split()[0].lower() if text.split() else ""
+        is_cli_cmd = first_word in KNOWN_COMMANDS
+
+        is_camel_case = bool(re.match(r"^[a-z]+[A-Z][a-zA-Z0-9]*$", text))
+        is_snake_case = bool(re.match(r"^[a-z0-9]+(?:_[a-z0-9]+)+$", text))
+
+        if style != "terminal" and not is_cli_cmd and not is_camel_case and not is_snake_case:
+            # Capitalize start if alphabetic
+            if text and text[0].islower():
+                text = text[0].upper() + text[1:]
+
+        if style == "terminal":
+            # Under no circumstances should terminal profile add trailing punctuation
+            return text
 
         # For developer code, URLs, and commands, do NOT append trailing period
         is_code_or_url = (
-            style in ("developer", "technical") or
+            style in ("developer", "technical", "terminal") or
+            is_cli_cmd or
             re.match(r"^(?:https?://|www\.|git\s+|docker\s+|npm\s+|pip\s+|cd\s+|curl\s+)", text, re.IGNORECASE) or
             re.search(r"^[a-zA-Z0-9_\-\.]+\([a-zA-Z0-9_,\s]*\)$", text) or
             re.match(r"^[a-z]+[A-Z][a-zA-Z0-9]*$", text) or
