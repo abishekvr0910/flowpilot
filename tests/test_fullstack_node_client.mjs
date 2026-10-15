@@ -132,11 +132,16 @@ try {
             }
           }
         } else if (stage === 2) {
-          // Stage 2: Stop/transition
-          console.log(`  [WS Stage 2] Final state received: state='${msg.state}'`);
-          clearTimeout(timeout);
-          ws.close();
-          resolve();
+          // Stage 2: Stop/transition - ignore intermediate audio levels and assert terminal state
+          if (msg.state === "audio_level") {
+            return;
+          }
+          if (["stopping", "processing", "formatting", "pasted", "idle"].includes(msg.state)) {
+            console.log(`  [WS Stage 2] Finalization lifecycle confirmed: state='${msg.state}'`);
+            clearTimeout(timeout);
+            ws.close();
+            resolve();
+          }
         }
       } catch (err) {
         clearTimeout(timeout);
