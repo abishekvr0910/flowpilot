@@ -62,14 +62,20 @@ class TextInjector:
 
     @classmethod
     def _get_clipboard_sequence_number(cls) -> Optional[int]:
-        """Returns Win32 GetClipboardSequenceNumber() to atomically verify clipboard changes."""
+        """Returns Win32 GetClipboardSequenceNumber() or fallback content hash integer on non-Windows."""
         if HAS_WIN32 and sys.platform == "win32":
             try:
                 import ctypes
                 return int(ctypes.windll.user32.GetClipboardSequenceNumber())
             except Exception:
                 return None
-        return None
+        else:
+            try:
+                import hashlib
+                clip = cls._safe_clipboard_paste() or ""
+                return int(hashlib.md5(clip.encode("utf-8", errors="ignore")).hexdigest()[:8], 16)
+            except Exception:
+                return None
 
     @classmethod
     def _safe_clipboard_copy(cls, text: str, max_retries: int = 8, retry_delay: float = 0.08) -> bool:
@@ -293,14 +299,38 @@ class TextInjector:
                     time.sleep(0.015)
                     win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+            elif sys.platform == "darwin":
+                # macOS Cmd+V
+                try:
+                    from pynput.keyboard import Controller, Key
+                    kb = Controller()
+                    kb.press(Key.cmd)
+                    kb.press('v')
+                    time.sleep(0.015)
+                    kb.release('v')
+                    kb.release(Key.cmd)
+                except Exception:
+                    try:
+                        import subprocess
+                        subprocess.run(["osascript", "-e", 'tell application "System Events" to keystroke "v" using command down'], check=False, timeout=0.2)
+                    except Exception:
+                        pass
             else:
-                from pynput.keyboard import Controller, Key
-                kb = Controller()
-                kb.press(Key.ctrl)
-                kb.press('v')
-                time.sleep(0.015)
-                kb.release('v')
-                kb.release(Key.ctrl)
+                # Linux (X11 / Wayland) Ctrl+V
+                try:
+                    from pynput.keyboard import Controller, Key
+                    kb = Controller()
+                    kb.press(Key.ctrl)
+                    kb.press('v')
+                    time.sleep(0.015)
+                    kb.release('v')
+                    kb.release(Key.ctrl)
+                except Exception:
+                    try:
+                        import subprocess
+                        subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+v"], check=False, timeout=0.2)
+                    except Exception:
+                        pass
 
             print(f"[Injector] Successfully dispatched {len(text)} characters to HWND {target_hwnd}.")
 

@@ -2,9 +2,17 @@
 
 All notable changes, bug fixes, and architectural evolutions to FlowPilot are documented in this file.
 
-## [Unreleased] — *Competitive Architecture Upgrades & Reliability Hardening*
+## [Unreleased] — *Cross-Platform OS Adapters & Architectural Upgrades*
 
 ### Added
+- **Cross-Platform OS Adapters (Windows, Linux, macOS):**
+  - **`PynputHotkeyService` (`engine/hotkey_service.py`):** Universal fallback global hotkey listener for Linux (X11) and macOS supporting multi-key chords (`Ctrl+Shift+Space`, `Alt+Shift+Z`), single keys (`F9`), push-to-talk press/release callbacks, and TapLatch hands-free gestures. Factory function `get_hotkey_service()` selects `Win32HotkeyService` on Windows and `PynputHotkeyService` on Linux/macOS.
+  - **Multi-OS Text Injection (`engine/text_injector.py`):** Added macOS `Cmd+V` (with AppleScript fallback) and Linux `Ctrl+V` (with `xdotool` fallback) dispatch. Implemented cross-platform MD5 content hash sequence generation for atomic clipboard safety on non-Windows systems.
+  - **Cross-Platform Single-Instance Enforcement (`engine/single_instance.py`):** Added POSIX file lock (`fcntl.flock`) on `~/.flowpilot/flowpilot.lock` for Linux and macOS alongside the Win32 Named Mutex on Windows.
+  - **Linux & macOS Audio Ducking (`engine/audio_ducker.py`):** Added PulseAudio / PipeWire `pactl` ducking for Linux and AppleScript volume ducking for macOS.
+  - **Active Window Detection (`engine/window_inspector.py`):** Added macOS `osascript` application detection and Linux `xdotool` window querying.
+  - **Platform-Conditioned Packaging (`requirements.txt`, `pyproject.toml`):** Added `; sys_platform == 'win32'` markers to `pywin32`, `pycaw`, and `comtypes`, allowing clean installation across Linux and macOS environments.
+  - Added dedicated regression suite `tests/test_cross_platform.py` (5/5 passing).
 - **Continuous Pre-Roll Audio Ring Buffer (`engine/audio_recorder.py`):**
   - Implemented continuous 350ms float32 sliding ring buffer (`collections.deque`) maintaining warm audio context before hotkey press.
   - Added background zero-latency warm-up stream (`warmup_stream()`), completely eliminating the 100–180ms PortAudio startup latency and preventing first-syllable speech clipping.

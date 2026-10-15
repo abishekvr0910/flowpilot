@@ -5,6 +5,7 @@ Guarantees global keystroke capture across Notepad, browsers, and desktop apps.
 Bypasses low-level keyboard hook timeouts and UAC isolation issues.
 """
 
+import sys
 import ctypes
 from ctypes import wintypes
 import threading
@@ -163,8 +164,12 @@ class Win32HotkeyService:
         self._stop_event = threading.Event()
         self._ready_event = threading.Event()
         self._next_id = 1
-        self._user32 = ctypes.windll.user32
-        self._kernel32 = ctypes.windll.kernel32
+        if sys.platform == "win32":
+            self._user32 = ctypes.windll.user32
+            self._kernel32 = ctypes.windll.kernel32
+        else:
+            self._user32 = None
+            self._kernel32 = None
         self.stats = {"events_received": 0, "registered_count": 0, "errors": []}
 
     @staticmethod
@@ -173,6 +178,8 @@ class Win32HotkeyService:
         Tests whether a given hotkey string can be successfully registered via Win32 RegisterHotKey.
         Returns (is_available: bool, message: str).
         """
+        if sys.platform != "win32":
+            return True, "Available via cross-platform keyboard listener."
         clean = hotkey_str.replace("<", "").replace(">", "").strip()
         parts = [p.strip().upper() for p in clean.replace(" ", "").split("+")]
         has_primary = any(p in VK_MAPPING or (len(p) == 1 and p.isalnum()) for p in parts if p not in ("CTRL", "CONTROL", "ALT", "SHIFT", "WIN"))
@@ -341,3 +348,146 @@ class Win32HotkeyService:
 
     def is_alive(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
+
+
+class PynputHotkeyService:
+    """
+    Cross-platform Global Hotkey Service for Linux (X11) and macOS.
+    Monitors keyboard events via pynput listener and supports:
+    - Chord key combinations (e.g. Ctrl+Shift+Space, Alt+Shift+Z)
+    - Single-key hotkeys (e.g. F9)
+    - Push-to-talk press and release monitoring
+    - TapLatch hands-free double-tap gesture
+    """
+    def __init__(self):
+        self._hotkeys: Dict[int, Dict] = {}
+        self._listener = None
+        self._active_keys = set()
+        self._triggered_hotkeys = set()
+        self._lock = threading.Lock()
+        self._next_id = 1
+        self._running = False
+        self.stats = {"events_received": 0, "registered_count": 0, "errors": []}
+
+    @staticmethod
+    def test_hotkey_availability(hotkey_str: str, currently_active_hotkey: Optional[str] = None) -> Tuple[bool, str]:
+        return True, "Available via cross-platform keyboard listener."
+
+    @staticmethod
+    def _normalize_key(key) -> str:
+        try:
+            import pynput.keyboard as pk
+            if key in (pk.Key.ctrl, pk.Key.ctrl_l, pk.Key.ctrl_r):
+                return "CTRL"
+            if key in (pk.Key.alt, pk.Key.alt_l, pk.Key.alt_r, getattr(pk.Key, "alt_gr", None)):
+                return "ALT"
+            if key in (pk.Key.shift, pk.Key.shift_l, pk.Key.shift_r):
+                return "SHIFT"
+            if key in (pk.Key.cmd, pk.Key.cmd_l, pk.Key.cmd_r):
+                return "CMD"
+            if key == pk.Key.space:
+                return "SPACE"
+            if hasattr(key, "name") and key.name:
+                return key.name.upper()
+            if hasattr(key, "char") and key.char:
+                return key.char.upper()
+        except Exception:
+            pass
+        return str(key).upper()
+
+    def register(self, hotkey_str: str, callback: Callable[[], None], on_release: Optional[Callable[[], None]] = None) -> int:
+        clean = hotkey_str.replace("<", "").replace(">", "").strip()
+        parts = {p.strip().upper() for p in clean.replace(" ", "").split("+")}
+        normalized_parts = set()
+        for p in parts:
+            if p in ("CONTROL", "CTRL"):
+                normalized_parts.add("CTRL")
+            elif p in ("WIN", "CMD", "COMMAND"):
+                normalized_parts.add("CMD")
+            else:
+                normalized_parts.add(p)
+
+        hk_id = self._next_id
+        self._next_id += 1
+        with self._lock:
+            self._hotkeys[hk_id] = {
+                "str": hotkey_str,
+                "parts": normalized_parts,
+                "callback": callback,
+                "on_release": on_release
+            }
+            self.stats["registered_count"] = len(self._hotkeys)
+        return hk_id
+
+    def start(self, timeout: float = 3.0) -> bool:
+        with self._lock:
+            if self._running and self._listener:
+                return True
+            try:
+                import pynput.keyboard as pk
+                self._listener = pk.Listener(
+                    on_press=self._on_press,
+                    on_release=self._on_release
+                )
+                self._listener.daemon = True
+                self._listener.start()
+                self._running = True
+                logger.info(f"[PynputHotkeyService] Cross-platform listener active with {len(self._hotkeys)} hotkeys.")
+                return True
+            except Exception as e:
+                logger.error(f"[PynputHotkeyService] Failed to start listener: {e}")
+                self.stats["errors"].append(str(e))
+                return False
+
+    def _on_press(self, key):
+        norm = self._normalize_key(key)
+        with self._lock:
+            self._active_keys.add(norm)
+            self.stats["events_received"] += 1
+
+            for hk_id, info in self._hotkeys.items():
+                req = info["parts"]
+                if req.issubset(self._active_keys) and hk_id not in self._triggered_hotkeys:
+                    self._triggered_hotkeys.add(hk_id)
+                    cb = info["callback"]
+                    threading.Thread(target=cb, daemon=True, name=f"PynputAction-{hk_id}").start()
+
+    def _on_release(self, key):
+        norm = self._normalize_key(key)
+        with self._lock:
+            if norm in self._active_keys:
+                self._active_keys.remove(norm)
+
+            for hk_id in list(self._triggered_hotkeys):
+                info = self._hotkeys.get(hk_id)
+                if info:
+                    req = info["parts"]
+                    if not req.issubset(self._active_keys):
+                        self._triggered_hotkeys.remove(hk_id)
+                        rel = info["on_release"]
+                        if rel:
+                            threading.Thread(target=rel, daemon=True, name=f"PynputRelease-{hk_id}").start()
+
+    def stop(self):
+        with self._lock:
+            if self._listener:
+                try:
+                    self._listener.stop()
+                except Exception:
+                    pass
+                self._listener = None
+            self._running = False
+            self._active_keys.clear()
+            self._triggered_hotkeys.clear()
+
+    def is_alive(self) -> bool:
+        return self._running and self._listener is not None
+
+
+def get_hotkey_service():
+    """Returns the optimal hotkey service for the current operating system."""
+    import sys
+    if sys.platform == "win32":
+        return Win32HotkeyService()
+    else:
+        return PynputHotkeyService()

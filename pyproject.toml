@@ -18,6 +18,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
     "Topic :: Desktop Environment",
 ]
@@ -28,10 +30,10 @@ dependencies = [
     "sounddevice>=0.4.6",
     "soundfile>=0.12.1",
     "numpy>=1.24.0",
-    "pywin32>=306",
+    "pywin32>=306; sys_platform == 'win32'",
+    "pycaw>=20240210; sys_platform == 'win32'",
+    "comtypes>=1.2.0; sys_platform == 'win32'",
     "pyperclip>=1.8.2",
-    "pycaw>=20240210",
-    "comtypes>=1.2.0",
     "psutil>=5.9.0",
     "pynput>=1.7.6",
 ]
