@@ -183,7 +183,7 @@ class ContextProcessor:
         if provider == "groq":
             api_key = self.config.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
             base_url = "https://api.groq.com/openai/v1"
-            model_name = "llama-3.1-8b-instant"
+            model_name = self.config.get("groq_llm_model", "qwen/qwen3.8-27b")
         else:
             api_key = self.config.get("openai_api_key") or os.environ.get("OPENAI_API_KEY")
             base_url = "https://api.openai.com/v1"
