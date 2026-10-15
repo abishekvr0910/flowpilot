@@ -7,7 +7,12 @@ Welcome to the FlowPilot Pilot Evaluation Program. FlowPilot is a Windows-first,
 ## 1. 3-Minute Fast Setup
 
 1. **Extract or Locate FlowPilot:**
-   - Standalone Portable: Unzip `FlowPilot-v2.0.0-win64.zip` into any directory (e.g. `C:\Tools\FlowPilot\`).
+   - Standalone Portable: Unzip `FlowPilot-v3.1.0-pilot-win64.zip` into any directory (e.g. `C:\Tools\FlowPilot\`).
+   - Checksum Verification (PowerShell):
+     ```powershell
+     Get-FileHash -Algorithm SHA256 .\FlowPilot-v3.1.0-pilot-win64.zip
+     # Expected: 4FD81150A5E404AB64C52B0C03BACB454D59DF6911BF0E23D3EABC363ED1B6FE
+     ```
    - Development Run: Double-click [`start_desktop.bat`](file:///S:/APPs/New%20folder/start_desktop.bat).
 2. **Launch FlowPilot:**
    - Double-click [`FlowPilot.exe`](file:///S:/APPs/New%20folder/dist/FlowPilot/FlowPilot.exe).
