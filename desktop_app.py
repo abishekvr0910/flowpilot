@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QObject, Signal, Qt
 
+from engine import __version__
 from engine.single_instance import SingleInstance
 from engine.orchestrator import FlowOrchestrator
 from engine.config import load_config, save_config
@@ -42,7 +43,7 @@ class FlowPilotApp:
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("FlowPilot")
         self.app.setApplicationDisplayName("FlowPilot Voice Intelligence")
-        self.app.setApplicationVersion("3.0.2")
+        self.app.setApplicationVersion(__version__)
         self.app.setQuitOnLastWindowClosed(False)
 
         self.bridge = StateBridge()
