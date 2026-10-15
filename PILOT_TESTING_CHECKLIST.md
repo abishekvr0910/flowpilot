@@ -4,7 +4,7 @@
 **Date of Test:** _______________________  
 **Host Hardware / Laptop Model:** _______________________  
 **Windows Version / Build:** _______________________  
-**FlowPilot Version:** v2.0.0 Standalone  
+**FlowPilot Version:** v3.1.0-pilot Standalone (SHA-256: 4FD81150A5E404AB64C52B0C03BACB454D59DF6911BF0E23D3EABC363ED1B6FE)  
 
 Please perform each step below in order and record your empirical observations.
 
