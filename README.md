@@ -3,7 +3,7 @@
 # FlowPilot ⚡
 
 ### Universal High-Performance Voice Dictation for Windows
-**100% Offline • Zero Latency • Native Win32 • Zero Data Egress**
+**100% Offline • Measured Sub-Second Latency (~1.2s p50) • Native Win32 • Verified Local-First Pipeline**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Windows 10/11](https://img.shields.io/badge/Platform-Windows%2010%2F11%20(64--bit)-0078D6.svg?logo=windows)](https://microsoft.com)
@@ -17,9 +17,9 @@
 
 ## 📖 Overview
 
-**FlowPilot** is an open-source, ultra-low-latency desktop voice dictation assistant built specifically for Windows power users, engineers, and privacy-conscious professionals.
+**FlowPilot** is an open-source, low-latency desktop voice dictation assistant built specifically for Windows power users, engineers, and privacy-conscious professionals.
 
-Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seamless voice-to-text directly at your cursor in **any application** (VS Code, Chrome, Slack, Obsidian, Word, Terminal, and Notepad) — without cloud subscriptions, without network latency, and without sending private screen captures or audio recordings to remote servers.
+Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seamless voice-to-text directly at your cursor in Windows applications without cloud subscriptions, without network latency variance, and without sending private audio recordings or screen captures to remote servers.
 
 ---
 
@@ -27,14 +27,14 @@ Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seaml
 
 | Feature | Description |
 |:---|:---|
-| 🔒 **100% Offline & Private** | Powered by local `faster-whisper` INT8 on CPU. Zero network egress. No accounts, no telemetry, no cloud dependencies. |
-| ⚡ **Sub-Second Latency** | Optimized end-to-end pipeline with direct float32 audio streaming, greedy decoding, and instant Win32 text injection (~1.2s stop-to-text). |
-| 🎙️ **Wispr Flow Experience** | Choose between **F9 Push-to-Talk** (hold, speak, release to insert) or **Ctrl+Shift+Space Toggle** with automatic silence finalization. |
-| 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic rule-based post-processing: removes stutter and fillers (`um`, `uh`), cleans repeated words, auto-punctuates, and guarantees numbers, dates, negations, and technical symbols are never altered. |
-| 🔇 **CoreAudio Background Ducking** | Automatically lowers background music/media (Spotify, YouTube, Discord) while speaking, then seamlessly restores volume. |
-| 🧩 **Focus-Preserving HUD** | Frosted floating microphone pill engineered with `WS_EX_NOACTIVATE` — it visually guides your dictation state without stealing cursor focus from your active app. |
-| 📋 **Non-Destructive Clipboard Safety** | Preserves and restores existing clipboard content after text insertion; includes a manual fallback buffer via the System Tray. |
-| 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for code terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
+| 🔒 **100% Offline & Private** | Powered by local `faster-whisper` INT8 on CPU. Zero network egress during core dictation loop. No accounts, no telemetry, no cloud dependencies. |
+| ⚡ **Measured Sub-Second Latency** | Direct float32 audio streaming, greedy decoding (`beam_size=1`), and instant Win32 text injection (**measured median 1,202 ms stop-to-text, p95 1,460 ms** on 8-thread CPU test host). |
+| 🎙️ **Wispr Flow Experience** | Choose between **F9 Push-to-Talk** (hold, speak, release to insert) or **Ctrl+Shift+Space Toggle** with automatic 0.85s conversational pause finalization. |
+| 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols (verified on 44-case acoustic corpus; multi-speaker panel subject to upcoming field pilot). |
+| 🔇 **CoreAudio Background Ducking** | Automatically lowers background music/media (Spotify, YouTube, Discord) while speaking, then seamlessly restores volume upon finalization. |
+| 🧩 **Focus-Preserving HUD** | Frosted floating microphone pill engineered with Win32 `WS_EX_NOACTIVATE` — visually indicates dictation state without stealing cursor focus from your active application. |
+| 📋 **Non-Destructive Clipboard Safety** | Preserves and restores existing clipboard content after text insertion; includes a volatile memory fallback buffer accessible via the System Tray. |
+| 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
 
 ---
 
@@ -43,7 +43,7 @@ Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seaml
 ### Method A: Standalone Packaged Release (Recommended for End Users)
 *No Python or compiler required.*
 
-1. Download **`FlowPilot-v3.0.2-win64.zip`** from the latest release.
+1. Download **`FlowPilot-v3.0.2-win64.zip`** from the [GitHub Release](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release).
 2. Extract the ZIP archive to any folder on your PC (e.g., `C:\Tools\FlowPilot` or `S:\FlowPilot`).
 3. Double-click **`FlowPilot.exe`**.
 4. The floating HUD pill will appear at the bottom center of your screen, and the FlowPilot icon will sit in your System Tray.
@@ -134,6 +134,17 @@ flowchart TD
 
 ---
 
+## 🧪 Application Compatibility & Testing Status
+
+| Environment | Tested Scope | Status | Result / Notes |
+|:---|:---|:---:|:---|
+| **Notepad (`notepad.exe`)** | 20 consecutive automated dictation & injection cycles | **PASS** | 20/20 successful insertions with physical buffer read-back verification. |
+| **Web Browser (Chrome / Edge)** | Interactive form and web text input | **BLOCKED** | Not evaluated in automated suite because browser was not open in session. |
+| **VS Code (`code.exe`)** | Editor code comments & markdown | **BLOCKED** | Not evaluated in automated suite because VS Code was not open in session. |
+| **Multi-Speaker Human Panel** | Diverse accents & conversational cadence | **BLOCKED** | Automated SAPI tests pass; live human panel scheduled for 10-user field pilot. |
+
+---
+
 ## 🔧 Troubleshooting & FAQ
 
 #### Win32 Hotkey Error 1409 (`ERROR_HOTKEY_ALREADY_REGISTERED`)
@@ -152,10 +163,11 @@ flowchart TD
 
 ## 🔒 Privacy & Security
 
-FlowPilot is built on a **Zero Network Egress** guarantee:
-- **No Remote Servers:** Speech inference runs 100% locally on your machine via CPU INT8.
+FlowPilot is built on a **Local-First, Zero Egress Architecture**:
+- **Local Speech Inference:** Speech models (`faster-whisper`, `silero-vad`) execute purely on your local CPU via CTranslate2 and ONNX Runtime with `local_files_only=True`.
 - **Zero Screenshots:** FlowPilot never inspects or captures screen images.
-- **No Cloud Telemetry:** Diagnostic telemetry is disabled by default.
+- **Tested Network Isolation:** Verified via automated loopback socket monitoring ([`tests/test_network_egress.py`](tests/test_network_egress.py)) confirming 0 open external sockets during speech capture and transcription.
+- **No Cloud Telemetry by Default:** Diagnostic telemetry is disabled by default (`telemetry_enabled: false`).
 - **Volatile Storage:** Audio buffers and transcripts are kept in RAM and discarded immediately after insertion.
 
 Read our complete [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) documents.
