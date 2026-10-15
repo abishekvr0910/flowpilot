@@ -29,12 +29,14 @@ Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seaml
 |:---|:---|
 | 🔒 **100% Offline & Private** | Powered by local `faster-whisper` INT8 on CPU. Zero network egress during core dictation loop. No accounts, no telemetry, no cloud dependencies. |
 | ⚡ **Measured Fast Local Latency** | Direct float32 audio streaming, greedy decoding (`beam_size=1`), and instant Win32 text injection (**measured median 1,202 ms stop-to-text, p95 1,460 ms** on 8-thread CPU test host). |
-| 🎙️ **Wispr Flow Experience** | Choose between **F9 Push-to-Talk** (hold, speak, release to insert; `hotkey_mode="hold"`) or **Ctrl+Shift+Space Toggle** (`hotkey_mode="toggle"`) with automatic 0.85s conversational pause finalization. |
+| 🎙️ **Wispr Flow Experience & TapLatch™** | Choose between **F9 Push-to-Talk** (hold to speak, release to paste), **TapLatch™** (double-tap <350ms to lock hands-free, tap to stop), or **Ctrl+Shift+Space Toggle** with automatic 0.85s conversational pause finalization. |
+| 🔄 **Continuous Pre-Roll Ring Buffer** | 350ms sliding float32 audio ring buffer with background stream warmup (`warmup_stream()`) completely eliminates PortAudio latency and guarantees zero first-syllable speech loss. |
 | 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols (verified on 44-case acoustic corpus; multi-speaker panel subject to upcoming field pilot). |
 | 🌐 **Multilingual Foundation** | Underlying Faster-Whisper base model supports 99 languages; FlowPilot includes 18 curated, actively tested languages in its native UI registry with automatic script preservation. |
 | 🔇 **CoreAudio Background Ducking** | Automatically lowers background music/media (Spotify, YouTube, Discord) while speaking, then seamlessly restores volume upon finalization. |
 | 🧩 **Focus-Preserving HUD** | Frosted floating microphone pill engineered with Win32 `WS_EX_NOACTIVATE` — visually indicates dictation state without stealing cursor focus from your active application. |
-| 📋 **Non-Destructive Clipboard Safety** | Preserves and restores existing clipboard content after text insertion; includes a volatile memory fallback buffer accessible via the System Tray. |
+| 📋 **Atomic Win32 Clipboard Guard** | Hardware sequence counter (`GetClipboardSequenceNumber`) prevents clobbering new user clipboard data during paste restoration; includes instant **Alt+Shift+Z** re-paste recovery. |
+| 🔌 **Local OpenAI-Compatible API** | Drop-in `POST /v1/audio/transcriptions` and `GET /v1/models` local endpoint (`http://127.0.0.1:8765/v1`) for seamless integration with Cursor IDE, Open WebUI, and Obsidian plugins. |
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
 
 ---
@@ -81,8 +83,24 @@ python desktop_app.py
 2. **Activate FlowPilot**:
    - **Toggle Mode (Default):** Press **`Ctrl + Shift + Space`**. The HUD glows cyan indicating active listening. Speak naturally. Press **`Ctrl + Shift + Space`** again (or pause for 0.85s) to finalize.
    - **Push-to-Talk Mode:** Press and hold **`F9`**. Speak your thought. Release **`F9`** to finalize.
-3. FlowPilot transcribes, polishes, and types the text directly at your cursor.
-4. **Emergency Recovery:** If target application blocks clipboard pasting, your dictation is safely held in memory. Simply right-click the System Tray icon and select **"Copy Last Dictation"**.
+   - **TapLatch™ Hands-Free:** Rapid double-tap **`F9`** (<350ms) to lock dictation hands-free without holding the key. Tap **`F9`** once to finalize.
+3. FlowPilot transcribes, polishes, and types the text directly at your cursor with zero syllable clipping (powered by our 350ms pre-roll sliding buffer).
+4. **Instant Re-Paste Shortcut:** Press **`Alt + Shift + Z`** anywhere in Windows to immediately re-paste your last dictation buffer into the focused window.
+5. **Emergency Recovery:** If target application blocks clipboard pasting, your dictation is safely held in memory. Simply right-click the System Tray icon and select **"Copy Last Dictation"**.
+
+---
+
+## 🔌 OpenAI-Compatible Local STT API
+
+FlowPilot exposes an embedded, zero-cloud drop-in replacement for the OpenAI Audio Transcription API at `http://127.0.0.1:8765/v1`:
+
+- **Transcribe Audio:** `POST http://127.0.0.1:8765/v1/audio/transcriptions` (supports `json`, `text`, and `verbose_json` formats)
+- **Model Catalog:** `GET http://127.0.0.1:8765/v1/models` (reports `whisper-1`)
+
+### Connecting Third-Party Tools
+- **Cursor IDE / VS Code:** Set OpenAI Audio Base URL to `http://127.0.0.1:8765/v1` and API key to `local`.
+- **Open WebUI / LibreChat:** Configure audio transcription service URL to `http://127.0.0.1:8765/v1`.
+- **Obsidian Whisper Plugin:** Direct audio requests to local FlowPilot port `8765`.
 
 ---
 

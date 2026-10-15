@@ -9,6 +9,7 @@ import ctypes
 from ctypes import wintypes
 import threading
 import logging
+import time
 from typing import Callable, Dict, Optional, Tuple
 
 logger = logging.getLogger("FlowPilot.HotkeyService")
@@ -71,6 +72,87 @@ def parse_hotkey_string(hotkey_str: str) -> Tuple[int, int]:
 
     return mods, vk
 
+
+class TapLatch:
+    """
+    Pure state machine providing dual push-to-talk (hold to speak)
+    and hands-free latch (double tap to lock) on a single hotkey.
+    Adopted from high-performance desktop dictation architecture.
+    """
+    IDLE = "idle"
+    HELD = "held"
+    PENDING = "pending"
+    LATCHED = "latched"
+
+    def __init__(self, on_start: Callable[[], None], on_stop: Callable[[], None], window_ms: int = 400, clock=time.monotonic):
+        self.on_start = on_start
+        self.on_stop = on_stop
+        self.window = max(0.05, window_ms / 1000.0)
+        self._clock = clock
+        self.state = self.IDLE
+        self._pressed_at = 0.0
+        self._timer: Optional[threading.Timer] = None
+        self._lock = threading.Lock()
+
+    def press(self):
+        action = None
+        with self._lock:
+            now = self._clock()
+            if self.state == self.IDLE:
+                self.state = self.HELD
+                self._pressed_at = now
+                action = self.on_start
+            elif self.state == self.PENDING:
+                if self._timer:
+                    self._timer.cancel()
+                    self._timer = None
+                self.state = self.LATCHED
+                logger.info("[TapLatch] Double-tap detected: Latched into hands-free recording mode.")
+                action = None
+            elif self.state == self.LATCHED:
+                self.state = self.IDLE
+                logger.info("[TapLatch] Tap while latched: Stopping hands-free recording.")
+                action = self.on_stop
+        if action:
+            action()
+
+    def release(self):
+        action = None
+        with self._lock:
+            if self.state != self.HELD:
+                return
+            now = self._clock()
+            held_duration = now - self._pressed_at
+            if held_duration >= self.window:
+                # Normal push-to-talk release
+                self.state = self.IDLE
+                action = self.on_stop
+            else:
+                # Quick tap: wait to see if a second tap arrives within window
+                self.state = self.PENDING
+                self._timer = threading.Timer(self.window, self._on_window_expired)
+                self._timer.daemon = True
+                self._timer.start()
+        if action:
+            action()
+
+    def _on_window_expired(self):
+        action = None
+        with self._lock:
+            if self.state != self.PENDING:
+                return
+            self.state = self.IDLE
+            self._timer = None
+            action = self.on_stop
+        if action:
+            action()
+
+    def reset(self):
+        with self._lock:
+            if self._timer:
+                self._timer.cancel()
+                self._timer = None
+            self.state = self.IDLE
 
 
 class Win32HotkeyService:

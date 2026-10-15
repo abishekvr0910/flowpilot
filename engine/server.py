@@ -2,9 +2,10 @@ import asyncio
 import os
 import json
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from engine.orchestrator import FlowOrchestrator
@@ -143,6 +144,77 @@ async def clear_history():
     orchestrator.config["history"] = []
     save_config(orchestrator.config)
     return {"status": "cleared"}
+
+# --- OpenAI-Compatible Speech API (Cursor IDE / Open WebUI Drop-in) ---
+
+@app.get("/v1/models")
+async def list_models():
+    """OpenAI-compatible models catalog endpoint."""
+    return {
+        "object": "list",
+        "data": [
+            {
+                "id": "whisper-1",
+                "object": "model",
+                "created": 1677610602,
+                "owned_by": "flowpilot"
+            },
+            {
+                "id": orchestrator.config.get("local_model_size", "base"),
+                "object": "model",
+                "created": 1677610602,
+                "owned_by": "flowpilot"
+            }
+        ]
+    }
+
+@app.post("/v1/audio/transcriptions")
+async def openai_compatible_transcribe(
+    file: UploadFile = File(...),
+    model: Optional[str] = Form("whisper-1"),
+    language: Optional[str] = Form(None),
+    prompt: Optional[str] = Form(None),
+    response_format: Optional[str] = Form("json"),
+    temperature: Optional[float] = Form(0.0)
+):
+    """
+    OpenAI-compatible speech-to-text endpoint (POST /v1/audio/transcriptions).
+    Direct drop-in replacement for api.openai.com/v1/audio/transcriptions.
+    Compatible with Cursor IDE, Open WebUI, Obsidian plugins, and custom developer scripts.
+    """
+    if not file:
+        raise HTTPException(status_code=400, detail="Missing audio file in form upload.")
+
+    try:
+        audio_bytes = await file.read()
+        if not audio_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
+
+        vocab = [prompt] if prompt else None
+        res = orchestrator.stt.transcribe(audio_bytes, custom_vocabulary=vocab)
+        raw_text = res.get("text", "")
+
+        # Polish text according to active context processor
+        final_text = orchestrator.processor.process(raw_text) if raw_text else ""
+
+        fmt = (response_format or "json").lower()
+        if fmt == "text":
+            from fastapi.responses import PlainTextResponse
+            return PlainTextResponse(final_text)
+        elif fmt == "verbose_json":
+            return {
+                "task": "transcribe",
+                "language": res.get("detected_language", "en"),
+                "duration": res.get("duration", 0),
+                "text": final_text,
+                "engine": "flowpilot_faster_whisper",
+                "segments": []
+            }
+        else:
+            return {"text": final_text}
+    except Exception as e:
+        print(f"[Server Error] /v1/audio/transcriptions failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Mount UI static files
 ui_dir = Path(__file__).parent.parent / "ui"
