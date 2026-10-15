@@ -29,6 +29,7 @@ TESTS = [
     ("Silero VAD ONNX Asset Resolution", "tests/test_silero_vad_resolution.py"),
     ("End-to-End 5-Cycle Notepad Dictation", "tests/test_notepad_dictation_e2e.py"),
     ("Dissected Competitive Upgrades", "tests/test_dissected_upgrades.py"),
+    ("Cross-Platform Linux & macOS Adapters", "tests/test_cross_platform.py"),
 ]
 
 def ensure_desktop_accessible():

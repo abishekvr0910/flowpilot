@@ -58,6 +58,26 @@ class WindowInspector:
         }
 
         if not HAS_WIN32 or sys.platform != "win32":
+            if sys.platform == "darwin":
+                try:
+                    import subprocess
+                    cmd = 'tell application "System Events" to get name of first application process whose frontmost is true'
+                    proc = subprocess.run(["osascript", "-e", cmd], capture_output=True, text=True, timeout=0.15)
+                    if proc.returncode == 0 and proc.stdout.strip():
+                        pname = proc.stdout.strip().lower()
+                        cat = cls.APP_CATEGORY_MAP.get(pname, "general")
+                        return {"hwnd": 1, "title": pname, "process_name": pname, "category": cat}
+                except Exception:
+                    pass
+            elif sys.platform.startswith("linux"):
+                try:
+                    import subprocess
+                    proc = subprocess.run(["xdotool", "getwindowfocus", "getwindowname"], capture_output=True, text=True, timeout=0.15)
+                    if proc.returncode == 0 and proc.stdout.strip():
+                        title = proc.stdout.strip()
+                        return {"hwnd": 1, "title": title, "process_name": title.lower(), "category": "general"}
+                except Exception:
+                    pass
             return info
 
         try:
