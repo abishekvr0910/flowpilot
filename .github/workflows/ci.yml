@@ -1,0 +1,50 @@
+name: FlowPilot CI & Full-Stack Verification
+
+on:
+  push:
+    branches: [ master, feature/* ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  verify:
+    name: Full-Stack Regression & Integration Suite
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pyinstaller fastapi uvicorn websockets psutil
+
+      - name: Run Python Automated Regression Suite (24 Modules)
+        run: |
+          python tests/run_all_tests.py
+
+      - name: Run Full-Stack Node.js & WebSocket Integration Test
+        run: |
+          npm test
+
+      - name: Run Specification End-to-End Suite (18 Scenarios)
+        run: |
+          python tests/test_final_specification_e2e.py
+
+      - name: Build Standalone Windows Binary Check
+        run: |
+          python -m PyInstaller flowpilot.spec --noconfirm
+          python tests/test_standalone_binary_smoke.py

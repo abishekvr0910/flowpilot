@@ -100,7 +100,8 @@ async def client_test():
     print("\n[RESULT] UI-to-backend REST API & WebSocket pipeline PASSED.")
     return True
 
-if __name__ == "__main__":
+def test_api_and_websocket_pipeline():
+    global test_server
     t = threading.Thread(target=run_test_server, daemon=True)
     t.start()
     success = False
@@ -116,4 +117,8 @@ if __name__ == "__main__":
         except Exception:
             pass
         t.join(timeout=2.0)
-    sys.exit(0 if success else 1)
+    assert success is True
+
+if __name__ == "__main__":
+    test_api_and_websocket_pipeline()
+    sys.exit(0)

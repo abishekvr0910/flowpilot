@@ -82,12 +82,12 @@ function handleServerEvent(data) {
       prependHistoryItem(data.history_entry);
     }
   } else if (state === "idle") {
-    setHudState("idle", "FlowPilot Idle", "Press F8 (or Ctrl + Alt + Space)");
+    setHudState("idle", "FlowPilot Idle", "Press F9 (Hold) or Ctrl + Shift + Space");
     resetWaveform();
   } else if (state === "error") {
     setHudState("error", "Error", data.message || "Failed");
     setTimeout(() => {
-      setHudState("idle", "FlowPilot Idle", "Press F8 (or Ctrl + Alt + Space)");
+      setHudState("idle", "FlowPilot Idle", "Press F9 (Hold) or Ctrl + Shift + Space");
     }, 3000);
   }
 }
