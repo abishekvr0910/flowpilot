@@ -150,6 +150,10 @@ class FloatingHUD(QWidget):
             self.level_bar.hide()
             self.status_label.setText("Transcribing...")
             self._update_style("processing")
+        elif st in ("validating",):
+            self.level_bar.hide()
+            self.status_label.setText("Checking...")
+            self._update_style("validating")
         elif st in ("formatting", "inserting_text"):
             self.level_bar.hide()
             self.status_label.setText("Pasting...")
@@ -189,7 +193,7 @@ class FloatingHUD(QWidget):
             border = "#F97316"
             btn_bg = "#EA580C"
             btn_color = "#FFFFFF"
-        elif state in ("processing", "formatting"):
+        elif state in ("processing", "validating", "formatting"):
             bg = "rgba(24, 20, 15, 0.95)"
             border = "#F59E0B"
             btn_bg = "#D97706"

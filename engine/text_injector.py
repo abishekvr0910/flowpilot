@@ -124,8 +124,14 @@ class TextInjector:
         # 2. Validate target window and restore focus
         if HAS_WIN32 and target_hwnd and sys.platform == "win32":
             if not win32gui.IsWindow(target_hwnd):
-                print(f"[Injector Warning] Target HWND {target_hwnd} is no longer valid. Falling back to active foreground window.")
-                target_hwnd = win32gui.GetForegroundWindow()
+                fg = win32gui.GetForegroundWindow()
+                if fg and win32gui.IsWindow(fg):
+                    print(f"[Injector Warning] Target HWND {target_hwnd} is no longer valid. Falling back to current foreground window {fg}.")
+                    target_hwnd = fg
+                else:
+                    print(f"[Injector Warning] Target HWND {target_hwnd} closed and no foreground window found. Preserving to clipboard.")
+                    cls._safe_clipboard_copy(text)
+                    return False
 
         cls.last_injected_text = text
 
@@ -198,7 +204,7 @@ class TextInjector:
                 def restore_worker():
                     try:
                         current = cls._safe_clipboard_paste()
-                        if current == text:
+                        if current and (current == text or current.strip() == text.strip()):
                             cls._safe_clipboard_copy(saved_to_restore)
                     except Exception:
                         pass

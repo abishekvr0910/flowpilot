@@ -13,6 +13,7 @@ from engine.audio_ducker import AudioDucker
 from engine.hotkey_service import Win32HotkeyService
 from engine.audio_feedback import AudioFeedback
 from engine.personalization import PersonalizationEngine
+from engine.session import DictationSession, SessionState
 
 class AppState:
     IDLE = "IDLE"
@@ -20,6 +21,7 @@ class AppState:
     RECORDING = "RECORDING"
     STOPPING_RECORDING = "STOPPING_RECORDING"
     TRANSCRIBING = "TRANSCRIBING"
+    VALIDATING = "VALIDATING"
     INSERTING_TEXT = "INSERTING_TEXT"
     SUCCESS = "SUCCESS"
     ERROR = "ERROR"
@@ -39,6 +41,7 @@ class FlowOrchestrator:
         
         self.target_window_info: Dict[str, Any] = {}
         self.state = AppState.IDLE
+        self._current_session: Optional[DictationSession] = None
         self._state_lock = threading.RLock()
         self._stop_pending = False
         self.is_processing = False
@@ -68,6 +71,7 @@ class FlowOrchestrator:
             AppState.RECORDING: "listening",
             AppState.STOPPING_RECORDING: "stopping",
             AppState.TRANSCRIBING: "processing",
+            AppState.VALIDATING: "validating",
             AppState.INSERTING_TEXT: "formatting",
             AppState.SUCCESS: "pasted",
             AppState.ERROR: "error",
@@ -114,7 +118,7 @@ class FlowOrchestrator:
 
     def start_dictation(self):
         with self._state_lock:
-            if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.INSERTING_TEXT):
+            if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
                 print(f"[Orchestrator] start_dictation ignored: currently in state {self.state}")
                 return
             self.state = AppState.STARTING_RECORDING
@@ -129,8 +133,17 @@ class FlowOrchestrator:
         self.target_window_info = WindowInspector.get_active_window_info()
         print(f"[Orchestrator] Active window target: {self.target_window_info.get('process_name')} ('{self.target_window_info.get('title')}')")
 
+        # Create new dictation session with unique session token
+        session = DictationSession(
+            target_window_info=self.target_window_info,
+            tone_mode=self.config.get("active_tone_mode", "general")
+        )
+        with self._state_lock:
+            self._current_session = session
+
         # 2. Immediately notify UI of STARTING_RECORDING (zero latency visual feedback)
         self._notify(AppState.STARTING_RECORDING, {
+            "session_id": session.session_id,
             "target_app": self.target_window_info.get("process_name"),
             "mode": self.config.get("active_tone_mode")
         })
@@ -138,22 +151,24 @@ class FlowOrchestrator:
         # 3. Silence background audio asynchronously
         threading.Thread(target=self.ducker.start_ducking, daemon=True, name="FlowPilot-DuckerStart").start()
 
-        def start_worker():
+        def start_worker(active_session: DictationSession):
             try:
                 self.recorder.start_recording()
                 
                 with self._state_lock:
-                    if self.state != AppState.STARTING_RECORDING:
-                        print(f"[Orchestrator] Recording startup aborted because state changed to {self.state}")
+                    if active_session.is_cancelled or active_session != self._current_session or self.state != AppState.STARTING_RECORDING:
+                        print(f"[Orchestrator] Recording startup aborted because state changed or session was cancelled (state={self.state})")
                         self.recorder.stop_recording()
                         return
                     if self._stop_pending:
                         print("[Orchestrator] Stop was requested during microphone initialization.")
                         self._stop_pending = False
                         self.state = AppState.RECORDING
+                        active_session.transition_to(SessionState.RECORDING)
                         self.stop_dictation_and_process()
                         return
                     self.state = AppState.RECORDING
+                    active_session.transition_to(SessionState.RECORDING)
 
                 self.feedback.play_start()
                 
@@ -165,29 +180,33 @@ class FlowOrchestrator:
                 self._auto_stop_timer.start()
 
                 self._notify(AppState.RECORDING, {
+                    "session_id": active_session.session_id,
                     "target_app": self.target_window_info.get("process_name"),
                     "mode": self.config.get("active_tone_mode")
                 })
             except Exception as e:
                 with self._state_lock:
+                    active_session.transition_to(SessionState.ERROR)
                     self.state = AppState.ERROR
                 threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
                 self.feedback.play_error()
                 print(f"[Orchestrator Error] Failed to start recorder: {e}")
-                self._notify(AppState.ERROR, {"message": str(e)})
+                self._notify(AppState.ERROR, {"message": str(e), "session_id": active_session.session_id})
                 time.sleep(2.0)
                 with self._state_lock:
                     if self.state == AppState.ERROR:
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
 
-        threading.Thread(target=start_worker, daemon=True, name="FlowPilot-MicStarter").start()
+        threading.Thread(target=start_worker, args=(session,), daemon=True, name="FlowPilot-MicStarter").start()
 
     def cancel_dictation(self):
         """Emergency cancel: Discards recording immediately without transcribing or inserting."""
         with self._state_lock:
-            if self.state == AppState.IDLE:
+            if self.state == AppState.IDLE and (not self._current_session or not self._current_session.is_active()):
                 return
+            if self._current_session:
+                self._current_session.cancel("user_cancelled")
             self.state = AppState.CANCELLED
             self._stop_pending = False
             self.is_processing = False
@@ -200,6 +219,7 @@ class FlowOrchestrator:
         if self.recorder.is_recording:
             self.recorder.stop_recording()
 
+        # Always guarantee audio ducking restoration immediately on cancel
         threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
         self.feedback.play_cancel()
 
@@ -220,7 +240,13 @@ class FlowOrchestrator:
             if self.state != AppState.RECORDING:
                 return
 
+            session = self._current_session
+            if not session or session.is_cancelled:
+                print("[Orchestrator] Stop ignored: session is null or cancelled.")
+                return
+
             self.state = AppState.STOPPING_RECORDING
+            session.transition_to(SessionState.FINALIZING)
             self.is_processing = True
 
         if self._auto_stop_timer:
@@ -228,12 +254,12 @@ class FlowOrchestrator:
             self._auto_stop_timer = None
 
         self.feedback.play_stop()
-        self._notify(AppState.STOPPING_RECORDING)
+        self._notify(AppState.STOPPING_RECORDING, {"session_id": session.session_id})
 
         # Immediately restore background audio asynchronously
         threading.Thread(target=self.ducker.stop_ducking, daemon=True, name="FlowPilot-DuckerStop").start()
 
-        def process_worker(stop_action_time: float):
+        def process_worker(active_session: DictationSession, stop_action_time: float):
             try:
                 # 1. Stop recorder and get audio data
                 t_cap_start = time.perf_counter()
@@ -241,20 +267,32 @@ class FlowOrchestrator:
                 audio_array = self.recorder.get_last_audio_array()
                 t_cap_end = time.perf_counter()
 
+                with self._state_lock:
+                    if active_session.is_cancelled or active_session != self._current_session:
+                        print(f"[Orchestrator] Session {active_session.session_id} cancelled during capture shutdown. Aborting.")
+                        return
+
                 if not wav_bytes:
                     print("[Orchestrator] Dictation was too brief or empty.")
                     with self._state_lock:
+                        active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self.is_processing = False
                     self._notify(AppState.IDLE, {"notice": "Audio too short."})
                     return
 
+                active_session.audio_bytes = wav_bytes
+                active_session.audio_array = audio_array
                 t_audio_finalized = time.perf_counter()
 
                 # 2. Transition to TRANSCRIBING
                 with self._state_lock:
+                    if active_session.is_cancelled or active_session != self._current_session:
+                        print(f"[Orchestrator] Session {active_session.session_id} cancelled before STT. Aborting.")
+                        return
+                    active_session.transition_to(SessionState.TRANSCRIBING)
                     self.state = AppState.TRANSCRIBING
-                self._notify(AppState.TRANSCRIBING)
+                self._notify(AppState.TRANSCRIBING, {"session_id": active_session.session_id})
 
                 # 3. Transcribe audio (STT) - pass zero-copy float32 array if available
                 t_stt_start = time.perf_counter()
@@ -262,26 +300,42 @@ class FlowOrchestrator:
                 stt_result = self.stt.transcribe(stt_input)
                 t_stt_end = time.perf_counter()
 
+                with self._state_lock:
+                    if active_session.is_cancelled or active_session != self._current_session:
+                        print(f"[Orchestrator] Session {active_session.session_id} cancelled during/after STT. Aborting.")
+                        return
+
                 raw_text = stt_result.get("text", "")
                 detected_lang = stt_result.get("detected_language", "unknown")
+                active_session.raw_text = raw_text
+                active_session.detected_language = detected_lang
                 stt_duration = round(t_stt_end - t_stt_start, 3)
                 print(f"[Orchestrator] STT completed ({stt_duration}s, lang={detected_lang}, chars={len(raw_text)}).")
 
                 if not raw_text or not raw_text.strip():
                     with self._state_lock:
+                        active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self.is_processing = False
                     self._notify(AppState.IDLE, {"notice": "No speech detected."})
                     return
 
-                # 4. Transition to INSERTING_TEXT
+                # 4. Transition to VALIDATING / Context Processing
                 with self._state_lock:
-                    self.state = AppState.INSERTING_TEXT
-                self._notify(AppState.INSERTING_TEXT, {"char_count": len(raw_text)})
+                    if active_session.is_cancelled or active_session != self._current_session:
+                        print(f"[Orchestrator] Session {active_session.session_id} cancelled before validation. Aborting.")
+                        return
+                    active_session.transition_to(SessionState.VALIDATING)
+                    self.state = AppState.VALIDATING
+                self._notify(AppState.VALIDATING, {"char_count": len(raw_text), "session_id": active_session.session_id})
 
                 # Post-process via ContextProcessor
                 t_clean_start = time.perf_counter()
-                formatted_text = self.processor.process(raw_text, self.target_window_info)
+                formatted_text = self.processor.process(
+                    raw_text,
+                    active_session.target_window_info,
+                    session_mode=active_session.tone_mode
+                )
                 if self.personalization:
                     expanded_text, trigger = self.personalization.expand_snippets(formatted_text)
                     if trigger:
@@ -289,11 +343,22 @@ class FlowOrchestrator:
                         formatted_text = expanded_text
                 t_clean_end = time.perf_counter()
                 format_duration = round(t_clean_end - t_clean_start, 3)
+                active_session.candidate_text = formatted_text
+                active_session.final_text = formatted_text
                 print(f"[Orchestrator] Formatting completed ({format_duration}s, chars={len(formatted_text)}).")
 
-                # 5. Inject formatted text into target window with confirmed fallback
+                # 5. Transition to INJECTING
+                with self._state_lock:
+                    if active_session.is_cancelled or active_session != self._current_session:
+                        print(f"[Orchestrator] Session {active_session.session_id} cancelled before injection. Aborting.")
+                        return
+                    active_session.transition_to(SessionState.INJECTING)
+                    self.state = AppState.INSERTING_TEXT
+                self._notify(AppState.INSERTING_TEXT, {"char_count": len(formatted_text), "session_id": active_session.session_id})
+
+                # Inject formatted text into target window with confirmed fallback
                 t_inj_start = time.perf_counter()
-                target_hwnd = self.target_window_info.get("hwnd")
+                target_hwnd = active_session.target_window_info.get("hwnd")
                 injection_method = "clipboard_paste"
                 success = TextInjector.inject(formatted_text, target_hwnd)
                 if not success:
@@ -301,6 +366,8 @@ class FlowOrchestrator:
                     injection_method = "sendinput_unicode"
                     success = TextInjector.inject_unicode_sendinput(formatted_text, target_hwnd)
                 t_inj_end = time.perf_counter()
+                active_session.injection_method = injection_method
+                active_session.injection_success = success
 
                 # Stage-level high-precision timing calculations
                 user_stop_to_cap_ms = round((t_cap_end - stop_action_time) * 1000, 2)
@@ -311,6 +378,14 @@ class FlowOrchestrator:
                 inj_ms = round((t_inj_end - t_inj_start) * 1000, 2)
                 stop_to_visible_text_ms = round((t_inj_end - stop_action_time) * 1000, 2)
                 acoustic_to_visible_text_ms = round((t_inj_end - self._last_speech_perf) * 1000, 2) if self._last_speech_perf > 0 else None
+
+                active_session.record_timing("user_stop_to_cap_ms", user_stop_to_cap_ms)
+                active_session.record_timing("cap_to_finalize_ms", cap_to_finalize_ms)
+                active_session.record_timing("finalize_to_stt_ms", finalize_to_stt_ms)
+                active_session.record_timing("stt_ms", stt_ms)
+                active_session.record_timing("cleanup_ms", cleanup_ms)
+                active_session.record_timing("inj_ms", inj_ms)
+                active_session.record_timing("stop_to_visible_text_ms", stop_to_visible_text_ms)
 
                 self.last_pipeline_timing = {
                     "stop_to_capture_shutdown_ms": user_stop_to_cap_ms,
@@ -330,26 +405,32 @@ class FlowOrchestrator:
                     + (f" | AcousticEnd->VisibleText: {acoustic_to_visible_text_ms}ms" if acoustic_to_visible_text_ms else "")
                 )
 
-                # 6. Save into history and recovery buffer
-                total_duration = round(time.time() - start_time, 2)
+                # 6. Save into history and recovery buffer (fixing undefined start_time)
+                total_duration = round(time.time() - active_session.created_at, 2)
                 save_text = self.config.get("save_history_text", False)
                 history_entry = {
                     "id": int(time.time() * 1000),
+                    "session_id": active_session.session_id,
                     "raw_text": raw_text if save_text else "",
                     "formatted_text": formatted_text if save_text else "",
-                    "target_app": self.target_window_info.get("process_name"),
+                    "target_app": active_session.target_window_info.get("process_name"),
                     "language": detected_lang,
                     "duration_sec": total_duration,
                     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "injection_status": "SUCCESS" if success else "FAILED",
                     "injection_method": injection_method
                 }
-                # Keep active formatted_text in volatile memory for Tray 'Copy Last Dictation'
-                self.last_dictation = {**history_entry, "formatted_text": formatted_text}
+                # Keep active formatted_text and raw_text in volatile memory for Tray 'Copy Last Dictation'
+                self.last_dictation = {
+                    **history_entry,
+                    "formatted_text": formatted_text,
+                    "raw_text": raw_text
+                }
                 
                 # Write local telemetry for pilot program metrics (strictly anonymous, no text)
                 self._record_telemetry({
                     "timestamp": time.time(),
+                    "session_id": active_session.session_id,
                     "datetime": history_entry["timestamp"],
                     "target_app": history_entry["target_app"],
                     "audio_duration_sec": round(len(wav_bytes) / 32000.0, 2),
@@ -372,12 +453,14 @@ class FlowOrchestrator:
                     print("[Orchestrator Error] Text injection failed. Preserving text in clipboard for manual paste.")
                     TextInjector._safe_clipboard_copy(formatted_text)
                     with self._state_lock:
+                        active_session.transition_to(SessionState.ERROR)
                         self.state = AppState.ERROR
                         self.is_processing = False
                     self.feedback.play_error()
                     self._notify(AppState.ERROR, {
                         "message": "Paste failed (saved to clipboard)",
-                        "notice": "Paste failed - saved to clipboard"
+                        "notice": "Paste failed - saved to clipboard",
+                        "session_id": active_session.session_id
                     })
                     time.sleep(2.0)
                     with self._state_lock:
@@ -388,34 +471,44 @@ class FlowOrchestrator:
 
                 # 7. Transition to SUCCESS only when injection was confirmed
                 with self._state_lock:
+                    active_session.transition_to(SessionState.SUCCESS)
                     self.state = AppState.SUCCESS
                     self.is_processing = False
                 self._notify(AppState.SUCCESS, {
                     "text": formatted_text,
                     "total_duration": total_duration,
-                    "history_entry": history_entry
+                    "history_entry": history_entry,
+                    "session_id": active_session.session_id
                 })
 
                 # Show "Pasted!" briefly (0.8s), then transition to IDLE
                 time.sleep(0.8)
                 with self._state_lock:
                     if self.state == AppState.SUCCESS:
+                        active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
 
             except Exception as e:
                 print(f"[Orchestrator Error] Processing failed: {e}")
                 with self._state_lock:
+                    active_session.transition_to(SessionState.ERROR)
                     self.state = AppState.ERROR
                     self.is_processing = False
-                self._notify(AppState.ERROR, {"message": str(e)})
+                self._notify(AppState.ERROR, {"message": str(e), "session_id": active_session.session_id})
                 time.sleep(2.0)
                 with self._state_lock:
                     if self.state == AppState.ERROR:
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
+            finally:
+                # Ensure audio ducking is always cleanly restored
+                try:
+                    self.ducker.stop_ducking()
+                except Exception:
+                    pass
 
-        threading.Thread(target=process_worker, args=(t_stop_action,), daemon=True, name="FlowPilot-Processor").start()
+        threading.Thread(target=process_worker, args=(session, t_stop_action), daemon=True, name="FlowPilot-Processor").start()
 
     def toggle_dictation(self):
         with self._state_lock:
@@ -429,7 +522,7 @@ class FlowOrchestrator:
             print("[Orchestrator] Stop queued while starting recording.")
         elif cur == AppState.RECORDING:
             self.stop_dictation_and_process()
-        elif cur in (AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.INSERTING_TEXT):
+        elif cur in (AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
             print(f"[Orchestrator] Shortcut pressed while {cur}. Displaying progress notification.")
             self._notify(cur, {"notice": "Processing dictation. Please wait..."})
         elif cur == AppState.SUCCESS:

@@ -22,6 +22,10 @@ TESTS = [
     ("Settings Dialog & Hotkey Conflict Inspector", "tests/test_settings_dialog.py"),
     ("Extended Speech Model Benchmarks", "tests/test_model_benchmarks_extended.py"),
     ("Orchestrator 9-State Machine & Robustness", "tests/test_orchestrator_state_machine.py"),
+    ("Dictation Session Lifecycle & Ownership", "tests/test_session_lifecycle.py"),
+    ("FactGuard v2 Conservative Entity Guard", "tests/test_factguard_v2.py"),
+    ("Application Profiles & Precedence", "tests/test_application_profiles.py"),
+    ("Voice Snippets Hardening & Literal Safety", "tests/test_personalization_snippets.py"),
     ("Silero VAD ONNX Asset Resolution", "tests/test_silero_vad_resolution.py"),
     ("End-to-End 5-Cycle Notepad Dictation", "tests/test_notepad_dictation_e2e.py"),
 ]

@@ -11,6 +11,79 @@ from typing import Dict, Any, Optional
 from openai import OpenAI
 from engine.writing_intelligence import WritingIntelligence
 
+class ProfileResolver:
+    """
+    Resolves writing profiles using deterministic precedence:
+    1. Explicit session-level selection (session_mode)
+    2. Per-app configuration in config['app_profiles'][process_name]
+    3. Window category auto-detection (from WindowInspector)
+    4. Default fallback in config['active_tone_mode']
+    """
+    TERMINAL_PROCESSES = {
+        "cmd.exe", "powershell.exe", "windowsterminal.exe",
+        "bash.exe", "wsl.exe", "alacritty.exe", "wezterm-gui.exe", "mintty.exe"
+    }
+
+    DEVELOPER_PROCESSES = {
+        "code.exe", "cursor.exe", "devenv.exe", "pycharm64.exe",
+        "idea64.exe", "sublime_text.exe", "notepad++.exe"
+    }
+
+    CHAT_PROCESSES = {
+        "slack.exe", "teams.exe", "discord.exe", "telegram.exe", "whatsapp.exe"
+    }
+
+    EMAIL_PROCESSES = {
+        "outlook.exe", "thunderbird.exe"
+    }
+
+    VALID_PROFILES = {"general", "professional", "developer", "terminal", "email", "chat", "concise", "casual", "verbatim"}
+
+    @classmethod
+    def resolve(
+        cls,
+        config: Dict[str, Any],
+        active_window: Optional[Dict[str, Any]] = None,
+        session_mode: Optional[str] = None
+    ) -> str:
+        # Precedence 1: Explicit session override
+        if session_mode and session_mode in cls.VALID_PROFILES:
+            return session_mode
+
+        process_name = (active_window.get("process_name", "") if active_window else "").lower()
+
+        # Precedence 2: Configured per-app mapping in config["app_profiles"]
+        app_profiles = config.get("app_profiles", {})
+        if process_name and process_name in app_profiles:
+            configured_profile = app_profiles[process_name].lower()
+            if configured_profile in cls.VALID_PROFILES:
+                return configured_profile
+
+        # Precedence 3: Auto-detect active app category
+        if config.get("auto_detect_active_app", True):
+            if process_name in cls.TERMINAL_PROCESSES:
+                return "terminal"
+            elif process_name in cls.DEVELOPER_PROCESSES:
+                return "developer"
+            elif process_name in cls.CHAT_PROCESSES:
+                return "chat"
+            elif process_name in cls.EMAIL_PROCESSES:
+                return "email"
+
+            cat = (active_window.get("category", "") if active_window else "").lower()
+            if cat == "terminal":
+                return "terminal"
+            elif cat == "developer":
+                return "developer"
+            elif cat == "chat":
+                return "chat"
+            elif cat == "email":
+                return "email"
+
+        # Precedence 4: Default fallback
+        fallback = config.get("active_tone_mode", "professional").lower()
+        return fallback if fallback in cls.VALID_PROFILES else "professional"
+
 class ContextProcessor:
     """
     Intelligent post-processor that cleans, formats, and adapts spoken text
@@ -26,6 +99,27 @@ class ContextProcessor:
             "- PRESERVE the speaker's original intent, numbers, dates, and names exactly.\n"
             "- DO NOT summarize, paraphrase, or truncate.\n"
             "- Output ONLY the final text without quotes."
+        ),
+        "general": (
+            "You are an expert speech-to-text editor. Your task is to polish raw dictated text:\n"
+            "- Remove filler sounds and speech stutters.\n"
+            "- Fix capitalization, punctuation, and obvious grammar errors.\n"
+            "- PRESERVE the speaker's original intent, numbers, dates, and names exactly.\n"
+            "- Output ONLY the final text without quotes."
+        ),
+        "terminal": (
+            "You are a command line and shell interface dictation assistant:\n"
+            "- Output exact, valid shell commands or paths.\n"
+            "- Strictly NEVER add trailing periods, quotes, or markdown backticks.\n"
+            "- Preserve CLI flags (--flag, -f) and case sensitivity.\n"
+            "- Output ONLY the final command string."
+        ),
+        "chat": (
+            "You are a casual chat message assistant:\n"
+            "- Output natural conversational prose.\n"
+            "- Fix typos and remove filler sounds (um, uh).\n"
+            "- Do not add heavy punctuation or unnecessary trailing periods to short responses.\n"
+            "- Output ONLY the final text."
         ),
         "developer": (
             "You are a developer-focused dictation assistant. The user is writing code, commands, or technical documentation:\n"
@@ -63,28 +157,24 @@ class ContextProcessor:
         self.personalization = personalization
         self.local_engine = WritingIntelligence(config, personalization=personalization)
 
-    def process(self, raw_text: str, active_window: Optional[Dict[str, Any]] = None) -> str:
+    def process(
+        self,
+        raw_text: str,
+        active_window: Optional[Dict[str, Any]] = None,
+        session_mode: Optional[str] = None
+    ) -> str:
         if not raw_text or not raw_text.strip():
             return ""
 
         raw_trimmed = raw_text.strip()
-        configured_mode = self.config.get("active_tone_mode", "professional")
+        style = ProfileResolver.resolve(self.config, active_window, session_mode)
 
         # 1. Check for Verbatim Mode
-        if configured_mode == "verbatim":
+        if style == "verbatim":
             res = self.local_engine.polish(raw_trimmed, mode="verbatim")
             return res["text"]
 
-        # 2. Determine target style
-        style = configured_mode
-        if self.config.get("auto_detect_active_app", True) and active_window:
-            category = active_window.get("category", "general")
-            if category == "developer" and configured_mode not in ("verbatim", "email"):
-                style = "developer"
-            elif category == "chat" and configured_mode == "email":
-                style = "casual"
-
-        # 3. Apply Local Deterministic Polishing (Self-corrections, fillers, stutters, lists, tech terms)
+        # 2. Apply Local Deterministic Polishing (Self-corrections, fillers, stutters, lists, tech terms, FactGuard)
         local_result = self.local_engine.polish(raw_trimmed, mode="polished", style=style)
         polished_text = local_result["text"]
 

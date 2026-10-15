@@ -190,20 +190,31 @@ class PersonalizationEngine:
 
     # --- SNIPPET OPERATIONS ---
 
-    def add_snippet(self, trigger: str, expansion: str) -> None:
-        """Adds or updates a voice snippet trigger."""
+    def add_snippet(self, trigger: str, expansion: str) -> Dict[str, Any]:
+        """
+        Adds or updates a voice snippet trigger.
+        Performs conflict detection and enforces static literal templates.
+        """
         trigger = trigger.strip().lower()
         if not trigger or not expansion:
-            return
+            return {"status": "error", "message": "Trigger and expansion cannot be empty"}
 
+        warnings = []
+        # Check for conflicting or overlapping triggers
         for item in self.snippets:
-            if item.get("trigger", "").lower() == trigger:
+            existing_tr = item.get("trigger", "").lower()
+            if existing_tr == trigger:
                 item["expansion"] = expansion
                 self.save()
-                return
+                return {"status": "updated", "warnings": warnings}
+            elif existing_tr in trigger:
+                warnings.append(f"Notice: Trigger '{trigger}' contains existing sub-trigger '{existing_tr}'. Longest match precedence will apply.")
+            elif trigger in existing_tr:
+                warnings.append(f"Notice: Existing trigger '{existing_tr}' contains new trigger '{trigger}'. Longest match precedence will apply.")
 
         self.snippets.append({"trigger": trigger, "expansion": expansion})
         self.save()
+        return {"status": "added", "warnings": warnings}
 
     def remove_snippet(self, trigger: str) -> bool:
         """Removes a voice snippet by its trigger phrase."""
@@ -218,20 +229,30 @@ class PersonalizationEngine:
         """
         Checks if text contains or matches a voice snippet trigger.
         Replaces the spoken trigger phrase with its expanded snippet.
+        Matches longer triggers first to resolve overlapping phrases.
+        Uses literal replacement to guarantee zero command/template injection.
         """
         if not text:
             return text, None
 
-        for item in self.snippets:
+        # Sort snippets by trigger length descending so specific longer triggers take precedence
+        sorted_snippets = sorted(
+            self.snippets,
+            key=lambda item: len(item.get("trigger", "")),
+            reverse=True
+        )
+
+        for item in sorted_snippets:
             trigger = item.get("trigger", "").strip()
             expansion = item.get("expansion", "")
             if not trigger or not expansion:
                 continue
 
-            # Check for case-insensitive trigger phrase
-            pattern = r"(?i)\b" + re.escape(trigger) + r"\b"
+            # Check for case-insensitive whole-word trigger phrase
+            pattern = r"(?i)(?<!\w)" + re.escape(trigger) + r"(?!\w)"
             if re.search(pattern, text):
-                expanded_text = re.sub(pattern, expansion, text).strip()
+                # Lambda replacement ensures literal string injection without regex backreference parsing
+                expanded_text = re.sub(pattern, lambda m: expansion, text).strip()
                 return expanded_text, trigger
 
         return text, None
