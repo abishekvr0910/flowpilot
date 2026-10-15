@@ -1,0 +1,49 @@
+name: FlowPilot Hardware & Interactive Desktop Suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_scope:
+        description: 'Interactive test scope to execute'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'e2e_18_scenario'
+          - 'cross_app_injection'
+
+jobs:
+  interactive_desktop_tests:
+    name: Interactive Desktop & Audio Test Battery
+    runs-on: [self-hosted, windows]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install psutil websockets
+
+      - name: Verify Audio Capture Hardware
+        run: |
+          python tests/test_audio.py
+
+      - name: Run 18-Scenario E2E Specification Suite
+        if: ${{ inputs.test_scope == 'all' || inputs.test_scope == 'e2e_18_scenario' }}
+        run: |
+          python -X utf8 tests/test_final_specification_e2e.py
+
+      - name: Run Cross-Application Injection Suite
+        if: ${{ inputs.test_scope == 'all' || inputs.test_scope == 'cross_app_injection' }}
+        run: |
+          python -X utf8 tests/test_cross_app_injection.py

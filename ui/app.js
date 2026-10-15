@@ -162,11 +162,18 @@ toneCards.forEach(card => {
 
 // Custom Vocabulary Management
 function renderVocabTags(tags) {
-  vocabTagsContainer.innerHTML = "";
+  vocabTagsContainer.textContent = "";
   tags.forEach(tag => {
     const chip = document.createElement("div");
     chip.className = "tag-chip";
-    chip.innerHTML = `<span>${tag}</span><span class="remove-btn" onclick="removeVocabTag('${tag}')">&times;</span>`;
+    const tagSpan = document.createElement("span");
+    tagSpan.textContent = tag;
+    const removeBtn = document.createElement("span");
+    removeBtn.className = "remove-btn";
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => removeVocabTag(tag));
+    chip.appendChild(tagSpan);
+    chip.appendChild(removeBtn);
     vocabTagsContainer.appendChild(chip);
   });
 }
@@ -193,15 +200,27 @@ function addVocab() {
   }
 }
 
+function createEmptyHistoryElement() {
+  const empty = document.createElement("div");
+  empty.className = "history-empty";
+  const icon = document.createElement("span");
+  icon.textContent = "🎙️";
+  const p = document.createElement("p");
+  p.appendChild(document.createTextNode("No dictations recorded yet.\nPress "));
+  const strong = document.createElement("strong");
+  strong.textContent = "Ctrl + Shift + Space";
+  p.appendChild(strong);
+  p.appendChild(document.createTextNode(" anywhere to start!"));
+  empty.appendChild(icon);
+  empty.appendChild(p);
+  return empty;
+}
+
 // History List Rendering
 function renderHistory(history) {
-  historyList.innerHTML = "";
+  historyList.textContent = "";
   if (!history || history.length === 0) {
-    historyList.innerHTML = `
-      <div class="history-empty">
-        <span>🎙️</span>
-        <p>No dictations recorded yet.<br>Press <strong>Ctrl + Shift + Space</strong> anywhere to start!</p>
-      </div>`;
+    historyList.appendChild(createEmptyHistoryElement());
     return;
   }
 
@@ -214,14 +233,37 @@ function prependHistoryItem(item, isNew = true) {
 
   const el = document.createElement("div");
   el.className = "history-item";
-  el.innerHTML = `
-    <div class="history-item-header">
-      <span class="history-app-badge">${item.target_app || "system"}</span>
-      <span>${item.timestamp || ""} (${item.duration_sec || 0}s)</span>
-    </div>
-    <div class="history-text">${escapeHtml(item.formatted_text || item.raw_text || "")}</div>
-    <button class="history-copy-btn" onclick="copyToClipboard('${escapeJs(item.formatted_text || item.raw_text || "")}')">Copy</button>
-  `;
+
+  const header = document.createElement("div");
+  header.className = "history-item-header";
+
+  const badge = document.createElement("span");
+  badge.className = "history-app-badge";
+  badge.textContent = item.target_app || "system";
+
+  const timeSpan = document.createElement("span");
+  timeSpan.textContent = `${item.timestamp || ""} (${item.duration_sec || 0}s)`;
+
+  header.appendChild(badge);
+  header.appendChild(timeSpan);
+
+  const textDiv = document.createElement("div");
+  textDiv.className = "history-text";
+  const contentText = item.formatted_text || item.raw_text || "";
+  textDiv.textContent = contentText;
+
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "history-copy-btn";
+  copyBtn.textContent = "Copy";
+  copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(contentText);
+    copyBtn.textContent = "Copied!";
+    setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+  });
+
+  el.appendChild(header);
+  el.appendChild(textDiv);
+  el.appendChild(copyBtn);
 
   if (isNew) {
     historyList.prepend(el);
@@ -232,11 +274,8 @@ function prependHistoryItem(item, isNew = true) {
 
 clearHistoryBtn.addEventListener("click", async () => {
   await fetch("/api/history", { method: "DELETE" });
-  historyList.innerHTML = `
-    <div class="history-empty">
-      <span>🎙️</span>
-      <p>No dictations recorded yet.<br>Press <strong>Ctrl + Shift + Space</strong> anywhere to start!</p>
-    </div>`;
+  historyList.textContent = "";
+  historyList.appendChild(createEmptyHistoryElement());
 });
 
 // Mic Button in HUD
@@ -274,15 +313,6 @@ async function saveConfigToServer() {
   }
 }
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function escapeJs(text) {
-  return text.replace(/'/g, "\\'").replace(/\n/g, "\\n");
-}
 
 window.copyToClipboard = function(text) {
   navigator.clipboard.writeText(text);

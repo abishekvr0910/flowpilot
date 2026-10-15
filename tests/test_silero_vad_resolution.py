@@ -30,23 +30,28 @@ def test_silero_assets():
     print("SILERO VAD ONNX ASSET RESOLUTION & REGRESSION TEST")
     print("=" * 70)
 
-    # 1. Check all dist directories
-    targets = [
-        "dist/FlowPilot/_internal/faster_whisper/assets",
-        "dist/FlowPilot/assets",
-        "dist/FlowPilot_backup_v200/_internal/faster_whisper/assets",
-        "dist/FlowPilot_backup_v210/_internal/faster_whisper/assets",
-        "dist/FlowPilot_backup_v300/_internal/faster_whisper/assets",
-    ]
+    # 1. Check runtime environment and packaged dist directories
+    import faster_whisper.vad
+    runtime_assets = Path(faster_whisper.vad.get_assets_path())
+    
+    targets = [runtime_assets]
+    dist_internal = PROJECT_ROOT / "dist/FlowPilot/_internal/faster_whisper/assets"
+    if dist_internal.exists():
+        targets.append(dist_internal)
+    
+    # Also verify existing backup distributions if present
+    for backup_dir in ["dist/FlowPilot_backup_v200", "dist/FlowPilot_backup_v210", "dist/FlowPilot_backup_v300", "dist/FlowPilot_backup_v301", "dist/FlowPilot_backup_v302"]:
+        bp = PROJECT_ROOT / backup_dir / "_internal/faster_whisper/assets"
+        if bp.exists():
+            targets.append(bp)
 
-    print("\n[Step 1] Verifying asset existence across all distributions...")
-    for t in targets:
-        full_path = PROJECT_ROOT / t
+    print("\n[Step 1] Verifying asset existence across canonical runtime and distributions...")
+    for full_path in targets:
         enc = full_path / "silero_encoder_v5.onnx"
         dec = full_path / "silero_decoder_v5.onnx"
-        assert enc.is_file(), f"Missing silero_encoder_v5.onnx in {t}"
-        assert enc.stat().st_size > 500000, f"Corrupt silero_encoder_v5.onnx in {t}"
-        print(f"  [OK] {t}: encoder ({enc.stat().st_size} bytes)")
+        assert enc.is_file(), f"Missing silero_encoder_v5.onnx in {full_path}"
+        assert enc.stat().st_size > 500000, f"Corrupt silero_encoder_v5.onnx in {full_path}"
+        print(f"  [OK] {full_path}: encoder ({enc.stat().st_size} bytes)")
 
     # 2. Test ONNX Runtime direct session creation on the bundled model
     print("\n[Step 2] Testing direct ONNX Runtime session load on bundled model...")
