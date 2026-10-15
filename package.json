@@ -1,0 +1,29 @@
+{
+  "name": "flowpilot",
+  "version": "3.1.0-pilot",
+  "description": "Full-stack desktop voice intelligence interface and web companion for Windows",
+  "type": "module",
+  "main": "ui/app.js",
+  "scripts": {
+    "test": "node tests/test_fullstack_node_client.mjs",
+    "test:api": "python tests/test_api_and_websocket.py",
+    "test:py": "python tests/run_all_tests.py",
+    "start:web": "python -c \"import uvicorn; from engine.server import app; uvicorn.run(app, host='127.0.0.1', port=8765)\"",
+    "start:desktop": "python desktop_app.py"
+  },
+  "keywords": [
+    "speech-to-text",
+    "voice-dictation",
+    "windows",
+    "faster-whisper",
+    "fastapi",
+    "websocket",
+    "full-stack"
+  ],
+  "author": "FlowPilot Contributors",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
