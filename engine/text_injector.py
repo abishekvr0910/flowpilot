@@ -58,6 +58,18 @@ class TextInjector:
     _restore_lock = threading.Lock()
     _restore_timer: Optional[threading.Timer] = None
     _original_clipboard: Optional[str] = None
+    _last_copy_seq: Optional[int] = None
+
+    @classmethod
+    def _get_clipboard_sequence_number(cls) -> Optional[int]:
+        """Returns Win32 GetClipboardSequenceNumber() to atomically verify clipboard changes."""
+        if HAS_WIN32 and sys.platform == "win32":
+            try:
+                import ctypes
+                return int(ctypes.windll.user32.GetClipboardSequenceNumber())
+            except Exception:
+                return None
+        return None
 
     @classmethod
     def _safe_clipboard_copy(cls, text: str, max_retries: int = 8, retry_delay: float = 0.08) -> bool:
@@ -254,6 +266,8 @@ class TextInjector:
                     return InjectionResult(status=InjectionStatus.SENT_UNVERIFIED, chars_sent=len(text), target_hwnd=target_hwnd)
                 return InjectionResult(status=InjectionStatus.ERROR, error_message="Direct injection and clipboard copy failed.")
             time.sleep(0.015)
+            post_copy_seq = cls._get_clipboard_sequence_number()
+            cls._last_copy_seq = post_copy_seq
 
             # 4. Detect legacy console requiring Shift+Insert
             is_legacy_console = False
@@ -320,14 +334,27 @@ class TextInjector:
                 saved_to_restore = cls._original_clipboard
                 def restore_worker():
                     try:
+                        # 1. Content matching check: only restore if clipboard still holds our injected text
                         current = cls._safe_clipboard_paste()
-                        if current and (current == text or current.strip() == text.strip()):
-                            cls._safe_clipboard_copy(saved_to_restore)
-                    except Exception:
-                        pass
-                    with cls._restore_lock:
-                        cls._original_clipboard = None
-                        cls._restore_timer = None
+                        if not current or (current != text and current.strip() != text.strip()):
+                            # User copied something else (or non-text object); preserve user data
+                            return
+
+                        # 2. Check atomic Win32 clipboard sequence counter:
+                        # If sequence moved since FlowPilot's last write, user made a newer copy event
+                        cur_seq = cls._get_clipboard_sequence_number()
+                        if cls._last_copy_seq is not None and cur_seq is not None and cur_seq != cls._last_copy_seq:
+                            print(f"[Injector Security] Clipboard sequence changed ({cls._last_copy_seq} -> {cur_seq}). Skipping restore to protect user's newer copy.")
+                            return
+
+                        cls._safe_clipboard_copy(saved_to_restore)
+                        cls._last_copy_seq = cls._get_clipboard_sequence_number()
+                    except Exception as e:
+                        print(f"[Injector Notice] Clipboard restore skipped: {e}")
+                    finally:
+                        with cls._restore_lock:
+                            cls._original_clipboard = None
+                            cls._restore_timer = None
 
                 with cls._restore_lock:
                     cls._restore_timer = threading.Timer(1.5, restore_worker)
@@ -473,6 +500,7 @@ class TextInjector:
         finally:
             if orig_clip is not None:
                 cls._safe_clipboard_copy(orig_clip)
+                cls._last_copy_seq = cls._get_clipboard_sequence_number()
 
     @classmethod
     def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 1.0) -> bool:

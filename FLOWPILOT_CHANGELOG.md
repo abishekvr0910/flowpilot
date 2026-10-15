@@ -2,9 +2,25 @@
 
 All notable changes, bug fixes, and architectural evolutions to FlowPilot are documented in this file.
 
-## [Unreleased] — *Developer-First Reliability Upgrade (Branch: `feature/developer-reliability-upgrade`)*
+## [Unreleased] — *Competitive Architecture Upgrades & Reliability Hardening*
 
 ### Added
+- **Continuous Pre-Roll Audio Ring Buffer (`engine/audio_recorder.py`):**
+  - Implemented continuous 350ms float32 sliding ring buffer (`collections.deque`) maintaining warm audio context before hotkey press.
+  - Added background zero-latency warm-up stream (`warmup_stream()`), completely eliminating the 100–180ms PortAudio startup latency and preventing first-syllable speech clipping.
+- **TapLatch™ Hands-Free Dictation Gesture & `Alt+Shift+Z` Quick Re-Paste (`engine/hotkey_service.py`, `engine/orchestrator.py`):**
+  - Built a 4-state finite state machine (`IDLE`, `HELD`, `PENDING`, `LATCHED`):
+    - Single hold: Push-to-talk (stops and transcribes on key release).
+    - Rapid double-tap (<350ms): Locks into continuous hands-free dictation mode without needing to hold down the key.
+    - Tap while latched: Immediate stop and transcribe.
+  - Registered global shortcut `Alt+Shift+Z` (`re_inject_last()`): instantly re-injects the most recent dictation buffer into the active window if focus was lost or injection was disrupted.
+- **Atomic Win32 Clipboard Sequence Verification (`engine/text_injector.py`):**
+  - Integrated native `ctypes.windll.user32.GetClipboardSequenceNumber()` verification inspired by SpeakoFlow's atomic sequence guard.
+  - Compares sequence numbers before restoring clipboard contents: if the user copies new data during the post-injection delay, clipboard restoration is automatically aborted to preserve the user's latest clipboard state.
+- **Local OpenAI-Compatible Audio Transcriptions API (`engine/server.py`):**
+  - Added drop-in `POST /v1/audio/transcriptions` and `GET /v1/models` endpoints to FlowPilot's FastAPI server (`http://127.0.0.1:8765/v1`).
+  - Supports standard OpenAI format parameters (`model`, `language`, `response_format`), audio multipart uploads, and local FactGuard polishing.
+  - Enables out-of-the-box integration with Cursor IDE, Open WebUI, Obsidian Whisper plugins, and local developer workflows without cloud API keys.
 - **Explicit Dictation Session Lifecycle & Ownership (`engine/session.py`):**
   - Implemented `DictationSession` and `SessionState` (`IDLE`, `RECORDING`, `FINALIZING`, `TRANSCRIBING`, `VALIDATING`, `INJECTING`, `SUCCESS`, `CANCELLED`, `ERROR`) with deterministic transition matrix `LEGAL_TRANSITIONS`.
   - Added unique monotonic session tokens (`fp-sess-<hex>`) owning audio buffers, raw transcripts, candidate rewrites, validation diagnostics, and monotonic stage timings.

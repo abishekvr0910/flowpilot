@@ -50,6 +50,14 @@ async def client_test():
     print(f"  Response: {post_data.get('status')}")
     assert post_res.status == 200, "POST /api/config failed"
 
+    # 2b. Test GET /v1/models (OpenAI compatibility)
+    print("\n[Step 2b] Testing GET /v1/models...")
+    m_req = urllib.request.urlopen("http://127.0.0.1:8765/v1/models")
+    m_data = json.loads(m_req.read().decode())
+    assert m_req.status == 200, "GET /v1/models failed"
+    assert m_data.get("object") == "list"
+    print(f"  Status: {m_req.status}, Models: {[m['id'] for m in m_data.get('data', [])]}")
+
     # 3. Test WebSocket connection and events
     print("\n[Step 3] Testing WebSocket (/ws) communication...")
     uri = "ws://127.0.0.1:8765/ws"

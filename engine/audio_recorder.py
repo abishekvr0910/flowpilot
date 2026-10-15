@@ -1,6 +1,7 @@
 import io
 import time
 import threading
+import collections
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
@@ -32,12 +33,25 @@ class AudioRecorder:
         self.level_callback: Optional[Callable[[float], None]] = None
         self._lock = threading.Lock()
 
+        # Pre-roll circular ring buffer (prevents clipping the first syllable)
+        self.preroll_seconds: float = 0.35
+        self.enable_preroll: bool = True
+        self._preroll_buffer: collections.deque = collections.deque()
+
     def _audio_callback(self, indata, frames, time_info, status):
-        if not self.is_recording:
-            return
         try:
             if status:
                 print(f"[Audio Warning] {status}")
+
+            if not self.is_recording:
+                # Maintain rolling pre-roll buffer while idle so first word is never clipped
+                if self.enable_preroll and frames > 0:
+                    self._preroll_buffer.append(indata.copy())
+                    max_chunks = max(1, int(self.capture_sample_rate * self.preroll_seconds / frames))
+                    while len(self._preroll_buffer) > max_chunks:
+                        self._preroll_buffer.popleft()
+                return
+
             self.audio_frames.append(indata.copy())
             if self.level_callback:
                 rms = np.sqrt(np.mean(indata**2))
@@ -46,6 +60,26 @@ class AudioRecorder:
         except Exception:
             pass
 
+    def warmup_stream(self):
+        """Pre-arms the PortAudio stream at startup so recording starts with zero latency and hot pre-roll."""
+        with self._lock:
+            if self.stream and getattr(self.stream, "active", False):
+                return
+            try:
+                self.capture_sample_rate = self.sample_rate
+                self.stream = sd.InputStream(
+                    samplerate=self.sample_rate,
+                    channels=self.channels,
+                    dtype="float32",
+                    device=self.device,
+                    callback=self._audio_callback
+                )
+                self.stream.start()
+                print("[Audio] Pre-roll stream warmed up and monitoring.")
+            except Exception as e:
+                # Silently defer to on-demand start
+                pass
+
     def start_recording(self):
         with self._lock:
             if self.is_recording:
@@ -53,7 +87,19 @@ class AudioRecorder:
             if self.sample_rate <= 0:
                 raise ValueError(f"Invalid sample rate: {self.sample_rate}")
 
-            # Ensure any lingering stream is cleanly terminated
+            # 1. If stream is already hot and running, start recording immediately with pre-roll!
+            if self.stream and getattr(self.stream, "active", False):
+                if self.enable_preroll and self._preroll_buffer:
+                    self.audio_frames = list(self._preroll_buffer)
+                    self._preroll_buffer.clear()
+                else:
+                    self.audio_frames = []
+                self.last_audio_array = None
+                self.is_recording = True
+                print(f"[Audio] Recording started with hot stream (pre-roll: {len(self.audio_frames)} chunks)...")
+                return
+
+            # 2. Otherwise start a new stream
             if self.stream:
                 try:
                     self.stream.stop()
@@ -62,7 +108,11 @@ class AudioRecorder:
                     pass
                 self.stream = None
 
-            self.audio_frames = []
+            if self.enable_preroll and self._preroll_buffer:
+                self.audio_frames = list(self._preroll_buffer)
+                self._preroll_buffer.clear()
+            else:
+                self.audio_frames = []
             self.last_audio_array = None
             self.capture_sample_rate = self.sample_rate
             self.is_recording = True
@@ -105,12 +155,12 @@ class AudioRecorder:
                     print(f"[Audio Error] Failed to start stream: {e}")
                     raise e
 
-    def stop_recording(self) -> Optional[bytes]:
+    def stop_recording(self, keep_stream_alive: bool = True) -> Optional[bytes]:
         with self._lock:
             if not self.is_recording and not self.stream:
                 return None
             self.is_recording = False
-            if self.stream:
+            if not keep_stream_alive and self.stream:
                 try:
                     self.stream.stop()
                     self.stream.close()
@@ -148,6 +198,19 @@ class AudioRecorder:
             wav_bytes = buffer.getvalue()
             print(f"[Audio] Captured {duration:.2f}s of audio ({len(wav_bytes)} bytes)")
             return wav_bytes
+
+    def close(self):
+        """Cleanly terminates and releases the underlying audio device."""
+        with self._lock:
+            self.is_recording = False
+            if self.stream:
+                try:
+                    self.stream.stop()
+                    self.stream.close()
+                except Exception:
+                    pass
+                self.stream = None
+            self._preroll_buffer.clear()
 
     def get_last_audio_array(self) -> Optional[np.ndarray]:
         """Returns the last captured audio as a 1D float32 numpy array at 16kHz."""

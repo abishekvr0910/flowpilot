@@ -219,6 +219,9 @@ class FlowOrchestrator:
         if self.recorder.is_recording:
             self.recorder.stop_recording()
 
+        if hasattr(self, "_tap_latch") and self._tap_latch:
+            self._tap_latch.reset()
+
         # Always guarantee audio ducking restoration immediately on cancel
         threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
         self.feedback.play_cancel()
@@ -585,15 +588,22 @@ class FlowOrchestrator:
         - Single-key toggle: F9
         """
         try:
+            from engine.hotkey_service import TapLatch
+            self._tap_latch = TapLatch(
+                on_start=self.start_dictation,
+                on_stop=self.stop_dictation_and_process,
+                window_ms=350
+            )
+
             primary_hk = self.config.get("hotkey", "Ctrl+Shift+Space")
             clean_hk = primary_hk.replace("<", "").replace(">", "").strip()
             mode = self.config.get("hotkey_mode", "toggle")
 
             if mode == "push_to_talk":
-                # Push-to-talk: keydown starts, keyup stops
-                self.hotkey_service.register(clean_hk, self.start_dictation, on_release=self.stop_dictation_and_process)
+                # Push-to-talk with TapLatch double-tap hands-free support
+                self.hotkey_service.register(clean_hk, self._tap_latch.press, on_release=self._tap_latch.release)
                 if clean_hk.lower() != "f9":
-                    self.hotkey_service.register("F9", self.start_dictation, on_release=self.stop_dictation_and_process)
+                    self.hotkey_service.register("F9", self._tap_latch.press, on_release=self._tap_latch.release)
                 if clean_hk.lower() != "ctrl+alt+space":
                     self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
             else:
@@ -603,10 +613,16 @@ class FlowOrchestrator:
                     self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
                 if clean_hk.lower() != "f9":
                     self.hotkey_service.register("F9", self.toggle_dictation)
+
+            # Register Alt+Shift+Z for instant paste-last-dictation recovery
+            try:
+                self.hotkey_service.register("Alt+Shift+Z", self.re_inject_last)
+            except Exception:
+                pass
             
             success = self.hotkey_service.start(timeout=3.0)
             if success:
-                print(f"[Orchestrator] Native Win32 Hotkey Service active: '{clean_hk}' (mode={mode}), 'Ctrl + Alt + Space', 'F9'")
+                print(f"[Orchestrator] Native Win32 Hotkey Service active: '{clean_hk}' (mode={mode}), 'Ctrl + Alt + Space', 'F9', 'Alt + Shift + Z' (Recovery)")
             else:
                 print(f"[Orchestrator Warning] Win32 Hotkey Service encountered errors: {self.hotkey_service.stats['errors']}")
         except Exception as e:
