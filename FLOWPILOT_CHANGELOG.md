@@ -2,6 +2,47 @@
 
 All notable changes, bug fixes, and architectural evolutions to FlowPilot are documented in this file.
 
+## [Unreleased] — *Developer-First Reliability Upgrade (Branch: `feature/developer-reliability-upgrade`)*
+
+### Added
+- **Explicit Dictation Session Lifecycle & Ownership (`engine/session.py`):**
+  - Implemented `DictationSession` and `SessionState` (`IDLE`, `RECORDING`, `FINALIZING`, `TRANSCRIBING`, `VALIDATING`, `INJECTING`, `SUCCESS`, `CANCELLED`, `ERROR`) with deterministic transition matrix `LEGAL_TRANSITIONS`.
+  - Added unique monotonic session tokens (`fp-sess-<hex>`) owning audio buffers, raw transcripts, candidate rewrites, validation diagnostics, and monotonic stage timings.
+  - Injected cancellation guards across every pipeline stage: emergency cancellation immediately invalidates the active session token, preventing late STT callbacks from injecting text into subsequent user windows.
+  - Added regression test suite `tests/test_session_lifecycle.py` (4/4 passing).
+- **Conservative Semantic Validation Layer — FactGuard v2 (`engine/writing_intelligence.py`):**
+  - Added structured entity extraction for protected tokens: critical negations with equivalence matching, numeric values, decimals, currencies, unit integrity (`1450 units` vs `$1450 units`), soundalike number confusions (`15` vs `50`), CLI flags (`--dry-run`, `-rf`), file paths, URLs, and user dictionary phrases.
+  - Defined explicit transformation taxonomy: `SAFE_FORMATTING`, `REVIEWABLE_REWRITE`, `PROTECTED`.
+  - Conservative fallback: on any protected entity drop, mutation, or unit-currency corruption, candidate polish is safely rejected and falls back to raw transcript with zero semantic drift.
+  - Added adversarial regression test suite `tests/test_factguard_v2.py` (7/7 passing).
+- **Application-Aware Writing Profiles & Precedence Resolver (`engine/context_processor.py`):**
+  - Implemented `ProfileResolver` enforcing strict deterministic precedence:
+    1. Explicit session selection (`session_mode`)
+    2. Per-app configuration mapping in `config["app_profiles"]`
+    3. Window category auto-detection (Terminal, Developer, Chat, Email)
+    4. Default fallback in `config["active_tone_mode"]`
+  - Added dedicated `terminal` profile: guarantees verbatim CLI command casing (e.g. `git`, `npm`, `docker`), preserves CLI flags and file paths, and strictly enforces zero trailing periods.
+  - Added regression test suite `tests/test_application_profiles.py` (3/3 passing).
+- **Voice Snippets Hardening & Literal Injection Safety (`engine/personalization.py`):**
+  - Enforced whole-word trigger regex boundaries to prevent accidental mid-word expansions.
+  - Implemented longest-match trigger precedence on overlapping trigger phrases (e.g. `insert calendly link` vs `insert calendly`).
+  - Added trigger overlap conflict detection with diagnostic notices on `add_snippet`.
+  - Enforced literal lambda string replacement in `expand_snippets` to completely neutralize regex backreference injection.
+  - Added regression test suite `tests/test_personalization_snippets.py` (2/2 passing).
+- **Floating HUD Polish (`ui/floating_hud.py`):**
+  - Added `validating` state handling ("Checking...") with distinct styling.
+  - Ensured completion ("Pasted!") and cancellation visual feedback without stealing keyboard or window focus.
+
+### Fixed
+- **Undefined `start_time` Bug in Orchestrator Worker (`engine/orchestrator.py`):**
+  - Replaced undefined `start_time` with session-owned `active_session.created_at`.
+- **Audio Ducking Cleanup Guarantee (`engine/orchestrator.py`):**
+  - Added guaranteed `try ... finally` ducker restoration in background processor workers, ensuring audio ducking is always cleanly released on success, cancellation, or exception.
+- **Target Window Closed Injection Vulnerability (`engine/text_injector.py`):**
+  - Guarded against pasting into arbitrary active windows if target window closed; saves to clipboard and returns graceful failure.
+- **Clipboard Restoration Content Check (`engine/text_injector.py`):**
+  - Hardened post-paste clipboard restore comparison to verify clipboard still holds FlowPilot text before restoring previous clipboard content, preventing clobbering manual user copies.
+
 ---
 
 ## [3.0.2] - 2026-10-15 — *Release Hardening, Privacy Audit & Distribution Manifest*
