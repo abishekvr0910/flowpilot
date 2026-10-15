@@ -2,8 +2,13 @@
   "name": "flowpilot",
   "version": "3.1.0-pilot",
   "description": "Full-stack desktop voice intelligence interface and web companion for Windows",
+  "private": true,
   "type": "module",
-  "main": "ui/app.js",
+  "files": [
+    "tests/",
+    "ui/",
+    "package.json"
+  ],
   "scripts": {
     "test": "node tests/test_fullstack_node_client.mjs",
     "test:api": "python tests/test_api_and_websocket.py",

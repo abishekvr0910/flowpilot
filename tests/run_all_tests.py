@@ -31,14 +31,8 @@ TESTS = [
 ]
 
 def ensure_desktop_accessible():
-    if sys.platform == "win32":
-        try:
-            import psutil
-            for p in psutil.process_iter(['name']):
-                if p.info['name'] in ('LockApp.exe', 'LockApp'):
-                    p.kill()
-        except Exception:
-            pass
+    # Non-destructive desktop access verification (do not kill system processes like LockApp)
+    pass
 
 def run_suite():
     print("=" * 70)

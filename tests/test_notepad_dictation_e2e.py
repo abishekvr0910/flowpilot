@@ -23,28 +23,37 @@ from engine.orchestrator import FlowOrchestrator
 from engine.window_inspector import WindowInspector
 from engine.text_injector import TextInjector
 
-def ensure_notepad() -> Tuple[int, Optional[subprocess.Popen]]:
+def ensure_notepad() -> Tuple[int, subprocess.Popen]:
     """Finds or spawns Notepad and returns (top-level HWND, proc)."""
-    def enum_cb(hwnd, results):
-        if win32gui.IsWindowVisible(hwnd):
-            title = win32gui.GetWindowText(hwnd)
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
-            if "notepad" in title.lower():
-                results.append((hwnd, title, pid))
+    # Clean up any leftover zombie Notepads before starting
+    try:
+        import psutil
+        for p in psutil.process_iter(['name']):
+            if p.info['name'] and 'notepad' in p.info['name'].lower():
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+        time.sleep(0.3)
+    except Exception:
+        pass
 
-    matches = []
-    win32gui.EnumWindows(enum_cb, matches)
-    if matches:
-        return matches[0][0], None
-
-    # Spawn notepad
+    # Spawn fresh Notepad instance
     proc = subprocess.Popen(["notepad.exe"])
-    time.sleep(1.0)
-    matches = []
-    win32gui.EnumWindows(enum_cb, matches)
-    if matches:
-        return matches[0][0], proc
-    raise RuntimeError("Failed to launch and find Notepad window.")
+    target_hwnd = None
+    for _ in range(25):
+        time.sleep(0.2)
+        hwnds = []
+        win32gui.EnumWindows(lambda h, l: l.append(h) if win32gui.IsWindowVisible(h) and "notepad" in win32gui.GetClassName(h).lower() else None, hwnds)
+        if hwnds:
+            target_hwnd = hwnds[0]
+            break
+
+    if not target_hwnd:
+        proc.kill()
+        raise RuntimeError("Failed to launch and find Notepad window.")
+
+    return target_hwnd, proc
 
 def run_5_consecutive_injections():
     print("=" * 65)

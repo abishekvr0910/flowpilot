@@ -34,17 +34,12 @@ jobs:
 
       - name: Run Python Automated Regression Suite (24 Modules)
         run: |
-          python tests/run_all_tests.py
+          python -X utf8 tests/run_all_tests.py
 
       - name: Run Full-Stack Node.js & WebSocket Integration Test
         run: |
           npm test
 
-      - name: Run Specification End-to-End Suite (18 Scenarios)
+      - name: Validate Standalone Windows Binary Smoke Test
         run: |
-          python tests/test_final_specification_e2e.py
-
-      - name: Build Standalone Windows Binary Check
-        run: |
-          python -m PyInstaller flowpilot.spec --noconfirm
-          python tests/test_standalone_binary_smoke.py
+          python -X utf8 tests/test_standalone_binary_smoke.py

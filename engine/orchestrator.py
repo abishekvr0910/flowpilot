@@ -356,15 +356,20 @@ class FlowOrchestrator:
                     self.state = AppState.INSERTING_TEXT
                 self._notify(AppState.INSERTING_TEXT, {"char_count": len(formatted_text), "session_id": active_session.session_id})
 
-                # Inject formatted text into target window with confirmed fallback
+                # Inject formatted text into target window with confirmed fallback and truthful status
                 t_inj_start = time.perf_counter()
                 target_hwnd = active_session.target_window_info.get("hwnd")
                 injection_method = "clipboard_paste"
-                success = TextInjector.inject(formatted_text, target_hwnd)
-                if not success:
+                from engine.text_injector import InjectionStatus, InjectionResult
+                inj_res = TextInjector.inject_with_status(formatted_text, target_hwnd)
+                success = bool(inj_res)
+                if not success and inj_res.status != InjectionStatus.FAILED_RECOVERY_AVAILABLE:
                     print("[Orchestrator] Standard clipboard paste failed. Falling back to direct SendInput Unicode typing...")
                     injection_method = "sendinput_unicode"
-                    success = TextInjector.inject_unicode_sendinput(formatted_text, target_hwnd)
+                    typed_ok = TextInjector.inject_unicode_sendinput(formatted_text, target_hwnd)
+                    if typed_ok:
+                        inj_res = InjectionResult(status=InjectionStatus.SENT_UNVERIFIED, chars_sent=len(formatted_text), target_hwnd=target_hwnd)
+                        success = True
                 t_inj_end = time.perf_counter()
                 active_session.injection_method = injection_method
                 active_session.injection_success = success
@@ -405,7 +410,7 @@ class FlowOrchestrator:
                     + (f" | AcousticEnd->VisibleText: {acoustic_to_visible_text_ms}ms" if acoustic_to_visible_text_ms else "")
                 )
 
-                # 6. Save into history and recovery buffer (fixing undefined start_time)
+                # 6. Save into history and recovery buffer
                 total_duration = round(time.time() - active_session.created_at, 2)
                 save_text = self.config.get("save_history_text", False)
                 history_entry = {
@@ -417,7 +422,8 @@ class FlowOrchestrator:
                     "language": detected_lang,
                     "duration_sec": total_duration,
                     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "injection_status": "SUCCESS" if success else "FAILED",
+                    "injection_status": inj_res.status.value,
+                    "injection_confirmed": inj_res.is_confirmed(),
                     "injection_method": injection_method
                 }
                 # Keep active formatted_text and raw_text in volatile memory for Tray 'Copy Last Dictation'
@@ -441,6 +447,8 @@ class FlowOrchestrator:
                     "acoustic_end_to_visible_text_ms": acoustic_to_visible_text_ms,
                     "char_count": len(formatted_text),
                     "injection_method": injection_method,
+                    "injection_status": inj_res.status.value,
+                    "injection_confirmed": inj_res.is_confirmed(),
                     "injection_success": success
                 })
 
@@ -449,8 +457,9 @@ class FlowOrchestrator:
                 self.config["history"] = history[:50]
                 save_config(self.config)
 
-                if not success:
-                    print("[Orchestrator Error] Text injection failed. Preserving text in clipboard for manual paste.")
+                if not success or inj_res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE:
+                    err_msg = inj_res.error_message or "Paste failed (saved to clipboard)"
+                    print(f"[Orchestrator Warning] {err_msg}")
                     TextInjector._safe_clipboard_copy(formatted_text)
                     with self._state_lock:
                         active_session.transition_to(SessionState.ERROR)
@@ -458,9 +467,10 @@ class FlowOrchestrator:
                         self.is_processing = False
                     self.feedback.play_error()
                     self._notify(AppState.ERROR, {
-                        "message": "Paste failed (saved to clipboard)",
-                        "notice": "Paste failed - saved to clipboard",
-                        "session_id": active_session.session_id
+                        "message": err_msg,
+                        "notice": "Target lost — text saved to clipboard",
+                        "session_id": active_session.session_id,
+                        "recovery_available": True
                     })
                     time.sleep(2.0)
                     with self._state_lock:
@@ -469,7 +479,8 @@ class FlowOrchestrator:
                             self._notify(AppState.IDLE)
                     return
 
-                # 7. Transition to SUCCESS only when injection was confirmed
+                # 7. Transition to SUCCESS with truthful confirmation reporting
+                notice_msg = "Inserted & confirmed" if inj_res.is_confirmed() else "Pasted (unverified target)"
                 with self._state_lock:
                     active_session.transition_to(SessionState.SUCCESS)
                     self.state = AppState.SUCCESS
@@ -478,10 +489,13 @@ class FlowOrchestrator:
                     "text": formatted_text,
                     "total_duration": total_duration,
                     "history_entry": history_entry,
-                    "session_id": active_session.session_id
+                    "session_id": active_session.session_id,
+                    "injection_status": inj_res.status.value,
+                    "injection_confirmed": inj_res.is_confirmed(),
+                    "notice": notice_msg
                 })
 
-                # Show "Pasted!" briefly (0.8s), then transition to IDLE
+                # Show status briefly (0.8s), then transition to IDLE
                 time.sleep(0.8)
                 with self._state_lock:
                     if self.state == AppState.SUCCESS:

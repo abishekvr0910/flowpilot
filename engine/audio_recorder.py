@@ -20,10 +20,10 @@ def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarra
     return np.interp(target_times, orig_times, audio).astype(np.float32)
 
 class AudioRecorder:
-    def __init__(self, sample_rate: int = 16000, channels: int = 1, device: Optional[int] = None):
+    def __init__(self, sample_rate: int = 16000, channels: int = 1, device: Optional[int] = None, device_index: Optional[int] = None):
         self.sample_rate = sample_rate
         self.channels = channels
-        self.device = device
+        self.device = device if device is not None else device_index
         self.capture_sample_rate = sample_rate
         self.is_recording = False
         self.audio_frames = []
