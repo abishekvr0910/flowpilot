@@ -2,11 +2,11 @@
 
 # FlowPilot ⚡
 
-### Universal High-Performance Voice Dictation for Windows
-**100% Offline • Measured ~1.2s Median Latency • Native Win32 • Verified Local-First Pipeline**
+### Universal High-Performance Voice Dictation for Windows, Linux & macOS
+**100% Offline • Measured ~1.2s Median Latency • Cross-Platform OS Adapters • Verified Local-First Pipeline**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Windows 10/11](https://img.shields.io/badge/Platform-Windows%2010%2F11%20(64--bit)-0078D6.svg?logo=windows)](https://microsoft.com)
+[![Platform: Windows | Linux | macOS](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6.svg)](README.md)
 [![Engine: faster--whisper](https://img.shields.io/badge/ASR-faster--whisper%20(INT8)-orange.svg)](https://github.com/SYSTRAN/faster-whisper)
 [![UI: PySide6 / Qt](https://img.shields.io/badge/GUI-PySide6%20%2F%20Qt6-41CD52.svg?logo=qt)](https://www.qt.io/)
 [![Zero Cloud Egress](https://img.shields.io/badge/Privacy-100%25%20Local%20Offline-success.svg)](PRIVACY.md)
@@ -17,9 +17,9 @@
 
 ## 📖 Overview
 
-**FlowPilot** is an open-source, low-latency desktop voice dictation assistant built specifically for Windows power users, engineers, and privacy-conscious professionals.
+**FlowPilot** is an open-source, low-latency desktop voice dictation assistant built for power users, engineers, and privacy-conscious professionals across **Windows**, **Linux**, and **macOS**.
 
-Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seamless voice-to-text directly at your cursor in Windows applications without cloud subscriptions, without network latency variance, and without sending private audio recordings or screen captures to remote servers.
+Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seamless voice-to-text directly at your cursor in desktop applications without cloud subscriptions, without network latency variance, and without sending private audio recordings or screen captures to remote servers.
 
 ---
 

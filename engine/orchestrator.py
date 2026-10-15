@@ -10,8 +10,8 @@ from engine.stt_engine import STTEngine
 from engine.context_processor import ContextProcessor
 from engine.text_injector import TextInjector
 from engine.audio_ducker import AudioDucker
-from engine.hotkey_service import Win32HotkeyService
 from engine.audio_feedback import AudioFeedback
+from engine.hotkey_service import get_hotkey_service, Win32HotkeyService
 from engine.personalization import PersonalizationEngine
 from engine.session import DictationSession, SessionState
 
@@ -46,7 +46,7 @@ class FlowOrchestrator:
         self._stop_pending = False
         self.is_processing = False
         
-        self.hotkey_service = Win32HotkeyService()
+        self.hotkey_service = get_hotkey_service()
         self.hotkey_listener = None
         self.last_dictation: Dict[str, Any] = {}
         self._auto_stop_timer: Optional[threading.Timer] = None
@@ -621,10 +621,11 @@ class FlowOrchestrator:
                 pass
             
             success = self.hotkey_service.start(timeout=3.0)
+            service_name = self.hotkey_service.__class__.__name__
             if success:
-                print(f"[Orchestrator] Native Win32 Hotkey Service active: '{clean_hk}' (mode={mode}), 'Ctrl + Alt + Space', 'F9', 'Alt + Shift + Z' (Recovery)")
+                print(f"[Orchestrator] {service_name} active: '{clean_hk}' (mode={mode}), 'Ctrl + Alt + Space', 'F9', 'Alt + Shift + Z' (Recovery)")
             else:
-                print(f"[Orchestrator Warning] Win32 Hotkey Service encountered errors: {self.hotkey_service.stats['errors']}")
+                print(f"[Orchestrator Warning] {service_name} encountered errors: {self.hotkey_service.stats['errors']}")
         except Exception as e:
             print(f"[Orchestrator Error] Failed to start hotkey service: {e}")
 
