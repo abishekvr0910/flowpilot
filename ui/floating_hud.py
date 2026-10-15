@@ -18,7 +18,7 @@ from typing import Optional, Dict, Any
 
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QProgressBar,
-    QGraphicsDropShadowEffect, QMenu, QStackedLayout
+    QGraphicsDropShadowEffect, QMenu, QStackedWidget
 )
 from PySide6.QtCore import Qt, QPoint, Signal, QSize, QTimer, QRectF
 from PySide6.QtGui import (
@@ -355,15 +355,16 @@ class FloatingHUD(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
-        self.setFixedSize(280, 50)
+        self.setFixedSize(320, 52)
 
         # Main Layout
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 6, 14, 6)
-        layout.setSpacing(10)
+        layout.setContentsMargins(14, 6, 18, 6)
+        layout.setSpacing(12)
 
         # 1. Dual-Mode Visual Indicator Stack (Wispr Wave Bars OR Cartoon Mascot)
-        self.visual_stack = QStackedLayout()
+        self.visual_stack = QStackedWidget(self)
+        self.visual_stack.setFixedSize(44, 38)
 
         self.wave_widget = WisprWaveWidget(self)
         self.wave_widget.clicked.connect(self._on_action_clicked)
@@ -373,13 +374,13 @@ class FloatingHUD(QWidget):
         self.mascot_widget.clicked.connect(self._on_action_clicked)
         self.visual_stack.addWidget(self.mascot_widget)
 
-        layout.addLayout(self.visual_stack)
+        layout.addWidget(self.visual_stack)
 
         # 2. Clean Human-Friendly Status Label
         self.status_label = QLabel(self._idle_text, self)
-        font = QFont("Segoe UI", 10, QFont.Medium)
+        font = QFont("Segoe UI", 10, QFont.DemiBold)
         self.status_label.setFont(font)
-        self.status_label.setStyleSheet("color: #E2E8F0;")
+        self.status_label.setStyleSheet("color: #F1F5F9;")
         layout.addWidget(self.status_label, 1)
 
         # 3. Compact Audio Level Bar (preserved for backward compatibility with tests)
@@ -504,37 +505,52 @@ class FloatingHUD(QWidget):
             self.status_label.setText("Error")
             self._update_style("error")
 
-    def _update_style(self, state: str):
-        # Sleek modern glassmorphism capsule
-        if state == "idle":
-            bg = "rgba(15, 23, 42, 0.92)"
-            border = "rgba(255, 255, 255, 0.12)"
-        elif state == "listening":
-            bg = "rgba(15, 23, 42, 0.96)"
-            border = "rgba(6, 182, 212, 0.70)"  # Cyan pulse
-        elif state in ("processing", "transcribing", "validating"):
-            bg = "rgba(15, 23, 42, 0.96)"
-            border = "rgba(245, 158, 11, 0.65)"  # Amber glow
-        elif state == "pasted":
-            bg = "rgba(15, 28, 20, 0.96)"
-            border = "rgba(16, 185, 129, 0.70)"  # Emerald
-        elif state == "cancelled":
-            bg = "rgba(28, 20, 15, 0.96)"
-            border = "rgba(249, 115, 22, 0.60)"
-        elif state == "error":
-            bg = "rgba(35, 15, 15, 0.96)"
-            border = "rgba(239, 68, 68, 0.70)"
-        else:
-            bg = "rgba(15, 23, 42, 0.92)"
-            border = "rgba(255, 255, 255, 0.12)"
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        rect = QRectF(1.0, 1.0, self.width() - 2.0, self.height() - 2.0)
 
-        self.setStyleSheet(f"""
-            FloatingHUD {{
-                background-color: {bg};
-                border: 1.5px solid {border};
-                border-radius: 25px;
-            }}
-        """)
+        st = self._current_state.lower()
+        if st in ("listening", "recording"):
+            bg = QColor(15, 23, 42, 246)
+            border = QColor(6, 182, 212, 210)      # Glowing Cyan
+        elif st in ("processing", "transcribing", "validating"):
+            bg = QColor(15, 23, 42, 246)
+            border = QColor(245, 158, 11, 200)     # Amber glow
+        elif st in ("formatting", "inserting_text"):
+            bg = QColor(15, 23, 42, 246)
+            border = QColor(14, 165, 233, 200)     # Sky blue
+        elif st in ("pasted", "success"):
+            bg = QColor(15, 28, 20, 246)
+            border = QColor(16, 185, 129, 210)     # Emerald
+        elif st == "cancelled":
+            bg = QColor(28, 20, 15, 246)
+            border = QColor(249, 115, 22, 180)     # Orange
+        elif st == "error":
+            bg = QColor(35, 15, 15, 246)
+            border = QColor(239, 68, 68, 210)      # Crimson
+        else:
+            bg = QColor(15, 23, 42, 240)           # Midnight glass
+            border = QColor(255, 255, 255, 38)
+
+        p.setPen(QPen(border, 1.6))
+        p.setBrush(QBrush(bg))
+        p.drawRoundedRect(rect, 25.0, 25.0)
+        p.end()
+
+    def _update_style(self, state: str):
+        st = state.lower()
+        if st in ("listening", "recording"):
+            self.status_label.setStyleSheet("color: #38BDF8; font-weight: 600;")
+        elif st in ("processing", "transcribing", "validating"):
+            self.status_label.setStyleSheet("color: #FCD34D; font-weight: 600;")
+        elif st in ("pasted", "success"):
+            self.status_label.setStyleSheet("color: #34D399; font-weight: 600;")
+        elif st in ("error",):
+            self.status_label.setStyleSheet("color: #F87171; font-weight: 600;")
+        else:
+            self.status_label.setStyleSheet("color: #F1F5F9; font-weight: 500;")
+        self.update()
 
     # Draggable Pill (Left Click Drag)
     def mousePressEvent(self, event):
