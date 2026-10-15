@@ -33,14 +33,14 @@ class StateBridge(QObject):
     state_changed = Signal(dict)
 
 class FlowPilotApp:
-    def __init__(self):
+    def __init__(self, enforce_single_instance: bool = True):
         # 0. Enforce single instance
-        self.single_instance = SingleInstance()
-        if self.single_instance.is_already_running():
+        self.single_instance = SingleInstance() if enforce_single_instance else None
+        if self.single_instance and self.single_instance.is_already_running():
             print("[FlowPilot] Another instance of FlowPilot is already running. Focusing existing instance and exiting.")
             sys.exit(0)
 
-        self.app = QApplication(sys.argv)
+        self.app = QApplication.instance() or QApplication(sys.argv)
         self.app.setApplicationName("FlowPilot")
         self.app.setApplicationDisplayName("FlowPilot Voice Intelligence")
         self.app.setApplicationVersion(__version__)
