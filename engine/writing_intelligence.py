@@ -315,7 +315,7 @@ class WritingIntelligence:
             changes.extend(num_changes)
 
         # 5. Format technical identifiers if developer mode or code dictation
-        if style in ("developer", "technical"):
+        if style in ("developer", "technical", "terminal"):
             text, tech_changes = self._format_code_identifiers(text)
             if tech_changes:
                 changes.extend(tech_changes)
