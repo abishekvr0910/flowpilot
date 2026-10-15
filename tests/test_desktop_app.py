@@ -19,7 +19,7 @@ def test_desktop_app_startup_and_lifecycle():
     print("AUDIT TEST: NATIVE PYSIDE6 DESKTOP APPLICATION LIFECYCLE")
     print("=" * 60)
 
-    app_instance = FlowPilotApp()
+    app_instance = FlowPilotApp(enforce_single_instance=False)
     print("[1] FlowPilotApp initialized successfully.")
 
     # Verify HUD
