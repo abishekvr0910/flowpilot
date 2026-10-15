@@ -83,7 +83,7 @@ FlowPilot automatically logs performance metrics locally without transmitting an
 
 | Phase | Days | Milestone Objective |
 |---|---|---|
-| **Onboarding** | Days 1–2 | Deliver `FlowPilot-v3.0.0-win64.zip` to all 10 users. Confirm successful launch on host machines. |
+| **Onboarding** | Days 1–2 | Deliver `FlowPilot-v3.1.0-pilot-win64.zip` to all 10 users. Confirm successful launch on host machines. |
 | **Baseline Dictation** | Days 3–5 | Users conduct 10+ daily dictations in their primary work apps. Triage any target app focus anomalies. |
 | **Stress & Complex Input** | Days 6–9 | Test code dictation, numerical data, long-form paragraphs, and multilingual speech. |
 | **Feedback & Iteration** | Days 10–12 | Collect local diagnostic logs. Fix any reported insertion bottlenecks. |

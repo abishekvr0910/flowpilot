@@ -1,7 +1,7 @@
 # FlowPilot Pilot Feedback Loop & Defect Prioritization Framework
 
 **Classification:** Product Operations & Quality Assurance Process  
-**Applicability:** FlowPilot v2.0.0 Commercial Pilot Evaluations  
+**Applicability:** FlowPilot v3.1.0-pilot Human Pilot Evaluations  
 **Owner:** Head of Product & Release QA  
 
 ---
