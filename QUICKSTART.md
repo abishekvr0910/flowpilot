@@ -36,12 +36,15 @@ python3 desktop_app.py
 
 ## 2. Desktop Companion & Visual Styles
 
-When FlowPilot starts, you will see the **Pilot Companion** appear on your screen:
-- 🤖 **Mascot Companion ("Pilot"):** A cute, compact animated robot companion with blinking eyes, pupil dilation that reacts to your voice volume, acoustic antennae waves, thinking swirls, and a joyful smile upon pasting.
+When FlowPilot starts, you will see your animated desktop companion appear on your screen:
+- 🐾 **SondeR-Cat Pixel Kitty:** Adorable 26x28 pixel cat with 10 fur colors (Orange Tabby, Calico, Midnight Black, Gray, Siamese, Pastel Pink, White, Mint, Chocolate, Cream). Paws knead at voice speed when dictating, eyes glow during transcription, and floating hearts appear on paste with optional cheerful meows!
+- 🤖 **Robot Mascot ("Pilot"):** A cute, compact animated robot companion with blinking eyes, pupil dilation that reacts to your voice volume, acoustic antennae waves, thinking swirls, and a joyful smile upon pasting.
+- 📏 **Wispr Flow Docked Edge Line:** Minimal vertical bar docked against your screen edge that subtly expands in thickness and pulses with voice volume.
+- 🌊 **Wispr Wave Equalizer:** Compact 5-bar animated audio spectrum equalizer.
 - 🚫 **Zero Clutter:** No annoying text pills, no focus-stealing window overlays (`WS_EX_NOACTIVATE`).
-- 🖐️ **Draggable Anywhere:** Drag Pilot to any pixel on any monitor. Position is automatically remembered across app restarts.
-- 📐 **Snap to Any Corner:** Right-click Pilot to immediately snap to *Bottom-Right*, *Bottom-Left*, *Top-Right*, *Top-Left*, *Left Edge (Middle)*, or *Bottom-Center*.
-- 📏 **Wispr Flow Docked Edge Line:** Prefer the minimal Wispr Flow style? Right-click Pilot and select **Appearance Style → Wispr Flow Docked Edge Line** (or double-click the companion) to switch to a sleek vertical bar docked against your screen edge!
+- 🖐️ **Draggable Anywhere:** Drag your companion to any pixel on any monitor. Position is automatically remembered across app restarts.
+- 📐 **Snap to Any Corner:** Right-click the companion to immediately snap to *Bottom-Right*, *Bottom-Left*, *Top-Right*, *Top-Left*, *Left Edge (Middle)*, *Right Edge (Middle)*, or *Bottom-Center*.
+- 🔄 **Quick Cycle:** Double-click the companion anytime to cycle seamlessly between Kitty, Edge Line, Wave Equalizer, and Robot Mascot!
 
 ---
 
