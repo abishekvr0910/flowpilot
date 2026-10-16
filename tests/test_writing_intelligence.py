@@ -97,9 +97,42 @@ def test_writing_intelligence():
     print(f"\n[9] CLI Command Punctuation:\n    Raw:    '{cli_speech}'\n    Result: '{res_cli['text']}'")
     assert not res_cli['text'].endswith("."), "Developer CLI commands should not end with period"
 
-    print("\n[RESULT] Writing Intelligence tests PASSED 100%.")
-    return True
+
+def test_wispr_flow_spoken_commands():
+    print("\n" + "=" * 65)
+    print("AUDIT TEST: WISPR FLOW SPOKEN PUNCTUATION & VOICE EDITING COMMANDS")
+    print("=" * 65)
+
+    wi = WritingIntelligence()
+
+    # 1. Punctuation commands
+    punc_raw = "hello comma world question mark are you ready exclamation point"
+    punc_res = wi.polish(punc_raw, mode="polished", style="professional")
+    print(f"[1] Spoken Punctuation:\n    Raw:    '{punc_raw}'\n    Result: '{punc_res['text']}'")
+    assert "Hello, world? Are you ready!" in punc_res['text']
+
+    # 2. Structural commands: new line, new paragraph
+    struct_raw = "line one new line line two new paragraph new block"
+    struct_res = wi.polish(struct_raw, mode="polished", style="professional")
+    print(f"\n[2] Structural Commands:\n    Raw:    '{struct_raw}'\n    Result:\n{struct_res['text']}")
+    assert "Line one\nLine two\n\nNew block" in struct_res['text']
+
+    # 3. Voice editing: scratch that
+    scratch_raw = "this is incorrect scratch that this is the real message"
+    scratch_res = wi.polish(scratch_raw, mode="polished", style="professional")
+    print(f"\n[3] Voice Editing (Scratch that):\n    Raw:    '{scratch_raw}'\n    Result: '{scratch_res['text']}'")
+    assert "incorrect" not in scratch_res['text']
+    assert "This is the real message." in scratch_res['text']
+
+    # 4. Voice formatting: all caps
+    caps_raw = "the code is all caps secret"
+    caps_res = wi.polish(caps_raw, mode="polished", style="developer")
+    print(f"\n[4] Voice Casing:\n    Raw:    '{caps_raw}'\n    Result: '{caps_res['text']}'")
+    assert "SECRET" in caps_res['text']
+
+    print("\n[RESULT] Wispr Flow Spoken Commands PASSED 100%.")
 
 if __name__ == "__main__":
-    success = test_writing_intelligence()
-    sys.exit(0 if success else 1)
+    test_writing_intelligence()
+    test_wispr_flow_spoken_commands()
+    sys.exit(0)

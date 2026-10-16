@@ -75,10 +75,10 @@ class TrayManager(QObject):
         self.action_toggle = self.menu.addAction("Dictate (Ctrl+Shift+Space)")
         self.action_toggle.triggered.connect(self.toggle_requested.emit)
 
-        self.action_hud = self.menu.addAction("Show/Hide Floating Mic")
+        self.action_hud = self.menu.addAction("Show/Hide Pilot Companion")
         self.action_hud.triggered.connect(self.toggle_hud_requested.emit)
 
-        self.action_switch_visual = self.menu.addAction("Toggle Companion / Wave Bars")
+        self.action_switch_visual = self.menu.addAction("Cycle Appearance (Pilot / Docked Edge / Waves)")
         self.action_switch_visual.triggered.connect(self.switch_visual_requested.emit)
 
         self.menu.addSeparator()

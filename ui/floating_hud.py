@@ -55,6 +55,14 @@ class FloatingHUD(QWidget):
         self._is_blinking = False
         self._blink_counter = 0
 
+        # Load persisted visual style ("mascot", "edge_line", or "wave_bar")
+        try:
+            from engine.config import load_config
+            cfg = load_config()
+            self._visual_style = cfg.get("hud_style", "mascot")
+        except Exception:
+            self._visual_style = "mascot"
+
         # Mouse dragging tracking
         self._drag_start_pos = QPoint()
         self._drag_offset = QPoint()
@@ -67,6 +75,15 @@ class FloatingHUD(QWidget):
         self._anim_timer.timeout.connect(self._on_anim_tick)
         self._anim_timer.start(33)
 
+    def _apply_style_dimensions(self):
+        if self._visual_style == "edge_line":
+            self.setFixedSize(14, 68)
+        elif self._visual_style == "wave_bar":
+            self.setFixedSize(58, 26)
+        else:
+            self._visual_style = "mascot"
+            self.setFixedSize(72, 72)
+
     def _init_ui(self):
         # Frameless, Always on Top, Tool Window
         self.setWindowFlags(
@@ -77,7 +94,7 @@ class FloatingHUD(QWidget):
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
-        self.setFixedSize(72, 72)
+        self._apply_style_dimensions()
         self.setCursor(Qt.PointingHandCursor)
 
         # Audio level bar (maintained for backward test compatibility)
@@ -173,12 +190,23 @@ class FloatingHUD(QWidget):
                 self.toggle_requested.emit()
                 event.accept()
 
+    def set_visual_style(self, style: str):
+        if style not in ("mascot", "edge_line", "wave_bar"):
+            style = "mascot"
+        self._visual_style = style
+        self._apply_style_dimensions()
+        self._save_position()
+        self.update()
+
     def toggle_visual_style(self):
-        """Cycles Pilot companion to the next screen corner."""
-        corners = ["bottom_right", "bottom_left", "top_left", "top_right", "bottom_center"]
-        curr = getattr(self, "_corner_idx", 0)
-        self._corner_idx = (curr + 1) % len(corners)
-        self.snap_to_corner(corners[self._corner_idx])
+        """Cycles between Pilot Mascot, Wispr Docked Edge Line, and Wave Equalizer."""
+        styles = ["mascot", "edge_line", "wave_bar"]
+        try:
+            idx = styles.index(self._visual_style)
+        except ValueError:
+            idx = 0
+        next_style = styles[(idx + 1) % len(styles)]
+        self.set_visual_style(next_style)
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -193,6 +221,7 @@ class FloatingHUD(QWidget):
             cfg = load_config()
             cfg["hud_x"] = self.pos().x()
             cfg["hud_y"] = self.pos().y()
+            cfg["hud_style"] = self._visual_style
             save_config(cfg)
         except Exception:
             pass
@@ -216,6 +245,12 @@ class FloatingHUD(QWidget):
         elif corner == "top_left":
             x = geom.left() + pad
             y = geom.top() + pad
+        elif corner == "left_edge":
+            x = geom.left() + 6
+            y = geom.center().y() - (self.height() // 2)
+        elif corner == "right_edge":
+            x = geom.right() - self.width() - 6
+            y = geom.center().y() - (self.height() // 2)
         else:  # bottom_center
             x = geom.center().x() - (self.width() // 2)
             y = geom.bottom() - self.height() - pad
@@ -255,13 +290,27 @@ class FloatingHUD(QWidget):
 
         menu.addSeparator()
 
+        # Appearance style submenu
+        style_menu = menu.addMenu("Appearance Style...")
+        style_menu.setStyleSheet(menu.styleSheet())
+        act_mascot = style_menu.addAction("🤖 Robot Mascot Companion ('Pilot')")
+        act_mascot.triggered.connect(lambda: self.set_visual_style("mascot"))
+        act_edge = style_menu.addAction("📏 Wispr Flow Docked Edge Line")
+        act_edge.triggered.connect(lambda: self.set_visual_style("edge_line"))
+        act_waves = style_menu.addAction("🌊 Wispr Wave Equalizer")
+        act_waves.triggered.connect(lambda: self.set_visual_style("wave_bar"))
+
+        menu.addSeparator()
+
         # Snap to Corner submenu
-        corner_menu = menu.addMenu("Move Pilot to...")
+        corner_menu = menu.addMenu("Move Companion to...")
         corner_menu.setStyleSheet(menu.styleSheet())
         corner_menu.addAction("Bottom-Right Corner", lambda: self.snap_to_corner("bottom_right"))
         corner_menu.addAction("Bottom-Left Corner", lambda: self.snap_to_corner("bottom_left"))
         corner_menu.addAction("Top-Right Corner", lambda: self.snap_to_corner("top_right"))
         corner_menu.addAction("Top-Left Corner", lambda: self.snap_to_corner("top_left"))
+        corner_menu.addAction("Left Edge (Middle)", lambda: self.snap_to_corner("left_edge"))
+        corner_menu.addAction("Right Edge (Middle)", lambda: self.snap_to_corner("right_edge"))
         corner_menu.addAction("Bottom-Center", lambda: self.snap_to_corner("bottom_center"))
 
         menu.addSeparator()
@@ -283,10 +332,94 @@ class FloatingHUD(QWidget):
 
         w = self.width()
         h = self.height()
+        st = self._current_state
+
+        # Branch A: Wispr Flow Docked Edge Line (Minimalist sleek vertical bar)
+        if self._visual_style == "edge_line":
+            bar_w = 6.0 + (self._audio_level * 4.0 if st in ("listening", "recording") else 0.0)
+            bar_h = 42.0 + (self._audio_level * 18.0 if st in ("listening", "recording") else 0.0)
+            bx = (w - bar_w) / 2.0
+            by = (h - bar_h) / 2.0
+
+            if st in ("listening", "recording"):
+                # Outer acoustic glow
+                glow_rad = 14.0 + (self._audio_level * 6.0)
+                glow_grad = QRadialGradient(w / 2.0, h / 2.0, glow_rad)
+                glow_grad.setColorAt(0.0, QColor(56, 189, 248, 160))
+                glow_grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+                p.setPen(Qt.NoPen)
+                p.setBrush(QBrush(glow_grad))
+                p.drawEllipse(QPoint(int(w / 2.0), int(h / 2.0)), int(glow_rad), int(glow_rad))
+
+                fill_grad = QLinearGradient(bx, by, bx, by + bar_h)
+                fill_grad.setColorAt(0.0, QColor("#38BDF8"))
+                fill_grad.setColorAt(1.0, QColor("#06B6D4"))
+                p.setPen(QPen(QColor("#E0F2FE"), 1.0))
+                p.setBrush(QBrush(fill_grad))
+            elif st in ("processing", "transcribing", "validating"):
+                fill_grad = QLinearGradient(bx, by, bx, by + bar_h)
+                fill_grad.setColorAt(0.0, QColor("#F59E0B"))
+                fill_grad.setColorAt(1.0, QColor("#D97706"))
+                p.setPen(QPen(QColor("#FEF3C7"), 1.0))
+                p.setBrush(QBrush(fill_grad))
+            elif st in ("pasted", "success"):
+                fill_grad = QLinearGradient(bx, by, bx, by + bar_h)
+                fill_grad.setColorAt(0.0, QColor("#10B981"))
+                fill_grad.setColorAt(1.0, QColor("#059669"))
+                p.setPen(QPen(QColor("#D1FAE5"), 1.0))
+                p.setBrush(QBrush(fill_grad))
+            else:  # idle
+                fill_grad = QLinearGradient(bx, by, bx, by + bar_h)
+                fill_grad.setColorAt(0.0, QColor("#334155"))
+                fill_grad.setColorAt(1.0, QColor("#1E293B"))
+                p.setPen(QPen(QColor("#64748B"), 1.0))
+                p.setBrush(QBrush(fill_grad))
+
+            p.drawRoundedRect(QRectF(bx, by, bar_w, bar_h), bar_w / 2.0, bar_w / 2.0)
+            p.end()
+            return
+
+        # Branch B: Wispr Soundwave Equalizer (5 dancing wave bars)
+        if self._visual_style == "wave_bar":
+            p.setPen(QPen(QColor("#334155"), 1.2))
+            p.setBrush(QBrush(QColor(15, 23, 42, 220)))
+            p.drawRoundedRect(QRectF(2, 2, w - 4, h - 4), 10.0, 10.0)
+
+            num_bars = 5
+            bar_w = 4.0
+            bar_gap = 4.5
+            total_w = (num_bars * bar_w) + ((num_bars - 1) * bar_gap)
+            start_x = (w - total_w) / 2.0
+            cy = h / 2.0
+
+            bar_color = QColor("#38BDF8") if st in ("listening", "recording") else QColor("#94A3B8")
+            if st in ("processing", "transcribing", "validating"):
+                bar_color = QColor("#F59E0B")
+            elif st in ("pasted", "success"):
+                bar_color = QColor("#10B981")
+
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(bar_color))
+
+            for i in range(num_bars):
+                bx = start_x + (i * (bar_w + bar_gap))
+                if st in ("listening", "recording"):
+                    phase = (self._tick * 0.45) + (i * 0.95)
+                    bh = 6.0 + (self._audio_level * 10.0) + math.sin(phase) * 3.0
+                elif st in ("processing", "transcribing", "validating"):
+                    bh = 5.0 + math.sin((self._tick * 0.35) + i) * 3.5
+                else:
+                    bh = 5.0
+                bh = max(4.0, min(16.0, bh))
+                by = cy - (bh / 2.0)
+                p.drawRoundedRect(QRectF(bx, by, bar_w, bh), 2.0, 2.0)
+
+            p.end()
+            return
+
+        # Branch C: Procedural 60 FPS Robot Mascot Companion ("Pilot")
         cx = w / 2.0
         cy = h / 2.0 + 4.0
-
-        st = self._current_state
 
         # 1. Reactive Halo Glow
         if st in ("listening", "recording"):

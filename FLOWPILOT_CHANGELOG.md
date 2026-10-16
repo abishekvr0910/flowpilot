@@ -5,6 +5,19 @@ All notable changes, bug fixes, and architectural evolutions to FlowPilot are do
 ## [Unreleased] — *Cross-Platform OS Adapters & Architectural Upgrades*
 
 ### Added
+- **Wispr Flow Spoken Punctuation & Voice Editing Engine (`engine/writing_intelligence.py`):**
+  - **Spoken Punctuation:** Real-time speech conversion for `comma` (`,`), `period` / `full stop` (`.`), `question mark` (`?`), `exclamation mark/point` (`!`), `colon` (`:`), `semicolon` (`;`), `ellipsis` / `dot dot dot` (`...`), `open/close quote` (`"`), `open/close paren` (`()`), `open/close bracket` (`[]`).
+  - **Structural Formatting:** Spoken commands `new line` (`\n`), `new paragraph` (`\n\n`), and `tab` (`\t`) with automatic sentence capitalization on subsequent lines.
+  - **Voice Editing:** Say *"scratch that"*, *"delete that"*, or *"cancel that"* to immediately erase the preceding sentence or clause before insertion; say *"scratch last word"* to erase only the trailing word.
+  - **Voice Casing:** Spoken command *"all caps <word>"* formats identifiers in uppercase (e.g. *"all caps secret"* -> `SECRET`).
+  - **Full Parity Testing:** Added automated test suite `test_wispr_flow_spoken_commands` verifying punctuation, structural newlines, scratch that, and all-caps casing.
+- **Wispr Flow Docked Edge Line & Soundwave Equalizer (`ui/floating_hud.py`):**
+  - Added three selectable visual appearances:
+    - 🤖 **Robot Mascot Companion ("Pilot"):** 72×72 animated vector robot with voice-reactive pupil dilation, glowing acoustic soundwave arcs, and celebratory smiles.
+    - 📏 **Wispr Flow Docked Edge Line:** Minimalist vertical capsule docked against the screen edge that subtly expands in thickness and pulses with voice volume, exactly matching Wispr Flow's minimalist edge bar.
+    - 🌊 **Wispr Soundwave Equalizer:** Compact 5-bar animated audio spectrum equalizer.
+  - Added one-click Appearance menu and double-click shortcut to switch between styles.
+  - Added Edge Docking shortcuts: snap to *Left Edge (Middle)* and *Right Edge (Middle)*.
 - **Standalone Moveable Robot Companion ("Pilot") (`ui/floating_hud.py`):**
   - **Zero UI Text Clutter:** Completely eliminated the wide text pill and "Ctrl+Shift+Space" label. FlowPilot is now represented by an adorable, standalone desktop robot companion ("Pilot").
   - **Draggable to Any Screen Corner:** Users can click and freely drag Pilot to any position or corner on their desktop. The robot automatically remembers its exact coordinates (`hud_x`, `hud_y`) across restarts.
