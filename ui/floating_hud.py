@@ -73,6 +73,8 @@ class WisprWaveWidget(QWidget):
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
             event.accept()
+        elif event.button() == Qt.RightButton:
+            event.ignore()
         else:
             super().mousePressEvent(event)
 
@@ -197,6 +199,8 @@ class CartoonMascotWidget(QWidget):
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
             event.accept()
+        elif event.button() == Qt.RightButton:
+            event.ignore()
         else:
             super().mousePressEvent(event)
 
@@ -331,9 +335,9 @@ class FloatingHUD(QWidget):
         try:
             from engine.config import load_config
             cfg = load_config()
-            self._hud_style = cfg.get("hud_style", "wave")
+            self._hud_style = cfg.get("hud_style", "mascot")
         except Exception:
-            self._hud_style = "wave"  # "wave" (Wispr Flow bar) or "mascot" (Cartoon companion)
+            self._hud_style = "mascot"  # "mascot" (Cartoon companion Pilot) or "wave" (Wispr dynamic bars)
         self._init_ui()
 
     def set_hotkey_info(self, hotkey_str: str, mode: str = "toggle"):
@@ -381,6 +385,7 @@ class FloatingHUD(QWidget):
         font = QFont("Segoe UI", 10, QFont.DemiBold)
         self.status_label.setFont(font)
         self.status_label.setStyleSheet("color: #F1F5F9;")
+        self.status_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         layout.addWidget(self.status_label, 1)
 
         # 3. Compact Audio Level Bar (preserved for backward compatibility with tests)
@@ -426,6 +431,10 @@ class FloatingHUD(QWidget):
     def _on_action_clicked(self):
         self.toggle_requested.emit()
 
+    def toggle_visual_style(self):
+        new_style = "wave" if self._hud_style == "mascot" else "mascot"
+        self.set_visual_style(new_style)
+
     def set_visual_style(self, style: str):
         """Switches between 'wave' (Wispr Waveform Bars) and 'mascot' (Cartoon Character)."""
         self._hud_style = "mascot" if style == "mascot" else "wave"
@@ -438,6 +447,10 @@ class FloatingHUD(QWidget):
                 save_config(cfg)
         except Exception:
             pass
+        if self._current_state in ("idle", "IDLE"):
+            msg = "Cartoon Mascot Active" if self._hud_style == "mascot" else "Wispr Wave Active"
+            self.status_label.setText(msg)
+            QTimer.singleShot(1400, lambda: self.status_label.setText(self._idle_text) if self._current_state in ("idle", "IDLE") else None)
 
     def _apply_hud_style(self):
         if self._hud_style == "mascot":
@@ -551,6 +564,13 @@ class FloatingHUD(QWidget):
         else:
             self.status_label.setStyleSheet("color: #F1F5F9; font-weight: 500;")
         self.update()
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.toggle_visual_style()
+            event.accept()
+        else:
+            super().mouseDoubleClickEvent(event)
 
     # Draggable Pill (Left Click Drag)
     def mousePressEvent(self, event):
