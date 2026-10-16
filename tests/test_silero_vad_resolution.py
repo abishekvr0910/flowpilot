@@ -50,9 +50,13 @@ def test_silero_assets():
     except Exception:
         pass
 
-    dist_internal = PROJECT_ROOT / "dist/FlowPilot/_internal/faster_whisper/assets"
-    if dist_internal.exists() and dist_internal not in targets:
-        targets.append(dist_internal)
+    for dist_cand in [
+        PROJECT_ROOT / "dist/FlowPilot/_internal/faster_whisper/assets",
+        PROJECT_ROOT / "dist/FlowPilot/_internal/assets",
+        PROJECT_ROOT / "dist/FlowPilot/assets",
+    ]:
+        if dist_cand.exists() and dist_cand not in targets:
+            targets.append(dist_cand)
 
     # Also verify existing backup distributions if present
     for backup_dir in ["dist/FlowPilot_backup_v200", "dist/FlowPilot_backup_v210", "dist/FlowPilot_backup_v300", "dist/FlowPilot_backup_v301", "dist/FlowPilot_backup_v302"]:
@@ -71,8 +75,8 @@ def test_silero_assets():
 
     # 2. Test ONNX Runtime direct session creation on the model
     print("\n[Step 2] Testing direct ONNX Runtime session load on model...")
-    bundled_enc_path = PROJECT_ROOT / "dist/FlowPilot/_internal/faster_whisper/assets/silero_encoder_v5.onnx"
-    target_enc = str(bundled_enc_path if bundled_enc_path.exists() else (discovered_assets / "silero_encoder_v5.onnx"))
+    bundled_enc_path = next((p / "silero_encoder_v5.onnx" for p in targets if (p / "silero_encoder_v5.onnx").is_file()), discovered_assets / "silero_encoder_v5.onnx")
+    target_enc = str(bundled_enc_path)
     vad_wrapper = SileroVAD(target_enc)
     opts = ort.SessionOptions()
     opts.inter_op_num_threads = 1

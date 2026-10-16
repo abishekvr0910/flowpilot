@@ -11,6 +11,7 @@ added_files = [
     ('engine', 'engine'),
     ('ui', 'ui'),
     ('assets', 'assets'),
+    ('assets', 'faster_whisper/assets'),
 ]
 added_files += collect_data_files('faster_whisper')
 added_files += collect_data_files('onnxruntime')

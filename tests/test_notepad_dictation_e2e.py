@@ -24,33 +24,33 @@ from engine.window_inspector import WindowInspector
 from engine.text_injector import TextInjector
 
 def ensure_notepad() -> Tuple[int, subprocess.Popen]:
-    """Finds or spawns Notepad and returns (top-level HWND, proc)."""
-    # Clean up any leftover zombie Notepads before starting
-    try:
-        import psutil
-        for p in psutil.process_iter(['name']):
-            if p.info['name'] and 'notepad' in p.info['name'].lower():
-                try:
-                    p.kill()
-                except Exception:
-                    pass
-        time.sleep(0.3)
-    except Exception:
-        pass
+    """Finds or spawns Notepad and returns (top-level HWND, proc) safely without terminating user documents."""
+    existing_hwnds = set()
+    def _rec_existing(h, _):
+        if win32gui.IsWindowVisible(h) and "notepad" in win32gui.GetClassName(h).lower():
+            existing_hwnds.add(h)
+    win32gui.EnumWindows(_rec_existing, None)
 
     # Spawn fresh Notepad instance
     proc = subprocess.Popen(["notepad.exe"])
     target_hwnd = None
-    for _ in range(25):
-        time.sleep(0.2)
-        hwnds = []
-        win32gui.EnumWindows(lambda h, l: l.append(h) if win32gui.IsWindowVisible(h) and "notepad" in win32gui.GetClassName(h).lower() else None, hwnds)
-        if hwnds:
-            target_hwnd = hwnds[0]
+    for _ in range(30):
+        time.sleep(0.15)
+        new_hwnds = []
+        def _find_new(h, _):
+            if win32gui.IsWindowVisible(h) and "notepad" in win32gui.GetClassName(h).lower():
+                if h not in existing_hwnds:
+                    new_hwnds.append(h)
+        win32gui.EnumWindows(_find_new, None)
+        if new_hwnds:
+            target_hwnd = new_hwnds[0]
             break
 
     if not target_hwnd:
-        proc.kill()
+        try:
+            proc.kill()
+        except Exception:
+            pass
         raise RuntimeError("Failed to launch and find Notepad window.")
 
     return target_hwnd, proc
