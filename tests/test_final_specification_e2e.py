@@ -41,20 +41,6 @@ from engine.window_inspector import WindowInspector
 from desktop_app import FlowPilotApp
 from tests.benchmark_corpus import synthesize_audio_sapi
 
-def cleanup_orphaned_notepads():
-    """Clean up any leftover Notepad processes to ensure deterministic state."""
-    for p in psutil.process_iter(['name']):
-        try:
-            if p.info['name'] and 'notepad' in p.info['name'].lower():
-                p.kill()
-                try:
-                    p.wait(timeout=1.0)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    time.sleep(0.4)
-
 def run_18_scenarios():
     print("=" * 75)
     print("       FLOWPILOT 18-SCENARIO COMPREHENSIVE VERIFICATION SUITE")
@@ -62,8 +48,6 @@ def run_18_scenarios():
 
     results = {}
     np_proc = None
-
-    cleanup_orphaned_notepads()
 
     try:
         # -------------------------------------------------------------
@@ -89,22 +73,42 @@ def run_18_scenarios():
         print("\n--- [Scenario 2] Shortcut Activation with Notepad Foregrounded ---")
         np_hwnd = 0
         try:
-            cleanup_orphaned_notepads()
-            np_proc = subprocess.Popen(["notepad.exe"])
-            time.sleep(0.8)
+            existing_hwnds = set()
             if HAS_WIN32:
-                for _ in range(25):
-                    time.sleep(0.2)
-                    hwnds = []
-                    def _find_np(h, extra):
+                import ctypes
+                ctypes.windll.kernel32.SetLastError(0)
+                def _rec_existing(h, _):
+                    try:
                         if win32gui.IsWindowVisible(h):
-                            cls = win32gui.GetClassName(h).lower()
-                            title = win32gui.GetWindowText(h).lower()
-                            if "notepad" in cls or "notepad" in title:
-                                extra.append(h)
-                    win32gui.EnumWindows(_find_np, hwnds)
-                    if hwnds:
-                        np_hwnd = hwnds[0]
+                            c = win32gui.GetClassName(h).lower()
+                            t = win32gui.GetWindowText(h).lower()
+                            if "notepad" in c or "notepad" in t:
+                                existing_hwnds.add(h)
+                    except Exception:
+                        pass
+                    return True
+                win32gui.EnumWindows(_rec_existing, None)
+
+            np_proc = subprocess.Popen(["notepad.exe"])
+            time.sleep(0.5)
+            if HAS_WIN32:
+                for _ in range(30):
+                    time.sleep(0.15)
+                    new_hwnds = []
+                    def _find_np(h, extra):
+                        try:
+                            if win32gui.IsWindowVisible(h):
+                                c = win32gui.GetClassName(h).lower()
+                                t = win32gui.GetWindowText(h).lower()
+                                if ("notepad" in c or "notepad" in t) and h not in existing_hwnds:
+                                    extra.append(h)
+                        except Exception:
+                            pass
+                        return True
+                    ctypes.windll.kernel32.SetLastError(0)
+                    win32gui.EnumWindows(_find_np, new_hwnds)
+                    if new_hwnds:
+                        np_hwnd = new_hwnds[0]
                         break
                 if np_hwnd:
                     TextInjector._safe_set_foreground(np_hwnd)
@@ -115,7 +119,9 @@ def run_18_scenarios():
             def on_hk():
                 nonlocal activated
                 activated = True
-            service.register("Ctrl+Shift+Space", on_hk)
+            # Use test-specific hotkey to prevent collision with running FlowPilot app or OS
+            test_hk = "Ctrl+Shift+F11"
+            service.register(test_hk, on_hk)
             service.start(timeout=2.0)
             assert service.is_alive(), "Hotkey service failed to start"
             service.stop()
@@ -171,15 +177,24 @@ def run_18_scenarios():
 
             # Ensure focus and inject into Notepad with physical verification
             if not np_hwnd or (HAS_WIN32 and not win32gui.IsWindow(np_hwnd)):
-                for _ in range(15):
+                if not np_proc or np_proc.poll() is not None:
+                    np_proc = subprocess.Popen(["notepad.exe"])
+                    time.sleep(0.5)
+                import ctypes
+                for _ in range(20):
                     time.sleep(0.2)
                     hwnds = []
                     def _find_np2(h, extra):
-                        if win32gui.IsWindowVisible(h):
-                            cls = win32gui.GetClassName(h).lower()
-                            title = win32gui.GetWindowText(h).lower()
-                            if "notepad" in cls or "notepad" in title:
-                                extra.append(h)
+                        try:
+                            if win32gui.IsWindowVisible(h):
+                                cls = win32gui.GetClassName(h).lower()
+                                title = win32gui.GetWindowText(h).lower()
+                                if "notepad" in cls or "notepad" in title:
+                                    extra.append(h)
+                        except Exception:
+                            pass
+                        return True
+                    ctypes.windll.kernel32.SetLastError(0)
                     win32gui.EnumWindows(_find_np2, hwnds)
                     if hwnds:
                         np_hwnd = hwnds[0]
@@ -447,14 +462,22 @@ def run_18_scenarios():
             print(f"  -> Failed: {e}")
 
     finally:
-        # Guaranteed cleanup of Notepad
+        # Guaranteed cleanup of spawned test Notepad process
         if np_proc:
             try:
-                np_proc.kill()
+                p = psutil.Process(np_proc.pid)
+                for child in p.children(recursive=True):
+                    try:
+                        child.terminate()
+                    except Exception:
+                        pass
+                p.terminate()
                 np_proc.wait(timeout=2.0)
             except Exception:
-                pass
-        cleanup_orphaned_notepads()
+                try:
+                    np_proc.kill()
+                except Exception:
+                    pass
 
     # Summary Table
     print("\n" + "=" * 75)

@@ -18,43 +18,38 @@ def test_text_injection():
     print("AUDIT TEST 3: TEXT INSERTION & CLIPBOARD PRESERVATION")
     print("=" * 60)
 
-    # 1. Clean up any leftover zombie Notepads before starting
-    try:
-        import psutil
-        for p in psutil.process_iter(['name']):
-            if p.info['name'] and 'notepad' in p.info['name'].lower():
-                try:
-                    p.kill()
-                except Exception:
-                    pass
-        time.sleep(0.4)
-    except Exception:
-        pass
-
-    # 2. Set a sentinel in clipboard to verify preservation
+    # 1. Set a sentinel in clipboard to verify preservation
     sentinel = "ORIGINAL_CLIPBOARD_VALUE_AUDIT_SAFE"
     clip_ready = TextInjector._safe_clipboard_copy(sentinel)
     print(f"Pre-test clipboard set: {clip_ready} ('{sentinel}')")
 
-    # 3. Launch Notepad
+    # 2. Record pre-existing Notepad windows
+    existing_hwnds = set()
+    def _rec_existing(h, _):
+        if win32gui.IsWindowVisible(h):
+            c = win32gui.GetClassName(h).lower()
+            if "notepad" in c:
+                existing_hwnds.add(h)
+    win32gui.EnumWindows(_rec_existing, None)
+
+    # 3. Launch isolated Notepad instance
     print("Launching notepad.exe for injection verification...")
     proc = subprocess.Popen(["notepad.exe"])
-    time.sleep(1.2)
 
-    # 4. Find Notepad HWND
+    # 4. Find the newly launched Notepad HWND
     notepad_hwnd = 0
-    for _ in range(25):
-        hwnds = []
+    for _ in range(30):
+        time.sleep(0.15)
+        new_hwnds = []
         def _enum_np(h, extra):
             if win32gui.IsWindowVisible(h):
                 c = win32gui.GetClassName(h).lower()
-                if "notepad" in c:
+                if "notepad" in c and h not in existing_hwnds:
                     extra.append(h)
-        win32gui.EnumWindows(_enum_np, hwnds)
-        if hwnds:
-            notepad_hwnd = hwnds[0]
+        win32gui.EnumWindows(_enum_np, new_hwnds)
+        if new_hwnds:
+            notepad_hwnd = new_hwnds[0]
             break
-        time.sleep(0.2)
 
     print(f"Found Notepad window HWND: {notepad_hwnd}")
     if not notepad_hwnd:

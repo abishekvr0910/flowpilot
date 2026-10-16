@@ -153,6 +153,19 @@ class STTEngine:
                 audio_input, sr = sf.read(io.BytesIO(audio_data), dtype="float32")
                 if audio_input.ndim > 1:
                     audio_input = np.mean(audio_input, axis=1)
+                if sr != 16000 and len(audio_input) > 0:
+                    try:
+                        import math
+                        gcd = math.gcd(int(sr), 16000)
+                        from scipy.signal import resample_poly
+                        audio_input = resample_poly(audio_input, 16000 // gcd, int(sr) // gcd).astype(np.float32)
+                    except Exception:
+                        num_samples = int(len(audio_input) * 16000 / sr)
+                        audio_input = np.interp(
+                            np.linspace(0, len(audio_input), num_samples, endpoint=False),
+                            np.arange(len(audio_input)),
+                            audio_input
+                        ).astype(np.float32)
             except Exception:
                 audio_input = io.BytesIO(audio_data)
 
