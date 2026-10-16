@@ -28,14 +28,15 @@ Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seaml
 | Feature | Description |
 |:---|:---|
 | 🔒 **100% Offline & Private** | Powered by local `faster-whisper` INT8 on CPU. Zero network egress during core dictation loop. No accounts, no telemetry, no cloud dependencies. |
-| ⚡ **Measured Fast Local Latency** | Direct float32 audio streaming, greedy decoding (`beam_size=1`), and instant Win32 text injection (**measured median 1,202 ms stop-to-text, p95 1,460 ms** on 8-thread CPU test host). |
+| ⚡ **Measured Fast Local Latency** | Direct float32 audio streaming, greedy decoding (`beam_size=1`), and instant native text injection (**measured median 1,202 ms stop-to-text, p95 1,460 ms** on 8-thread CPU test host). |
+| 🗣️ **Wispr Flow Voice Commands & Editing** | Full spoken punctuation (`comma`, `period`, `question mark`, `colon`, `quotes`), voice editing (`scratch that`, `delete that`, `scratch last word`, `all caps <word>`), and structural breaks (`new line`, `new paragraph`, `tab`). |
 | 🎙️ **Wispr Flow Experience & TapLatch™** | Choose between **F9 Push-to-Talk** (hold to speak, release to paste), **TapLatch™** (double-tap <350ms to lock hands-free, tap to stop), or **Ctrl+Shift+Space Toggle** with automatic 0.85s conversational pause finalization. |
 | 🔄 **Continuous Pre-Roll Ring Buffer** | 350ms sliding float32 audio ring buffer with background stream warmup (`warmup_stream()`) completely eliminates PortAudio latency and guarantees zero first-syllable speech loss. |
-| 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols (verified on 44-case acoustic corpus; multi-speaker panel subject to upcoming field pilot). |
+| 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. |
 | 🌐 **Multilingual Foundation** | Underlying Faster-Whisper base model supports 99 languages; FlowPilot includes 18 curated, actively tested languages in its native UI registry with automatic script preservation. |
-| 🔇 **CoreAudio Background Ducking** | Automatically lowers background music/media (Spotify, YouTube, Discord) while speaking, then seamlessly restores volume upon finalization. |
-| 🤖 **Draggable Robot Mascot ("Pilot")** | Pure desktop robot companion that can be moved anywhere on your screen (snaps to any corner). Reacts to voice with pupil dilation, soundwave antennae, thinking swirls, and celebration smiles without taking up screen space. Zero focus-stealing (`WS_EX_NOACTIVATE`). |
-| 📋 **Atomic Win32 Clipboard Guard** | Hardware sequence counter (`GetClipboardSequenceNumber`) prevents clobbering new user clipboard data during paste restoration; includes instant **Alt+Shift+Z** re-paste recovery. |
+| 🔇 **CoreAudio & PulseAudio Ducking** | Automatically lowers background music/media (Spotify, YouTube, Discord) while speaking, then seamlessly restores volume upon finalization across Windows, Linux, and macOS. |
+| 🤖 **Draggable Mascot ("Pilot") & Wispr Edge Line** | Animated desktop robot companion that can be moved anywhere on your screen (snaps to any corner or screen edge with zero text clutter). Includes one-click switching to the Wispr Flow minimal docked edge line. Zero focus-stealing (`WS_EX_NOACTIVATE`). |
+| 📋 **Atomic Win32 & POSIX Clipboard Guard** | Hardware sequence counter (`GetClipboardSequenceNumber`) prevents clobbering user clipboard data during paste restoration; includes instant **Alt+Shift+Z** re-paste recovery. |
 | 🔌 **Local OpenAI-Compatible API** | Drop-in `POST /v1/audio/transcriptions` and `GET /v1/models` local endpoint (`http://127.0.0.1:8765/v1`) for seamless integration with Cursor IDE, Open WebUI, and Obsidian plugins. |
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
 
@@ -45,34 +46,30 @@ Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seaml
 
 *For a 60-second setup walkthrough, see [QUICKSTART.md](QUICKSTART.md).*
 
-### Method A: Standalone Packaged Release (Recommended for End Users)
+### Method A: Standalone Packaged Release (Windows)
 *No Python or compiler required.*
 
 - **Distribution Archive:** ~240 MB compressed ZIP ([GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release))
-- **Primary Executable:** 31.2 MB standalone entrypoint (`FlowPilot.exe`)
-- **Installed Footprint:** ~579 MB on disk (fully self-contained with offline Whisper INT8 CPU model weights, Silero VAD ONNX engine, and Qt6 runtime)
+- **Primary Executable:** Standalone entrypoint (`FlowPilot.exe`) or one-click `start_desktop.bat`
 
-1. Download **`FlowPilot-v3.0.2-win64.zip`** (or the latest verified pilot package).
-2. Extract the ZIP archive to any folder on your PC (e.g., `C:\Tools\FlowPilot` or `S:\FlowPilot`).
-3. Double-click **`FlowPilot.exe`**.
-4. The floating HUD pill will appear at the bottom center of your screen, and the FlowPilot icon will sit in your System Tray.
+1. Download **`FlowPilot-v3.0.2-win64.zip`** (or clone the repository).
+2. Double-click **`start_desktop.bat`** (or `FlowPilot.exe`).
+3. The **Pilot Companion** appears on your desktop (draggable anywhere, snaps to any corner), and the FlowPilot icon will sit in your System Tray.
 
-### Method B: Running from Source (For Developers)
+### Method B: Running from Source (Windows, Linux, macOS)
 
-```powershell
-# 1. Clone repository
-git clone https://github.com/abishekvr0910/flowpilot.git
-cd flowpilot
+```bash
+# Windows
+.\start_desktop.bat
+# or: python desktop_app.py
 
-# 2. Create virtual environment
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+# Linux (Debian, Ubuntu, Fedora)
+# sudo apt install libportaudio2 xdotool pulseaudio-utils
+python3 desktop_app.py
 
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Launch FlowPilot
-python desktop_app.py
+# macOS (Apple Silicon / Intel)
+# brew install portaudio
+python3 desktop_app.py
 ```
 
 ---

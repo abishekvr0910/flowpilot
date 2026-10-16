@@ -563,8 +563,8 @@ class FlowOrchestrator:
         if (new_hk and new_hk != old_hk) or (new_mode and new_mode != old_mode):
             print(f"[Orchestrator] Re-registering hotkey service with updated shortcut '{new_hk}' (mode={new_mode})...")
             self.stop_hotkey_listener()
-            from engine.hotkey_service import Win32HotkeyService
-            self.hotkey_service = Win32HotkeyService()
+            from engine.hotkey_service import get_hotkey_service
+            self.hotkey_service = get_hotkey_service()
             self.start_hotkey_listener()
 
     def re_copy_last(self) -> bool:

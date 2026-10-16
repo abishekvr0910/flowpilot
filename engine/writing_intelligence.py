@@ -298,12 +298,17 @@ class WritingIntelligence:
             changes.append("Resolved spoken self-correction")
             text = corrected_text
 
-        # 2. Format spoken emails and URLs (before filler/stutter removal so 'slash slash' is preserved)
+        # 2. Format spoken emails and URLs (before spoken commands so 'colon slash slash' is preserved)
         text, url_changes = self._format_spoken_emails_and_urls(text)
         if url_changes:
             changes.extend(url_changes)
 
-        # 3. Remove speech fillers and stutters
+        # 3. Wispr Flow Spoken Punctuation and Voice Commands
+        text, voice_changes = self._apply_spoken_commands(text, style=style)
+        if voice_changes:
+            changes.extend(voice_changes)
+
+        # 4. Remove speech fillers and stutters (preserving structural newlines)
         de_fillered, had_fillers = self._remove_fillers_and_stutters(text)
         if had_fillers:
             changes.append("Removed filler words & stutters")
@@ -451,6 +456,89 @@ class WritingIntelligence:
 
         return text, False, [], []
 
+    def _apply_spoken_commands(self, text: str, style: str = "professional") -> Tuple[str, List[str]]:
+        """
+        Wispr Flow Spoken Punctuation and Voice Commands Engine:
+        - Voice editing: 'scratch that' / 'delete that' (erases preceding sentence or clause)
+        - Voice editing: 'scratch last word' / 'delete last word' (erases preceding word)
+        - Voice casing: 'all caps [word]'
+        - Voice structure: 'new paragraph', 'new line', 'tab'
+        - Spoken punctuation: comma, period, question mark, exclamation point, colon, semicolon, ellipsis, quotes, parens
+        """
+        changes: List[str] = []
+
+        # 1. Voice Editing: "scratch that", "delete that", "cancel that"
+        scratch_pat = r"(?:^|[.!?\n])\s*[^.!?\n]+?\s+(?:scratch that|delete that|cancel that)\b"
+        if re.search(scratch_pat, text, flags=re.IGNORECASE):
+            text = re.sub(scratch_pat, "", text, flags=re.IGNORECASE)
+            changes.append("Executed voice editing: scratch that")
+
+        # "scratch last word", "delete last word"
+        scratch_word_pat = r"\b\S+\s+(?:scratch last word|delete last word)\b"
+        if re.search(scratch_word_pat, text, flags=re.IGNORECASE):
+            text = re.sub(scratch_word_pat, "", text, flags=re.IGNORECASE)
+            changes.append("Executed voice editing: scratch last word")
+
+        # 2. Voice Casing: "all caps [word]"
+        if re.search(r"\ball caps\s+([a-zA-Z0-9_-]+)\b", text, flags=re.IGNORECASE):
+            text = re.sub(r"\ball caps\s+([a-zA-Z0-9_-]+)\b", lambda m: m.group(1).upper(), text, flags=re.IGNORECASE)
+            changes.append("Formatted: all caps")
+
+        # 3. Structural Commands: "new paragraph", "new line", "tab"
+        if re.search(r"\b(?:new paragraph|new para)\b", text, flags=re.IGNORECASE):
+            text = re.sub(r"\s*\b(?:new paragraph|new para)\b\s*", "\n\n", text, flags=re.IGNORECASE)
+            changes.append("Inserted new paragraph")
+
+        if re.search(r"\b(?:new line|newline)\b", text, flags=re.IGNORECASE):
+            text = re.sub(r"\s*\b(?:new line|newline)\b\s*", "\n", text, flags=re.IGNORECASE)
+            changes.append("Inserted new line")
+
+        if re.search(r"\b(?:press tab|tab key|tab)\b", text, flags=re.IGNORECASE):
+            text = re.sub(r"\s*\b(?:press tab|tab key|tab)\b\s*", "\t", text, flags=re.IGNORECASE)
+            changes.append("Inserted tab")
+
+        # 4. Spoken Punctuation
+        punc_patterns = [
+            (r"\s*\bcomma\b", ",", "comma"),
+            (r"\s*\b(?:question mark)\b", "?", "question mark"),
+            (r"\s*\b(?:exclamation mark|exclamation point)\b", "!", "exclamation point"),
+            (r"\s*\bsemicolon\b", ";", "semicolon"),
+            (r"\s*\bcolon\b(?!\s*//|\s*slash\s*slash)", ":", "colon"),
+            (r"\s*\b(?:ellipsis|dot dot dot)\b", "...", "ellipsis"),
+            (r"\bopen quote\s*", '"', "open quote"),
+            (r"\s*close quote\b", '"', "close quote"),
+            (r"\b(?:open paren|open parenthesis)\s*", "(", "open paren"),
+            (r"\s*(?:close paren|close parenthesis)\b", ")", "close paren"),
+            (r"\b(?:open bracket)\s*", "[", "open bracket"),
+            (r"\s*(?:close bracket)\b", "]", "close bracket"),
+            (r"(?<!\ba)\s*\b(?:period|full stop)\b(?!\s+(?:of|time|duration|cycle))", ".", "period")
+        ]
+
+        for pat, repl, label in punc_patterns:
+            if re.search(pat, text, flags=re.IGNORECASE):
+                text = re.sub(pat, repl, text, flags=re.IGNORECASE)
+                changes.append(f"Formatted spoken {label}")
+
+        # Clean spacing around punctuation
+        text = re.sub(r"\s+([,.:;?!])", r"\1", text)
+        text = re.sub(r"\(\s+", "(", text)
+        text = re.sub(r"\s+\)", ")", text)
+
+        # Capitalize after sentence-ending punctuation (. ? !)
+        text = re.sub(r"([.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), text)
+
+        # Capitalize after structural newlines if not terminal style
+        if style != "terminal" and "\n" in text:
+            lines = text.split("\n")
+            cleaned_lines = [lines[0]]
+            for l in lines[1:]:
+                if l and l[0].islower():
+                    l = l[0].upper() + l[1:]
+                cleaned_lines.append(l)
+            text = "\n".join(cleaned_lines)
+
+        return text.strip(), changes
+
     def _remove_fillers_and_stutters(self, text: str) -> Tuple[str, bool]:
         original = text
 
@@ -469,7 +557,7 @@ class WritingIntelligence:
         text = re.sub(stutter_pattern, r"\1", text)
         text = re.sub(stutter_pattern, r"\1", text)
 
-        text = re.sub(r"\s+", " ", text).strip()
+        text = re.sub(r"[^\S\r\n]+", " ", text).strip()
         return text, (text != original)
 
     def _format_spoken_emails_and_urls(self, text: str) -> Tuple[str, List[str]]:
@@ -676,14 +764,21 @@ class WritingIntelligence:
         return text, (text != original)
 
     def _apply_professional(self, text: str) -> str:
-        sentences = re.split(r"([.?!]\s+)", text)
-        capped = []
-        for s in sentences:
-            if s and s[0].islower():
-                capped.append(s[0].upper() + s[1:])
+        lines = text.split("\n")
+        res_lines = []
+        for line in lines:
+            if line:
+                sentences = re.split(r"([.?!]\s+)", line)
+                capped = []
+                for s in sentences:
+                    if s and s[0].islower():
+                        capped.append(s[0].upper() + s[1:])
+                    else:
+                        capped.append(s)
+                res_lines.append("".join(capped))
             else:
-                capped.append(s)
-        return "".join(capped)
+                res_lines.append("")
+        return "\n".join(res_lines)
 
     def _finalize_punctuation(self, text: str, style: str = "professional") -> str:
         text = text.strip()
