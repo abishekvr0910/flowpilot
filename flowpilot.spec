@@ -36,6 +36,8 @@ hidden_imports = [
     'win32api',
     'pynput',
     'pynput.keyboard',
+    'engine.silero_vad',
+    'engine.single_instance',
     'PySide6.QtCore',
     'PySide6.QtWidgets',
     'PySide6.QtGui',

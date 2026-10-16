@@ -19,24 +19,22 @@ def test_microphone():
         default_device = -1
 
     if not input_devices or default_device < 0 or default_device >= len(devices):
-        print("[CI Notice] No physical input audio device found on host (Headless / Virtualized CI environment).")
-        print("[CI Notice] Synthesizing 2.0s PCM audio verification fixture for headless testing...")
-        fs = 16000
-        audio = (0.2 * np.sin(2 * np.pi * 440 * np.linspace(0, 2.0, int(2.0 * fs), dtype=np.float32))).astype(np.float32)
-    else:
-        default_info = devices[default_device]
-        print(f"Default device name: {default_info['name']}")
-        print(f"Max input channels: {default_info['max_input_channels']}")
-        print(f"Default sample rate: {default_info['default_samplerate']}")
+        print("[RESULT] SKIPPED: Headless environment with 0 physical microphones detected.")
+        return True
 
-        print("\nRecording 2.0 second test audio sample...")
-        fs = 16000
-        try:
-            audio = sd.rec(int(2.0 * fs), samplerate=fs, channels=1, dtype='float32')
-            sd.wait()
-        except Exception as e:
-            print(f"[CI Notice] Hardware recording exception on VM ({e}). Using synthetic PCM...")
-            audio = (0.2 * np.sin(2 * np.pi * 440 * np.linspace(0, 2.0, int(2.0 * fs), dtype=np.float32))).astype(np.float32)
+    default_info = devices[default_device]
+    print(f"Default device name: {default_info['name']}")
+    print(f"Max input channels: {default_info['max_input_channels']}")
+    print(f"Default sample rate: {default_info['default_samplerate']}")
+
+    print("\nRecording 2.0 second test audio sample...")
+    fs = 16000
+    try:
+        audio = sd.rec(int(2.0 * fs), samplerate=fs, channels=1, dtype='float32')
+        sd.wait()
+    except Exception as e:
+        print(f"FAILED: Physical audio hardware capture exception: {e}")
+        return False
 
     max_amp = float(np.max(np.abs(audio)))
     rms = float(np.sqrt(np.mean(audio**2)))

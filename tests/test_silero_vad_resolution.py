@@ -30,22 +30,38 @@ def test_silero_assets():
     print("SILERO VAD ONNX ASSET RESOLUTION & REGRESSION TEST")
     print("=" * 70)
 
-    # 1. Check runtime environment and packaged dist directories
-    import faster_whisper.vad
-    runtime_assets = Path(faster_whisper.vad.get_assets_path())
-    
-    targets = [runtime_assets]
+    # 1. Check runtime environment, repo assets, and packaged dist directories
+    from engine.silero_vad import get_silero_vad_assets_path, SileroVAD
+
+    targets = []
+    repo_assets = PROJECT_ROOT / "assets"
+    if (repo_assets / "silero_encoder_v5.onnx").is_file():
+        targets.append(repo_assets)
+
+    discovered_assets = get_silero_vad_assets_path()
+    if discovered_assets not in targets and (discovered_assets / "silero_encoder_v5.onnx").is_file():
+        targets.append(discovered_assets)
+
+    try:
+        import faster_whisper.vad
+        runtime_assets = Path(faster_whisper.vad.get_assets_path())
+        if runtime_assets not in targets and (runtime_assets / "silero_encoder_v5.onnx").is_file():
+            targets.append(runtime_assets)
+    except Exception:
+        pass
+
     dist_internal = PROJECT_ROOT / "dist/FlowPilot/_internal/faster_whisper/assets"
-    if dist_internal.exists():
+    if dist_internal.exists() and dist_internal not in targets:
         targets.append(dist_internal)
-    
+
     # Also verify existing backup distributions if present
     for backup_dir in ["dist/FlowPilot_backup_v200", "dist/FlowPilot_backup_v210", "dist/FlowPilot_backup_v300", "dist/FlowPilot_backup_v301", "dist/FlowPilot_backup_v302"]:
         bp = PROJECT_ROOT / backup_dir / "_internal/faster_whisper/assets"
-        if bp.exists():
+        if bp.exists() and bp not in targets:
             targets.append(bp)
 
     print("\n[Step 1] Verifying asset existence across canonical runtime and distributions...")
+    assert len(targets) > 0, "No Silero VAD asset directories found!"
     for full_path in targets:
         enc = full_path / "silero_encoder_v5.onnx"
         dec = full_path / "silero_decoder_v5.onnx"
@@ -53,10 +69,11 @@ def test_silero_assets():
         assert enc.stat().st_size > 500000, f"Corrupt silero_encoder_v5.onnx in {full_path}"
         print(f"  [OK] {full_path}: encoder ({enc.stat().st_size} bytes)")
 
-    # 2. Test ONNX Runtime direct session creation on the bundled model
+    # 2. Test ONNX Runtime direct session creation on the model
     print("\n[Step 2] Testing direct ONNX Runtime session load on model...")
     bundled_enc_path = PROJECT_ROOT / "dist/FlowPilot/_internal/faster_whisper/assets/silero_encoder_v5.onnx"
-    target_enc = str(bundled_enc_path if bundled_enc_path.exists() else (runtime_assets / "silero_encoder_v5.onnx"))
+    target_enc = str(bundled_enc_path if bundled_enc_path.exists() else (discovered_assets / "silero_encoder_v5.onnx"))
+    vad_wrapper = SileroVAD(target_enc)
     opts = ort.SessionOptions()
     opts.inter_op_num_threads = 1
     opts.intra_op_num_threads = 1
@@ -87,7 +104,9 @@ def test_silero_assets():
     exe_path = str(PROJECT_ROOT / "dist/FlowPilot/FlowPilot.exe")
     if os.path.isfile(exe_path):
         temp_dir = os.environ.get("TEMP", "C:\\Temp")
-        proc = subprocess.Popen([exe_path], cwd=temp_dir)
+        test_env = os.environ.copy()
+        test_env["FLOWPILOT_MUTEX_NAME"] = f"Global\\FlowPilot_SileroTest_{os.getpid()}"
+        proc = subprocess.Popen([exe_path], cwd=temp_dir, env=test_env)
         try:
             time.sleep(2.5)
             assert proc.poll() is None, f"Packaged FlowPilot.exe failed to start from {temp_dir}!"

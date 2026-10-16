@@ -18,13 +18,11 @@ def test_audio_ducking():
     try:
         speakers = AudioUtilities.GetSpeakers()
     except Exception as e:
-        print(f"[CI Notice] No Windows endpoint volume found ({e}). Headless CI environment detected.")
-        print("[RESULT] Audio ducker headless verification PASSED.")
+        print(f"[RESULT] SKIPPED: No Windows audio endpoint volume found ({e}). Headless CI environment detected.")
         return True
 
     if not speakers or not getattr(speakers, "EndpointVolume", None):
-        print("[CI Notice] No Windows endpoint volume found. Headless CI environment detected.")
-        print("[RESULT] Audio ducker headless verification PASSED.")
+        print("[RESULT] SKIPPED: No Windows audio endpoint volume found. Headless CI environment detected.")
         return True
 
     endpoint = speakers.EndpointVolume

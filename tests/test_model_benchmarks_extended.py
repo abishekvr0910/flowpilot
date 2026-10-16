@@ -207,7 +207,11 @@ def run_model_benchmark():
         stt = STTEngine(config=config, personalization=pers)
         
         # Warmup and memory baseline
-        stt._get_local_model()
+        try:
+            stt._get_local_model()
+        except Exception as e:
+            print(f"  [Notice] Model '{model_name}' could not be loaded offline: {e}. Skipping benchmark for this model.")
+            continue
         process = psutil.Process()
         baseline_ram = process.memory_info().rss / (1024 * 1024)
         print(f"  Loaded model '{model_name}'. Baseline Process RAM: {baseline_ram:.2f} MB")
@@ -280,6 +284,11 @@ def run_model_benchmark():
     for r in results:
         print(f"{r['model']:<6} | {r['name'][:25]:<25} | {r['duration']:<5.1f}s  | {r['stt_ms']:<8.1f} | {r['total_ms']:<7.1f} | {r['rtf']:<5.2f} | {r['wer']:<5.1f}% | {r['cer']:<5.1f}% | {'PASS' if r['fact_guard'] else 'FAIL'}")
     print("=" * 80)
+    if not results:
+        print("FAILED: No models could be evaluated.")
+        return False
+    return True
 
 if __name__ == "__main__":
-    run_model_benchmark()
+    success = run_model_benchmark()
+    sys.exit(0 if success else 1)

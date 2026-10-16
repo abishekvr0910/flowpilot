@@ -34,7 +34,7 @@ jobs:
 
       - name: Pre-provision Offline Whisper Model Cache for CI
         run: |
-          python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"
+          python -c "from faster_whisper import WhisperModel; WhisperModel('tiny', device='cpu', compute_type='int8'); WhisperModel('base', device='cpu', compute_type='int8')"
 
       - name: Build Standalone Windows Executable via PyInstaller
         run: |

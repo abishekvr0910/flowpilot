@@ -31,17 +31,12 @@ def main():
     assert os.path.isfile(vad_dec), f"Missing Silero VAD decoder asset at {vad_dec}"
     print(f"Verified bundled Silero VAD assets:\n  Encoder: {vad_enc} ({os.path.getsize(vad_enc)} bytes)\n  Decoder: {vad_dec} ({os.path.getsize(vad_dec)} bytes)")
 
-    # Pre-clean any orphaned instances before starting test
-    for p in psutil.process_iter(['name']):
-        try:
-            if p.info['name'] and 'flowpilot' in p.info['name'].lower():
-                p.kill()
-        except Exception:
-            pass
-    time.sleep(0.5)
+    # Use isolated test mutex to avoid conflicting with or terminating any user instances
+    test_env = os.environ.copy()
+    test_env["FLOWPILOT_MUTEX_NAME"] = f"Global\\FlowPilot_SmokeTest_{os.getpid()}"
 
-    print("\n[Phase 1] Launching FlowPilot.exe...")
-    proc = subprocess.Popen([exe_path])
+    print("\n[Phase 1] Launching FlowPilot.exe with isolated test mutex...")
+    proc = subprocess.Popen([exe_path], env=test_env)
     
     try:
         # Give it 4.0 seconds to initialize PySide6, SingleInstance mutex, and HUD
@@ -57,7 +52,7 @@ def main():
         
         # Test Phase 2: Launch secondary instance, verify mutex stops duplicate
         print("\n[Phase 2] Verifying Single-Instance Mutex enforcement...")
-        proc2 = subprocess.Popen([exe_path])
+        proc2 = subprocess.Popen([exe_path], env=test_env)
         returncode = proc2.wait(timeout=25)
         print(f"Secondary instance exited cleanly as expected with code: {returncode}")
         assert returncode == 0, f"Expected returncode 0, got {returncode}"

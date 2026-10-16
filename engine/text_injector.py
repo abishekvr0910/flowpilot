@@ -124,17 +124,26 @@ class TextInjector:
             ctypes.windll.user32.AllowSetForegroundWindow(-1)
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
             win32gui.BringWindowToTop(hwnd)
-            current_hwnd = win32gui.GetForegroundWindow()
-            if current_hwnd == hwnd:
-                return
 
-            cur_thread, _ = win32process.GetWindowThreadProcessId(current_hwnd) if current_hwnd else (0, 0)
+            # Bypass Windows foreground lock timeout via simulated Alt key
+            win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
+            win32gui.SetForegroundWindow(hwnd)
+            win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+            my_thread = win32api.GetCurrentThreadId()
             target_thread, _ = win32process.GetWindowThreadProcessId(hwnd)
-
-            if cur_thread and target_thread and cur_thread != target_thread:
-                win32process.AttachThreadInput(cur_thread, target_thread, True)
+            if my_thread and target_thread and my_thread != target_thread:
+                win32process.AttachThreadInput(my_thread, target_thread, True)
+                win32gui.BringWindowToTop(hwnd)
                 win32gui.SetForegroundWindow(hwnd)
-                win32process.AttachThreadInput(cur_thread, target_thread, False)
+                win32gui.SetActiveWindow(hwnd)
+                edit = cls._find_edit_control(hwnd)
+                if edit:
+                    try:
+                        win32gui.SetFocus(edit)
+                    except Exception:
+                        pass
+                win32process.AttachThreadInput(my_thread, target_thread, False)
             else:
                 ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
                 win32gui.SetForegroundWindow(hwnd)
@@ -142,9 +151,6 @@ class TextInjector:
             try:
                 import ctypes
                 ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
-                win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
-                win32gui.SetForegroundWindow(hwnd)
-                win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
             except Exception:
                 pass
 
@@ -296,9 +302,10 @@ class TextInjector:
                 else:
                     win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
                     win32api.keybd_event(ord('V'), 0, 0, 0)
-                    time.sleep(0.015)
+                    time.sleep(0.02)
                     win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+                    time.sleep(0.08)
             elif sys.platform == "darwin":
                 # macOS Cmd+V
                 try:
@@ -367,7 +374,6 @@ class TextInjector:
                         # 1. Content matching check: only restore if clipboard still holds our injected text
                         current = cls._safe_clipboard_paste()
                         if not current or (current != text and current.strip() != text.strip()):
-                            # User copied something else (or non-text object); preserve user data
                             return
 
                         # 2. Check atomic Win32 clipboard sequence counter:
@@ -487,16 +493,44 @@ class TextInjector:
         try:
             import ctypes
             length = ctypes.windll.user32.SendMessageW(edit_ctrl, win32con.WM_GETTEXTLENGTH, 0, 0)
-            buf_len = max(length + 2, 8192)
-            buf = ctypes.create_unicode_buffer(buf_len)
-            ctypes.windll.user32.SendMessageW(edit_ctrl, win32con.WM_GETTEXT, buf_len, buf)
-            if buf.value:
-                return buf.value
+            if length > 0:
+                buf_len = max(length + 2, 8192)
+                buf = ctypes.create_unicode_buffer(buf_len)
+                ctypes.windll.user32.SendMessageW(edit_ctrl, win32con.WM_GETTEXT, buf_len, buf)
+                if buf.value:
+                    return buf.value
         except Exception:
             pass
 
-        # 2. Fall back to focus + Ctrl+A / Ctrl+C with safe clipboard restoration
-        orig_clip = cls._safe_clipboard_paste()
+        # 2. Attempt direct Win32 EM_SETSEL (0, -1) + WM_COPY on edit control (works across processes without focus)
+        if edit_ctrl != target_hwnd:
+            with cls._restore_lock:
+                target_to_restore = cls._original_clipboard if cls._original_clipboard is not None else cls._safe_clipboard_paste()
+            try:
+                import ctypes
+                ctypes.windll.user32.SendMessageW(edit_ctrl, 0x00B1, 0, -1)
+                ctypes.windll.user32.SendMessageW(edit_ctrl, win32con.WM_COPY, 0, 0)
+                ctypes.windll.user32.SendMessageW(edit_ctrl, 0x00B1, -1, -1)
+                time.sleep(0.04)
+                content = cls._safe_clipboard_paste()
+                if content:
+                    return content
+            except Exception:
+                pass
+            finally:
+                with cls._restore_lock:
+                    if target_to_restore is not None:
+                        cls._safe_clipboard_copy(target_to_restore)
+                        cls._last_copy_seq = cls._get_clipboard_sequence_number()
+                        cls._original_clipboard = None
+                        if cls._restore_timer is not None:
+                            cls._restore_timer.cancel()
+                            cls._restore_timer = None
+
+        # 3. Fall back to focus + Ctrl+A / Ctrl+C with safe clipboard restoration
+        with cls._restore_lock:
+            target_to_restore = cls._original_clipboard if cls._original_clipboard is not None else cls._safe_clipboard_paste()
+
         try:
             cls._safe_set_foreground(target_hwnd)
             time.sleep(0.06)
@@ -528,12 +562,17 @@ class TextInjector:
 
             return content
         finally:
-            if orig_clip is not None:
-                cls._safe_clipboard_copy(orig_clip)
-                cls._last_copy_seq = cls._get_clipboard_sequence_number()
+            with cls._restore_lock:
+                if target_to_restore is not None:
+                    cls._safe_clipboard_copy(target_to_restore)
+                    cls._last_copy_seq = cls._get_clipboard_sequence_number()
+                    cls._original_clipboard = None
+                    if cls._restore_timer is not None:
+                        cls._restore_timer.cancel()
+                        cls._restore_timer = None
 
     @classmethod
-    def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 1.0) -> bool:
+    def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 2.5) -> bool:
         """
         Verifies that expected_text was physically received and is present inside the target document buffer.
         """
