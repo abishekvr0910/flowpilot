@@ -25,19 +25,81 @@ from engine.writing_intelligence import WritingIntelligence
 from engine.context_processor import ContextProcessor
 from engine.audio_recorder import AudioRecorder
 
-# Track all connection attempts at socket level
+# Track all connection attempts at socket and DNS level
 outbound_connection_attempts = []
+LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost", "0.0.0.0")
+
 _orig_socket_connect = socket.socket.connect
+_orig_socket_connect_ex = socket.socket.connect_ex
+_orig_socket_sendto = socket.socket.sendto
+_orig_create_connection = socket.create_connection
+_orig_getaddrinfo = socket.getaddrinfo
+_orig_gethostbyname = socket.gethostbyname
+
+def _is_loopback(host):
+    if not host:
+        return True
+    return str(host) in LOOPBACK_HOSTS or str(host).startswith("127.")
 
 def guarded_socket_connect(self, address):
     host = address[0] if isinstance(address, tuple) else address
-    # Allow local loopback addresses only
-    if host not in ("127.0.0.1", "::1", "localhost", "0.0.0.0"):
-        outbound_connection_attempts.append(address)
-        raise ConnectionRefusedError(f"[FORENSIC AUDIT] Zero-Egress Guard blocked outbound connection to: {address}")
+    if not _is_loopback(host):
+        outbound_connection_attempts.append(("connect", address))
+        raise ConnectionRefusedError(f"[FORENSIC AUDIT] Zero-Egress Guard blocked outbound TCP connect to: {address}")
     return _orig_socket_connect(self, address)
 
+def guarded_socket_connect_ex(self, address):
+    host = address[0] if isinstance(address, tuple) else address
+    if not _is_loopback(host):
+        outbound_connection_attempts.append(("connect_ex", address))
+        raise ConnectionRefusedError(f"[FORENSIC AUDIT] Zero-Egress Guard blocked outbound TCP connect_ex to: {address}")
+    return _orig_socket_connect_ex(self, address)
+
+def guarded_socket_sendto(self, data, *args):
+    address = args[-1] if args else None
+    if address:
+        host = address[0] if isinstance(address, tuple) else address
+        if not _is_loopback(host):
+            outbound_connection_attempts.append(("sendto_udp", address))
+            raise ConnectionRefusedError(f"[FORENSIC AUDIT] Zero-Egress Guard blocked outbound UDP sendto to: {address}")
+    return _orig_socket_sendto(self, data, *args)
+
+def guarded_create_connection(address, *args, **kwargs):
+    host = address[0] if isinstance(address, tuple) else address
+    if not _is_loopback(host):
+        outbound_connection_attempts.append(("create_connection", address))
+        raise ConnectionRefusedError(f"[FORENSIC AUDIT] Zero-Egress Guard blocked create_connection to: {address}")
+    return _orig_create_connection(address, *args, **kwargs)
+
+def guarded_getaddrinfo(host, port, *args, **kwargs):
+    if not _is_loopback(host):
+        outbound_connection_attempts.append(("dns_getaddrinfo", host))
+        raise ConnectionRefusedError(f"[FORENSIC AUDIT] Zero-Egress Guard blocked DNS resolution for: {host}")
+    return _orig_getaddrinfo(host, port, *args, **kwargs)
+
+def guarded_gethostbyname(host):
+    if not _is_loopback(host):
+        outbound_connection_attempts.append(("dns_gethostbyname", host))
+        raise ConnectionRefusedError(f"[FORENSIC AUDIT] Zero-Egress Guard blocked DNS lookup for: {host}")
+    return _orig_gethostbyname(host)
+
 socket.socket.connect = guarded_socket_connect
+socket.socket.connect_ex = guarded_socket_connect_ex
+socket.socket.sendto = guarded_socket_sendto
+socket.create_connection = guarded_create_connection
+socket.getaddrinfo = guarded_getaddrinfo
+socket.gethostbyname = guarded_gethostbyname
+
+if hasattr(socket.socket, "sendmsg"):
+    _orig_socket_sendmsg = socket.socket.sendmsg
+    def guarded_socket_sendmsg(self, buffers, ancdata=(), flags=0, address=None):
+        if address:
+            host = address[0] if isinstance(address, tuple) else address
+            if not _is_loopback(host):
+                outbound_connection_attempts.append(("sendmsg", address))
+                raise ConnectionRefusedError(f"[FORENSIC AUDIT] Zero-Egress Guard blocked sendmsg to: {address}")
+        return _orig_socket_sendmsg(self, buffers, ancdata, flags, address)
+    socket.socket.sendmsg = guarded_socket_sendmsg
 
 def get_process_connections(pid: int):
     """Returns list of active remote connections for given process."""
