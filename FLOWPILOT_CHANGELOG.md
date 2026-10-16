@@ -5,11 +5,16 @@ All notable changes, bug fixes, and architectural evolutions to FlowPilot are do
 ## [Unreleased] — *Cross-Platform OS Adapters & Architectural Upgrades*
 
 ### Added
-- **Visual HUD Redesign: Wispr Flow Waveform & Cartoon Mascot Companion (`ui/floating_hud.py`):**
-  - **Wispr Flow Dynamic Soundwave Bars (`WisprWaveWidget`):** Replaced the static microphone emoji with a sleek Wispr Flow-inspired dynamic vertical sound equalizer bar (cyan `#06B6D4` to purple `#A855F7` gradient) that smoothly bounces to the user's microphone audio volume at 60 FPS.
-  - **Animated Mascot Companion ("Pilot") (`CartoonMascotWidget`):** Procedural cartoon companion that reacts to voice in real time with glowing listening antennae radiating sound arcs, expressive glossy eyes with natural random blinking, voice-reactive pupil dilation, thinking spiral eyes during LLM polishing, and celebratory happy smiles upon text injection.
-  - **Sanitized Human-Centric HUD Interface:** Completely eliminated developer diagnostics and technical jargon (`unverified target`, `(unknown)`, `HWND`, `SENT_UNVERIFIED`) from the floating pill; replaced with clean, intuitive state prompts (`Ready • Hold F9`, `Listening...`, `Polishing...`, `Done ✓`).
-  - **Seamless Visual Mode Switcher & Persistence:** Added right-click HUD context menu toggle allowing users to switch between *"Wispr Wave Bars"* and *"Cartoon Mascot ('Pilot')"*, automatically remembered across sessions in `config.json` (`hud_style`).
+- **Standalone Moveable Robot Companion ("Pilot") (`ui/floating_hud.py`):**
+  - **Zero UI Text Clutter:** Completely eliminated the wide text pill and "Ctrl+Shift+Space" label. FlowPilot is now represented by an adorable, standalone desktop robot companion ("Pilot").
+  - **Draggable to Any Screen Corner:** Users can click and freely drag Pilot to any position or corner on their desktop. The robot automatically remembers its exact coordinates (`hud_x`, `hud_y`) across restarts.
+  - **One-Click Snap-to-Corner Menu:** Right-click context menu and double-click actions provide instant positioning to *Bottom-Right, Bottom-Left, Top-Right, Top-Left, or Bottom-Center*.
+  - **Interactive Mascot Voice Reactions:**
+    - Live voice volume dilation of big glossy anime pupils.
+    - Antenna tip lights up with glowing cyan bulb and radiates dynamic soundwave arcs while speaking.
+    - Animated thinking swirls during Groq & FactGuard processing.
+    - Happy celebratory smile `( ^ _ ^ )` with rosy blush upon pasting.
+    - Single-click to start or stop dictation.
 - **Cross-Platform OS Adapters (Windows, Linux, macOS):**
   - **`PynputHotkeyService` (`engine/hotkey_service.py`):** Universal fallback global hotkey listener for Linux (X11) and macOS supporting multi-key chords (`Ctrl+Shift+Space`, `Alt+Shift+Z`), single keys (`F9`), push-to-talk press/release callbacks, and TapLatch hands-free gestures. Factory function `get_hotkey_service()` selects `Win32HotkeyService` on Windows and `PynputHotkeyService` on Linux/macOS.
   - **Multi-OS Text Injection (`engine/text_injector.py`):** Added macOS `Cmd+V` (with AppleScript fallback) and Linux `Ctrl+V` (with `xdotool` fallback) dispatch. Implemented cross-platform MD5 content hash sequence generation for atomic clipboard safety on non-Windows systems.

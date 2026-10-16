@@ -87,13 +87,20 @@ class FlowPilotApp:
         self.hud.quit_requested.connect(self.quit)
         self.tray.quit_requested.connect(self.quit)
 
-        # 4. Position Floating HUD on Primary Screen (Bottom Center)
+        # 4. Position Floating Robot Mascot Companion (Restore saved position or default to bottom right)
         screen = self.app.primaryScreen()
         if screen:
             geom = screen.availableGeometry()
-            x = geom.center().x() - (self.hud.width() // 2)
-            y = geom.bottom() - self.hud.height() - 40
-            self.hud.move(x, y)
+            saved_x = self.config.get("hud_x")
+            saved_y = self.config.get("hud_y")
+            if saved_x is not None and saved_y is not None:
+                x = max(geom.left(), min(saved_x, geom.right() - self.hud.width()))
+                y = max(geom.top(), min(saved_y, geom.bottom() - self.hud.height()))
+                self.hud.move(x, y)
+            else:
+                x = geom.right() - self.hud.width() - 24
+                y = geom.bottom() - self.hud.height() - 24
+                self.hud.move(x, y)
         self.hud.show()
 
         # 5. Start Global Win32 Hotkey Service
@@ -102,7 +109,7 @@ class FlowPilotApp:
         print("   FLOWPILOT NATIVE DESKTOP APPLICATION ACTIVE")
         print("============================================================")
         print("[*] Global Shortcuts: 'Ctrl + Shift + Space', 'Ctrl + Alt + Space', 'F9'")
-        print("[*] Floating Pill:    Visible (Bottom Center)")
+        print("[*] Robot Companion:  Pilot Active (Draggable to any corner)")
         print("[*] System Tray:      Active")
         print("============================================================\n")
 
