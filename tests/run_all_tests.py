@@ -31,6 +31,9 @@ TESTS = [
     ("Dissected Competitive Upgrades", "tests/test_dissected_upgrades.py"),
     ("Cross-Platform Linux & macOS Adapters", "tests/test_cross_platform.py"),
     ("SondeR-Cat Pixel Kitty Companion", "tests/test_sondercat_companion.py"),
+    ("Cross-Application Injection & Focus", "tests/test_cross_app_injection.py"),
+    ("18-Scenario Full Specification End-to-End", "tests/test_final_specification_e2e.py"),
+    ("Standalone Windows Binary Packaging Smoke", "tests/test_standalone_binary_smoke.py"),
 ]
 
 def ensure_desktop_accessible():

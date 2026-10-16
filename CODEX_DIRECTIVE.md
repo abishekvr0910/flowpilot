@@ -34,7 +34,7 @@ Any code change that violates any of these seven principles is considered a **cr
 5. **Deterministic Semantic Preservation (`FactGuard™`):**
    AI text polishing must never hallucinate, invert negation, alter numbers, corrupt dates, or mutate developer identifiers. If semantic ambiguity arises, verbatim transcription is strictly enforced.
 6. **Native Qt6/PySide6 Event Loop Execution (Zero IPC Bloat):**
-   All desktop visual elements—including pixel pets and mascots—must render natively via `QPainter` within the primary Qt event loop at 60 FPS in <0.2 ms with <5 MB RAM. Multi-process socket bridges, WebSockets, Electron wrappers, and base64 image streaming are strictly prohibited.
+   All desktop visual elements—including pixel pets, mascots, edge lines, and visual equalizers—must render natively via `QPainter` within the primary Qt event loop at 60 FPS in <0.2 ms with <5 MB RAM. Multi-process socket bridges, WebSockets, Electron wrappers, and base64 image streaming are strictly prohibited for desktop UI rendering. (The loopback REST/WebSocket server in `engine/server.py` is reserved exclusively as an optional integration boundary for external headless clients and IDE extensions, never for local desktop GUI rendering).
 7. **Zero-Crash Mutex & Process Lifecycle:**
    Single-instance mutex enforcement must be absolute. Duplicate process launches must never fail silently, hang in blocking modal loops, or leave orphaned audio listeners competing for microphone hardware.
 
@@ -61,8 +61,8 @@ FlowPilot's architecture is synthesized from forensic teardowns of industry-lead
 │ SpeakoFlow        │ Win32 Clipboard Sequence Check   │ engine/text_injector.py          │
 │                   │ Alt+Shift+Z Emergency Re-Paste   │ engine/orchestrator.py           │
 ├───────────────────┼──────────────────────────────────┼──────────────────────────────────┤
-│ Superwhisper      │ INT8 Quantization on CPU         │ engine/speech_to_text.py         │
-│                   │ Developer Vocabulary Biasing     │ engine/speech_to_text.py         │
+│ Superwhisper      │ INT8 Quantization on CPU         │ engine/stt_engine.py             │
+│                   │ Developer Vocabulary Biasing     │ engine/stt_engine.py             │
 ├───────────────────┼──────────────────────────────────┼──────────────────────────────────┤
 │ SondeR-Cat        │ 26×28 ASCII Pixel Sprite Engine  │ ui/pet_sprites.py                │
 │                   │ 14 Fur Palettes & Dynamic Pupils │ ui/floating_hud.py               │
@@ -103,7 +103,7 @@ FlowPilot's architecture is synthesized from forensic teardowns of industry-lead
 - **Developer Vocabulary Biasing:** Injects engineered domain prompts biasing the beam search toward modern tech stacks (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`).
 
 ### Referral 5: SondeR-Cat & Desktop Pet Ecosystem (The Companionship Benchmark)
-*Forensic Analysis Document:* [`flowpilot_pet_companion_and_gpt_review_audit.md`](flowpilot_pet_companion_and_gpt_review_audit.md)
+*Forensic Analysis Document:* [`docs/architecture/flowpilot_pet_companion_and_gpt_review_audit.md`](docs/architecture/flowpilot_pet_companion_and_gpt_review_audit.md)
 - **Rejection of Web/WebSocket Hallucinations:** GPT-generated review documents proposed streaming base64 PNGs over WebSockets to an HTML canvas (50ms+ latency, 20%+ CPU). This was rejected. Both FlowPilot and SondeR-Cat are native **PySide6 / Qt6**.
 - **Native ASCII Sprite Grid Engine:** 26×28 ASCII text grids in [`ui/pet_sprites.py`](ui/pet_sprites.py) rendered via `QPainter` at `scale=3` (78×84 px) with 14 fur palettes (Orange Tabby, Calico, Midnight Black, Classic Gray, Siamese, Pastel Pink, Snow White, Mint, Chocolate, Cream, Lilac, Mimi, JJ, Lilly).
 - **Interactive Speech Reactivity:**
@@ -129,8 +129,8 @@ FlowPilot's architecture is synthesized from forensic teardowns of industry-lead
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │ 3. ASR & INTELLIGENCE PIPELINE                                                         │
 │    • Audio Capture: Float32 Mono 16kHz Streaming (engine/audio_recorder.py)            │
-│    • Acoustic Activity: Silero VAD v5 ONNX Gate (engine/vad.py)                        │
-│    • Local STT: faster-whisper INT8 CPU Greedy Decoder (engine/speech_to_text.py)      │
+│    • Acoustic Activity: Silero VAD v5 ONNX Gate (engine/silero_vad.py)                 │
+│    • Local STT: faster-whisper INT8 CPU Greedy Decoder (engine/stt_engine.py)          │
 │    • FactGuard™: Punctuation, Negation Guard, Identifier Formatter (engine/writing_..) │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │ 4. OS INJECTION & CLIPBOARD HARDWARE GUARD (engine/text_injector.py)                   │
@@ -235,14 +235,14 @@ self._preroll_buffer = deque(maxlen=int(self.sample_rate * 0.35 / self.chunk_siz
 
 ## 6. VERIFICATION GATES & REGRESSION TEST HARNESS
 
-FlowPilot enforces a zero-defect regression protocol. Before any code is committed, **all 27 automated test suites must pass 100%**:
+FlowPilot enforces a zero-defect regression protocol. Before any code is committed, **all 30 automated test suites must pass 100%**:
 
 ```bash
-# Execute Full 27-Suite Master Regression
+# Execute Full 30-Suite Master Regression
 python tests/run_all_tests.py
 ```
 
-### The 27 Required Verification Suites:
+### The 30 Required Verification Suites:
 1. `tests/test_audio.py` — Microphone capture & PortAudio ring buffer
 2. `tests/test_stt.py` — Local Faster-Whisper base INT8 speech model
 3. `tests/test_text_injector.py` — Keystroke synthesis & Win32 focus lock
@@ -270,6 +270,9 @@ python tests/run_all_tests.py
 25. `tests/test_dissected_upgrades.py` — Pre-roll, TapLatch, & atomic seq counter
 26. `tests/test_cross_platform.py` — Linux & macOS cross-platform shims
 27. `tests/test_sondercat_companion.py` — SondeR-Cat pixel kitty & 14 palettes
+28. `tests/test_cross_app_injection.py` — Cross-application focus & terminal injection
+29. `tests/test_final_specification_e2e.py` — 18-scenario full system specification verification
+30. `tests/test_standalone_binary_smoke.py` — Standalone binary packaging & single-instance smoke
 
 ---
 

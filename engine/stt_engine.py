@@ -1,10 +1,9 @@
 import io
 import os
 import sys
-from pathlib import Path
 from typing import List, Optional, Dict, Any, Union
 import numpy as np
-from openai import OpenAI
+# Zero-Cloud-Egress: All external cloud speech providers (OpenAI/Groq) are hard-disabled.
 
 # Check if faster-whisper is available for offline transcription
 try:
@@ -85,7 +84,7 @@ class STTEngine:
             threads = self.config.get("cpu_threads") or min(8, os.cpu_count() or 4)
             print(f"[STT] Loading local faster-whisper model '{size}' on CPU (int8, threads={threads})...")
             try:
-                # First attempt: strictly local offline load without querying Hugging Face Hub
+                # Strictly local offline load without querying Hugging Face Hub (zero network egress)
                 self._local_model = WhisperModel(
                     size,
                     device="cpu",
@@ -94,14 +93,11 @@ class STTEngine:
                     local_files_only=True
                 )
             except Exception as e:
-                # If local cache missing on fresh install, download once explicitly
-                print(f"[STT] Local offline cache not found ({e}). Downloading model '{size}' once for offline use...")
-                self._local_model = WhisperModel(
-                    size,
-                    device="cpu",
-                    compute_type="int8",
-                    cpu_threads=threads,
-                    local_files_only=False
+                # Hard offline guarantee: do NOT download over network automatically at runtime
+                raise RuntimeError(
+                    f"[STT Error] Offline Whisper model '{size}' not found in local cache ({e}). "
+                    f"To preserve strict zero-egress offline operation, automatic runtime downloads are disabled. "
+                    f"Please pre-provision model weights locally or verify ~/.cache/huggingface/hub."
                 )
             print(f"[STT] Local model '{size}' loaded on CPU (int8, threads={threads}). Zero-egress offline mode active.")
         return self._local_model
@@ -133,22 +129,16 @@ class STTEngine:
         return " ".join(prompt_parts)
 
     def transcribe(self, audio_data: Union[bytes, np.ndarray], custom_vocabulary: Optional[List[str]] = None) -> Dict[str, Any]:
-        mode = self.config.get("engine_mode", "cloud")
+        mode = self.config.get("engine_mode", "local")
+        if mode == "cloud":
+            raise RuntimeError(
+                "[STT Error] Cloud speech-to-text mode is hard-disabled to guarantee zero network egress. "
+                "FlowPilot strictly executes 100% offline speech recognition via local Faster-Whisper."
+            )
         vocab = custom_vocabulary or self.config.get("custom_vocabulary", [])
         lang = self.config.get("language", "auto")
         bias_prompt = self.build_bias_prompt(vocab, lang)
-
-        if mode == "local":
-            return self._transcribe_local(audio_data, bias_prompt, lang)
-        else:
-            if isinstance(audio_data, np.ndarray):
-                import soundfile as sf
-                buf = io.BytesIO()
-                sf.write(buf, audio_data, 16000, format="WAV", subtype="PCM_16")
-                wav_bytes = buf.getvalue()
-            else:
-                wav_bytes = audio_data
-            return self._transcribe_cloud(wav_bytes, bias_prompt, lang)
+        return self._transcribe_local(audio_data, bias_prompt, lang)
 
     def _transcribe_local(self, audio_data: Union[bytes, np.ndarray], initial_prompt: str, language: str) -> Dict[str, Any]:
         model = self._get_local_model()
@@ -201,45 +191,7 @@ class STTEngine:
         }
 
     def _transcribe_cloud(self, wav_bytes: bytes, initial_prompt: str, language: str) -> Dict[str, Any]:
-        provider = self.config.get("cloud_provider", "groq")
-        
-        if provider == "groq":
-            api_key = self.config.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
-            base_url = "https://api.groq.com/openai/v1"
-            model_name = self.config.get("groq_stt_model", "whisper-large-v3-turbo")
-        else:
-            api_key = self.config.get("openai_api_key") or os.environ.get("OPENAI_API_KEY")
-            base_url = "https://api.openai.com/v1"
-            model_name = "whisper-1"
-
-        if not api_key:
-            # If no API key provided, fallback to local if available
-            if HAS_FASTER_WHISPER:
-                print("[STT] No Cloud API Key provided. Falling back to local offline model...")
-                return self._transcribe_local(wav_bytes, initial_prompt, language)
-            raise ValueError(f"Please enter an API Key for {provider.capitalize()} in Settings or configure local model.")
-
-        client = OpenAI(api_key=api_key, base_url=base_url)
-
-        audio_file = ("audio.wav", wav_bytes, "audio/wav")
-
-        kwargs = {
-            "model": model_name,
-            "file": audio_file,
-            "response_format": "verbose_json"
-        }
-        if initial_prompt:
-            kwargs["prompt"] = initial_prompt
-        if language and language != "auto":
-            kwargs["language"] = language
-
-        response = client.audio.transcriptions.create(**kwargs)
-        raw_text = getattr(response, "text", "")
-        detected_language = getattr(response, "language", language)
-
-        return {
-            "text": raw_text.strip(),
-            "detected_language": detected_language,
-            "engine": f"cloud_{provider}_{model_name}",
-            "duration": getattr(response, "duration", 0)
-        }
+        raise RuntimeError(
+            "Cloud transcription is permanently disabled in compliance with the FlowPilot Zero-Cloud-Egress standard. "
+            "All speech inference is executed locally on CPU via faster-whisper."
+        )
