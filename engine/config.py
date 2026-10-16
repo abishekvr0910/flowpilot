@@ -27,6 +27,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "save_history_text": False,  # Default disabled; zero retention of transcribed speech on disk
     "auto_stop_on_silence": True,  # Wispr Flow behavior: auto-finalize after pause in speech
     "silence_timeout_sec": 0.85,  # Optimized conversational pause (down from 1.4s, saving ~550ms)
+    "hud_style": "mascot",  # "mascot" (Cartoon companion Pilot) or "wave" (Wispr dynamic bars)
     "history": []
 }
 
