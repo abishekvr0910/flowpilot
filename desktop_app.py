@@ -52,12 +52,7 @@ class FlowPilotApp:
                             2500   # Auto-dismiss after 2.5 seconds to prevent modal hang
                         )
                     else:
-                        user32.MessageBoxW(
-                            0,
-                            "FlowPilot is already running!\n\nLook for the companion on your screen or the FlowPilot icon in your System Tray (near the clock).\n\nPress Ctrl+Shift+Space or hold F9 anytime to dictate.",
-                            "FlowPilot Voice Intelligence",
-                            0x40  # MB_ICONINFORMATION
-                        )
+                        print("[FlowPilot Warning] FlowPilot is already running.")
                 except Exception:
                     pass
             sys.exit(0)
@@ -73,6 +68,12 @@ class FlowPilotApp:
 
         # 1. Initialize Core Engine Orchestrator
         self.orchestrator = FlowOrchestrator(on_state_change=self._on_engine_state_change)
+
+        # 1b. Warm up audio capture stream for zero-latency pre-roll
+        try:
+            self.orchestrator.recorder.warmup_stream()
+        except Exception as e:
+            print(f"[FlowPilot Warning] Audio pre-roll warmup deferred: {e}")
 
         # 2. Initialize UI Components
         self.hud = FloatingHUD()
@@ -189,6 +190,10 @@ class FlowPilotApp:
         self.orchestrator.stop_hotkey_listener()
         try:
             self.orchestrator.ducker.stop_ducking()
+        except Exception:
+            pass
+        try:
+            self.orchestrator.recorder.close()
         except Exception:
             pass
         if hasattr(self, 'single_instance') and self.single_instance:

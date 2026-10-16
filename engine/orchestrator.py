@@ -640,6 +640,14 @@ class FlowOrchestrator:
     def stop(self):
         """Clean shutdown of all orchestrator services."""
         self.stop_hotkey_listener()
+        try:
+            self.ducker.stop_ducking()
+        except Exception:
+            pass
+        try:
+            self.recorder.close()
+        except Exception:
+            pass
 
     def _record_telemetry(self, data: Dict[str, Any]):
         """Records local-only anonymous telemetry for pilot metrics. Zero network egress."""
