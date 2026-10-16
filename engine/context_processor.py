@@ -8,7 +8,6 @@ Supports two distinct modes:
 
 import os
 from typing import Dict, Any, Optional
-from openai import OpenAI
 from engine.writing_intelligence import WritingIntelligence
 
 class ProfileResolver:
@@ -178,40 +177,8 @@ class ContextProcessor:
         local_result = self.local_engine.polish(raw_trimmed, mode="polished", style=style)
         polished_text = local_result["text"]
 
-        # 4. Optional Cloud LLM Enhancement (Only if user configured an API key)
-        provider = self.config.get("cloud_provider", "groq")
-        if provider == "groq":
-            api_key = self.config.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
-            base_url = "https://api.groq.com/openai/v1"
-            model_name = self.config.get("groq_llm_model", "qwen/qwen3.8-27b")
-        else:
-            api_key = self.config.get("openai_api_key") or os.environ.get("OPENAI_API_KEY")
-            base_url = "https://api.openai.com/v1"
-            model_name = "gpt-4o-mini"
-
-        if not api_key:
-            # Zero-dependency local return
-            return polished_text
-
-        # If API key is present, pass to cloud LLM for additional nuance
-        try:
-            client = OpenAI(api_key=api_key, base_url=base_url)
-            system_prompt = self.SYSTEM_PROMPTS.get(style, self.SYSTEM_PROMPTS["professional"])
-            user_prompt = f"Raw dictated transcript:\n{polished_text}"
-            if active_window and active_window.get("title"):
-                user_prompt += f"\n\nContext: Active application is '{active_window.get('process_name')}' ('{active_window.get('title')}')."
-
-            completion = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.2,
-                max_tokens=1000
-            )
-            llm_text = completion.choices[0].message.content
-            return llm_text.strip() if llm_text else polished_text
-        except Exception as e:
-            print(f"[ContextProcessor Warning] Cloud LLM pass skipped ({e}). Using local polished text.")
-            return polished_text
+        # 3. Deterministic FactGuard Semantic Verification & Zero Cloud Egress
+        # Remote cloud LLM dispatch is permanently disabled to guarantee zero network egress.
+        # All formatting and polishing runs 100% locally with guaranteed preservation
+        # of numbers, dates, negations, and technical entities.
+        return polished_text

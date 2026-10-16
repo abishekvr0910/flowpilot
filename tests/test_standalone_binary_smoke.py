@@ -31,6 +31,15 @@ def main():
     assert os.path.isfile(vad_dec), f"Missing Silero VAD decoder asset at {vad_dec}"
     print(f"Verified bundled Silero VAD assets:\n  Encoder: {vad_enc} ({os.path.getsize(vad_enc)} bytes)\n  Decoder: {vad_dec} ({os.path.getsize(vad_dec)} bytes)")
 
+    # Pre-clean any orphaned instances before starting test
+    for p in psutil.process_iter(['name']):
+        try:
+            if p.info['name'] and 'flowpilot' in p.info['name'].lower():
+                p.kill()
+        except Exception:
+            pass
+    time.sleep(0.5)
+
     print("\n[Phase 1] Launching FlowPilot.exe...")
     proc = subprocess.Popen([exe_path])
     
