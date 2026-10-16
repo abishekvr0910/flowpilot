@@ -35,7 +35,7 @@ Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seaml
 | 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. |
 | 🌐 **Multilingual Foundation** | Underlying Faster-Whisper base model supports 99 languages; FlowPilot includes 18 curated, actively tested languages in its native UI registry with automatic script preservation. |
 | 🔇 **CoreAudio & PulseAudio Ducking** | Automatically lowers background music/media (Spotify, YouTube, Discord) while speaking, then seamlessly restores volume upon finalization across Windows, Linux, and macOS. |
-| 🤖 **Draggable Mascot ("Pilot") & Wispr Edge Line** | Animated desktop robot companion that can be moved anywhere on your screen (snaps to any corner or screen edge with zero text clutter). Includes one-click switching to the Wispr Flow minimal docked edge line. Zero focus-stealing (`WS_EX_NOACTIVATE`). |
+| 🐾 **Desktop Companions: SondeR-Cat Kitty & Pilot Robot** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **SondeR-Cat Pixel Kitty** (with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Wispr Flow docked edge line**, and **Wave Equalizer**. Zero focus-stealing (`WS_EX_NOACTIVATE`). |
 | 📋 **Atomic Win32 & POSIX Clipboard Guard** | Hardware sequence counter (`GetClipboardSequenceNumber`) prevents clobbering user clipboard data during paste restoration; includes instant **Alt+Shift+Z** re-paste recovery. |
 | 🔌 **Local OpenAI-Compatible API** | Drop-in `POST /v1/audio/transcriptions` and `GET /v1/models` local endpoint (`http://127.0.0.1:8765/v1`) for seamless integration with Cursor IDE, Open WebUI, and Obsidian plugins. |
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
@@ -84,6 +84,25 @@ python3 desktop_app.py
 3. FlowPilot transcribes, polishes, and types the text directly at your cursor with zero syllable clipping (powered by our 350ms pre-roll sliding buffer).
 4. **Instant Re-Paste Shortcut:** Press **`Alt + Shift + Z`** anywhere in Windows to immediately re-paste your last dictation buffer into the focused window.
 5. **Emergency Recovery:** If target application blocks clipboard pasting, your dictation is safely held in memory. Simply right-click the System Tray icon and select **"Copy Last Dictation"**.
+
+---
+
+## 🐾 Desktop Companions & Visual Styles
+
+FlowPilot gives you four distinct visual companion options to match your workflow:
+
+| Visual Style | Appearance & Behavior | Interaction |
+|:---|:---|:---|
+| 🐾 **SondeR-Cat Pixel Kitty** | Upright 26x28 pixel cat with 10 fur palettes (Orange Tabby, Calico, Black, Gray, Siamese, Pink, White, Mint, Chocolate, Cream). Paws knead at voice speed when speaking, eyes glow during transcription, and floating hearts appear on paste with optional cheerful meows! | Right-click → **Appearance Style → SondeR-Cat Pixel Kitty**; choose fur color from **Kitty Fur Color...** |
+| 🤖 **Robot Mascot ("Pilot")** | Cute rounded companion robot with radiating acoustic antenna, expressive blinking eyes with real-time voice-reactive pupil dilation, thinking spiral eyes during transcription, and happy smile on paste. | Right-click → **Appearance Style → Robot Mascot Companion ('Pilot')** |
+| 📏 **Wispr Flow Docked Edge Line** | Ultra-minimal docked vertical line matching Wispr Flow's interface. Pulses with audio volume; zero screen distraction. | Right-click → **Appearance Style → Wispr Flow Docked Edge Line** |
+| 🌊 **Wispr Wave Equalizer** | 5 dancing acoustic frequency bars reacting to speech RMS. | Right-click → **Appearance Style → Wispr Wave Equalizer** |
+
+### Positioning & Moving Companions
+- **Drag & Drop:** Click and hold the companion with your mouse to drag it to any pixel on your desktop.
+- **One-Click Snap:** Right-click the companion → **Move Companion to...** → Select **Bottom-Right**, **Bottom-Left**, **Top-Right**, **Top-Left**, **Left Edge (Middle)**, **Right Edge (Middle)**, or **Bottom-Center**.
+- **Quick Style Switching:** Double-click the companion anytime to cycle seamlessly through all styles.
+- **Zero Focus-Stealing:** All companions use Win32 `WS_EX_NOACTIVATE` and XWayland shims so they never steal focus from your active code editor or browser.
 
 ---
 

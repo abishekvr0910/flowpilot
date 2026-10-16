@@ -20,6 +20,7 @@ import sys
 import math
 import random
 import ctypes
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 from PySide6.QtWidgets import (
@@ -27,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QPoint, Signal, QTimer, QRectF
 from PySide6.QtGui import (
-    QPainter, QColor, QBrush, QPen, QLinearGradient, QRadialGradient, QFont
+    QPainter, QColor, QBrush, QPen, QLinearGradient, QRadialGradient, QFont, QPixmap
 )
 
 # Win32 Constants for Non-Activating Window
@@ -35,11 +36,22 @@ GWL_EXSTYLE = -20
 WS_EX_NOACTIVATE = 0x08000000
 WS_EX_TOPMOST = 0x00000008
 
+try:
+    import ui.pet_sprites as ps
+except Exception:
+    try:
+        import pet_sprites as ps
+    except Exception:
+        ps = None
+
 
 class FloatingHUD(QWidget):
     """
-    "Pilot" — Desktop Robot Companion.
-    Draggable, animated mascot that reacts to voice input and sits anywhere on the screen.
+    Desktop Companion Widget:
+    - "mascot": Pilot the Robot Mascot
+    - "kitty": SondeR-Cat Pixel Kitty Companion
+    - "edge_line": Wispr Flow Docked Edge Line
+    - "wave_bar": Wispr Soundwave Equalizer
     """
     toggle_requested = Signal()
     cancel_requested = Signal()
@@ -55,13 +67,23 @@ class FloatingHUD(QWidget):
         self._is_blinking = False
         self._blink_counter = 0
 
-        # Load persisted visual style ("mascot", "edge_line", or "wave_bar")
+        # Load persisted visual style ("mascot", "kitty", "edge_line", or "wave_bar")
         try:
             from engine.config import load_config
             cfg = load_config()
             self._visual_style = cfg.get("hud_style", "mascot")
+            self._cat_palette = cfg.get("cat_palette", "orange tabby")
+            self._cat_sound = cfg.get("cat_sound", True)
         except Exception:
             self._visual_style = "mascot"
+            self._cat_palette = "orange tabby"
+            self._cat_sound = True
+
+        # Cat animation state tracking
+        self._cat_frame = "sit_a"
+        self._cat_knead_step = 0
+        self._cat_flip = False
+        self._cat_pixmap_cache = {}
 
         # Mouse dragging tracking
         self._drag_start_pos = QPoint()
@@ -80,6 +102,8 @@ class FloatingHUD(QWidget):
             self.setFixedSize(14, 68)
         elif self._visual_style == "wave_bar":
             self.setFixedSize(58, 26)
+        elif self._visual_style == "kitty":
+            self.setFixedSize(78, 84)
         else:
             self._visual_style = "mascot"
             self.setFixedSize(72, 72)
@@ -117,23 +141,44 @@ class FloatingHUD(QWidget):
     def set_hotkey_info(self, hotkey_str: str, mode: str = "toggle"):
         # Tooltip with clean hotkey guidance
         clean_hk = hotkey_str.replace("<", "").replace(">", "").strip()
-        tip = f"Pilot — Click or hold {clean_hk} to dictate"
+        companion_name = "SondeR-Cat" if self._visual_style == "kitty" else "Pilot"
+        tip = f"{companion_name} — Click or hold {clean_hk} to dictate"
         self.setToolTip(tip)
 
-    def update_state(self, state: str, extra: Optional[Dict[str, Any]] = None):
-        self._current_state = state.lower()
-        extra = extra or {}
+    def _play_meow(self):
+        if not self._cat_sound:
+            return
+        try:
+            sound_path = Path(__file__).resolve().parent.parent / "assets" / "sounds" / "meow.wav"
+            if sound_path.exists() and sys.platform == "win32":
+                import winsound
+                winsound.PlaySound(str(sound_path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+        except Exception:
+            pass
 
-        if self._current_state == "audio_level":
+    def update_state(self, state: str, extra: Optional[Dict[str, Any]] = None):
+        extra = extra or {}
+        st = state.lower()
+
+        if st == "audio_level":
             lvl = float(extra.get("level", 0.0))
             self._audio_level = max(0.0, min(1.0, lvl))
             self.level_bar.setValue(min(int(lvl * 100), 100))
             return
 
+        old_state = self._current_state
+        self._current_state = st
+
         if self._current_state in ("listening", "recording"):
             self.level_bar.setValue(0)
             self.level_bar.show()
-        elif self._current_state in ("idle", "pasted", "success", "error", "cancelled"):
+            if old_state not in ("listening", "recording") and self._visual_style == "kitty":
+                self._play_meow()
+        elif self._current_state in ("pasted", "success"):
+            self.level_bar.hide()
+            if old_state not in ("pasted", "success") and self._visual_style == "kitty":
+                self._play_meow()
+        elif self._current_state in ("idle", "error", "cancelled"):
             self.level_bar.hide()
 
         self.update()
@@ -154,6 +199,28 @@ class FloatingHUD(QWidget):
                 self._blink_counter -= 1
                 if self._blink_counter <= 0:
                     self._is_blinking = False
+
+        # Kitty animation state machine
+        if self._visual_style == "kitty":
+            st = self._current_state
+            if st in ("listening", "recording"):
+                # Knead/type paws responsive to microphone audio level
+                speed = max(1, int(3 - (self._audio_level * 2.2)))
+                if self._tick % speed == 0:
+                    self._cat_knead_step = (self._cat_knead_step + 1) % 4
+                    knead_frames = ["type_a", "type_b", "knead_a", "knead_b"]
+                    self._cat_frame = knead_frames[self._cat_knead_step]
+            elif st in ("processing", "transcribing", "validating"):
+                self._cat_frame = "sit_a"
+            elif st in ("pasted", "success"):
+                self._cat_frame = "stretch" if (self._tick % 24 < 12) else "sit_a"
+            else:
+                # Idle sitting with occasional tail flick and blinks
+                if self._is_blinking:
+                    self._cat_frame = "blink"
+                else:
+                    cycle = self._tick % 120
+                    self._cat_frame = "sit_b" if cycle > 105 else "sit_a"
 
         self.update()
 
@@ -191,7 +258,7 @@ class FloatingHUD(QWidget):
                 event.accept()
 
     def set_visual_style(self, style: str):
-        if style not in ("mascot", "edge_line", "wave_bar"):
+        if style not in ("mascot", "kitty", "edge_line", "wave_bar"):
             style = "mascot"
         self._visual_style = style
         self._apply_style_dimensions()
@@ -199,14 +266,25 @@ class FloatingHUD(QWidget):
         self.update()
 
     def toggle_visual_style(self):
-        """Cycles between Pilot Mascot, Wispr Docked Edge Line, and Wave Equalizer."""
-        styles = ["mascot", "edge_line", "wave_bar"]
+        """Cycles between Pilot Mascot, SondeR-Cat Kitty, Wispr Docked Edge Line, and Wave Equalizer."""
+        styles = ["mascot", "kitty", "edge_line", "wave_bar"]
         try:
             idx = styles.index(self._visual_style)
         except ValueError:
             idx = 0
         next_style = styles[(idx + 1) % len(styles)]
         self.set_visual_style(next_style)
+
+    def set_cat_palette(self, palette_name: str):
+        if ps and palette_name in ps.PALETTES:
+            self._cat_palette = palette_name
+            self._cat_pixmap_cache.clear()
+            self._save_position()
+            self.update()
+
+    def toggle_cat_sound(self):
+        self._cat_sound = not self._cat_sound
+        self._save_position()
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -222,6 +300,8 @@ class FloatingHUD(QWidget):
             cfg["hud_x"] = self.pos().x()
             cfg["hud_y"] = self.pos().y()
             cfg["hud_style"] = self._visual_style
+            cfg["cat_palette"] = self._cat_palette
+            cfg["cat_sound"] = self._cat_sound
             save_config(cfg)
         except Exception:
             pass
@@ -295,10 +375,36 @@ class FloatingHUD(QWidget):
         style_menu.setStyleSheet(menu.styleSheet())
         act_mascot = style_menu.addAction("🤖 Robot Mascot Companion ('Pilot')")
         act_mascot.triggered.connect(lambda: self.set_visual_style("mascot"))
+        act_kitty = style_menu.addAction("🐾 SondeR-Cat Pixel Kitty")
+        act_kitty.triggered.connect(lambda: self.set_visual_style("kitty"))
         act_edge = style_menu.addAction("📏 Wispr Flow Docked Edge Line")
         act_edge.triggered.connect(lambda: self.set_visual_style("edge_line"))
         act_waves = style_menu.addAction("🌊 Wispr Wave Equalizer")
         act_waves.triggered.connect(lambda: self.set_visual_style("wave_bar"))
+
+        if self._visual_style == "kitty":
+            fur_menu = menu.addMenu("🐾 Kitty Fur Color...")
+            fur_menu.setStyleSheet(menu.styleSheet())
+            palettes = [
+                ("Orange Tabby", "orange tabby"),
+                ("Calico", "calico"),
+                ("Midnight Black", "black"),
+                ("Classic Gray", "gray"),
+                ("Siamese", "siamese"),
+                ("Pastel Pink", "pink"),
+                ("Snow White", "white"),
+                ("Mint", "mint"),
+                ("Chocolate", "chocolate"),
+                ("Cream", "cream"),
+            ]
+            for label, p_name in palettes:
+                prefix = "✓ " if self._cat_palette == p_name else "   "
+                act = fur_menu.addAction(f"{prefix}{label}")
+                act.triggered.connect(lambda _, pn=p_name: self.set_cat_palette(pn))
+
+            sound_text = "✓ 🔊 Kitty Sound Effects (Meow)" if self._cat_sound else "   🔇 Kitty Sound Effects (Meow)"
+            act_sound = menu.addAction(sound_text)
+            act_sound.triggered.connect(self.toggle_cat_sound)
 
         menu.addSeparator()
 
@@ -333,6 +439,12 @@ class FloatingHUD(QWidget):
         w = self.width()
         h = self.height()
         st = self._current_state
+
+        # Branch K: SondeR-Cat Pixel Kitty Companion
+        if self._visual_style == "kitty":
+            self._paint_kitty(p, w, h, st)
+            p.end()
+            return
 
         # Branch A: Wispr Flow Docked Edge Line (Minimalist sleek vertical bar)
         if self._visual_style == "edge_line":
@@ -546,3 +658,102 @@ class FloatingHUD(QWidget):
                 p.drawEllipse(QPoint(int(ex + 1.2), int(eye_y - 1.2)), 1, 1)
 
         p.end()
+
+    def _paint_kitty(self, p: QPainter, w: int, h: int, st: str):
+        if not ps:
+            return
+
+        scale = 3
+        # 1. Reactive Aura / Glow behind the cat
+        if st in ("listening", "recording"):
+            pulse_rad = 34.0 + (self._audio_level * 10.0) + math.sin(self._tick * 0.45) * 2.5
+            glow_grad = QRadialGradient(w / 2.0, h / 2.0, pulse_rad)
+            glow_grad.setColorAt(0.0, QColor(56, 189, 248, 110))
+            glow_grad.setColorAt(0.7, QColor(168, 85, 247, 35))
+            glow_grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(glow_grad))
+            p.drawEllipse(QPoint(int(w / 2.0), int(h / 2.0)), int(pulse_rad), int(pulse_rad))
+
+            # Sound radiating arcs above ears
+            p.setPen(QPen(QColor(56, 189, 248, 200), 1.8, Qt.SolidLine, Qt.RoundCap))
+            p.setBrush(Qt.NoBrush)
+            arc_offset = math.sin(self._tick * 0.5) * 2.0
+            p.drawArc(int(w / 2.0 - 18), int(4 + arc_offset), 36, 14, 45 * 16, 90 * 16)
+
+        elif st in ("pasted", "success"):
+            glow_grad = QRadialGradient(w / 2.0, h / 2.0, 36.0)
+            glow_grad.setColorAt(0.0, QColor(16, 185, 129, 120))
+            glow_grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(glow_grad))
+            p.drawEllipse(QPoint(int(w / 2.0), int(h / 2.0)), 36, 36)
+
+        elif st in ("processing", "transcribing", "validating"):
+            glow_grad = QRadialGradient(w / 2.0, h / 2.0, 34.0)
+            glow_grad.setColorAt(0.0, QColor(245, 158, 11, 100))
+            glow_grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(glow_grad))
+            p.drawEllipse(QPoint(int(w / 2.0), int(h / 2.0)), 34, 34)
+
+        # 2. Base Cat Pixel Art from Cache
+        cache_key = (self._cat_frame, self._cat_palette, self._cat_flip)
+        pix = self._cat_pixmap_cache.get(cache_key)
+        if pix is None:
+            grid = ps.FRAMES.get(self._cat_frame, ps.SIT_A)
+            pal = ps.PALETTES.get(self._cat_palette, ps.PALETTES["orange tabby"])
+            img = ps.render_frame(grid, pal, scale=scale, flip=self._cat_flip, halo=True)
+            pix = QPixmap.fromImage(img)
+            self._cat_pixmap_cache[cache_key] = pix
+
+        p.drawPixmap(0, 0, pix)
+
+        # 3. Dynamic Interactive Pupils
+        pal = ps.PALETTES.get(self._cat_palette, ps.PALETTES["orange tabby"])
+        eye_cells = ps.EYE_CELLS.get(self._cat_frame, [])
+        if eye_cells and self._cat_frame != "blink":
+            pw = 2 * scale  # 6 px
+            pupil_color = QColor(pal.get("P", "#2C3138"))
+
+            if st in ("listening", "recording"):
+                pupil_color = QColor("#0284C7")
+                # Dilate slightly with audio level
+                pw = int(pw + (self._audio_level * 1.5))
+            elif st in ("processing", "transcribing", "validating"):
+                pupil_color = QColor("#F59E0B")
+            elif st in ("pasted", "success"):
+                pupil_color = QColor("#10B981")
+
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(pupil_color))
+            for (ex, ey) in eye_cells:
+                bx = ex * scale + (ps.EYE_W * scale - pw) // 2
+                by = ey * scale + (ps.EYE_H * scale - pw) // 2 + scale // 3
+                p.fillRect(bx, by, pw, pw, pupil_color)
+
+                # Specular sparkle highlight
+                p.fillRect(bx + scale, by, scale, scale, QColor("#FFFFFF"))
+
+        # 4. Floating Pixel Hearts on pasted / success
+        if st in ("pasted", "success"):
+            phase = (self._tick * 2) % 36
+            hy = 20 - phase
+            alpha = max(0, min(255, 255 - int(phase * 6.5)))
+            heart_col = QColor(244, 63, 94, alpha)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(heart_col))
+
+            # Draw a cute chunky pixel heart near cat's head
+            hx = int(w / 2.0 + 8)
+            # Row 0: .##.##.
+            p.fillRect(hx + 2, hy, 4, 2, heart_col)
+            p.fillRect(hx + 8, hy, 4, 2, heart_col)
+            # Row 1: #######
+            p.fillRect(hx, hy + 2, 14, 2, heart_col)
+            # Row 2: .#####.
+            p.fillRect(hx + 2, hy + 4, 10, 2, heart_col)
+            # Row 3: ..###..
+            p.fillRect(hx + 4, hy + 6, 6, 2, heart_col)
+            # Row 4: ...#...
+            p.fillRect(hx + 6, hy + 8, 2, 2, heart_col)
