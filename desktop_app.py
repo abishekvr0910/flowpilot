@@ -81,6 +81,7 @@ class FlowPilotApp:
         self.tray.settings_requested.connect(self.show_settings)
 
         self.tray.toggle_hud_requested.connect(self.toggle_hud_visibility)
+        self.tray.switch_visual_requested.connect(self.hud.toggle_visual_style)
         self.tray.ducking_toggled.connect(self._on_ducking_toggled)
 
         self.hud.quit_requested.connect(self.quit)

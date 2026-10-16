@@ -12,6 +12,7 @@ class TrayManager(QObject):
     cancel_requested = Signal()
     recopy_requested = Signal()
     toggle_hud_requested = Signal()
+    switch_visual_requested = Signal()
     settings_requested = Signal()
     quit_requested = Signal()
     ducking_toggled = Signal(bool)
@@ -76,6 +77,9 @@ class TrayManager(QObject):
 
         self.action_hud = self.menu.addAction("Show/Hide Floating Mic")
         self.action_hud.triggered.connect(self.toggle_hud_requested.emit)
+
+        self.action_switch_visual = self.menu.addAction("Toggle Companion / Wave Bars")
+        self.action_switch_visual.triggered.connect(self.switch_visual_requested.emit)
 
         self.menu.addSeparator()
 
