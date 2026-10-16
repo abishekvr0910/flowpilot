@@ -37,7 +37,29 @@ class FlowPilotApp:
         # 0. Enforce single instance
         self.single_instance = SingleInstance() if enforce_single_instance else None
         if self.single_instance and self.single_instance.is_already_running():
-            print("[FlowPilot] Another instance of FlowPilot is already running. Focusing existing instance and exiting.")
+            print("[FlowPilot] Another instance of FlowPilot is already running.")
+            if sys.platform == "win32":
+                try:
+                    import ctypes
+                    user32 = ctypes.windll.user32
+                    if hasattr(user32, "MessageBoxTimeoutW"):
+                        user32.MessageBoxTimeoutW(
+                            0,
+                            "FlowPilot is already running!\n\nLook for the companion on your screen or the FlowPilot icon in your System Tray (near the clock).\n\nPress Ctrl+Shift+Space or hold F9 anytime to dictate.",
+                            "FlowPilot Voice Intelligence",
+                            0x40,  # MB_ICONINFORMATION
+                            0,
+                            2500   # Auto-dismiss after 2.5 seconds to prevent modal hang
+                        )
+                    else:
+                        user32.MessageBoxW(
+                            0,
+                            "FlowPilot is already running!\n\nLook for the companion on your screen or the FlowPilot icon in your System Tray (near the clock).\n\nPress Ctrl+Shift+Space or hold F9 anytime to dictate.",
+                            "FlowPilot Voice Intelligence",
+                            0x40  # MB_ICONINFORMATION
+                        )
+                except Exception:
+                    pass
             sys.exit(0)
 
         self.app = QApplication.instance() or QApplication(sys.argv)
@@ -93,15 +115,16 @@ class FlowPilotApp:
             geom = screen.availableGeometry()
             saved_x = self.config.get("hud_x")
             saved_y = self.config.get("hud_y")
-            if saved_x is not None and saved_y is not None:
-                x = max(geom.left(), min(saved_x, geom.right() - self.hud.width()))
-                y = max(geom.top(), min(saved_y, geom.bottom() - self.hud.height()))
+            if saved_x is not None and saved_y is not None and saved_x > 20 and saved_y > 20:
+                x = max(geom.left() + 20, min(saved_x, geom.right() - self.hud.width() - 20))
+                y = max(geom.top() + 20, min(saved_y, geom.bottom() - self.hud.height() - 20))
                 self.hud.move(x, y)
             else:
                 x = geom.right() - self.hud.width() - 24
                 y = geom.bottom() - self.hud.height() - 24
                 self.hud.move(x, y)
         self.hud.show()
+        self.hud.raise_()
 
         # 5. Start Global Win32 Hotkey Service
         self.orchestrator.start_hotkey_listener()
