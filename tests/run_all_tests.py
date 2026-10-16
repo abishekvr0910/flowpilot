@@ -30,6 +30,7 @@ TESTS = [
     ("End-to-End 5-Cycle Notepad Dictation", "tests/test_notepad_dictation_e2e.py"),
     ("Dissected Competitive Upgrades", "tests/test_dissected_upgrades.py"),
     ("Cross-Platform Linux & macOS Adapters", "tests/test_cross_platform.py"),
+    ("SondeR-Cat Pixel Kitty Companion", "tests/test_sondercat_companion.py"),
 ]
 
 def ensure_desktop_accessible():

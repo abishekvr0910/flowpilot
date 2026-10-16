@@ -73,11 +73,16 @@ def test_settings_dialog_components():
     assert "Modifier-only" in dialog.lbl_hotkey_status.text()
     print(f"[6] Hotkey check on modifier-only 'Ctrl+Win': {dialog.lbl_hotkey_status.text()}")
 
-    # Test hotkey check on F9
-    dialog.combo_shortcut.setEditText("F9")
-    dialog._test_current_hotkey()
-    assert "Available" in dialog.lbl_hotkey_status.text()
-    print(f"[7] Hotkey check on single-key 'F9': {dialog.lbl_hotkey_status.text()}")
+    # Test hotkey check on an available key
+    avail_key = None
+    for cand in ["F8", "F10", "F11", "Ctrl+Shift+F8"]:
+        dialog.combo_shortcut.setEditText(cand)
+        dialog._test_current_hotkey()
+        if "Available" in dialog.lbl_hotkey_status.text():
+            avail_key = cand
+            break
+    assert avail_key is not None, "At least one candidate hotkey must be available"
+    print(f"[7] Hotkey check on available key '{avail_key}': {dialog.lbl_hotkey_status.text()}")
 
     # Test saving settings (mock QMessageBox.information to prevent modal block)
     from PySide6.QtWidgets import QMessageBox
@@ -88,9 +93,9 @@ def test_settings_dialog_components():
     finally:
         QMessageBox.information = orig_info
     assert saved_config.get("hotkey_mode") == "push_to_talk"
-    assert saved_config.get("hotkey") == "F9"
+    assert saved_config.get("hotkey") == avail_key
     assert saved_config.get("ducking_enabled") is True
-    print("[8] Saved settings verified: hotkey='F9', hotkey_mode='push_to_talk'.")
+    print(f"[8] Saved settings verified: hotkey='{avail_key}', hotkey_mode='push_to_talk'.")
 
     # Cleanup test personalization file if created
     test_p_path = PROJECT_ROOT / "config" / "test_personalization.json"

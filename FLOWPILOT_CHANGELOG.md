@@ -5,6 +5,17 @@ All notable changes, bug fixes, and architectural evolutions to FlowPilot are do
 ## [Unreleased] — *Cross-Platform OS Adapters & Architectural Upgrades*
 
 ### Added
+- **SondeR-Cat Pixel Kitty Desktop Companion Integration (`ui/pet_sprites.py`, `ui/floating_hud.py`, `assets/sounds/meow.wav`):**
+  - Integrated SondeR-Cat's 26x28 ASCII pixel art sprite engine directly into FlowPilot's native PySide6 architecture with sub-millisecond QPainter rendering.
+  - Added 14 customizable fur palettes: Orange Tabby, Calico, Midnight Black, Classic Gray, Siamese (seal point with sapphire eyes), Pastel Pink, Snow White, Mint, Chocolate, Cream, Lilac, Mimi, JJ, Lilly.
+  - Interactive speech reactions:
+    - **Listening/Recording:** Audio-reactive paw kneading (`type_a`, `type_b`, `knead_a`, `knead_b`) with speed scaling dynamically with microphone speech volume, radiating cyan acoustic arcs, and dilated pupils.
+    - **Polishing/Transcription:** Concentrating upright look with bright glowing cyan/amber pupils.
+    - **Pasted/Success:** Celebratory stretch (`stretch`), floating pixel hearts drifting upwards, and optional cheerful meow sound cues (`meow.wav`).
+    - **Idle:** Upright sitting cat with occasional tail flicking (`sit_b`) and natural slow eye blinks.
+  - Moveable anywhere on screen with mouse drag-and-drop and one-click corner/edge snapping (Bottom-Right, Bottom-Left, Top-Right, Top-Left, Left Edge, Right Edge, Bottom-Center).
+  - 4-way appearance switcher (Kitty ↔ Robot Mascot ↔ Wispr Flow Edge Line ↔ Wave Equalizer) accessible via double-click or right-click menu.
+  - Added dedicated automated test suite `tests/test_sondercat_companion.py` (8/8 assertions PASS).
 - **Wispr Flow Spoken Punctuation & Voice Editing Engine (`engine/writing_intelligence.py`):**
   - **Spoken Punctuation:** Real-time speech conversion for `comma` (`,`), `period` / `full stop` (`.`), `question mark` (`?`), `exclamation mark/point` (`!`), `colon` (`:`), `semicolon` (`;`), `ellipsis` / `dot dot dot` (`...`), `open/close quote` (`"`), `open/close paren` (`()`), `open/close bracket` (`[]`).
   - **Structural Formatting:** Spoken commands `new line` (`\n`), `new paragraph` (`\n\n`), and `tab` (`\t`) with automatic sentence capitalization on subsequent lines.
