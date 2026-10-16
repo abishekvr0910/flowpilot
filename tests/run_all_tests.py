@@ -75,9 +75,11 @@ def run_suite():
     print("                    AUDIT SUMMARY RESULTS")
     print("=" * 70)
     all_passed = True
+    any_skipped = False
     for name, passed, is_skipped, dur, _, _ in results:
         if is_skipped:
             status_str = "[SKIP]"
+            any_skipped = True
         elif passed:
             status_str = "[PASS]"
         else:
@@ -86,7 +88,13 @@ def run_suite():
         print(f"{status_str} {name:<45} ({dur:.2f}s)")
 
     print("-" * 70)
-    print(f"Total Test Time: {total_dur:.2f}s | Overall Verdict: {'ALL TESTS PASSED' if all_passed else 'FAILURES DETECTED'}")
+    if not all_passed:
+        verdict = "FAILURES DETECTED"
+    elif any_skipped:
+        verdict = "PASSED WITH SKIPPED SUITES"
+    else:
+        verdict = "ALL TESTS PASSED"
+    print(f"Total Test Time: {total_dur:.2f}s | Overall Verdict: {verdict}")
     print("=" * 70)
     return all_passed
 

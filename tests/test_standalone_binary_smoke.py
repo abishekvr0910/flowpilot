@@ -25,10 +25,21 @@ def main():
     assert size_mb > 10, f"Binary too small ({size_mb:.2f} MB), packaging may be incomplete"
     
     # Phase 0: Verify bundled Faster-Whisper & Silero VAD assets
-    vad_enc = os.path.join(os.path.dirname(exe_path), "_internal", "faster_whisper", "assets", "silero_encoder_v5.onnx")
-    vad_dec = os.path.join(os.path.dirname(exe_path), "_internal", "faster_whisper", "assets", "silero_decoder_v5.onnx")
-    assert os.path.isfile(vad_enc), f"Missing Silero VAD encoder asset at {vad_enc}"
-    assert os.path.isfile(vad_dec), f"Missing Silero VAD decoder asset at {vad_dec}"
+    exe_dir = os.path.dirname(exe_path)
+    cand_enc = [
+        os.path.join(exe_dir, "_internal", "faster_whisper", "assets", "silero_encoder_v5.onnx"),
+        os.path.join(exe_dir, "_internal", "assets", "silero_encoder_v5.onnx"),
+        os.path.join(exe_dir, "assets", "silero_encoder_v5.onnx"),
+    ]
+    cand_dec = [
+        os.path.join(exe_dir, "_internal", "faster_whisper", "assets", "silero_decoder_v5.onnx"),
+        os.path.join(exe_dir, "_internal", "assets", "silero_decoder_v5.onnx"),
+        os.path.join(exe_dir, "assets", "silero_decoder_v5.onnx"),
+    ]
+    vad_enc = next((p for p in cand_enc if os.path.isfile(p)), None)
+    vad_dec = next((p for p in cand_dec if os.path.isfile(p)), None)
+    assert vad_enc is not None, f"Missing Silero VAD encoder asset in {exe_dir}"
+    assert vad_dec is not None, f"Missing Silero VAD decoder asset in {exe_dir}"
     print(f"Verified bundled Silero VAD assets:\n  Encoder: {vad_enc} ({os.path.getsize(vad_enc)} bytes)\n  Decoder: {vad_dec} ({os.path.getsize(vad_dec)} bytes)")
 
     # Use isolated test mutex to avoid conflicting with or terminating any user instances

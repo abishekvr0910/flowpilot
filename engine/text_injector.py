@@ -119,21 +119,35 @@ class TextInjector:
     def _safe_set_foreground(cls, hwnd: int) -> None:
         if not HAS_WIN32 or not hwnd or sys.platform != "win32":
             return
+        alt_pressed = False
         try:
             import ctypes
             ctypes.windll.user32.AllowSetForegroundWindow(-1)
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
             win32gui.BringWindowToTop(hwnd)
 
-            # Bypass Windows foreground lock timeout via simulated Alt key
+            # Bypass Windows foreground lock timeout via simulated Alt key with guaranteed release
             win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
-            win32gui.SetForegroundWindow(hwnd)
-            win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+            alt_pressed = True
+            try:
+                win32gui.SetForegroundWindow(hwnd)
+            except Exception:
+                pass
+        except Exception:
+            pass
+        finally:
+            if alt_pressed:
+                try:
+                    win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+                except Exception:
+                    pass
 
-            my_thread = win32api.GetCurrentThreadId()
-            target_thread, _ = win32process.GetWindowThreadProcessId(hwnd)
-            if my_thread and target_thread and my_thread != target_thread:
-                win32process.AttachThreadInput(my_thread, target_thread, True)
+        my_thread = win32api.GetCurrentThreadId()
+        target_thread, _ = win32process.GetWindowThreadProcessId(hwnd)
+        if my_thread and target_thread and my_thread != target_thread:
+            attached = False
+            try:
+                attached = bool(win32process.AttachThreadInput(my_thread, target_thread, True))
                 win32gui.BringWindowToTop(hwnd)
                 win32gui.SetForegroundWindow(hwnd)
                 win32gui.SetActiveWindow(hwnd)
@@ -143,14 +157,19 @@ class TextInjector:
                         win32gui.SetFocus(edit)
                     except Exception:
                         pass
-                win32process.AttachThreadInput(my_thread, target_thread, False)
-            else:
-                ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
-                win32gui.SetForegroundWindow(hwnd)
-        except Exception:
+            except Exception:
+                pass
+            finally:
+                if attached:
+                    try:
+                        win32process.AttachThreadInput(my_thread, target_thread, False)
+                    except Exception:
+                        pass
+        else:
             try:
                 import ctypes
                 ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
+                win32gui.SetForegroundWindow(hwnd)
             except Exception:
                 pass
 
@@ -506,31 +525,44 @@ class TextInjector:
         if edit_ctrl != target_hwnd:
             with cls._restore_lock:
                 target_to_restore = cls._original_clipboard if cls._original_clipboard is not None else cls._safe_clipboard_paste()
+            our_copy_seq_2 = None
+            content_2 = None
             try:
                 import ctypes
                 ctypes.windll.user32.SendMessageW(edit_ctrl, 0x00B1, 0, -1)
                 ctypes.windll.user32.SendMessageW(edit_ctrl, win32con.WM_COPY, 0, 0)
                 ctypes.windll.user32.SendMessageW(edit_ctrl, 0x00B1, -1, -1)
                 time.sleep(0.04)
-                content = cls._safe_clipboard_paste()
-                if content:
-                    return content
+                our_copy_seq_2 = cls._get_clipboard_sequence_number()
+                content_2 = cls._safe_clipboard_paste()
+                if content_2:
+                    return content_2
             except Exception:
                 pass
             finally:
                 with cls._restore_lock:
                     if target_to_restore is not None:
-                        cls._safe_clipboard_copy(target_to_restore)
-                        cls._last_copy_seq = cls._get_clipboard_sequence_number()
-                        cls._original_clipboard = None
-                        if cls._restore_timer is not None:
-                            cls._restore_timer.cancel()
-                            cls._restore_timer = None
+                        current_seq = cls._get_clipboard_sequence_number()
+                        current_val = cls._safe_clipboard_paste()
+                        # Strictly verify sequence ownership: skip restore if external app wrote to clipboard
+                        if our_copy_seq_2 is not None and current_seq is not None and current_seq != our_copy_seq_2:
+                            print(f"[Injector Security] External clipboard update detected ({our_copy_seq_2} -> {current_seq}). Skipping restore to protect user copy.")
+                        elif content_2 is not None and current_val is not None and current_val != content_2 and current_val.strip() != content_2.strip():
+                            print("[Injector Security] External clipboard content changed. Skipping restore to protect user copy.")
+                        else:
+                            cls._safe_clipboard_copy(target_to_restore)
+                            cls._last_copy_seq = cls._get_clipboard_sequence_number()
+                    cls._original_clipboard = None
+                    if cls._restore_timer is not None:
+                        cls._restore_timer.cancel()
+                        cls._restore_timer = None
 
         # 3. Fall back to focus + Ctrl+A / Ctrl+C with safe clipboard restoration
         with cls._restore_lock:
             target_to_restore = cls._original_clipboard if cls._original_clipboard is not None else cls._safe_clipboard_paste()
 
+        our_copy_seq_3 = None
+        content_3 = None
         try:
             cls._safe_set_foreground(target_hwnd)
             time.sleep(0.06)
@@ -554,22 +586,31 @@ class TextInjector:
             win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
             time.sleep(0.08)
 
-            content = cls._safe_clipboard_paste()
+            our_copy_seq_3 = cls._get_clipboard_sequence_number()
+            content_3 = cls._safe_clipboard_paste()
 
             # Deselect by pressing Right Arrow
             win32api.keybd_event(win32con.VK_RIGHT, 0, 0, 0)
             win32api.keybd_event(win32con.VK_RIGHT, 0, win32con.KEYEVENTF_KEYUP, 0)
 
-            return content
+            return content_3
         finally:
             with cls._restore_lock:
                 if target_to_restore is not None:
-                    cls._safe_clipboard_copy(target_to_restore)
-                    cls._last_copy_seq = cls._get_clipboard_sequence_number()
-                    cls._original_clipboard = None
-                    if cls._restore_timer is not None:
-                        cls._restore_timer.cancel()
-                        cls._restore_timer = None
+                    current_seq = cls._get_clipboard_sequence_number()
+                    current_val = cls._safe_clipboard_paste()
+                    # Strictly verify sequence ownership: skip restore if external app wrote to clipboard
+                    if our_copy_seq_3 is not None and current_seq is not None and current_seq != our_copy_seq_3:
+                        print(f"[Injector Security] External clipboard update detected ({our_copy_seq_3} -> {current_seq}). Skipping restore to protect user copy.")
+                    elif content_3 is not None and current_val is not None and current_val != content_3 and current_val.strip() != content_3.strip():
+                        print("[Injector Security] External clipboard content changed. Skipping restore to protect user copy.")
+                    else:
+                        cls._safe_clipboard_copy(target_to_restore)
+                        cls._last_copy_seq = cls._get_clipboard_sequence_number()
+                cls._original_clipboard = None
+                if cls._restore_timer is not None:
+                    cls._restore_timer.cancel()
+                    cls._restore_timer = None
 
     @classmethod
     def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 2.5) -> bool:
