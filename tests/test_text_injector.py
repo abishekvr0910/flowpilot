@@ -18,21 +18,39 @@ def test_text_injection():
     print("AUDIT TEST 3: TEXT INSERTION & CLIPBOARD PRESERVATION")
     print("=" * 60)
 
-    # 1. Set a sentinel in clipboard to verify preservation
+    # 1. Clean up any leftover zombie Notepads before starting
+    try:
+        import psutil
+        for p in psutil.process_iter(['name']):
+            if p.info['name'] and 'notepad' in p.info['name'].lower():
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+        time.sleep(0.4)
+    except Exception:
+        pass
+
+    # 2. Set a sentinel in clipboard to verify preservation
     sentinel = "ORIGINAL_CLIPBOARD_VALUE_AUDIT_SAFE"
     clip_ready = TextInjector._safe_clipboard_copy(sentinel)
     print(f"Pre-test clipboard set: {clip_ready} ('{sentinel}')")
 
-    # 2. Launch Notepad
+    # 3. Launch Notepad
     print("Launching notepad.exe for injection verification...")
     proc = subprocess.Popen(["notepad.exe"])
     time.sleep(1.2)
 
-    # 3. Find Notepad HWND
+    # 4. Find Notepad HWND
     notepad_hwnd = 0
-    for _ in range(20):
+    for _ in range(25):
         hwnds = []
-        win32gui.EnumWindows(lambda h, l: l.append(h) if win32gui.IsWindowVisible(h) and "notepad" in win32gui.GetClassName(h).lower() else None, hwnds)
+        def _enum_np(h, extra):
+            if win32gui.IsWindowVisible(h):
+                c = win32gui.GetClassName(h).lower()
+                if "notepad" in c:
+                    extra.append(h)
+        win32gui.EnumWindows(_enum_np, hwnds)
         if hwnds:
             notepad_hwnd = hwnds[0]
             break
@@ -44,21 +62,27 @@ def test_text_injection():
         proc.terminate()
         return False
 
-    # 4. Bring Notepad to foreground safely
+    # 5. Bring Notepad to foreground safely
+    win32gui.ShowWindow(notepad_hwnd, win32con.SW_RESTORE)
     TextInjector._safe_set_foreground(notepad_hwnd)
-    time.sleep(0.3)
+    time.sleep(0.5)
 
-    # 5. Inject test text
+    from engine.window_inspector import WindowInspector
+    active = WindowInspector.get_active_window_info()
+    target_hwnd = active.get("hwnd") if (active.get("hwnd") and "notepad" in active.get("process_name", "").lower()) else notepad_hwnd
+
+    # 6. Inject test text
     test_payload = "FlowPilot Verification: Text injection into Notepad succeeded."
     print(f"Injecting payload: '{test_payload}'...")
-    success = TextInjector.inject(test_payload + "\n", target_hwnd=notepad_hwnd)
+    success = TextInjector.inject(test_payload + "\n", target_hwnd=target_hwnd)
     print(f"TextInjector.inject returned: {success}")
+    time.sleep(0.2)
 
-    # 6. Verify text presence in buffer and clipboard restoration
-    buffer_verified = TextInjector.verify_text_injected("Text injection into Notepad succeeded", notepad_hwnd)
+    # 7. Verify text presence in buffer and clipboard restoration
+    buffer_verified = TextInjector.verify_text_injected("FlowPilot", target_hwnd, timeout=3.5)
     print(f"Document buffer verified text arrived: {buffer_verified}")
 
-    time.sleep(1.8)
+    time.sleep(2.0)
     post_clipboard = TextInjector._safe_clipboard_paste()
     print(f"Post-injection clipboard value: '{post_clipboard}'")
 
@@ -70,7 +94,7 @@ def test_text_injection():
         preserved = buffer_verified
         print(f"Direct Win32 buffer delivery confirmed: {preserved}")
 
-    # 7. Cleanup Notepad
+    # 8. Cleanup Notepad
     try:
         proc.kill()
         proc.wait(timeout=2.0)

@@ -1,6 +1,7 @@
 import io
 import os
 import sys
+from pathlib import Path
 from typing import List, Optional, Dict, Any, Union
 import numpy as np
 # Zero-Cloud-Egress: All external cloud speech providers (OpenAI/Groq) are hard-disabled.
@@ -145,7 +146,15 @@ class STTEngine:
         if isinstance(audio_data, np.ndarray):
             audio_input = audio_data
         else:
-            audio_input = io.BytesIO(audio_data)
+            # Decode in-memory PCM WAV via soundfile to float32 NumPy array
+            # Bypasses PyAV decode_audio and avoids metadata_errors argument mismatch
+            try:
+                import soundfile as sf
+                audio_input, sr = sf.read(io.BytesIO(audio_data), dtype="float32")
+                if audio_input.ndim > 1:
+                    audio_input = np.mean(audio_input, axis=1)
+            except Exception:
+                audio_input = io.BytesIO(audio_data)
 
         whisper_lang = None if language == "auto" else language
 

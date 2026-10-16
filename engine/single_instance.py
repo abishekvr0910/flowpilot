@@ -4,12 +4,16 @@ Ensures only one instance of FlowPilot runs at any time.
 If an instance is already active, activates its window and signals the new instance to exit.
 """
 
+import os
 import sys
 import ctypes
 from ctypes import wintypes
+from typing import Optional
 
 class SingleInstance:
-    def __init__(self, mutex_name: str = "Global\\FlowPilot_Desktop_SingleInstance_Mutex"):
+    def __init__(self, mutex_name: Optional[str] = None):
+        if mutex_name is None:
+            mutex_name = os.environ.get("FLOWPILOT_MUTEX_NAME", "Global\\FlowPilot_Desktop_SingleInstance_Mutex")
         self.mutex_name = mutex_name
         self.mutex = None
         self.lock_file = None

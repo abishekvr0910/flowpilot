@@ -3,6 +3,14 @@ import subprocess
 import time
 from pathlib import Path
 
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 TESTS = [
     ("Microphone & Audio Capture", "tests/test_audio.py"),
     ("Local Whisper Speech-to-Text Model", "tests/test_stt.py"),
@@ -54,8 +62,9 @@ def run_suite():
         res = subprocess.run([sys.executable, script], capture_output=True, encoding="utf-8", errors="replace")
         dur = time.time() - t0
         passed = (res.returncode == 0)
-        results.append((name, passed, dur, res.stdout, res.stderr))
-        status_str = "PASSED" if passed else "FAILED"
+        is_skipped = passed and ("[RESULT] SKIPPED:" in res.stdout or "[SKIP]" in res.stdout)
+        results.append((name, passed, is_skipped, dur, res.stdout, res.stderr))
+        status_str = "SKIPPED" if is_skipped else ("PASSED" if passed else "FAILED")
         print(f"Status: {status_str} ({dur:.2f}s)")
         if not passed:
             print("STDOUT:\n", res.stdout)
@@ -66,9 +75,13 @@ def run_suite():
     print("                    AUDIT SUMMARY RESULTS")
     print("=" * 70)
     all_passed = True
-    for name, passed, dur, _, _ in results:
-        status_str = "[PASS]" if passed else "[FAIL]"
-        if not passed:
+    for name, passed, is_skipped, dur, _, _ in results:
+        if is_skipped:
+            status_str = "[SKIP]"
+        elif passed:
+            status_str = "[PASS]"
+        else:
+            status_str = "[FAIL]"
             all_passed = False
         print(f"{status_str} {name:<45} ({dur:.2f}s)")
 

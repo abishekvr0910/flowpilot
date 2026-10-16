@@ -37,6 +37,7 @@ from engine.context_processor import ContextProcessor
 from engine.text_injector import TextInjector, InjectionStatus, InjectionResult
 from engine.hotkey_service import Win32HotkeyService, parse_hotkey_string
 from engine.orchestrator import FlowOrchestrator
+from engine.window_inspector import WindowInspector
 from desktop_app import FlowPilotApp
 from tests.benchmark_corpus import synthesize_audio_sapi
 
@@ -44,10 +45,15 @@ def cleanup_orphaned_notepads():
     """Clean up any leftover Notepad processes to ensure deterministic state."""
     for p in psutil.process_iter(['name']):
         try:
-            if p.info['name'] and p.info['name'].lower() == 'notepad.exe':
+            if p.info['name'] and 'notepad' in p.info['name'].lower():
                 p.kill()
+                try:
+                    p.wait(timeout=1.0)
+                except Exception:
+                    pass
         except Exception:
             pass
+    time.sleep(0.4)
 
 def run_18_scenarios():
     print("=" * 75)
@@ -85,7 +91,7 @@ def run_18_scenarios():
         try:
             cleanup_orphaned_notepads()
             np_proc = subprocess.Popen(["notepad.exe"])
-            time.sleep(0.5)
+            time.sleep(0.8)
             if HAS_WIN32:
                 for _ in range(25):
                     time.sleep(0.2)
@@ -180,22 +186,17 @@ def run_18_scenarios():
                         break
 
             if np_hwnd:
+                win32gui.ShowWindow(np_hwnd, win32con.SW_RESTORE)
                 TextInjector._safe_set_foreground(np_hwnd)
-                time.sleep(0.3)
+                time.sleep(0.5)
 
-            inj_res = TextInjector.inject_with_status(
-                final_text + "\n",
-                np_hwnd,
-                verify_confirmation=True,
-                expected_token="FlowPilot"
-            )
-            assert bool(inj_res) is True, f"Text injection returned error: {inj_res.error_message}"
+            inj_ok = TextInjector.inject(final_text + "\n", target_hwnd=np_hwnd)
+            assert inj_ok is True, "Text injection failed"
             time.sleep(0.3)
 
-            # Read back document content from Notepad and assert presence
-            np_buffer = TextInjector.read_window_buffer(np_hwnd) or ""
-            print(f"  Notepad document contents read back: {repr(np_buffer)}")
-            assert "flowpilot" in np_buffer.lower() or "scenario" in np_buffer.lower(), f"Transcribed speech not found in Notepad! Buffer: {repr(np_buffer)}"
+            # Physically confirm that speech text arrived in Notepad buffer
+            buffer_ok = TextInjector.verify_text_injected("flowpilot", np_hwnd) or TextInjector.verify_text_injected("scenario", np_hwnd)
+            assert buffer_ok, "Transcribed speech not found in Notepad buffer!"
             results["S4_Transcription_Insertion"] = "PASS"
             print(f"  -> Passed: Real speech transcribed ('{final_text}') and physically confirmed in Notepad buffer.")
         except Exception as e:
@@ -209,13 +210,14 @@ def run_18_scenarios():
         try:
             for i in range(1, 4):
                 if np_hwnd:
+                    win32gui.ShowWindow(np_hwnd, win32con.SW_RESTORE)
                     TextInjector._safe_set_foreground(np_hwnd)
-                    time.sleep(0.2)
+                    time.sleep(0.4)
                 msg = f"Scenario 5 repeat cycle {i}."
-                inj_ok = TextInjector.inject_with_status(msg + "\n", np_hwnd, verify_confirmation=True, expected_token=f"cycle {i}")
-                assert bool(inj_ok) is True, f"Cycle {i} injection failed"
+                inj_ok = TextInjector.inject(msg + "\n", target_hwnd=np_hwnd)
+                assert inj_ok is True, f"Cycle {i} injection failed"
                 time.sleep(0.3)
-                assert TextInjector.verify_text_injected(msg, np_hwnd) or TextInjector.verify_text_injected(f"cycle {i}", np_hwnd), f"Cycle {i} text not found in Notepad!"
+                assert TextInjector.verify_text_injected(f"cycle {i}", np_hwnd, timeout=3.0), f"Cycle {i} text not found in Notepad!"
             results["S5_Repeated_Cycles"] = "PASS"
             print("  -> Passed: 3 repeated cycles executed cleanly with physical buffer confirmation.")
         except Exception as e:

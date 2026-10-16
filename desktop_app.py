@@ -38,7 +38,7 @@ class FlowPilotApp:
         self.single_instance = SingleInstance() if enforce_single_instance else None
         if self.single_instance and self.single_instance.is_already_running():
             print("[FlowPilot] Another instance of FlowPilot is already running.")
-            if sys.platform == "win32":
+            if sys.platform == "win32" and not os.environ.get("FLOWPILOT_NO_POPUP") and not os.environ.get("CI") and "FLOWPILOT_MUTEX_NAME" not in os.environ:
                 try:
                     import ctypes
                     user32 = ctypes.windll.user32
