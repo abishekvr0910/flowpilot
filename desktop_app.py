@@ -39,7 +39,17 @@ class FlowPilotApp:
         # 0. Enforce single instance
         self.single_instance = SingleInstance() if enforce_single_instance else None
         if self.single_instance and self.single_instance.is_already_running():
-            print("[FlowPilot] Another instance of FlowPilot is already running.")
+            print("[FlowPilot] Another instance of FlowPilot is already running. Bringing window to front.")
+            if sys.platform == "win32":
+                try:
+                    import win32gui
+                    import win32con
+                    hwnd = win32gui.FindWindowW(None, "FlowPilot - Voice Intelligence Dashboard")
+                    if hwnd:
+                        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                        win32gui.SetForegroundWindow(hwnd)
+                except Exception:
+                    pass
             if sys.platform == "win32" and not os.environ.get("FLOWPILOT_NO_POPUP") and not os.environ.get("CI") and "FLOWPILOT_MUTEX_NAME" not in os.environ:
                 try:
                     import ctypes
@@ -141,7 +151,7 @@ class FlowPilotApp:
                 self.hud.move(x, y)
             else:
                 x = geom.right() - self.hud.width() - 24
-                y = geom.bottom() - self.hud.height() - 24
+                y = geom.bottom() - self.hud.height() - 140
                 self.hud.move(x, y)
         self.hud.show()
         self.hud.raise_()

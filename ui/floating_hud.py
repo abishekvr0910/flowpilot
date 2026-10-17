@@ -270,6 +270,11 @@ class FloatingHUD(QWidget):
 
     def set_visual_style(self, style: str):
         self._visual_style = style
+        if style == "dog" and self._cat_palette not in ("shiba inu", "golden retriever", "corgi", "husky"):
+            self._cat_palette = "shiba inu"
+        elif style == "kitty" and self._cat_palette in ("shiba inu", "golden retriever", "corgi", "husky"):
+            self._cat_palette = "orange tabby"
+        self._cat_pixmap_cache.clear()
         self._apply_style_dimensions()
         self._save_position()
         self.update()
@@ -739,12 +744,22 @@ class FloatingHUD(QWidget):
             p.setBrush(QBrush(glow_grad))
             p.drawEllipse(QPoint(int(w / 2.0), int(h / 2.0)), 34, 34)
 
-        # 2. Base Cat Pixel Art from Cache
-        cache_key = (self._cat_frame, self._cat_palette, self._cat_flip)
+        # 2. Base Pet Pixel Art from Cache
+        is_dog = (self._visual_style == "dog")
+        if is_dog:
+            pet_pal = self._cat_palette if self._cat_palette in ("shiba inu", "golden retriever", "corgi", "husky") else "shiba inu"
+            frame_name = "dog_sit_b" if self._cat_frame in ("sit_b", "wag") else "dog_sit_a"
+            grid = ps.FRAMES.get(frame_name, getattr(ps, "DOG_SIT_A", ps.SIT_A))
+            pal = ps.PALETTES.get(pet_pal, ps.PALETTES.get("shiba inu", ps.PALETTES["orange tabby"]))
+        else:
+            pet_pal = self._cat_palette
+            frame_name = self._cat_frame
+            grid = ps.FRAMES.get(frame_name, ps.SIT_A)
+            pal = ps.PALETTES.get(pet_pal, ps.PALETTES["orange tabby"])
+
+        cache_key = (self._visual_style, frame_name, pet_pal, self._cat_flip)
         pix = self._cat_pixmap_cache.get(cache_key)
         if pix is None:
-            grid = ps.FRAMES.get(self._cat_frame, ps.SIT_A)
-            pal = ps.PALETTES.get(self._cat_palette, ps.PALETTES["orange tabby"])
             img = ps.render_frame(grid, pal, scale=scale, flip=self._cat_flip, halo=True)
             pix = QPixmap.fromImage(img)
             self._cat_pixmap_cache[cache_key] = pix
