@@ -55,6 +55,15 @@ class FlowPilotDashboard(QMainWindow):
         self._init_styles()
         self._init_ui()
 
+        # Center dashboard on primary screen
+        from PySide6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        if screen:
+            geom = screen.availableGeometry()
+            x = geom.center().x() - (self.width() // 2)
+            y = geom.center().y() - (self.height() // 2)
+            self.move(x, y)
+
     def _init_styles(self):
         self.setStyleSheet("""
             QMainWindow {
