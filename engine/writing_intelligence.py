@@ -253,7 +253,18 @@ class FactGuard:
 
         return polished_text, True, []
 
+    @classmethod
+    def verify_invariants(cls, raw_text: str, polished_text: str) -> Dict[str, Any]:
+        """Convenience helper returning structured validation verdict and warnings."""
+        final_text, is_guarded, warnings = cls.validate_and_guard(raw_text, polished_text)
+        return {
+            "passed": is_guarded,
+            "final_text": final_text,
+            "warnings": warnings
+        }
+
 class WritingIntelligence:
+
     def __init__(self, config: Optional[Dict[str, Any]] = None, personalization: Optional[Any] = None):
         self.config = config or {}
         self.personalization = personalization or (PersonalizationEngine() if HAS_PERSONALIZATION else None)

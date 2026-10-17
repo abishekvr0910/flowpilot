@@ -8,10 +8,12 @@ Enforces zero-egress, bounded memory (<= 1.5MB pixmap cache), and strict path is
 import os
 import json
 import uuid
+import struct
 import zipfile
 import shutil
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
+
 
 MAX_IMAGE_FILE_SIZE = 1024 * 1024  # 1 MiB
 MAX_IMAGE_DIMENSION = 512          # 512x512 max source resolution
@@ -292,6 +294,14 @@ class CompanionAssetManager:
             with open(manifest_file, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
 
+            if not self._validate_manifest(manifest, base_dir=dest_dir):
+                raise ValueError("Manifest validation failed: invalid schema or out-of-package references")
+
+            # Validate each image file inside the package for size and dimensions <= 512x512
+            for f_item in dest_dir.iterdir():
+                if f_item.is_file() and f_item.suffix.lower() == ".png":
+                    self._validate_image_file(f_item)
+
             manifest["id"] = comp_id
             with open(manifest_file, "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2)
@@ -302,7 +312,7 @@ class CompanionAssetManager:
             raise
 
     def _validate_image_file(self, file_path: Path) -> None:
-        """Verifies file existence, size, header, and PNG format without executing external tools."""
+        """Verifies file existence, size, header, format, and dimensions without external tools."""
         if not file_path.exists() or not file_path.is_file():
             raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -310,17 +320,66 @@ class CompanionAssetManager:
         if file_size > MAX_IMAGE_FILE_SIZE:
             raise ValueError(f"File size exceeds 1.0 MiB limit ({file_size} bytes)")
 
-        # Verify PNG Magic Bytes: 89 50 4E 47 0D 0A 1A 0A
+        # Verify PNG Magic Bytes and parse dimensions from IHDR chunk
         with open(file_path, "rb") as f:
             header = f.read(8)
             if header != b"\x89PNG\r\n\x1a\n":
                 raise ValueError("Only standard PNG image files are supported")
 
-    def _validate_manifest(self, manifest: Dict[str, Any]) -> bool:
-        """Verifies manifest schema and essential properties."""
-        return (
-            isinstance(manifest, dict) and
-            "id" in manifest and
-            "type" in manifest and
-            manifest.get("type") in ("emoji", "image", "spritesheet")
-        )
+            chunk_len = f.read(4)
+            chunk_type = f.read(4)
+            if chunk_type != b"IHDR":
+                raise ValueError("Corrupted PNG: missing IHDR header chunk")
+
+            dim_bytes = f.read(8)
+            if len(dim_bytes) < 8:
+                raise ValueError("Corrupted PNG: incomplete IHDR dimensions")
+
+            width, height = struct.unpack(">II", dim_bytes)
+            if width > MAX_IMAGE_DIMENSION or height > MAX_IMAGE_DIMENSION:
+                raise ValueError(
+                    f"Image dimensions ({width}x{height}) exceed maximum allowed "
+                    f"{MAX_IMAGE_DIMENSION}x{MAX_IMAGE_DIMENSION} limit"
+                )
+            if width < 1 or height < 1:
+                raise ValueError(f"Invalid image dimensions: {width}x{height}")
+
+    def _validate_manifest(self, manifest: Dict[str, Any], base_dir: Optional[Path] = None) -> bool:
+        """Verifies manifest schema, security properties, and checks for out-of-package references."""
+        if not (isinstance(manifest, dict) and "id" in manifest and "type" in manifest):
+            return False
+
+        m_type = manifest.get("type")
+        if m_type not in ("emoji", "image", "spritesheet"):
+            return False
+
+        if m_type in ("image", "spritesheet"):
+            refs_to_check = []
+            for key in ("image_file", "sprite", "image", "spritesheet"):
+                val = manifest.get(key)
+                if val and isinstance(val, str):
+                    refs_to_check.append(val)
+
+            frames = manifest.get("frames")
+            if frames and isinstance(frames, list):
+                for f in frames:
+                    if isinstance(f, str):
+                        refs_to_check.append(f)
+
+            for ref in refs_to_check:
+                # Disallow path traversal, absolute paths, and drive letters
+                if ".." in ref or ref.startswith("/") or ref.startswith("\\") or ":" in ref:
+                    return False
+                if Path(ref).is_absolute():
+                    return False
+                if base_dir:
+                    full_p = (base_dir / ref).resolve()
+                    try:
+                        full_p.relative_to(base_dir.resolve())
+                    except ValueError:
+                        return False
+                    if not full_p.exists():
+                        return False
+
+        return True
+

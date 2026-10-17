@@ -296,3 +296,9 @@ class CompanionPreviewWidget(QWidget):
         font = QFont("Segoe UI", 7, QFont.Bold)
         painter.setFont(font)
         painter.drawText(badge_rect, Qt.AlignCenter, label)
+
+    def closeEvent(self, event):
+        if hasattr(self, "_anim_timer") and self._anim_timer.isActive():
+            self._anim_timer.stop()
+        super().closeEvent(event)
+

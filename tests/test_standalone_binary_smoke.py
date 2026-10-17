@@ -45,6 +45,10 @@ def main():
     # Use isolated test mutex to avoid conflicting with or terminating any user instances
     test_env = os.environ.copy()
     test_env["FLOWPILOT_MUTEX_NAME"] = f"Global\\FlowPilot_SmokeTest_{os.getpid()}"
+    test_env["FLOWPILOT_NO_POPUP"] = "1"
+    test_env["CI"] = "1"
+    test_env["FLOWPILOT_HEADLESS"] = "1"
+
 
     print("\n[Phase 1] Launching FlowPilot.exe with isolated test mutex...")
     proc = subprocess.Popen([exe_path], env=test_env)

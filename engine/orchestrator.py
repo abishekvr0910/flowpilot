@@ -443,6 +443,22 @@ class FlowOrchestrator:
                     get_insights_engine().record_dictation(formatted_text, total_duration, str(target_proc))
                 except Exception as _ie_err:
                     print(f"[Orchestrator Warning] Insights recording deferred: {_ie_err}")
+
+                # Persist to History Vault (Searchable feed, bookmarks, audio replay vault)
+                try:
+                    from engine.history_vault import get_history_vault
+                    get_history_vault().record_dictation(
+                        formatted_text=formatted_text,
+                        raw_text=raw_text,
+                        target_app=str(active_session.target_window_info.get("process_name") or "Desktop"),
+                        duration_sec=total_duration,
+                        audio_bytes=wav_bytes,
+                        language=detected_lang,
+                        session_id=active_session.session_id
+                    )
+                except Exception as _hv_err:
+                    print(f"[Orchestrator Warning] History Vault recording deferred: {_hv_err}")
+
                 
                 # Write local telemetry for pilot program metrics (strictly anonymous, no text)
                 self._record_telemetry({

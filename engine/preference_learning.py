@@ -8,6 +8,7 @@ Contains NO keystroke loggers, NO clipboard scrapers, and NO audio retention.
 
 import os
 import json
+import copy
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -19,13 +20,16 @@ CONSENSUS_DAYS_REQUIRED = 3
 CONSENSUS_WINDOW_DAYS = 14
 CONSENSUS_THRESHOLD = 0.80
 
-DEFAULT_LEARNING_DATA: Dict[str, Any] = {
-    "schema_version": 1,
-    "enabled": False,         # Explicit opt-in required
-    "observations": [],       # [{app_id, setting_key, value, date_str}]
-    "approved_rules": {},     # {app_id: {setting_key: value}}
-    "tombstones": []          # ["app_id:setting_key"]
-}
+def _get_default_learning_data() -> Dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "enabled": False,         # Explicit opt-in required
+        "observations": [],       # [{app_id, setting_key, value, date_str}]
+        "approved_rules": {},     # {app_id: {setting_key: value}}
+        "tombstones": []          # ["app_id:setting_key"]
+    }
+
+DEFAULT_LEARNING_DATA = _get_default_learning_data()
 
 class PreferenceLearningEngine:
     _lock = threading.RLock()
@@ -45,22 +49,22 @@ class PreferenceLearningEngine:
     def load(self) -> Dict[str, Any]:
         with self._lock:
             if not self.storage_file.exists():
-                self._data = DEFAULT_LEARNING_DATA.copy()
+                self._data = _get_default_learning_data()
                 self._persist_unlocked()
-                return self._data.copy()
+                return copy.deepcopy(self._data)
 
             try:
                 with open(self.storage_file, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
-                data = DEFAULT_LEARNING_DATA.copy()
+                data = _get_default_learning_data()
                 data.update(loaded)
                 self._data = data
                 self._prune_expired_observations()
             except Exception as e:
                 print(f"[LearningEngine] Error reading {self.storage_file}: {e}")
-                self._data = DEFAULT_LEARNING_DATA.copy()
+                self._data = _get_default_learning_data()
+            return copy.deepcopy(self._data)
 
-            return self._data.copy()
 
     def is_enabled(self) -> bool:
         with self._lock:
@@ -222,8 +226,11 @@ class PreferenceLearningEngine:
     def clear_all_learning_data(self) -> None:
         """Completely purges all observations, proposals, and approved rules."""
         with self._lock:
-            self._data = DEFAULT_LEARNING_DATA.copy()
+            enabled = self.is_enabled()
+            self._data = _get_default_learning_data()
+            self._data["enabled"] = enabled
             self._persist_unlocked()
+
 
     def _prune_expired_observations(self) -> None:
         cutoff = datetime.now() - timedelta(days=OBSERVATION_RETENTION_DAYS)
