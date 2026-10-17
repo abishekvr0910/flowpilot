@@ -202,6 +202,10 @@ class FlowPilotApp:
                     if hasattr(self.dashboard, 'history_view'):
                         self.dashboard.history_view.reload_history()
 
+        if state == "error":
+            err = payload.get("message", "Unknown error")
+            self.tray.show_notification("FlowPilot Error", err, is_error=True)
+
     def _on_transforms_hotkey(self):
         try:
             from engine.transforms_engine import get_transforms_engine
@@ -210,11 +214,6 @@ class FlowPilotApp:
                 self.dashboard.open_transforms(sel_text)
         except Exception as _e:
             print(f"[FlowPilot Warning] Transforms hotkey handling: {_e}")
-
-
-        if state == "error":
-            err = payload.get("message", "Unknown error")
-            self.tray.show_notification("FlowPilot Error", err, is_error=True)
 
     def show_dashboard(self):
         if hasattr(self, 'dashboard') and self.dashboard:
