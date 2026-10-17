@@ -616,6 +616,258 @@ DOG_SIT_B = [
     "..........................",
 ]
 
+# ---------------------------------------------------------------------------
+# Dedicated Pokémon Pixel Sprites: Pikachu, Charmander, Gengar, and Eevee
+# 26 wide x 28 tall authentic retro sprites with idle and action/wag frames
+# ---------------------------------------------------------------------------
+PIKACHU_IDLE = [
+    "..........................",
+    "...KK..............KK.....",
+    "..KBBK............KBBK....",
+    "..KBKKK..........KKKBK....",
+    "..KBBKKK........KKKBBK....",
+    "..KBBBBK........KBBBBK....",
+    "...KBBBBK......KBBBBK.....",
+    "...KBBBBKKKKKKKKBBBBK.....",
+    "....KBBBBBBBBBBBBBBK......",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "..KBBEEEBBBBBBBBEEEBBK....",
+    "..KBBPEEBBBBBBBBPEEBBK....",
+    "..KZZBEEBBBNNBBBBEEBZZK...",
+    "..KZZBBBBBBMMBBBBBBZZK....",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "..KBBBBBBBBBBBBBBBBBBK....",
+    "..KBBBBBBBBBBBBBBBBBBKKK..",
+    "..KBBBBKBBBBBBBBKBBBBKBK..",
+    "..KBBBBKBBBBBBBBKBBBKKBBK.",
+    "..KBBBBKBBBBBBBBKBBKBBBKK.",
+    "..KBBBBKBBBKKBBBKBBKBBK...",
+    "..KBBBBKBBBKKBBBKBBKBBK...",
+    "..KBBBBKWWBKKBWWKBBKK.....",
+    "..KBBBBKWWBKKBWWKBK.......",
+    "...KKKKKKKKKKKKKKKK.......",
+    "..........................",
+    "..........................",
+]
+
+PIKACHU_ACTION = [
+    "..........................",
+    "...KK..............KK.....",
+    "..KBBK............KBBK....",
+    "..KBKKK..........KKKBK....",
+    "..KBBKKK........KKKBBK....",
+    "..KBBBBK........KBBBBK.KK.",
+    "...KBBBBK......KBBBBK.KBK.",
+    "...KBBBBKKKKKKKKBBBBKKBBK.",
+    "....KBBBBBBBBBBBBBBBKBKK..",
+    "...KBBBBBBBBBBBBBBBBKK....",
+    "..KBBEEEBBBBBBBBEEEBBK....",
+    "..KBBPEEBBBBBBBBPEEBBK....",
+    "..KZZBEEBBBNNBBBBEEBZZK...",
+    "..KZZBBBBBBMMBBBBBBZZK....",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "..KBBBBBBBBBBBBBBBBBBK....",
+    "..KBBBBBBBBBBBBBBBBBBK....",
+    "..KBBBBKBBBBBBBBKBBBBK....",
+    "..KBBBBKBBBBBBBBKBBBBK....",
+    "..KBBBBKBBBBBBBBKBBBBK....",
+    "..KBBBBKBBBKKBBBKBBKBBK...",
+    "..KBBBBKBBBKKBBBKBBKBBK...",
+    "..KBBBBKWWBKKBWWKBBKBBK...",
+    "..KBBBBKWWBKKBWWKBKBBK....",
+    "...KKKKKKKKKKKKKKKKKK.....",
+    "..........................",
+    "..........................",
+]
+
+CHARMANDER_IDLE = [
+    "..........................",
+    "..........................",
+    ".........KKKKKK...........",
+    "........KBBBBBBK..........",
+    ".......KBBBBBBBBK.........",
+    "......KBBBBBBBBBBK........",
+    ".....KBBZZZBBZZZBBK.......",
+    ".....KBZEPZBBZEPZBK.......",
+    ".....KBBZZZBBZZZBBK.......",
+    ".....KBBBBBNNBBBBBK.......",
+    "......KBBBBMMBBBBK........",
+    ".......KBBBBBBBBK.........",
+    ".......KBBBBBBBBK.........",
+    "......KBBWWWWWWBBK........",
+    ".....KBBBWWWWWWBBBK.......",
+    ".....KBBBWWWWWWBBBK.......",
+    "....KBBBBWWWWWWBBBBK.ZZ...",
+    "....KBBBBWWWWWWBBBBKZSZK..",
+    "....KBBBBWWWWWWBBBBKZZZK..",
+    "....KBBBBKBBBBKBBBBKBKK...",
+    "....KBBBBKBBBBKBBBBKBK....",
+    "....KBBBBKBBBBKBBBBKK.....",
+    ".....KKKKKBBBBKKKKK.......",
+    ".....KWWBK....KBWWK.......",
+    ".....KWWBK....KBWWK.......",
+    "......KKKK....KKKK........",
+    "..........................",
+    "..........................",
+]
+
+CHARMANDER_ACTION = [
+    "..........................",
+    "..........................",
+    ".........KKKKKK...........",
+    "........KBBBBBBK..........",
+    ".......KBBBBBBBBK.........",
+    "......KBBBBBBBBBBK........",
+    ".....KBBZZZBBZZZBBK.......",
+    ".....KBZEPZBBZEPZBK.......",
+    ".....KBBZZZBBZZZBBK.......",
+    ".....KBBBBBNNBBBBBK.......",
+    "......KBBBBMMBBBBK...ZZ...",
+    ".......KBBBBBBBBK...KZSZK.",
+    ".......KBBBBBBBBK...KZZZK.",
+    "......KBBWWWWWWBBK...KBK..",
+    ".....KBBBWWWWWWBBBK.KBK...",
+    ".....KBBBWWWWWWBBBKKBK....",
+    "....KBBBBWWWWWWBBBBKK.....",
+    "....KBBBBWWWWWWBBBBK......",
+    "....KBBBBWWWWWWBBBBK......",
+    "....KBBBBKBBBBKBBBBK......",
+    "....KBBBBKBBBBKBBBBK......",
+    "....KBBBBKBBBBKBBBBKK.....",
+    ".....KKKKKBBBBKKKKK.......",
+    ".....KWWBK....KBWWK.......",
+    ".....KWWBK....KBWWK.......",
+    "......KKKK....KKKK........",
+    "..........................",
+    "..........................",
+]
+
+GENGAR_IDLE = [
+    "..........................",
+    "....KK..............KK....",
+    "...KZZK............KZZK...",
+    "...KZZZK..........KZZZK...",
+    "....KZZZK........KZZZK....",
+    "....KBBBBKKKKKKKKBBBBK....",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "..KBBEEBBBBBBBBBBBBEEBBK..",
+    "..KBPEEBZZZZZZZZZZBPEEBK..",
+    "..KBEEBBBBBBBBBBBBBBEEBK..",
+    "..KBBBBWWWWWWWWWWWWBBBBK..",
+    "..KBBBBWWMWMWMWMWMMBBBBK..",
+    "..KBBBBWWWWWWWWWWWWBBBBK..",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "...KBBBBKKBBBBBBKKBBBBK...",
+    "...KBBBK..KBBBBK..KBBBK...",
+    "....KKK....KKKK....KKK....",
+    "..........................",
+    "..........................",
+    "..........................",
+]
+
+GENGAR_ACTION = [
+    "..........................",
+    "....KK..............KK....",
+    "...KZZK............KZZK...",
+    "...KZZZK..........KZZZK...",
+    "....KZZZK........KZZZK....",
+    "....KBBBBKKKKKKKKBBBBK....",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "..KBBEEEBBBBBBBBBBEEEBBK..",
+    "..KBPEEEBZZZZZZZZZBPEEEBK.",
+    "..KBEEEBBBBBBBBBBBBEEEBK..",
+    "..KBBBBWWWWWWWWWWWWBBBBK..",
+    "..KBBBBWWMWMWMWMWMMBBBBK..",
+    "..KBBBBWWWWWWWWWWWWBBBBK..",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "..KBBBBBBBBBBBBBBBBBBBBK..",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "...KBBBBKKBBBBBBKKBBBBK...",
+    "...KBBBK..KBBBBK..KBBBK...",
+    "....KKK....KKKK....KKK....",
+    "..........................",
+    "..........................",
+    "..........................",
+]
+
+EEVEE_IDLE = [
+    "..........................",
+    "...KK................KK...",
+    "..KZZK..............KZZK..",
+    "..KZZZK............KZZZK..",
+    "..KZZZZK..........KZZZZK..",
+    "...KZZZZK........KZZZZK...",
+    "...KBBZZZK......KZZZBBK...",
+    "....KBBBBKKKKKKKKBBBBK....",
+    "....KBBBBBBBBBBBBBBBBK....",
+    "...KBBEEEEBBBBBBEEEEBBK...",
+    "...KBPEEEEBBBBBBPEEEEBK...",
+    "...KBBEEEEBBBNNBBEEEEBK...",
+    "....KBBBBBWWMMWWBBBBK.....",
+    "....KWWWWWWWWWWWWWWWWK....",
+    "...KWWWWWWWWWWWWWWWWWWK...",
+    "..KWWWWWWWWWWWWWWWWWWWWK..",
+    "..KWWWWWWWWWWWWWWWWWWWWK..",
+    "...KBBBBWWWWWWWWWWBBBBK...",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "...KBBBBKBBBBBBBBKBBBBK...",
+    "...KBBBBKBBBBBBBBKBBBBK.KK",
+    "...KBBBBKBBBBBBBBKBBBKKBWK",
+    "...KBBBBKBBBBBBBBKBBKKBWWK",
+    "...KBBBBKBBBKKBBBKBBKKBWK.",
+    "...KBBBBKWWBKKBWWKBBKK....",
+    "...KBBBBKWWBKKBWWKBK......",
+    "....KKKKKKKKKKKKKKK.......",
+    "..........................",
+]
+
+EEVEE_ACTION = [
+    "..........................",
+    "...KK................KK...",
+    "..KZZK..............KZZK..",
+    "..KZZZK............KZZZK..",
+    "..KZZZZK..........KZZZZK..",
+    "...KZZZZK........KZZZZK...",
+    "...KBBZZZK......KZZZBBK...",
+    "....KBBBBKKKKKKKKBBBBK.KK.",
+    "....KBBBBBBBBBBBBBBBBKBWK.",
+    "...KBBEEEEBBBBBBEEEEKBWWK.",
+    "...KBPEEEEBBBBBBPEEEKBWWK.",
+    "...KBBEEEEBBBNNBBEEKBKWWK.",
+    "....KBBBBBWWMMWWBBBKKBWK..",
+    "....KWWWWWWWWWWWWWWWKK....",
+    "...KWWWWWWWWWWWWWWWWWWK...",
+    "..KWWWWWWWWWWWWWWWWWWWWK..",
+    "..KWWWWWWWWWWWWWWWWWWWWK..",
+    "...KBBBBWWWWWWWWWWBBBBK...",
+    "...KBBBBBBBBBBBBBBBBBBK...",
+    "...KBBBBKBBBBBBBBKBBBBK...",
+    "...KBBBBKBBBBBBBBKBBBBK...",
+    "...KBBBBKBBBBBBBBKBBBBK...",
+    "...KBBBBKBBBBBBBBKBBBBK...",
+    "...KBBBBKBBBKKBBBKBBKBBK..",
+    "...KBBBBKWWBKKBWWKBBKBBK..",
+    "...KBBBBKWWBKKBWWKBKBBK...",
+    "....KKKKKKKKKKKKKKKKKK....",
+    "..........................",
+]
+
 FRAMES = {
     "sit_a": SIT_A, "sit_b": SIT_B, "blink": BLINK,
     "type_a": TYPE_A, "type_b": TYPE_B,
@@ -624,7 +876,11 @@ FRAMES = {
     "stretch": STRETCH, "dangle": DANGLE, "peek": PEEK,
     "yawn": YAWN,
     "groom_a": GROOM_A, "groom_b": GROOM_B, "knead_c": KNEAD_C,
-    "dog_sit_a": DOG_SIT_A, "dog_sit_b": DOG_SIT_B, "dog_wag": DOG_SIT_B, "dog_listen": DOG_SIT_A
+    "dog_sit_a": DOG_SIT_A, "dog_sit_b": DOG_SIT_B, "dog_wag": DOG_SIT_B, "dog_listen": DOG_SIT_A,
+    "pikachu_idle": PIKACHU_IDLE, "pikachu_wag": PIKACHU_ACTION,
+    "charmander_idle": CHARMANDER_IDLE, "charmander_flame": CHARMANDER_ACTION,
+    "gengar_idle": GENGAR_IDLE, "gengar_glow": GENGAR_ACTION,
+    "eevee_idle": EEVEE_IDLE, "eevee_wag": EEVEE_ACTION
 }
 
 EYE_CELLS = {
@@ -634,7 +890,11 @@ EYE_CELLS = {
     "run_a": [(5, 8), (16, 8)], "run_b": [(5, 8), (16, 8)],
     "knead_c": [(5, 8), (16, 8)],
     "dangle": [(5, 10), (16, 10)], "peek": [(5, 20), (16, 20)],
-    "dog_sit_a": [(5, 10), (16, 10)], "dog_sit_b": [(5, 10), (16, 10)], "dog_wag": [(5, 10), (16, 10)]
+    "dog_sit_a": [(5, 10), (16, 10)], "dog_sit_b": [(5, 10), (16, 10)], "dog_wag": [(5, 10), (16, 10)],
+    "pikachu_idle": [(5, 11), (16, 11)], "pikachu_wag": [(5, 11), (16, 11)],
+    "charmander_idle": [(6, 7), (14, 7)], "charmander_flame": [(6, 7), (14, 7)],
+    "gengar_idle": [(4, 9), (16, 9)], "gengar_glow": [(4, 9), (16, 9)],
+    "eevee_idle": [(5, 10), (15, 10)], "eevee_wag": [(5, 10), (15, 10)]
 }
 
 HEAD_RECT = (3, 2, 22, 13)
@@ -685,6 +945,14 @@ PALETTES = {
                      "E": "#f8f8f4", "N": "#20120a", "M": "#381f0d", "Z": "#e89988", "P": "#1c1109"},
     "husky":        {"B": "#68707c", "S": "#4a515c", "W": "#f8f9fa", "K": "#22252a",
                      "E": "#a2d2ff", "N": "#1d2024", "M": "#22252a", "Z": "#dfa5a5", "P": "#0077b6"},
+    "pikachu":      {"B": "#fcd116", "S": "#b57a22", "W": "#ffffff", "K": "#241e12",
+                     "E": "#ffffff", "N": "#241e12", "M": "#241e12", "Z": "#e73b27", "P": "#18140c"},
+    "charmander":   {"B": "#f17f29", "S": "#cf5c13", "W": "#fae19c", "K": "#33160a",
+                     "E": "#ffffff", "N": "#33160a", "M": "#33160a", "Z": "#2eb4c6", "P": "#103b42"},
+    "gengar":       {"B": "#6d4c87", "S": "#4a2f60", "W": "#ffffff", "K": "#1e0f2b",
+                     "E": "#ef3038", "N": "#1e0f2b", "M": "#ef3038", "Z": "#9b72ba", "P": "#1e0f2b"},
+    "eevee":        {"B": "#b87333", "S": "#8c5321", "W": "#faeed9", "K": "#301a0c",
+                     "E": "#ffffff", "N": "#200e06", "M": "#301a0c", "Z": "#592b10", "P": "#200e06"},
 }
 
 EXTRA_COLORS = {"G": "#8a8f98", "g": "#d4d8de", "O": "#ffffff", "H": "#f2f4f6"}
@@ -868,6 +1136,15 @@ def render_kitty_pixmap(frame="sit_a", palette_name="orange tabby", scale=2, fli
         else:
             grid = FRAMES.get("dog_sit_a", DOG_SIT_A)
         pal = PALETTES.get(palette_name, PALETTES.get("shiba inu"))
+    elif palette_name in ("pikachu", "charmander", "gengar", "eevee"):
+        is_action = frame in ("wag", "action", "sit_b", "flame", "glow")
+        grid_key = f"{palette_name}_wag" if is_action else f"{palette_name}_idle"
+        if palette_name == "charmander":
+            grid_key = "charmander_flame" if is_action else "charmander_idle"
+        elif palette_name == "gengar":
+            grid_key = "gengar_glow" if is_action else "gengar_idle"
+        grid = FRAMES.get(grid_key, FRAMES.get(f"{palette_name}_idle", SIT_A))
+        pal = PALETTES.get(palette_name)
     else:
         grid = FRAMES.get(frame, SIT_A)
         pal = PALETTES.get(palette_name, PALETTES.get("orange tabby"))
@@ -878,6 +1155,13 @@ def render_kitty_pixmap(frame="sit_a", palette_name="orange tabby", scale=2, fli
 
 def render_pup_pixmap(frame="dog_sit_a", palette_name="shiba inu", scale=2, flip=False):
     return render_kitty_pixmap(frame=frame, palette_name=palette_name, scale=scale, flip=flip, is_dog=True)
+
+
+def render_pokemon_pixmap(pokemon_name="pikachu", frame="idle", scale=2, flip=False):
+    pkmn = pokemon_name.lower().strip()
+    if pkmn not in ("pikachu", "charmander", "gengar", "eevee"):
+        pkmn = "pikachu"
+    return render_kitty_pixmap(frame=frame, palette_name=pkmn, scale=scale, flip=flip)
 
 
 

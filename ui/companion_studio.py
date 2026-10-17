@@ -147,11 +147,22 @@ class CompanionStudioDialog(QDialog):
         self.tabs = QTabWidget(self)
         self.tab_library = self._build_library_tab()
         self.tab_create = self._build_create_tab()
+        
+        try:
+            from ui.pixel_creator import PixelCreatorWidget
+            self.tab_pixel_creator = PixelCreatorWidget(self)
+            self.tab_pixel_creator.companion_created.connect(self._on_pixel_companion_created)
+        except Exception as e:
+            print(f"[CompanionStudio] Pixel creator deferred: {e}")
+            self.tab_pixel_creator = None
+
         self.tab_behavior = self._build_behavior_tab()
         self.tab_memory = self._build_memory_tab()
 
         self.tabs.addTab(self.tab_library, "Library")
-        self.tabs.addTab(self.tab_create, "Create")
+        if self.tab_pixel_creator:
+            self.tabs.addTab(self.tab_pixel_creator, "🎨 Pixel Creator")
+        self.tabs.addTab(self.tab_create, "Import Image/Emoji")
         self.tabs.addTab(self.tab_behavior, "Behavior & Motion")
         self.tabs.addTab(self.tab_memory, "Memory & Learning")
         main_layout.addWidget(self.tabs, stretch=1)
@@ -778,3 +789,9 @@ class CompanionStudioDialog(QDialog):
         updated = self.store.update(self._draft)
         self.applied.emit(updated)
         self.accept()
+
+    def _on_pixel_companion_created(self, manifest: dict):
+        self._refresh_companion_list()
+        self._draft = self.store.get_all()
+        self.applied.emit(self._draft)
+

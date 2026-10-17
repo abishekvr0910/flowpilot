@@ -289,20 +289,27 @@ class FlowPilotDashboard(QMainWindow):
         cp_layout.addWidget(lbl_cp_desc)
 
         pet_btn_layout = QHBoxLayout()
-        pet_btn_layout.setSpacing(10)
+        pet_btn_layout.setSpacing(8)
 
-        current_pet = self.store.get("selected_asset_id", "kitty")
+        current_pet = self.store.get("selected_asset_id", "dog")
 
-        pets = [
-            ("kitty", "🐾 SondeR-Cat Kitty"),
-            ("dog", "🐶 Pixel Pup & Shiba"),
-            ("mascot", "🤖 Robot Pilot"),
+        pets_row1 = [
+            ("dog", "🐶 Pixel Pup"),
+            ("kitty", "🐾 Pixel Kitty"),
+            ("pikachu", "⚡ Pikachu"),
+            ("charmander", "🔥 Charmander"),
+            ("gengar", "👻 Gengar"),
+            ("eevee", "🦊 Eevee"),
+        ]
+
+        pets_row2 = [
+            ("mascot", "🤖 Pilot Robot"),
+            ("wave_bar", "🌊 Sound Waves"),
             ("edge_line", "📏 Docked Line"),
-            ("wave_bar", "🌊 Sound Equalizer"),
         ]
 
         self.pet_buttons: Dict[str, QPushButton] = {}
-        for pet_id, label in pets:
+        for pet_id, label in pets_row1:
             pbtn = QPushButton(label)
             is_active = (pet_id == current_pet)
             pbtn.setStyleSheet(self._pet_btn_style(is_active))
@@ -311,6 +318,19 @@ class FlowPilotDashboard(QMainWindow):
             pet_btn_layout.addWidget(pbtn)
 
         cp_layout.addLayout(pet_btn_layout)
+
+        pet_btn_layout2 = QHBoxLayout()
+        pet_btn_layout2.setSpacing(8)
+        for pet_id, label in pets_row2:
+            pbtn = QPushButton(label)
+            is_active = (pet_id == current_pet)
+            pbtn.setStyleSheet(self._pet_btn_style(is_active))
+            pbtn.clicked.connect(lambda _, pid=pet_id: self._select_companion(pid))
+            self.pet_buttons[pet_id] = pbtn
+            pet_btn_layout2.addWidget(pbtn)
+
+        pet_btn_layout2.addStretch()
+        cp_layout.addLayout(pet_btn_layout2)
 
         btn_open_studio = QPushButton("🎨 Customize Appearance, Fur & Motion in Companion Studio →")
         btn_open_studio.setStyleSheet("""
