@@ -58,3 +58,12 @@ flowpilot = "desktop_app:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["engine*", "ui*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+norecursedirs = ["_backup*", "scratch*", "dist*", "build*", ".git"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+

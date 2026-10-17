@@ -21,19 +21,34 @@ from PySide6.QtWidgets import (
     QLineEdit, QListWidget, QListWidgetItem, QTabWidget, QCheckBox,
     QProgressBar, QComboBox, QMenu, QInputDialog
 )
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal, QObject
 from PySide6.QtGui import QFont, QColor
 import pyperclip
 
 from engine.meeting_notetaker import MeetingNotetakerEngine, MeetingSession, TEMPLATES
 
+class NotetakerSignalBridge(QObject):
+    segment_received = Signal(dict)
+    audio_level_received = Signal(float)
+
 class NotetakerView(QWidget):
     def __init__(self, parent=None, notetaker_engine: Optional[MeetingNotetakerEngine] = None):
         super().__init__(parent)
-        self.engine = notetaker_engine or MeetingNotetakerEngine(
-            on_segment=self._on_live_segment,
-            on_audio_level=self._on_audio_level
-        )
+        self._bridge = NotetakerSignalBridge()
+        self._bridge.segment_received.connect(self._handle_live_segment_gui)
+        self._bridge.audio_level_received.connect(self._handle_audio_level_gui)
+
+        if notetaker_engine:
+            self.engine = notetaker_engine
+            self.engine.on_segment = self._bridge.segment_received.emit
+            self.engine.on_audio_level = self._bridge.audio_level_received.emit
+            if hasattr(self.engine, "_audio_recorder") and self.engine._audio_recorder:
+                self.engine._audio_recorder.on_audio_level = self._bridge.audio_level_received.emit
+        else:
+            self.engine = MeetingNotetakerEngine(
+                on_segment=self._bridge.segment_received.emit,
+                on_audio_level=self._bridge.audio_level_received.emit
+            )
         self._current_meeting_id: Optional[str] = None
         self._elapsed_seconds = 0
         self._action_checkboxes: List[QCheckBox] = []
@@ -43,6 +58,7 @@ class NotetakerView(QWidget):
         # Elapsed meeting timer
         self._clock_timer = QTimer(self)
         self._clock_timer.timeout.connect(self._on_clock_tick)
+
 
         # Initial load of past meetings
         self._reload_meeting_list()
@@ -580,18 +596,25 @@ class NotetakerView(QWidget):
         hrs, m = divmod(mins, 60)
         self.lbl_clock.setText(f"{hrs:02d}:{m:02d}:{s:02d}")
 
-    def _on_audio_level(self, level: float):
-        # Update VU meter smoothly
+    def _handle_live_segment_gui(self, seg: dict):
+        line = f"[{seg.get('time', '00:00')}] {seg.get('text', '')}\n"
+        self.transcript_edit.append(line.strip())
+
+    def _handle_audio_level_gui(self, level: float):
         self.level_bar.setValue(min(100, int(level * 100)))
 
+    def _on_audio_level(self, level: float):
+        self._bridge.audio_level_received.emit(level)
+
     def _on_live_segment(self, seg: dict):
-        line = f"[{seg['time']}] {seg['text']}\n"
-        self.transcript_edit.append(line.strip())
+        self._bridge.segment_received.emit(seg)
 
     def append_segment(self, text: str):
         seg = self.engine.add_transcript_segment(text)
         if seg:
-            self._on_live_segment(seg)
+            payload = seg.to_dict() if hasattr(seg, "to_dict") else seg
+            self._handle_live_segment_gui(payload)
+
 
     def _filter_transcript(self, query: str):
         q = query.strip().lower()
@@ -728,9 +751,15 @@ class NotetakerView(QWidget):
         # Set Action Items
         act_lines = []
         for a in data.get("action_items", []):
-            chk = "x" if a.get("done") else " "
-            act_lines.append(f"- [{chk}] {a.get('text')}")
+            if isinstance(a, dict):
+                chk = "x" if a.get("done") else " "
+                act_lines.append(f"- [{chk}] {a.get('text', '')}")
+            else:
+                chk = "x" if getattr(a, "done", False) else " "
+                txt = getattr(a, "text", str(a))
+                act_lines.append(f"- [{chk}] {txt}")
         self.action_scroll.setPlainText("\n".join(act_lines))
+
 
         # Set Notes
         self.notes_edit.setPlainText(data.get("notes", ""))

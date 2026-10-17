@@ -160,12 +160,21 @@ class FlowPilotApp:
         if not os.environ.get("CI") and not os.environ.get("FLOWPILOT_HEADLESS"):
             self.show_dashboard()
 
+        # 4b. Register global hotkey for Selected-Text Transforms (Ctrl+Alt+T)
+        try:
+            self.orchestrator.hotkey_service.register_hotkey(
+                "Ctrl+Alt+T",
+                callback=self._on_transforms_hotkey
+            )
+        except Exception as _e:
+            print(f"[FlowPilot Warning] Transforms hotkey registration deferred: {_e}")
+
         # 5. Start Global Win32 Hotkey Service
         self.orchestrator.start_hotkey_listener()
         print("\n============================================================")
         print("   FLOWPILOT NATIVE DESKTOP APPLICATION ACTIVE")
         print("============================================================")
-        print("[*] Global Shortcuts: 'Ctrl + Shift + Space', 'Ctrl + Alt + Space', 'F9'")
+        print("[*] Global Shortcuts: 'Ctrl + Shift + Space', 'Ctrl + Alt + Space', 'Ctrl + Alt + T', 'F9'")
         print("[*] Robot Companion:  Pilot Active (Draggable to any corner)")
         print("[*] System Tray:      Active")
         print("============================================================\n")
@@ -190,6 +199,18 @@ class FlowPilotApp:
                         self.dashboard.scratchpad_view.insert_text(fmt_text)
                     if self.dashboard.notetaker_view.engine.is_recording:
                         self.dashboard.notetaker_view.append_segment(fmt_text)
+                    if hasattr(self.dashboard, 'history_view'):
+                        self.dashboard.history_view.reload_history()
+
+    def _on_transforms_hotkey(self):
+        try:
+            from engine.transforms_engine import get_transforms_engine
+            sel_text = get_transforms_engine().get_selected_text_from_active_window()
+            if hasattr(self, 'dashboard') and self.dashboard:
+                self.dashboard.open_transforms(sel_text)
+        except Exception as _e:
+            print(f"[FlowPilot Warning] Transforms hotkey handling: {_e}")
+
 
         if state == "error":
             err = payload.get("message", "Unknown error")

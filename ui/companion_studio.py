@@ -795,3 +795,23 @@ class CompanionStudioDialog(QDialog):
         self._draft = self.store.get_all()
         self.applied.emit(self._draft)
 
+    def reject(self):
+        # Discard unapplied draft and reload state from store
+        self._draft = self.store.get_all()
+        self._load_draft_into_ui()
+        super().reject()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._draft = self.store.get_all()
+        self._load_draft_into_ui()
+        self._refresh_companion_list()
+        self._refresh_memory_tab()
+
+    def closeEvent(self, event):
+        if hasattr(self, "preview") and hasattr(self.preview, "_anim_timer"):
+            self.preview._anim_timer.stop()
+        super().closeEvent(event)
+
+
+

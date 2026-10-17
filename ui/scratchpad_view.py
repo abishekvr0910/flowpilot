@@ -106,8 +106,27 @@ class ScratchpadView(QWidget):
         btn_clear.clicked.connect(self._clear_pad)
         toolbar.addWidget(btn_clear)
 
+        self.btn_undo_clear = QPushButton("↩ Undo Clear")
+        self.btn_undo_clear.setVisible(False)
+        self.btn_undo_clear.setStyleSheet("""
+            QPushButton {
+                background-color: #78350F;
+                color: #FDE68A;
+                font-weight: 600;
+                padding: 7px 13px;
+                border-radius: 6px;
+                border: 1px solid #F59E0B;
+            }
+            QPushButton:hover {
+                background-color: #92400E;
+            }
+        """)
+        self.btn_undo_clear.clicked.connect(self._undo_clear)
+        toolbar.addWidget(self.btn_undo_clear)
+
         toolbar.addStretch()
         layout.addLayout(toolbar)
+
 
         # Text Drafting Canvas
         self.editor = QTextEdit(self)
@@ -225,18 +244,39 @@ class ScratchpadView(QWidget):
         self.editor.setPlainText(bulleted)
 
     def _clear_pad(self):
-        if not self.editor.toPlainText().strip():
+        text = self.editor.toPlainText().strip()
+        if not text:
             return
         reply = QMessageBox.question(
             self,
             "Clear Scratchpad",
-            "Are you sure you want to clear your scratchpad? This action cannot be undone.",
+            "Are you sure you want to clear your scratchpad? You can undo this action.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
         if reply == QMessageBox.Yes:
+            self._cleared_backup = self.editor.toPlainText()
             self.editor.clear()
             self._save_autosave()
+            self.btn_undo_clear.setVisible(True)
+
+    def _undo_clear(self):
+        if getattr(self, "_cleared_backup", None):
+            self.editor.setPlainText(self._cleared_backup)
+            self._cleared_backup = None
+            self.btn_undo_clear.setVisible(False)
+            self._save_autosave()
+
+    def save_now(self):
+        self._save_autosave()
+
+    def hideEvent(self, event):
+        self.save_now()
+        super().hideEvent(event)
+
+    def closeEvent(self, event):
+        self.save_now()
+        super().closeEvent(event)
 
     def _export_file(self):
         text = self.editor.toPlainText().strip()
@@ -272,3 +312,4 @@ class ScratchpadView(QWidget):
                 f.write(self.editor.toPlainText())
         except Exception:
             pass
+

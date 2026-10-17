@@ -28,7 +28,10 @@ class TestFlowPilotDashboard(unittest.TestCase):
         self.assertIsNotNone(self.dash.scratchpad_view)
         self.assertIsNotNone(self.dash.notetaker_view)
         self.assertIsNotNone(self.dash.insights_view)
-        self.assertEqual(self.dash.stack.count(), 6)
+        self.assertIsNotNone(self.dash.transforms_view)
+        self.assertIsNotNone(self.dash.history_view)
+        self.assertEqual(self.dash.stack.count(), 8)
+
 
     def test_companion_quick_switch(self):
         received_companion = []

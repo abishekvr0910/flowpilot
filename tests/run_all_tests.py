@@ -48,7 +48,9 @@ TESTS = [
     ("Meeting Notetaker Streaming & Library v2", "tests/test_meeting_notetaker_v2.py"),
     ("Pokemon Pixel Companions & Creator", "tests/test_pokemon_and_pixel_creator.py"),
     ("FlowPilot Master Dashboard & Scratchpad", "tests/test_flowpilot_dashboard.py"),
+    ("Selected-Text Transforms & Dictation History Vault", "tests/test_transforms_and_history.py"),
 ]
+
 
 def ensure_desktop_accessible():
     # Non-destructive desktop access verification (do not kill system processes like LockApp)

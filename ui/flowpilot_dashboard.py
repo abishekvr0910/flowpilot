@@ -25,8 +25,11 @@ from engine.config import load_config, save_config
 from ui.scratchpad_view import ScratchpadView
 from ui.notetaker_view import NotetakerView
 from ui.insights_view import InsightsView
+from ui.transforms_view import TransformsView
+from ui.history_view import HistoryView
 from ui.settings_dialog import SettingsDialog
 from ui.companion_studio import CompanionStudioDialog
+
 
 class FlowPilotDashboard(QMainWindow):
     dictate_requested = Signal()
@@ -111,13 +114,17 @@ class FlowPilotDashboard(QMainWindow):
         self.nav_group.setExclusive(True)
 
         self.btn_nav_home = self._create_nav_button("🏠  Dashboard", 0)
-        self.btn_nav_scratch = self._create_nav_button("📝  Scratchpad", 1)
-        self.btn_nav_notes = self._create_nav_button("🎙  Notetaker [New!]", 2)
-        self.btn_nav_insights = self._create_nav_button("📊  Insights", 3)
-        self.btn_nav_studio = self._create_nav_button("🎨  Companion Studio", 4)
-        self.btn_nav_settings = self._create_nav_button("⚙  Settings", 5)
+        self.btn_nav_transforms = self._create_nav_button("⚡  Transforms [New!]", 1)
+        self.btn_nav_history = self._create_nav_button("📜  History & Audio", 2)
+        self.btn_nav_scratch = self._create_nav_button("📝  Scratchpad", 3)
+        self.btn_nav_notes = self._create_nav_button("🎙  Notetaker", 4)
+        self.btn_nav_insights = self._create_nav_button("📊  Insights", 5)
+        self.btn_nav_studio = self._create_nav_button("🎨  Companion Studio", 6)
+        self.btn_nav_settings = self._create_nav_button("⚙  Settings", 7)
 
         side_layout.addWidget(self.btn_nav_home)
+        side_layout.addWidget(self.btn_nav_transforms)
+        side_layout.addWidget(self.btn_nav_history)
         side_layout.addWidget(self.btn_nav_scratch)
         side_layout.addWidget(self.btn_nav_notes)
         side_layout.addWidget(self.btn_nav_insights)
@@ -157,29 +164,38 @@ class FlowPilotDashboard(QMainWindow):
         page_home = self._build_home_page()
         self.stack.addWidget(page_home)
 
-        # Page 1: Scratchpad
+        # Page 1: Selected-Text Transforms
+        self.transforms_view = TransformsView(self, on_dictate_toggle=self.on_dictate)
+        self.stack.addWidget(self.transforms_view)
+
+        # Page 2: Dictation History & Audio Replay
+        self.history_view = HistoryView(self)
+        self.stack.addWidget(self.history_view)
+
+        # Page 3: Scratchpad
         self.scratchpad_view = ScratchpadView(self, on_dictate_toggle=self.on_dictate)
         self.stack.addWidget(self.scratchpad_view)
 
-        # Page 2: Meeting Notetaker
+        # Page 4: Meeting Notetaker
         self.notetaker_view = NotetakerView(self)
         self.stack.addWidget(self.notetaker_view)
 
-        # Page 3: Insights
+        # Page 5: Insights
         self.insights_view = InsightsView(self)
         self.stack.addWidget(self.insights_view)
 
-        # Page 4: Companion Studio Placeholder (Opens Dialog)
+        # Page 6: Companion Studio Placeholder (Opens Dialog)
         dummy_studio = QWidget()
         self.stack.addWidget(dummy_studio)
 
-        # Page 5: Settings Placeholder (Opens Dialog)
+        # Page 7: Settings Placeholder (Opens Dialog)
         dummy_settings = QWidget()
         self.stack.addWidget(dummy_settings)
 
         main_layout.addWidget(self.stack)
 
         self.btn_nav_home.setChecked(True)
+
 
     def _create_nav_button(self, text: str, index: int) -> QPushButton:
         btn = QPushButton(text)
@@ -210,7 +226,7 @@ class FlowPilotDashboard(QMainWindow):
         return btn
 
     def _on_nav_clicked(self, index: int):
-        if index == 4:
+        if index == 6:
             # Open Companion Studio Modal
             studio = CompanionStudioDialog(self)
             studio.applied.connect(self._on_companion_applied)
@@ -218,7 +234,7 @@ class FlowPilotDashboard(QMainWindow):
             self.btn_nav_home.setChecked(True)
             self.stack.setCurrentIndex(0)
             return
-        elif index == 5:
+        elif index == 7:
             # Open Settings Modal
             dlg = SettingsDialog(self.config, self._on_save_settings, parent=self)
             dlg.exec()
@@ -227,8 +243,20 @@ class FlowPilotDashboard(QMainWindow):
             return
 
         self.stack.setCurrentIndex(index)
-        if index == 3:
+        if index == 2 and hasattr(self, "history_view"):
+            self.history_view.reload_history()
+        elif index == 5:
             self.insights_view.refresh_metrics()
+
+    def open_transforms(self, selected_text: Optional[str] = None):
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        self.btn_nav_transforms.setChecked(True)
+        self.stack.setCurrentIndex(1)
+        if selected_text and hasattr(self, "transforms_view"):
+            self.transforms_view.edit_original.setPlainText(selected_text)
+
 
     def _build_home_page(self) -> QWidget:
         widget = QWidget()

@@ -93,6 +93,8 @@ class FloatingHUD(QWidget):
         self._cat_knead_step = 0
         self._cat_flip = False
         self._cat_pixmap_cache = {}
+        self._custom_pixmap_cache = {}
+        self._suppress_next_release = False
 
         # Mouse dragging tracking
         self._drag_start_pos = QPoint()
@@ -263,6 +265,9 @@ class FloatingHUD(QWidget):
                 self._is_dragging = False
                 self._save_position()
                 event.accept()
+            elif getattr(self, "_suppress_next_release", False):
+                self._suppress_next_release = False
+                event.accept()
             else:
                 # It was a deliberate single click! Toggle dictation
                 self.toggle_requested.emit()
@@ -275,6 +280,7 @@ class FloatingHUD(QWidget):
         elif style == "kitty" and self._cat_palette in ("shiba inu", "golden retriever", "corgi", "husky"):
             self._cat_palette = "orange tabby"
         self._cat_pixmap_cache.clear()
+        self._custom_pixmap_cache.clear()
         self._apply_style_dimensions()
         self._save_position()
         self.update()
@@ -305,7 +311,9 @@ class FloatingHUD(QWidget):
 
     def mouseDoubleClickEvent(self, event):
         # Explicitly absorbed NO-OP: double-click NEVER changes appearance or re-toggles dictation!
+        self._suppress_next_release = True
         event.accept()
+
 
     def _save_position(self):
         try:
@@ -332,6 +340,12 @@ class FloatingHUD(QWidget):
             save_config(cfg)
         except Exception:
             pass
+
+    def closeEvent(self, event):
+        if hasattr(self, "_anim_timer") and self._anim_timer.isActive():
+            self._anim_timer.stop()
+        super().closeEvent(event)
+
 
     def snap_to_corner(self, corner: str):
         screen = self.screen() or QApplication.primaryScreen()
@@ -866,14 +880,30 @@ class FloatingHUD(QWidget):
                     p.drawText(QRectF(-36, -36, 72, 72), Qt.AlignCenter, emoji_char)
                 elif c_type in ("image", "spritesheet"):
                     comp_dir = comp.get("directory")
-                    img_name = comp.get("image_file", "sprite.png")
+                    frames = comp.get("frames", [])
+                    if frames and isinstance(frames, list) and len(frames) > 0:
+                        if st in ("listening", "recording"):
+                            frame_idx = (self._tick // 3) % len(frames)
+                        elif st in ("pasted", "success"):
+                            frame_idx = min(len(frames) - 1, 2)
+                        else:
+                            frame_idx = (self._tick // 8) % len(frames)
+                        img_name = frames[frame_idx]
+                    else:
+                        img_name = comp.get("image_file", "sprite.png")
+
                     if comp_dir:
                         img_path = Path(comp_dir) / img_name
                         if img_path.exists():
-                            pix = QPixmap(str(img_path))
-                            if not pix.isNull():
+                            pix = self._custom_pixmap_cache.get(str(img_path))
+                            if not pix:
+                                pix = QPixmap(str(img_path))
+                                if not pix.isNull():
+                                    self._custom_pixmap_cache[str(img_path)] = pix
+                            if pix and not pix.isNull():
                                 scaled = pix.scaled(58, 58, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                                 p.drawPixmap(int(-scaled.width() / 2), int(-scaled.height() / 2), scaled)
+
             else:
                 font = QFont("Segoe UI", 12, QFont.Bold)
                 p.setFont(font)

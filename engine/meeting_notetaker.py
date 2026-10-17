@@ -309,7 +309,7 @@ class MeetingNotetakerEngine:
                 self._is_paused = False
                 self._audio_recorder.resume()
 
-    def stop_meeting(self) -> Optional[Dict[str, Any]]:
+    def stop_meeting(self) -> Optional[MeetingSession]:
         with self._lock:
             if not self._active_session:
                 return None
@@ -317,34 +317,50 @@ class MeetingNotetakerEngine:
             self._is_paused = False
             self._active_session.stop_time = time.time()
 
-            # Stop audio capture
+            # 1. Stop audio capture worker (flushes last speech buffer into queue)
             self._audio_recorder.stop()
 
-            # Stop worker and drain remaining queue
+            # 2. Tell loop to finish pending items
             self._worker_active = False
-            if self._worker_thread and self._worker_thread.is_alive():
-                self._worker_thread.join(timeout=1.0)
 
-            # Generate and persist summary
+        # 3. Wait outside lock for queue to drain completely (up to 6.0s)
+        if self._worker_thread and self._worker_thread.is_alive():
+            t_end = time.time() + 6.0
+            while not self._queue.empty() and time.time() < t_end:
+                time.sleep(0.05)
+            self._worker_thread.join(timeout=1.5)
+
+        with self._lock:
+            # 4. Generate and persist summary with all transcribed segments
             summary = self.generate_summary(self._active_session)
             self._active_session.summary = summary
             self._save_session_dict(summary)
             return self._active_session
 
     def _enqueue_audio_chunk(self, audio_chunk: np.ndarray):
-        if self._worker_active and audio_chunk is not None and len(audio_chunk) > 0:
+        if audio_chunk is not None and len(audio_chunk) > 0:
             self._queue.put(audio_chunk)
 
     def _transcription_loop(self):
-        while self._worker_active:
+        while self._worker_active or not self._queue.empty():
             try:
-                chunk = self._queue.get(timeout=0.4)
+                chunk = self._queue.get(timeout=0.25)
             except queue.Empty:
+                if not self._worker_active:
+                    break
                 continue
             try:
-                text = self._stt.transcribe(chunk)
-                if text and text.strip():
-                    self.add_transcript_segment(text.strip())
+                result = self._stt.transcribe(chunk)
+                if isinstance(result, dict):
+                    raw_text = result.get("text", "")
+                elif isinstance(result, str):
+                    raw_text = result
+                else:
+                    raw_text = getattr(result, "text", str(result))
+
+                clean_text = raw_text.strip() if raw_text else ""
+                if clean_text:
+                    self.add_transcript_segment(clean_text)
             except Exception as e:
                 print(f"[MeetingNotetaker STT Error] {e}")
             finally:
@@ -449,8 +465,26 @@ class MeetingNotetakerEngine:
             if not m_id:
                 return
             out_file = MEETINGS_DIR / f"{m_id}.json"
+            save_payload = dict(meeting_dict)
+            if "action_items" in save_payload and isinstance(save_payload["action_items"], list):
+                serialized_acts = []
+                for act in save_payload["action_items"]:
+                    if isinstance(act, dict):
+                        serialized_acts.append({
+                            "id": act.get("id", f"act_{len(serialized_acts)+1}"),
+                            "text": act.get("text", str(act)),
+                            "done": bool(act.get("done", False))
+                        })
+                    else:
+                        serialized_acts.append({
+                            "id": getattr(act, "id", f"act_{len(serialized_acts)+1}"),
+                            "text": str(act),
+                            "done": bool(getattr(act, "done", False))
+                        })
+                save_payload["action_items"] = serialized_acts
+
             with open(out_file, "w", encoding="utf-8") as f:
-                json.dump(meeting_dict, f, indent=2, ensure_ascii=False)
+                json.dump(save_payload, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"[MeetingNotetaker] Save failed: {e}")
 
@@ -482,7 +516,20 @@ class MeetingNotetakerEngine:
             return None
         try:
             with open(target, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+            if "action_items" in data and isinstance(data["action_items"], list):
+                reconstructed = []
+                for a in data["action_items"]:
+                    if isinstance(a, dict):
+                        reconstructed.append(ActionItem(
+                            a.get("text", ""),
+                            done=bool(a.get("done", False)),
+                            id=a.get("id")
+                        ))
+                    else:
+                        reconstructed.append(ActionItem(str(a)))
+                data["action_items"] = reconstructed
+            return data
         except Exception:
             return None
 

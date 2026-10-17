@@ -32,14 +32,19 @@ from ui.floating_hud import FloatingHUD
 from ui.companion_studio import CompanionStudioDialog
 from ui.companion_preview import CompanionPreviewWidget
 
-# Ensure single Qt Application instance across test run
-qt_app = QApplication.instance() or QApplication(sys.argv)
+@pytest.fixture(autouse=True, scope="session")
+def qapp():
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+    return app
 
 @pytest.fixture
 def temp_dir():
     d = tempfile.mkdtemp(prefix="fp_test_companion_")
     yield Path(d)
     shutil.rmtree(d, ignore_errors=True)
+
 
 # -----------------------------------------------------------------
 # 1. Pointer Gesture & Click Isolation
@@ -313,7 +318,7 @@ def test_personalization_tombstones_prevent_default_resurrection(temp_dir):
 def test_companion_studio_ui_draft_and_apply(temp_dir, monkeypatch):
     monkeypatch.setenv("FLOWPILOT_CONFIG_DIR", str(temp_dir))
     dialog = CompanionStudioDialog()
-    assert dialog.tabs.count() == 4
+    assert dialog.tabs.count() == 5
 
     # Apply changes signal test
     applied_data = []
@@ -329,3 +334,5 @@ def test_companion_studio_ui_draft_and_apply(temp_dir, monkeypatch):
 if __name__ == "__main__":
     ret = pytest.main([__file__, "-v"])
     sys.exit(int(ret))
+
+
