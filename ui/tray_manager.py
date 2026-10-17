@@ -11,6 +11,7 @@ class TrayManager(QObject):
     toggle_requested = Signal()
     cancel_requested = Signal()
     recopy_requested = Signal()
+    dashboard_requested = Signal()
     toggle_hud_requested = Signal()
     restore_hud_requested = Signal()
     switch_visual_requested = Signal()
@@ -74,6 +75,11 @@ class TrayManager(QObject):
             }
         """)
 
+        self.action_dash = self.menu.addAction("🚀 Open FlowPilot Dashboard")
+        self.action_dash.triggered.connect(self.dashboard_requested.emit)
+
+        self.menu.addSeparator()
+
         self.action_toggle = self.menu.addAction("Dictate (Ctrl+Shift+Space)")
         self.action_toggle.triggered.connect(self.toggle_requested.emit)
 
@@ -125,7 +131,7 @@ class TrayManager(QObject):
             # Single click toggles dictation
             self.toggle_requested.emit()
         elif reason == QSystemTrayIcon.DoubleClick:
-            self.settings_requested.emit()
+            self.dashboard_requested.emit()
 
     def set_state(self, state: str):
         st = state.lower()

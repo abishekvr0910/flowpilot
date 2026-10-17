@@ -43,6 +43,9 @@ TESTS = [
     ("18-Scenario Full Specification End-to-End", "tests/test_final_specification_e2e.py"),
     ("Standalone Windows Binary Packaging Smoke", "tests/test_standalone_binary_smoke.py"),
     ("Companion Studio & Local Learning", "tests/test_companion_studio.py"),
+    ("Productivity Insights Engine", "tests/test_insights_engine.py"),
+    ("Meeting Notetaker Engine & Extractive Summary", "tests/test_meeting_notetaker.py"),
+    ("FlowPilot Master Dashboard & Scratchpad", "tests/test_flowpilot_dashboard.py"),
 ]
 
 def ensure_desktop_accessible():
