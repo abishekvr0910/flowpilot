@@ -63,14 +63,16 @@ class PersonalizationEngine:
         self.storage_path = storage_path or PERSONALIZATION_FILE
         self.dictionary: List[Dict[str, str]] = []
         self.snippets: List[Dict[str, str]] = []
+        self.tombstones: List[str] = []
         self.load()
 
     def load(self) -> None:
-        """Loads dictionary and snippets from JSON file, initializing defaults if absent."""
+        """Loads dictionary and snippets from JSON file, initializing defaults if absent and honoring deletion tombstones."""
         if not self.storage_path.exists() or self.storage_path.stat().st_size == 0:
             self.storage_path.parent.mkdir(parents=True, exist_ok=True)
             self.dictionary = list(DEFAULT_DICTIONARY)
             self.snippets = list(DEFAULT_SNIPPETS)
+            self.tombstones = []
             self.save()
             return
 
@@ -79,15 +81,22 @@ class PersonalizationEngine:
                 data = json.load(f)
                 loaded_dict = data.get("dictionary", [])
                 loaded_snips = data.get("snippets", [])
+                self.tombstones = [t.lower() for t in data.get("tombstones", [])]
 
                 existing_aliases = {(item.get("term", "").lower(), item.get("alias", "").lower()) for item in loaded_dict}
                 for d in DEFAULT_DICTIONARY:
-                    if (d["term"].lower(), d["alias"].lower()) not in existing_aliases:
+                    term_l = d["term"].lower()
+                    if term_l in self.tombstones:
+                        continue
+                    if (term_l, d["alias"].lower()) not in existing_aliases:
                         loaded_dict.append(dict(d))
 
                 existing_triggers = {item.get("trigger", "").lower() for item in loaded_snips}
                 for s in DEFAULT_SNIPPETS:
-                    if s["trigger"].lower() not in existing_triggers:
+                    trig_l = s["trigger"].lower()
+                    if trig_l in self.tombstones:
+                        continue
+                    if trig_l not in existing_triggers:
                         loaded_snips.append(dict(s))
 
                 self.dictionary = loaded_dict
@@ -96,15 +105,17 @@ class PersonalizationEngine:
             print(f"[Personalization] Error loading personalization config: {e}. Falling back to defaults.")
             self.dictionary = list(DEFAULT_DICTIONARY)
             self.snippets = list(DEFAULT_SNIPPETS)
+            self.tombstones = []
 
     def save(self) -> None:
-        """Persists dictionary and snippets to JSON file."""
+        """Persists dictionary, snippets, and deletion tombstones to JSON file."""
         try:
             self.storage_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.storage_path, "w", encoding="utf-8") as f:
                 json.dump({
                     "dictionary": self.dictionary,
-                    "snippets": self.snippets
+                    "snippets": self.snippets,
+                    "tombstones": self.tombstones
                 }, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"[Personalization] Error saving config: {e}")
@@ -118,8 +129,12 @@ class PersonalizationEngine:
         if not term:
             return
 
+        term_l = term.lower()
+        if term_l in self.tombstones:
+            self.tombstones.remove(term_l)
+
         for item in self.dictionary:
-            if item.get("term", "").lower() == term.lower():
+            if item.get("term", "").lower() == term_l:
                 item["term"] = term
                 if alias:
                     item["alias"] = alias
@@ -130,10 +145,13 @@ class PersonalizationEngine:
         self.save()
 
     def remove_term(self, term: str) -> bool:
-        """Removes a term from the dictionary."""
+        """Removes a term from the dictionary and records a tombstone."""
+        term_l = term.strip().lower()
         initial_len = len(self.dictionary)
-        self.dictionary = [item for item in self.dictionary if item.get("term", "").lower() != term.lower()]
+        self.dictionary = [item for item in self.dictionary if item.get("term", "").lower() != term_l]
         if len(self.dictionary) != initial_len:
+            if term_l not in self.tombstones:
+                self.tombstones.append(term_l)
             self.save()
             return True
         return False
@@ -217,10 +235,13 @@ class PersonalizationEngine:
         return {"status": "added", "warnings": warnings}
 
     def remove_snippet(self, trigger: str) -> bool:
-        """Removes a voice snippet by its trigger phrase."""
+        """Removes a voice snippet by its trigger phrase and records a tombstone."""
+        trig_l = trigger.strip().lower()
         initial_len = len(self.snippets)
-        self.snippets = [s for s in self.snippets if s.get("trigger", "").lower() != trigger.lower()]
+        self.snippets = [s for s in self.snippets if s.get("trigger", "").lower() != trig_l]
         if len(self.snippets) != initial_len:
+            if trig_l not in self.tombstones:
+                self.tombstones.append(trig_l)
             self.save()
             return True
         return False
