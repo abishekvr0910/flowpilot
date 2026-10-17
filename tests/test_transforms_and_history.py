@@ -132,6 +132,23 @@ class TestTransformsAndHistory(unittest.TestCase):
         self.assertEqual(len(remaining), 1)
         self.assertEqual(remaining[0]["id"], e2["id"])
 
+    def test_local_llm_provider_security_rejects_external_urls(self):
+        from engine.local_llm import LocalLLMProvider
+        provider = LocalLLMProvider(base_url="http://api.openai.com")
+        self.assertFalse(provider.is_available())
+
+    def test_local_llm_clean_output(self):
+        from engine.local_llm import LocalLLMProvider
+        provider = LocalLLMProvider()
+        raw_llm = 'Here is the rewritten text:\n```\nThis is the clean text.\n```'
+        cleaned = provider._clean_llm_output(raw_llm)
+        self.assertEqual(cleaned, "This is the clean text.")
+
+    def test_custom_transform_fallback_when_no_llm(self):
+        out, fg_ok = self.transforms.transform_text("First item; Second item", "custom", "format as bullet points")
+        self.assertTrue(fg_ok)
+        self.assertTrue(out.startswith("- "))
+
 
 if __name__ == "__main__":
     unittest.main()

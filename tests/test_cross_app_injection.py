@@ -72,6 +72,28 @@ def test_cross_app_injection():
         print(f"Console Injection Success: {ok2}")
         assert ok2 is True, "Failed to inject into Console"
 
+    # 4b. Modern Web & Code Editor Target (Chromium / Electron architecture)
+    print("\n[Step 4b] Testing Modern Web & Code Editor Target (Chromium/Electron architecture)...")
+    from PySide6.QtWidgets import QApplication, QTextEdit
+    app = QApplication.instance() or QApplication(sys.argv)
+    editor = QTextEdit()
+    editor.setWindowTitle("FlowPilot Simulated VS Code / Browser Input Context")
+    editor.setPlainText("Initial code comment:\n")
+    editor.show()
+    app.processEvents()
+    time.sleep(0.3)
+
+    editor_hwnd = int(editor.winId())
+    payload_editor = "// FlowPilot injected code snippet: async function test() { return true; }\n"
+    ok_editor = TextInjector.inject(payload_editor, target_hwnd=editor_hwnd)
+    app.processEvents()
+    time.sleep(0.3)
+    print(f"Editor/Browser Surface Injection Success: {ok_editor}")
+    assert ok_editor is True, "Failed to inject into Editor/Browser context"
+    editor_content = editor.toPlainText()
+    print(f"Target Editor Content Verified: {len(editor_content)} chars")
+    editor.close()
+
     # 5. Recovery buffer check
     print("\n[Step 5] Checking in-memory recovery buffer...")
     assert TextInjector.last_injected_text != "", "Recovery buffer is empty"

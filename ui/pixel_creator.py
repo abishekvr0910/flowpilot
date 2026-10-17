@@ -163,6 +163,16 @@ class PixelAnimationPreview(QWidget):
         painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
         painter.end()
 
+    def closeEvent(self, event):
+        if hasattr(self, '_timer') and self._timer:
+            self._timer.stop()
+        super().closeEvent(event)
+
+    def hideEvent(self, event):
+        if hasattr(self, '_timer') and self._timer:
+            self._timer.stop()
+        super().hideEvent(event)
+
 
 class PixelCreatorWidget(QWidget):
     companion_created = Signal(dict)
@@ -514,3 +524,14 @@ class PixelCreatorWidget(QWidget):
             "Companion Created!",
             f"'{name}' has been created and set as your active desktop companion!\nSaved to your library."
         )
+
+    def closeEvent(self, event):
+        if hasattr(self, 'anim_preview') and self.anim_preview:
+            self.anim_preview.close()
+        super().closeEvent(event)
+
+    def hideEvent(self, event):
+        if hasattr(self, 'anim_preview') and self.anim_preview:
+            self.anim_preview.hide()
+        super().hideEvent(event)
+

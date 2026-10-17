@@ -275,7 +275,7 @@ class SettingsDialog(QDialog):
             "• Single-Key Push-to-Talk: F9 (Seamless hold-to-speak without modifier clutter)\n"
             "• Note on Ctrl+Win: Windows 11 kernel intercepts raw Ctrl+Win (Win32 vk=0 cannot dispatch WM_HOTKEY) "
             "and reserves Win+Ctrl+Space for IME/Emoji switching. FlowPilot provides reliable, collision-free shortcuts "
-            "that work side-by-side with Wispr Flow."
+            "that work side-by-side with any existing desktop tools."
         )
         lbl_hotkeys.setStyleSheet("color: #94A3B8; background: #0F172A; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.4;")
         vbox.addWidget(lbl_hotkeys)

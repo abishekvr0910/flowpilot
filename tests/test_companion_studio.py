@@ -68,6 +68,8 @@ def test_hud_double_click_is_absorbed_zero_appearance_change():
     assert hud._visual_style == initial_style, "Double click must never cycle appearance!"
     assert len(toggle_emitted) == 0, "Double click must not emit toggle dictation"
     hud.close()
+    hud.deleteLater()
+    QApplication.instance().processEvents()
 
 def test_hud_drag_movement_does_not_toggle_dictation():
     """Verify dragging the companion across the screen does not trigger recording on release."""
@@ -94,6 +96,8 @@ def test_hud_drag_movement_does_not_toggle_dictation():
     assert not hud._is_dragging
     assert len(toggle_emitted) == 0, "Releasing after drag must NOT toggle dictation!"
     hud.close()
+    hud.deleteLater()
+    QApplication.instance().processEvents()
 
 def test_hud_clean_single_click_toggles_dictation():
     """Verify a stationary click cleanly toggles dictation."""
@@ -109,6 +113,8 @@ def test_hud_clean_single_click_toggles_dictation():
 
     assert len(toggle_emitted) == 1, "Clean single click must emit toggle_requested"
     hud.close()
+    hud.deleteLater()
+    QApplication.instance().processEvents()
 
 def test_hud_appearance_lock_prevents_cycling():
     """Verify toggle_visual_style is blocked when appearance_locked is True."""
@@ -123,6 +129,8 @@ def test_hud_appearance_lock_prevents_cycling():
     hud.toggle_visual_style()
     assert hud._visual_style != "kitty", "Unlocked appearance may cycle"
     hud.close()
+    hud.deleteLater()
+    QApplication.instance().processEvents()
 
 # -----------------------------------------------------------------
 # 2. CompanionStore Persistence & Migration
@@ -330,6 +338,8 @@ def test_companion_studio_ui_draft_and_apply(temp_dir, monkeypatch):
     assert len(applied_data) == 1
     assert applied_data[0]["selected_asset_id"] == "mascot"
     dialog.close()
+    dialog.deleteLater()
+    QApplication.instance().processEvents()
 
 if __name__ == "__main__":
     ret = pytest.main([__file__, "-v"])
