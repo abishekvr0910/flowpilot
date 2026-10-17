@@ -553,6 +553,69 @@ KNEAD_C = [
     "..........................",
 ]
 
+# Dedicated Dog / Pup Sprites: Floppy/pointed ears, snout with white muzzle & nose, wagging tail
+DOG_SIT_A = [
+    "..........................",
+    "..........................",
+    "....KKKK........KKKK......",
+    "...KBBBBK......KBBBBK.....",
+    "...KBBZZBK....KBZZBBK.....",
+    "...KBBZZBK....KBZZBBK.....",
+    "....KBBBBBK..KBBBBBK......",
+    "....KBBBBBBKKBBBBBBK......",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "...KBBEEEBBBBBBEEEBBK.....",
+    "...KBEEEEBBBBBBEEEEBK.....",
+    "...KBBEEEBBWWBBEEEBBK.....",
+    "....KBBBBWWNNWWBBBBK......",
+    "....KBBBBWWMMWWBBBBK......",
+    ".....KBBBBWWWWBBBBK.......",
+    "....KBBBBBBBBBBBBBBK......",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "..KBBBBBBBBBBBBBBBBBBK....",
+    "..KBBBBKBBBBBBBBKBBBBK.KK.",
+    "..KBBBBKBBBBBBBBKBBBBKBKK.",
+    "..KBBBBKBBBBBBBBKBBBKKBBK.",
+    "..KBBBBKBBBKKBBBKBBKBBBK..",
+    "..KBBBBKWWBKKBWWKBBKBBK...",
+    "..KBBBBKWWBKKBWWKBKBBK....",
+    "...KKKKKKKKKKKKKKKKKK.....",
+    "..........................",
+    "..........................",
+]
+
+DOG_SIT_B = [
+    "..........................",
+    "..........................",
+    "....KKKK........KKKK......",
+    "...KBBBBK......KBBBBK.....",
+    "...KBBZZBK....KBZZBBK.....",
+    "...KBBZZBK....KBZZBBK.....",
+    "....KBBBBBK..KBBBBBK......",
+    "....KBBBBBBKKBBBBBBK......",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "...KBBEEEBBBBBBEEEBBK.....",
+    "...KBEEEEBBBBBBEEEEBK.....",
+    "...KBBEEEBBWWBBEEEBBK.....",
+    "....KBBBBWWNNWWBBBBK......",
+    "....KBBBBWWMMWWBBBBK......",
+    ".....KBBBBWWWWBBBBK.......",
+    "....KBBBBBBBBBBBBBBK......",
+    "...KBBBBBBBBBBBBBBBBK.....",
+    "..KBBBBBBBBBBBBBBBBBBK.KK.",
+    "..KBBBBKBBBBBBBBKBBBBKBKK.",
+    "..KBBBBKBBBBBBBBKBBBKKBBK.",
+    "..KBBBBKBBBBBBBBKBBKBBBK..",
+    "..KBBBBKBBBKKBBBKBBKBBK...",
+    "..KBBBBKWWBKKBWWKBBKBBK...",
+    "..KBBBBKWWBKKBWWKBKBBK....",
+    "...KKKKKKKKKKKKKKKKKK.....",
+    "..........................",
+    "..........................",
+]
+
 FRAMES = {
     "sit_a": SIT_A, "sit_b": SIT_B, "blink": BLINK,
     "type_a": TYPE_A, "type_b": TYPE_B,
@@ -561,6 +624,7 @@ FRAMES = {
     "stretch": STRETCH, "dangle": DANGLE, "peek": PEEK,
     "yawn": YAWN,
     "groom_a": GROOM_A, "groom_b": GROOM_B, "knead_c": KNEAD_C,
+    "dog_sit_a": DOG_SIT_A, "dog_sit_b": DOG_SIT_B, "dog_wag": DOG_SIT_B, "dog_listen": DOG_SIT_A
 }
 
 EYE_CELLS = {
@@ -570,6 +634,7 @@ EYE_CELLS = {
     "run_a": [(5, 8), (16, 8)], "run_b": [(5, 8), (16, 8)],
     "knead_c": [(5, 8), (16, 8)],
     "dangle": [(5, 10), (16, 10)], "peek": [(5, 20), (16, 20)],
+    "dog_sit_a": [(5, 10), (16, 10)], "dog_sit_b": [(5, 10), (16, 10)], "dog_wag": [(5, 10), (16, 10)]
 }
 
 HEAD_RECT = (3, 2, 22, 13)
@@ -792,6 +857,27 @@ def render_icon(palette, pattern="tabby", scale=12, frame="sit_a"):
         p.fillRect(bx, by, pw, pw, pc)
     p.end()
     return img
+
+
+def render_kitty_pixmap(frame="sit_a", palette_name="orange tabby", scale=2, flip=False, is_dog=False):
+    from PySide6.QtGui import QPixmap
+    # If is_dog or dog palette selected, map to dog frame
+    if is_dog or palette_name in ("shiba inu", "golden retriever", "corgi", "husky"):
+        if frame in ("sit_b", "wag"):
+            grid = FRAMES.get("dog_sit_b", DOG_SIT_B)
+        else:
+            grid = FRAMES.get("dog_sit_a", DOG_SIT_A)
+        pal = PALETTES.get(palette_name, PALETTES.get("shiba inu"))
+    else:
+        grid = FRAMES.get(frame, SIT_A)
+        pal = PALETTES.get(palette_name, PALETTES.get("orange tabby"))
+
+    img = render_frame(grid, pal, scale=scale, flip=flip, halo=True)
+    return QPixmap.fromImage(img)
+
+
+def render_pup_pixmap(frame="dog_sit_a", palette_name="shiba inu", scale=2, flip=False):
+    return render_kitty_pixmap(frame=frame, palette_name=palette_name, scale=scale, flip=flip, is_dog=True)
 
 
 
