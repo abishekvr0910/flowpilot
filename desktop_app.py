@@ -28,6 +28,7 @@ from engine.config import load_config, save_config
 from ui.floating_hud import FloatingHUD
 from ui.tray_manager import TrayManager
 from ui.settings_dialog import SettingsDialog
+from ui.companion_studio import CompanionStudioDialog
 
 class StateBridge(QObject):
     state_changed = Signal(dict)
@@ -79,6 +80,7 @@ class FlowPilotApp:
         self.hud = FloatingHUD()
         self.tray = TrayManager()
         self.settings_dlg = None
+        self.studio_dlg = None
 
         hk_str = self.config.get("hotkey", "Ctrl+Shift+Space")
         hk_mode = self.config.get("hotkey_mode", "toggle")
@@ -102,6 +104,11 @@ class FlowPilotApp:
 
         self.hud.settings_requested.connect(self.show_settings)
         self.tray.settings_requested.connect(self.show_settings)
+
+        # Companion Studio triggers
+        self.hud.studio_requested.connect(self.show_companion_studio)
+        self.tray.studio_requested.connect(self.show_companion_studio)
+        self.tray.restore_hud_requested.connect(lambda: self.hud.snap_to_corner("bottom_right"))
 
         self.tray.toggle_hud_requested.connect(self.toggle_hud_visibility)
         self.tray.switch_visual_requested.connect(self.hud.toggle_visual_style)
@@ -184,6 +191,41 @@ class FlowPilotApp:
             self.tray.show_notification("FlowPilot", "Last dictation copied to clipboard!")
         else:
             self.tray.show_notification("FlowPilot", "No previous dictation found to copy.")
+
+    def show_companion_studio(self):
+        # Open Studio window safely with keyboard focus enabled for custom creation
+        if not self.studio_dlg:
+            self.studio_dlg = CompanionStudioDialog()
+            self.studio_dlg.applied.connect(self._on_companion_applied)
+        self.studio_dlg.show()
+        self.studio_dlg.raise_()
+        self.studio_dlg.activateWindow()
+
+    def _on_companion_applied(self, payload: dict):
+        if payload.get("action") == "show_live":
+            self.hud.show()
+            self.hud.raise_()
+            return
+
+        # Synchronize live companion with applied companion store state
+        if "selected_asset_id" in payload:
+            self.hud._visual_style = payload["selected_asset_id"]
+            self.hud._apply_style_dimensions()
+        if "cat_palette" in payload:
+            self.hud._cat_palette = payload["cat_palette"]
+            self.hud._cat_pixmap_cache.clear()
+        if "cat_sound" in payload:
+            self.hud._cat_sound = bool(payload["cat_sound"])
+        if "appearance_locked" in payload:
+            self.hud._appearance_locked = bool(payload["appearance_locked"])
+        if "motion_preset" in payload:
+            self.hud._motion_preset = payload["motion_preset"]
+        if "reduced_motion" in payload:
+            self.hud._reduced_motion = bool(payload["reduced_motion"])
+        if "snap_corner" in payload:
+            self.hud.snap_to_corner(payload["snap_corner"])
+
+        self.hud.update()
 
     def quit(self):
         print("[FlowPilot] Shutting down cleanly...")

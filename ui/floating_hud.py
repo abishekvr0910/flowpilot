@@ -57,6 +57,7 @@ class FloatingHUD(QWidget):
     cancel_requested = Signal()
     recopy_requested = Signal()
     settings_requested = Signal()
+    studio_requested = Signal()
     quit_requested = Signal()
 
     def __init__(self, parent=None):
@@ -67,17 +68,24 @@ class FloatingHUD(QWidget):
         self._is_blinking = False
         self._blink_counter = 0
 
-        # Load persisted visual style ("mascot", "kitty", "edge_line", or "wave_bar")
+        # Load persisted companion configuration from CompanionStore
         try:
-            from engine.config import load_config
-            cfg = load_config()
-            self._visual_style = cfg.get("hud_style", "mascot")
-            self._cat_palette = cfg.get("cat_palette", "orange tabby")
-            self._cat_sound = cfg.get("cat_sound", True)
+            from engine.companion_store import get_companion_store
+            store = get_companion_store()
+            c_data = store.get_all()
+            self._visual_style = c_data.get("selected_asset_id", "kitty")
+            self._cat_palette = c_data.get("cat_palette", "orange tabby")
+            self._cat_sound = c_data.get("cat_sound", True)
+            self._appearance_locked = c_data.get("appearance_locked", True)
+            self._motion_preset = c_data.get("motion_preset", "gentle_bob")
+            self._reduced_motion = c_data.get("reduced_motion", False)
         except Exception:
-            self._visual_style = "mascot"
+            self._visual_style = "kitty"
             self._cat_palette = "orange tabby"
             self._cat_sound = True
+            self._appearance_locked = True
+            self._motion_preset = "gentle_bob"
+            self._reduced_motion = False
 
         # Cat animation state tracking
         self._cat_frame = "sit_a"
@@ -104,9 +112,11 @@ class FloatingHUD(QWidget):
             self.setFixedSize(58, 26)
         elif self._visual_style == "kitty":
             self.setFixedSize(78, 84)
-        else:
-            self._visual_style = "mascot"
+        elif self._visual_style == "mascot":
             self.setFixedSize(72, 72)
+        else:
+            # Custom emoji, image, or sprite sheet companion
+            self.setFixedSize(84, 84)
 
     def _init_ui(self):
         # Frameless, Always on Top, Tool Window
@@ -238,10 +248,10 @@ class FloatingHUD(QWidget):
             event.accept()
 
     def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton:
+        if event.buttons() & Qt.LeftButton:
             curr_pos = event.globalPosition().toPoint()
             delta = (curr_pos - self._drag_start_pos).manhattanLength()
-            if delta > 4:
+            if delta > QApplication.startDragDistance():
                 self._is_dragging = True
                 self.move(curr_pos - self._drag_offset)
                 event.accept()
@@ -253,20 +263,21 @@ class FloatingHUD(QWidget):
                 self._save_position()
                 event.accept()
             else:
-                # It was a click! Toggle dictation
+                # It was a deliberate single click! Toggle dictation
                 self.toggle_requested.emit()
                 event.accept()
 
     def set_visual_style(self, style: str):
-        if style not in ("mascot", "kitty", "edge_line", "wave_bar"):
-            style = "mascot"
         self._visual_style = style
         self._apply_style_dimensions()
         self._save_position()
         self.update()
 
     def toggle_visual_style(self):
-        """Cycles between Pilot Mascot, SondeR-Cat Kitty, Wispr Docked Edge Line, and Wave Equalizer."""
+        """Cycles appearance only if unlocked. Locked by default to prevent accidental changes."""
+        if getattr(self, "_appearance_locked", True):
+            print("[FloatingHUD] Appearance is locked. Use Companion Studio to select.")
+            return
         styles = ["mascot", "kitty", "edge_line", "wave_bar"]
         try:
             idx = styles.index(self._visual_style)
@@ -287,13 +298,23 @@ class FloatingHUD(QWidget):
         self._save_position()
 
     def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.toggle_visual_style()
-            event.accept()
-        else:
-            super().mouseDoubleClickEvent(event)
+        # Explicitly absorbed NO-OP: double-click NEVER changes appearance or re-toggles dictation!
+        event.accept()
 
     def _save_position(self):
+        try:
+            from engine.companion_store import get_companion_store
+            store = get_companion_store()
+            store.update({
+                "hud_x": self.pos().x(),
+                "hud_y": self.pos().y(),
+                "selected_asset_id": self._visual_style,
+                "cat_palette": self._cat_palette,
+                "cat_sound": self._cat_sound,
+                "appearance_locked": getattr(self, "_appearance_locked", True)
+            })
+        except Exception:
+            pass
         try:
             from engine.config import load_config, save_config
             cfg = load_config()
@@ -421,6 +442,16 @@ class FloatingHUD(QWidget):
 
         menu.addSeparator()
 
+        action_studio = menu.addAction("🎨 Companion Studio...")
+        action_studio.triggered.connect(self.studio_requested.emit)
+
+        lock_label = "✓ 🔒 Appearance Locked" if getattr(self, "_appearance_locked", True) else "🔓 Lock Appearance"
+        action_lock = menu.addAction(lock_label)
+        def _toggle_lock():
+            self._appearance_locked = not getattr(self, "_appearance_locked", True)
+            self._save_position()
+        action_lock.triggered.connect(_toggle_lock)
+
         action_settings = menu.addAction("Settings & History")
         action_settings.triggered.connect(self.settings_requested.emit)
 
@@ -439,6 +470,12 @@ class FloatingHUD(QWidget):
         w = self.width()
         h = self.height()
         st = self._current_state
+
+        # Branch Custom: User-Created Emoji, Image, or Sprite Companion
+        if self._visual_style not in ("kitty", "edge_line", "wave_bar", "mascot"):
+            self._paint_custom_companion(p, w, h, st)
+            p.end()
+            return
 
         # Branch K: SondeR-Cat Pixel Kitty Companion
         if self._visual_style == "kitty":
@@ -757,3 +794,60 @@ class FloatingHUD(QWidget):
             p.fillRect(hx + 4, hy + 6, 6, 2, heart_col)
             # Row 4: ...#...
             p.fillRect(hx + 6, hy + 8, 2, 2, heart_col)
+
+    def _paint_custom_companion(self, p: QPainter, w: int, h: int, st: str):
+        cx = w / 2.0
+        cy = h / 2.0
+        p.save()
+        p.translate(cx, cy)
+
+        # Apply motion presets if not reduced_motion
+        if not getattr(self, "_reduced_motion", False):
+            t = self._tick * 0.08
+            preset = getattr(self, "_motion_preset", "gentle_bob")
+            if preset == "gentle_bob":
+                p.translate(0, 3.5 * math.sin(t))
+            elif preset == "tiny_tilt":
+                p.rotate(4.5 * math.sin(t))
+            elif preset == "breathe":
+                scale = 1.0 + 0.035 * math.sin(t)
+                p.scale(scale, scale)
+            elif preset == "audio_pulse" and st in ("listening", "recording"):
+                scale = 1.0 + (self._audio_level * 0.14)
+                p.scale(scale, scale)
+            elif preset == "celebration" and st in ("pasted", "success"):
+                jump = -abs(7.0 * math.sin(t * 1.5))
+                p.translate(0, jump)
+
+        try:
+            from engine.companion_assets import CompanionAssetManager
+            mgr = CompanionAssetManager()
+            comp = mgr.get_companion_by_id(self._visual_style)
+            if comp:
+                c_type = comp.get("type")
+                if c_type == "emoji":
+                    emoji_char = comp.get("emoji", "🌟")
+                    font = QFont("Segoe UI Emoji", 32)
+                    font.setStyleStrategy(QFont.PreferAntialias)
+                    p.setFont(font)
+                    p.setPen(QColor("#FFFFFF"))
+                    p.drawText(QRectF(-36, -36, 72, 72), Qt.AlignCenter, emoji_char)
+                elif c_type in ("image", "spritesheet"):
+                    comp_dir = comp.get("directory")
+                    img_name = comp.get("image_file", "sprite.png")
+                    if comp_dir:
+                        img_path = Path(comp_dir) / img_name
+                        if img_path.exists():
+                            pix = QPixmap(str(img_path))
+                            if not pix.isNull():
+                                scaled = pix.scaled(58, 58, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                                p.drawPixmap(int(-scaled.width() / 2), int(-scaled.height() / 2), scaled)
+            else:
+                font = QFont("Segoe UI", 12, QFont.Bold)
+                p.setFont(font)
+                p.setPen(QColor("#38BDF8"))
+                p.drawText(QRectF(-30, -15, 60, 30), Qt.AlignCenter, "🌟")
+        except Exception:
+            pass
+
+        p.restore()
