@@ -41,6 +41,38 @@ BUILTIN_COMPANIONS = [
         ]
     },
     {
+        "id": "pikachu",
+        "name": "Pikachu Electric Companion",
+        "type": "builtin",
+        "description": "Legendary electric mouse Pokémon with spark cheeks and lightning wag animation.",
+        "icon": "⚡",
+        "available_palettes": ["pikachu"]
+    },
+    {
+        "id": "charmander",
+        "name": "Charmander Flame Companion",
+        "type": "builtin",
+        "description": "Fire lizard Pokémon with blue eyes and an animated flickering flame tail.",
+        "icon": "🔥",
+        "available_palettes": ["charmander"]
+    },
+    {
+        "id": "gengar",
+        "name": "Gengar Shadow Companion",
+        "type": "builtin",
+        "description": "Mischievous shadow Pokémon with crimson glowing eyes and a sinister grin.",
+        "icon": "👻",
+        "available_palettes": ["gengar"]
+    },
+    {
+        "id": "eevee",
+        "name": "Eevee Evolution Companion",
+        "type": "builtin",
+        "description": "Beloved evolution Pokémon with fluffy collar, big perked ears, and tail wag.",
+        "icon": "🦊",
+        "available_palettes": ["eevee"]
+    },
+    {
         "id": "mascot",
         "name": "Pilot the Robot Mascot",
         "type": "builtin",

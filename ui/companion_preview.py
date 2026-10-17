@@ -123,6 +123,10 @@ class CompanionPreviewWidget(QWidget):
     def _draw_builtin(self, painter: QPainter, comp_id: str):
         if comp_id == "kitty":
             self._draw_kitty(painter)
+        elif comp_id == "dog":
+            self._draw_dog(painter)
+        elif comp_id in ("pikachu", "charmander", "gengar", "eevee"):
+            self._draw_pokemon(painter, comp_id)
         elif comp_id == "mascot":
             self._draw_robot(painter)
         elif comp_id == "edge_line":
@@ -131,6 +135,33 @@ class CompanionPreviewWidget(QWidget):
             self._draw_wave_bar(painter)
         else:
             self._draw_kitty(painter)
+
+    def _draw_dog(self, painter: QPainter):
+        if not ps:
+            self._draw_fallback_text(painter, "🐶 Pup")
+            return
+        frame = "dog_sit_b" if self._preview_state in ("listening", "success") else "dog_sit_a"
+        pal = self._palette if self._palette in ("shiba inu", "golden retriever", "corgi", "husky") else "shiba inu"
+        pix = ps.render_pup_pixmap(frame, palette_name=pal, scale=2)
+        if pix and not pix.isNull():
+            w = pix.width()
+            h = pix.height()
+            painter.drawPixmap(int(-w / 2), int(-h / 2), pix)
+        else:
+            self._draw_fallback_text(painter, "🐶")
+
+    def _draw_pokemon(self, painter: QPainter, pkmn_name: str):
+        if not ps:
+            self._draw_fallback_text(painter, pkmn_name.capitalize())
+            return
+        frame = "wag" if self._preview_state in ("listening", "success") else "idle"
+        pix = ps.render_pokemon_pixmap(pkmn_name, frame=frame, scale=2)
+        if pix and not pix.isNull():
+            w = pix.width()
+            h = pix.height()
+            painter.drawPixmap(int(-w / 2), int(-h / 2), pix)
+        else:
+            self._draw_fallback_text(painter, pkmn_name.capitalize())
 
     def _draw_kitty(self, painter: QPainter):
         if not ps:
