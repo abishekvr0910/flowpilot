@@ -45,6 +45,8 @@ TESTS = [
     ("Companion Studio & Local Learning", "tests/test_companion_studio.py"),
     ("Productivity Insights Engine", "tests/test_insights_engine.py"),
     ("Meeting Notetaker Engine & Extractive Summary", "tests/test_meeting_notetaker.py"),
+    ("Meeting Notetaker Streaming & Library v2", "tests/test_meeting_notetaker_v2.py"),
+    ("Pokemon Pixel Companions & Creator", "tests/test_pokemon_and_pixel_creator.py"),
     ("FlowPilot Master Dashboard & Scratchpad", "tests/test_flowpilot_dashboard.py"),
 ]
 

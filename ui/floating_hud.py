@@ -111,7 +111,7 @@ class FloatingHUD(QWidget):
             self.setFixedSize(14, 68)
         elif self._visual_style == "wave_bar":
             self.setFixedSize(58, 26)
-        elif self._visual_style in ("kitty", "dog"):
+        elif self._visual_style in ("kitty", "dog", "pikachu", "charmander", "gengar", "eevee"):
             self.setFixedSize(78, 84)
         elif self._visual_style == "mascot":
             self.setFixedSize(72, 72)
@@ -482,13 +482,13 @@ class FloatingHUD(QWidget):
         st = self._current_state
 
         # Branch Custom: User-Created Emoji, Image, or Sprite Companion
-        if self._visual_style not in ("kitty", "edge_line", "wave_bar", "mascot"):
+        if self._visual_style not in ("kitty", "dog", "pikachu", "charmander", "gengar", "eevee", "edge_line", "wave_bar", "mascot"):
             self._paint_custom_companion(p, w, h, st)
             p.end()
             return
 
-        # Branch K: SondeR-Cat Pixel Kitty & Dog Companions
-        if self._visual_style in ("kitty", "dog"):
+        # Branch K: SondeR-Cat Pixel Kitty, Dog & Pokemon Companions
+        if self._visual_style in ("kitty", "dog", "pikachu", "charmander", "gengar", "eevee"):
             self._paint_kitty(p, w, h, st)
             p.end()
             return
@@ -746,11 +746,23 @@ class FloatingHUD(QWidget):
 
         # 2. Base Pet Pixel Art from Cache
         is_dog = (self._visual_style == "dog")
+        is_pkmn = (self._visual_style in ("pikachu", "charmander", "gengar", "eevee"))
         if is_dog:
             pet_pal = self._cat_palette if self._cat_palette in ("shiba inu", "golden retriever", "corgi", "husky") else "shiba inu"
             frame_name = "dog_sit_b" if self._cat_frame in ("sit_b", "wag") else "dog_sit_a"
             grid = ps.FRAMES.get(frame_name, getattr(ps, "DOG_SIT_A", ps.SIT_A))
             pal = ps.PALETTES.get(pet_pal, ps.PALETTES.get("shiba inu", ps.PALETTES["orange tabby"]))
+        elif is_pkmn:
+            pet_pal = self._visual_style
+            is_action = self._cat_frame in ("sit_b", "wag", "type_a", "type_b", "knead_a", "knead_b", "stretch") or (st in ("listening", "recording", "pasted", "success"))
+            if pet_pal == "charmander":
+                frame_name = "charmander_flame" if is_action else "charmander_idle"
+            elif pet_pal == "gengar":
+                frame_name = "gengar_glow" if is_action else "gengar_idle"
+            else:
+                frame_name = f"{pet_pal}_wag" if is_action else f"{pet_pal}_idle"
+            grid = ps.FRAMES.get(frame_name, getattr(ps, f"{pet_pal.upper()}_IDLE", ps.SIT_A))
+            pal = ps.PALETTES.get(pet_pal, ps.PALETTES["pikachu"])
         else:
             pet_pal = self._cat_palette
             frame_name = self._cat_frame
