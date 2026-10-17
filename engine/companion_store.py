@@ -93,6 +93,12 @@ class CompanionStore:
         with self._lock:
             return self._data.copy()
 
+    def set(self, key: str, value: Any) -> Any:
+        with self._lock:
+            self._data[key] = value
+            self._persist_unlocked()
+            return value
+
     def update(self, updates: Dict[str, Any]) -> Dict[str, Any]:
         """Atomically updates specific keys and persists them to disk."""
         with self._lock:

@@ -29,6 +29,7 @@ from ui.floating_hud import FloatingHUD
 from ui.tray_manager import TrayManager
 from ui.settings_dialog import SettingsDialog
 from ui.companion_studio import CompanionStudioDialog
+from ui.flowpilot_dashboard import FlowPilotDashboard
 
 class StateBridge(QObject):
     state_changed = Signal(dict)
@@ -79,6 +80,11 @@ class FlowPilotApp:
         # 2. Initialize UI Components
         self.hud = FloatingHUD()
         self.tray = TrayManager()
+        self.dashboard = FlowPilotDashboard(
+            config=self.config,
+            on_save_config=self._on_save_settings,
+            on_dictate=self.orchestrator.toggle_dictation
+        )
         self.settings_dlg = None
         self.studio_dlg = None
 
@@ -89,6 +95,12 @@ class FlowPilotApp:
 
         # 3. Connect UI Signals
         self.bridge.state_changed.connect(self._handle_state_update)
+
+        # Dashboard triggers
+        self.hud.dashboard_requested.connect(self.show_dashboard)
+        self.tray.dashboard_requested.connect(self.show_dashboard)
+        self.dashboard.companion_changed.connect(self._on_companion_switched_from_dashboard)
+        self.dashboard.dictate_requested.connect(self.orchestrator.toggle_dictation)
 
         # Unified dictation triggers: Floating HUD button & Tray click & Hotkeys
         self.hud.toggle_requested.connect(self.orchestrator.toggle_dictation)
@@ -134,6 +146,10 @@ class FlowPilotApp:
         self.hud.show()
         self.hud.raise_()
 
+        # Show master application dashboard window
+        if not os.environ.get("CI") and not os.environ.get("FLOWPILOT_HEADLESS"):
+            self.show_dashboard()
+
         # 5. Start Global Win32 Hotkey Service
         self.orchestrator.start_hotkey_listener()
         print("\n============================================================")
@@ -153,9 +169,36 @@ class FlowPilotApp:
         self.hud.update_state(state, payload)
         self.tray.set_state(state)
 
+        # Sync with dashboard components
+        if hasattr(self, 'dashboard') and self.dashboard:
+            is_recording = state in ("listening", "recording")
+            self.dashboard.scratchpad_view.set_recording_state(is_recording)
+            if state in ("pasted", "success"):
+                fmt_text = payload.get("text") or payload.get("formatted_text")
+                if fmt_text:
+                    if self.dashboard.scratchpad_view.editor.hasFocus():
+                        self.dashboard.scratchpad_view.insert_text(fmt_text)
+                    if self.dashboard.notetaker_view.engine.is_recording:
+                        self.dashboard.notetaker_view.append_segment(fmt_text)
+
         if state == "error":
             err = payload.get("message", "Unknown error")
             self.tray.show_notification("FlowPilot Error", err, is_error=True)
+
+    def show_dashboard(self):
+        if hasattr(self, 'dashboard') and self.dashboard:
+            self.dashboard.show()
+            self.dashboard.raise_()
+            self.dashboard.activateWindow()
+
+    def _on_companion_switched_from_dashboard(self, asset_id: str):
+        self.hud.set_visual_style(asset_id)
+        if asset_id == "kitty":
+            self.hud._cat_palette = "orange tabby"
+        elif asset_id == "dog":
+            self.hud._cat_palette = "shiba inu"
+        self.hud._cat_pixmap_cache.clear()
+        self.hud.update()
 
     def toggle_hud_visibility(self):
         if self.hud.isVisible():
@@ -240,6 +283,8 @@ class FlowPilotApp:
             pass
         if hasattr(self, 'single_instance') and self.single_instance:
             self.single_instance.release()
+        if hasattr(self, 'dashboard') and self.dashboard:
+            self.dashboard.close()
         self.hud.close()
         self.app.quit()
 

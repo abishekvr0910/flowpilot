@@ -435,6 +435,14 @@ class FlowOrchestrator:
                     "formatted_text": formatted_text,
                     "raw_text": raw_text
                 }
+
+                # Update Local Productivity Insights (Words, WPM, Streaks, Time Saved)
+                try:
+                    from engine.insights_engine import get_insights_engine
+                    target_proc = active_session.target_window_info.get("process_name") or "Desktop"
+                    get_insights_engine().record_dictation(formatted_text, total_duration, str(target_proc))
+                except Exception as _ie_err:
+                    print(f"[Orchestrator Warning] Insights recording deferred: {_ie_err}")
                 
                 # Write local telemetry for pilot program metrics (strictly anonymous, no text)
                 self._record_telemetry({
