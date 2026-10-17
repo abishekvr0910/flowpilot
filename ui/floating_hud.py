@@ -56,6 +56,7 @@ class FloatingHUD(QWidget):
     toggle_requested = Signal()
     cancel_requested = Signal()
     recopy_requested = Signal()
+    dashboard_requested = Signal()
     settings_requested = Signal()
     studio_requested = Signal()
     quit_requested = Signal()
@@ -110,7 +111,7 @@ class FloatingHUD(QWidget):
             self.setFixedSize(14, 68)
         elif self._visual_style == "wave_bar":
             self.setFixedSize(58, 26)
-        elif self._visual_style == "kitty":
+        elif self._visual_style in ("kitty", "dog"):
             self.setFixedSize(78, 84)
         elif self._visual_style == "mascot":
             self.setFixedSize(72, 72)
@@ -379,6 +380,11 @@ class FloatingHUD(QWidget):
             }
         """)
 
+        action_dash = menu.addAction("🚀 Open FlowPilot Dashboard...")
+        action_dash.triggered.connect(self.dashboard_requested.emit)
+
+        menu.addSeparator()
+
         if self._current_state in ("listening", "recording"):
             action_cancel = menu.addAction("Cancel Dictation")
             action_cancel.triggered.connect(self.cancel_requested.emit)
@@ -394,29 +400,28 @@ class FloatingHUD(QWidget):
         # Appearance style submenu
         style_menu = menu.addMenu("Appearance Style...")
         style_menu.setStyleSheet(menu.styleSheet())
-        act_mascot = style_menu.addAction("🤖 Robot Mascot Companion ('Pilot')")
-        act_mascot.triggered.connect(lambda: self.set_visual_style("mascot"))
         act_kitty = style_menu.addAction("🐾 SondeR-Cat Pixel Kitty")
         act_kitty.triggered.connect(lambda: self.set_visual_style("kitty"))
+        act_dog = style_menu.addAction("🐶 Pixel Pup & Shiba")
+        act_dog.triggered.connect(lambda: self.set_visual_style("dog"))
+        act_mascot = style_menu.addAction("🤖 Robot Mascot Companion ('Pilot')")
+        act_mascot.triggered.connect(lambda: self.set_visual_style("mascot"))
         act_edge = style_menu.addAction("📏 Wispr Flow Docked Edge Line")
         act_edge.triggered.connect(lambda: self.set_visual_style("edge_line"))
         act_waves = style_menu.addAction("🌊 Wispr Wave Equalizer")
         act_waves.triggered.connect(lambda: self.set_visual_style("wave_bar"))
 
-        if self._visual_style == "kitty":
-            fur_menu = menu.addMenu("🐾 Kitty Fur Color...")
+        if self._visual_style in ("kitty", "dog"):
+            fur_menu = menu.addMenu("🐾 Fur Color & Breed...")
             fur_menu.setStyleSheet(menu.styleSheet())
             palettes = [
-                ("Orange Tabby", "orange tabby"),
-                ("Calico", "calico"),
+                ("Orange Tabby / Shiba", "orange tabby" if self._visual_style == "kitty" else "shiba inu"),
+                ("Golden / Calico", "calico" if self._visual_style == "kitty" else "golden retriever"),
                 ("Midnight Black", "black"),
-                ("Classic Gray", "gray"),
-                ("Siamese", "siamese"),
+                ("Classic Gray / Corgi", "gray" if self._visual_style == "kitty" else "corgi"),
+                ("Siamese / Husky", "siamese" if self._visual_style == "kitty" else "husky"),
                 ("Pastel Pink", "pink"),
                 ("Snow White", "white"),
-                ("Mint", "mint"),
-                ("Chocolate", "chocolate"),
-                ("Cream", "cream"),
             ]
             for label, p_name in palettes:
                 prefix = "✓ " if self._cat_palette == p_name else "   "
@@ -477,8 +482,8 @@ class FloatingHUD(QWidget):
             p.end()
             return
 
-        # Branch K: SondeR-Cat Pixel Kitty Companion
-        if self._visual_style == "kitty":
+        # Branch K: SondeR-Cat Pixel Kitty & Dog Companions
+        if self._visual_style in ("kitty", "dog"):
             self._paint_kitty(p, w, h, st)
             p.end()
             return

@@ -217,3 +217,13 @@ class STTEngine:
             "Cloud transcription is permanently disabled in compliance with the FlowPilot Zero-Cloud-Egress standard. "
             "All speech inference is executed locally on CPU via faster-whisper."
         )
+
+_GLOBAL_STT_ENGINE = None
+
+def get_stt_engine(config: Optional[Dict[str, Any]] = None) -> "STTEngine":
+    global _GLOBAL_STT_ENGINE
+    if _GLOBAL_STT_ENGINE is None:
+        _GLOBAL_STT_ENGINE = STTEngine(config)
+    return _GLOBAL_STT_ENGINE
+
+SpeechToTextEngine = STTEngine

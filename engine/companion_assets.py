@@ -31,6 +31,16 @@ BUILTIN_COMPANIONS = [
         ]
     },
     {
+        "id": "dog",
+        "name": "Pixel Pup & Shiba",
+        "type": "builtin",
+        "description": "Loyal desk pup with wagging tail, floppy/pointy ears, and happy idle panting.",
+        "icon": "🐶",
+        "available_palettes": [
+            "shiba inu", "golden retriever", "corgi", "black", "husky"
+        ]
+    },
+    {
         "id": "mascot",
         "name": "Pilot the Robot Mascot",
         "type": "builtin",
