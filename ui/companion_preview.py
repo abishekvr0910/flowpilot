@@ -125,8 +125,8 @@ class CompanionPreviewWidget(QWidget):
             self._draw_kitty(painter)
         elif comp_id == "dog":
             self._draw_dog(painter)
-        elif comp_id in ("pikachu", "charmander", "gengar", "eevee"):
-            self._draw_pokemon(painter, comp_id)
+        elif comp_id in ("fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
+            self._draw_retro_companion(painter, comp_id)
         elif comp_id == "mascot":
             self._draw_robot(painter)
         elif comp_id == "edge_line":
@@ -150,18 +150,21 @@ class CompanionPreviewWidget(QWidget):
         else:
             self._draw_fallback_text(painter, "🐶")
 
-    def _draw_pokemon(self, painter: QPainter, pkmn_name: str):
+    def _draw_retro_companion(self, painter: QPainter, comp_name: str):
         if not ps:
-            self._draw_fallback_text(painter, pkmn_name.capitalize())
+            self._draw_fallback_text(painter, comp_name.capitalize())
             return
         frame = "wag" if self._preview_state in ("listening", "success") else "idle"
-        pix = ps.render_pokemon_pixmap(pkmn_name, frame=frame, scale=2)
+        pix = ps.render_retro_companion_pixmap(comp_name, frame=frame, scale=2)
         if pix and not pix.isNull():
             w = pix.width()
             h = pix.height()
             painter.drawPixmap(int(-w / 2), int(-h / 2), pix)
         else:
-            self._draw_fallback_text(painter, pkmn_name.capitalize())
+            self._draw_fallback_text(painter, comp_name.capitalize())
+
+    def _draw_pokemon(self, painter: QPainter, pkmn_name: str):
+        self._draw_retro_companion(painter, pkmn_name)
 
     def _draw_kitty(self, painter: QPainter):
         if not ps:

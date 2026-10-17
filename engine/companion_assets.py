@@ -43,36 +43,36 @@ BUILTIN_COMPANIONS = [
         ]
     },
     {
-        "id": "pikachu",
-        "name": "Pikachu Electric Companion",
+        "id": "fox",
+        "name": "Pixel Fox",
         "type": "builtin",
-        "description": "Legendary electric mouse Pokémon with spark cheeks and lightning wag animation.",
-        "icon": "⚡",
-        "available_palettes": ["pikachu"]
-    },
-    {
-        "id": "charmander",
-        "name": "Charmander Flame Companion",
-        "type": "builtin",
-        "description": "Fire lizard Pokémon with blue eyes and an animated flickering flame tail.",
-        "icon": "🔥",
-        "available_palettes": ["charmander"]
-    },
-    {
-        "id": "gengar",
-        "name": "Gengar Shadow Companion",
-        "type": "builtin",
-        "description": "Mischievous shadow Pokémon with crimson glowing eyes and a sinister grin.",
-        "icon": "👻",
-        "available_palettes": ["gengar"]
-    },
-    {
-        "id": "eevee",
-        "name": "Eevee Evolution Companion",
-        "type": "builtin",
-        "description": "Beloved evolution Pokémon with fluffy collar, big perked ears, and tail wag.",
+        "description": "Playful retro red fox with perked ears and bushy tail wag animation.",
         "icon": "🦊",
-        "available_palettes": ["eevee"]
+        "available_palettes": ["fox"]
+    },
+    {
+        "id": "dino",
+        "name": "Pixel Dino",
+        "type": "builtin",
+        "description": "Friendly retro green dinosaur with animated tail and cheerful idle.",
+        "icon": "🦖",
+        "available_palettes": ["dino"]
+    },
+    {
+        "id": "ghost",
+        "name": "Pixel Ghost",
+        "type": "builtin",
+        "description": "Friendly retro floating ghost companion with smiling expressions.",
+        "icon": "👻",
+        "available_palettes": ["ghost"]
+    },
+    {
+        "id": "bunny",
+        "name": "Pixel Bunny",
+        "type": "builtin",
+        "description": "Cute retro fluffy bunny companion with twitching ears and joyful hop.",
+        "icon": "🐰",
+        "available_palettes": ["bunny"]
     },
     {
         "id": "mascot",
@@ -84,7 +84,7 @@ BUILTIN_COMPANIONS = [
     },
     {
         "id": "edge_line",
-        "name": "Obsidian Docked Edge Line",
+        "name": "Edge Line",
         "type": "builtin",
         "description": "Minimalist docked vertical accent indicator with ambient breathing.",
         "icon": "📏",

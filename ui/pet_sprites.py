@@ -617,10 +617,10 @@ DOG_SIT_B = [
 ]
 
 # ---------------------------------------------------------------------------
-# Dedicated Pokémon Pixel Sprites: Pikachu, Charmander, Gengar, and Eevee
+# Dedicated Retro Pixel Companions: Fox, Dino, Ghost, and Bunny
 # 26 wide x 28 tall authentic retro sprites with idle and action/wag frames
 # ---------------------------------------------------------------------------
-PIKACHU_IDLE = [
+FOX_IDLE = [
     "..........................",
     "...KK..............KK.....",
     "..KBBK............KBBK....",
@@ -651,7 +651,7 @@ PIKACHU_IDLE = [
     "..........................",
 ]
 
-PIKACHU_ACTION = [
+FOX_ACTION = [
     "..........................",
     "...KK..............KK.....",
     "..KBBK............KBBK....",
@@ -682,7 +682,7 @@ PIKACHU_ACTION = [
     "..........................",
 ]
 
-CHARMANDER_IDLE = [
+DINO_IDLE = [
     "..........................",
     "..........................",
     ".........KKKKKK...........",
@@ -713,7 +713,7 @@ CHARMANDER_IDLE = [
     "..........................",
 ]
 
-CHARMANDER_ACTION = [
+DINO_ACTION = [
     "..........................",
     "..........................",
     ".........KKKKKK...........",
@@ -744,7 +744,7 @@ CHARMANDER_ACTION = [
     "..........................",
 ]
 
-GENGAR_IDLE = [
+GHOST_IDLE = [
     "..........................",
     "....KK..............KK....",
     "...KZZK............KZZK...",
@@ -775,7 +775,7 @@ GENGAR_IDLE = [
     "..........................",
 ]
 
-GENGAR_ACTION = [
+GHOST_ACTION = [
     "..........................",
     "....KK..............KK....",
     "...KZZK............KZZK...",
@@ -806,7 +806,7 @@ GENGAR_ACTION = [
     "..........................",
 ]
 
-EEVEE_IDLE = [
+BUNNY_IDLE = [
     "..........................",
     "...KK................KK...",
     "..KZZK..............KZZK..",
@@ -837,7 +837,7 @@ EEVEE_IDLE = [
     "..........................",
 ]
 
-EEVEE_ACTION = [
+BUNNY_ACTION = [
     "..........................",
     "...KK................KK...",
     "..KZZK..............KZZK..",
@@ -868,6 +868,16 @@ EEVEE_ACTION = [
     "..........................",
 ]
 
+# Legacy aliases for backwards compatibility
+PIKACHU_IDLE = FOX_IDLE
+PIKACHU_ACTION = FOX_ACTION
+CHARMANDER_IDLE = DINO_IDLE
+CHARMANDER_ACTION = DINO_ACTION
+GENGAR_IDLE = GHOST_IDLE
+GENGAR_ACTION = GHOST_ACTION
+EEVEE_IDLE = BUNNY_IDLE
+EEVEE_ACTION = BUNNY_ACTION
+
 FRAMES = {
     "sit_a": SIT_A, "sit_b": SIT_B, "blink": BLINK,
     "type_a": TYPE_A, "type_b": TYPE_B,
@@ -877,10 +887,15 @@ FRAMES = {
     "yawn": YAWN,
     "groom_a": GROOM_A, "groom_b": GROOM_B, "knead_c": KNEAD_C,
     "dog_sit_a": DOG_SIT_A, "dog_sit_b": DOG_SIT_B, "dog_wag": DOG_SIT_B, "dog_listen": DOG_SIT_A,
-    "pikachu_idle": PIKACHU_IDLE, "pikachu_wag": PIKACHU_ACTION,
-    "charmander_idle": CHARMANDER_IDLE, "charmander_flame": CHARMANDER_ACTION,
-    "gengar_idle": GENGAR_IDLE, "gengar_glow": GENGAR_ACTION,
-    "eevee_idle": EEVEE_IDLE, "eevee_wag": EEVEE_ACTION
+    "fox_idle": FOX_IDLE, "fox_wag": FOX_ACTION,
+    "dino_idle": DINO_IDLE, "dino_flame": DINO_ACTION,
+    "ghost_idle": GHOST_IDLE, "ghost_glow": GHOST_ACTION,
+    "bunny_idle": BUNNY_IDLE, "bunny_wag": BUNNY_ACTION,
+    # Backward compatibility aliases
+    "pikachu_idle": FOX_IDLE, "pikachu_wag": FOX_ACTION,
+    "charmander_idle": DINO_IDLE, "charmander_flame": DINO_ACTION,
+    "gengar_idle": GHOST_IDLE, "gengar_glow": GHOST_ACTION,
+    "eevee_idle": BUNNY_IDLE, "eevee_wag": BUNNY_ACTION
 }
 
 EYE_CELLS = {
@@ -891,6 +906,11 @@ EYE_CELLS = {
     "knead_c": [(5, 8), (16, 8)],
     "dangle": [(5, 10), (16, 10)], "peek": [(5, 20), (16, 20)],
     "dog_sit_a": [(5, 10), (16, 10)], "dog_sit_b": [(5, 10), (16, 10)], "dog_wag": [(5, 10), (16, 10)],
+    "fox_idle": [(5, 11), (16, 11)], "fox_wag": [(5, 11), (16, 11)],
+    "dino_idle": [(6, 7), (14, 7)], "dino_flame": [(6, 7), (14, 7)],
+    "ghost_idle": [(4, 9), (16, 9)], "ghost_glow": [(4, 9), (16, 9)],
+    "bunny_idle": [(5, 10), (15, 10)], "bunny_wag": [(5, 10), (15, 10)],
+    # Backward compatibility aliases
     "pikachu_idle": [(5, 11), (16, 11)], "pikachu_wag": [(5, 11), (16, 11)],
     "charmander_idle": [(6, 7), (14, 7)], "charmander_flame": [(6, 7), (14, 7)],
     "gengar_idle": [(4, 9), (16, 9)], "gengar_glow": [(4, 9), (16, 9)],
@@ -945,14 +965,23 @@ PALETTES = {
                      "E": "#f8f8f4", "N": "#20120a", "M": "#381f0d", "Z": "#e89988", "P": "#1c1109"},
     "husky":        {"B": "#68707c", "S": "#4a515c", "W": "#f8f9fa", "K": "#22252a",
                      "E": "#a2d2ff", "N": "#1d2024", "M": "#22252a", "Z": "#dfa5a5", "P": "#0077b6"},
-    "pikachu":      {"B": "#fcd116", "S": "#b57a22", "W": "#ffffff", "K": "#241e12",
-                     "E": "#ffffff", "N": "#241e12", "M": "#241e12", "Z": "#e73b27", "P": "#18140c"},
-    "charmander":   {"B": "#f17f29", "S": "#cf5c13", "W": "#fae19c", "K": "#33160a",
-                     "E": "#ffffff", "N": "#33160a", "M": "#33160a", "Z": "#2eb4c6", "P": "#103b42"},
-    "gengar":       {"B": "#6d4c87", "S": "#4a2f60", "W": "#ffffff", "K": "#1e0f2b",
-                     "E": "#ef3038", "N": "#1e0f2b", "M": "#ef3038", "Z": "#9b72ba", "P": "#1e0f2b"},
-    "eevee":        {"B": "#b87333", "S": "#8c5321", "W": "#faeed9", "K": "#301a0c",
-                     "E": "#ffffff", "N": "#200e06", "M": "#301a0c", "Z": "#592b10", "P": "#200e06"},
+    "fox":          {"B": "#e05a2b", "S": "#b83d16", "W": "#ffffff", "K": "#241e12",
+                     "E": "#ffffff", "N": "#241e12", "M": "#241e12", "Z": "#ffffff", "P": "#18140c"},
+    "dino":         {"B": "#48a34b", "S": "#2e7a31", "W": "#b9e38d", "K": "#1a381c",
+                     "E": "#ffffff", "N": "#1a381c", "M": "#1a381c", "Z": "#68ba6b", "P": "#102611"},
+    "ghost":        {"B": "#78659c", "S": "#544373", "W": "#ffffff", "K": "#231a33",
+                     "E": "#fce253", "N": "#231a33", "M": "#fce253", "Z": "#9d8bbd", "P": "#231a33"},
+    "bunny":        {"B": "#d2a679", "S": "#a8784d", "W": "#faeed9", "K": "#3d2716",
+                     "E": "#ffffff", "N": "#f59fa5", "M": "#3d2716", "Z": "#f5b8bd", "P": "#200e06"},
+    # Legacy alias palettes
+    "pikachu":      {"B": "#e05a2b", "S": "#b83d16", "W": "#ffffff", "K": "#241e12",
+                     "E": "#ffffff", "N": "#241e12", "M": "#241e12", "Z": "#ffffff", "P": "#18140c"},
+    "charmander":   {"B": "#48a34b", "S": "#2e7a31", "W": "#b9e38d", "K": "#1a381c",
+                     "E": "#ffffff", "N": "#1a381c", "M": "#1a381c", "Z": "#68ba6b", "P": "#102611"},
+    "gengar":       {"B": "#78659c", "S": "#544373", "W": "#ffffff", "K": "#231a33",
+                     "E": "#fce253", "N": "#231a33", "M": "#fce253", "Z": "#9d8bbd", "P": "#231a33"},
+    "eevee":        {"B": "#d2a679", "S": "#a8784d", "W": "#faeed9", "K": "#3d2716",
+                     "E": "#ffffff", "N": "#f59fa5", "M": "#3d2716", "Z": "#f5b8bd", "P": "#200e06"},
 }
 
 EXTRA_COLORS = {"G": "#8a8f98", "g": "#d4d8de", "O": "#ffffff", "H": "#f2f4f6"}
@@ -1136,15 +1165,17 @@ def render_kitty_pixmap(frame="sit_a", palette_name="orange tabby", scale=2, fli
         else:
             grid = FRAMES.get("dog_sit_a", DOG_SIT_A)
         pal = PALETTES.get(palette_name, PALETTES.get("shiba inu"))
-    elif palette_name in ("pikachu", "charmander", "gengar", "eevee"):
+    elif palette_name in ("fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
+        aliases = {"pikachu": "fox", "charmander": "dino", "gengar": "ghost", "eevee": "bunny"}
+        norm_name = aliases.get(palette_name, palette_name)
         is_action = frame in ("wag", "action", "sit_b", "flame", "glow")
-        grid_key = f"{palette_name}_wag" if is_action else f"{palette_name}_idle"
-        if palette_name == "charmander":
-            grid_key = "charmander_flame" if is_action else "charmander_idle"
-        elif palette_name == "gengar":
-            grid_key = "gengar_glow" if is_action else "gengar_idle"
-        grid = FRAMES.get(grid_key, FRAMES.get(f"{palette_name}_idle", SIT_A))
-        pal = PALETTES.get(palette_name)
+        grid_key = f"{norm_name}_wag" if is_action else f"{norm_name}_idle"
+        if norm_name == "dino":
+            grid_key = "dino_flame" if is_action else "dino_idle"
+        elif norm_name == "ghost":
+            grid_key = "ghost_glow" if is_action else "ghost_idle"
+        grid = FRAMES.get(grid_key, FRAMES.get(f"{norm_name}_idle", SIT_A))
+        pal = PALETTES.get(norm_name, PALETTES.get("fox"))
     else:
         grid = FRAMES.get(frame, SIT_A)
         pal = PALETTES.get(palette_name, PALETTES.get("orange tabby"))
@@ -1157,11 +1188,18 @@ def render_pup_pixmap(frame="dog_sit_a", palette_name="shiba inu", scale=2, flip
     return render_kitty_pixmap(frame=frame, palette_name=palette_name, scale=scale, flip=flip, is_dog=True)
 
 
+def render_retro_companion_pixmap(companion_name="fox", frame="idle", scale=2, flip=False):
+    comp = companion_name.lower().strip()
+    aliases = {"pikachu": "fox", "charmander": "dino", "gengar": "ghost", "eevee": "bunny"}
+    comp = aliases.get(comp, comp)
+    if comp not in ("fox", "dino", "ghost", "bunny"):
+        comp = "fox"
+    return render_kitty_pixmap(frame=frame, palette_name=comp, scale=scale, flip=flip)
+
+
 def render_pokemon_pixmap(pokemon_name="pikachu", frame="idle", scale=2, flip=False):
-    pkmn = pokemon_name.lower().strip()
-    if pkmn not in ("pikachu", "charmander", "gengar", "eevee"):
-        pkmn = "pikachu"
-    return render_kitty_pixmap(frame=frame, palette_name=pkmn, scale=scale, flip=flip)
+    """Backward compatibility wrapper for render_retro_companion_pixmap."""
+    return render_retro_companion_pixmap(companion_name=pokemon_name, frame=frame, scale=scale, flip=flip)
 
 
 

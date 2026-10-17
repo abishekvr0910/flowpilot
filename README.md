@@ -30,14 +30,14 @@ FlowPilot delivers seamless voice-to-text directly at your cursor in desktop app
 | 🔒 **100% Offline & Private** | Powered by local `faster-whisper` INT8 on CPU. Zero network egress during core dictation loop. No accounts, no telemetry, no cloud dependencies. |
 | 🔌 **Local OpenAI-Compatible API** | Drop-in `POST /v1/audio/transcriptions` and `GET /v1/models` local endpoint (`http://127.0.0.1:8765/v1`) for seamless integration with Cursor IDE, Open WebUI, and Obsidian plugins. |
 | 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. |
-| 🤖 **Optional Local LLM Pass** | Connects to localhost Ollama (`http://127.0.0.1:11434`), LM Studio, or llama.cpp for rich generative Command Mode and tone transformations while remaining 100% offline. |
-| ⚡ **Measured Fast Local Latency** | Direct float32 audio streaming, greedy decoding (`beam_size=1`), and instant native text injection (**measured median 1,202 ms stop-to-text, p95 1,460 ms** on 8-thread CPU test host). |
+| 🤖 **Optional Local LLM Pass** | Connects strictly to localhost Ollama (`http://127.0.0.1:11434`), LM Studio, or llama.cpp for generative Command Mode and tone transformations while remaining 100% offline. **Target Safety:** Selected-Text Transforms (`Ctrl+Alt+T`) operate directly on highlighted text (or the last dictation buffer if nothing is selected). Original text is always restorable instantly via **`Alt+Shift+Z`**. |
+| ⚡ **Measured Fast Local Latency** | Direct float32 audio streaming, greedy decoding (`beam_size=1`), and instant native text injection (**measured median 1,202 ms stop-to-text, p95 1,460 ms** on 8-thread CPU test host for direct Whisper base INT8 inference). *Optional local LLM rewrite passes add ~0.5–2s depending on local hardware and model choice.* |
 | 🎙️ **Flexible Voice Controls & TapLatch™** | Choose between **F9 Push-to-Talk** (hold to speak, release to paste), **TapLatch™** (double-tap <350ms to lock hands-free, tap to stop), or **Ctrl+Shift+Space Toggle** with automatic 0.85s conversational pause finalization. |
 | 🔄 **Continuous Pre-Roll Ring Buffer** | 350ms sliding float32 audio ring buffer with background stream warmup (`warmup_stream()`) completely eliminates PortAudio latency and guarantees zero first-syllable speech loss. |
 | 📋 **Atomic Win32 & POSIX Clipboard Guard** | Hardware sequence counter (`GetClipboardSequenceNumber`) prevents clobbering user clipboard data during paste restoration; includes instant **Alt+Shift+Z** re-paste recovery. |
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
 | 📝 **Meeting Notetaker & History Vault** | Continuous meeting capture with extractive action items, plus a local dictation vault with `.wav` audio replay and bookmarking. |
-| 🐾 **Customizable Desktop Companions** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **SondeR-Cat Pixel Kitty** (with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Pokemon**, and custom pixel art. Zero focus-stealing (`WS_EX_NOACTIVATE`). |
+| 🐾 **Customizable Desktop Companions** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **SondeR-Cat Pixel Kitty** (with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Retro Pixel Companions (Fox, Dino, Ghost, Bunny)**, and custom pixel art. Zero focus-stealing (`WS_EX_NOACTIVATE`). |
 
 ---
 
@@ -96,8 +96,8 @@ FlowPilot gives you multiple visual companion options to match your workflow:
 | 🐾 **SondeR-Cat Pixel Kitty** | Upright 26x28 pixel cat with 10 fur palettes (Orange Tabby, Calico, Black, Gray, Siamese, Pink, White, Mint, Chocolate, Cream). Paws knead at voice speed when speaking, eyes glow during transcription, and floating hearts appear on paste with optional cheerful meows! | Right-click → **Appearance Style → SondeR-Cat Pixel Kitty**; choose fur color from **Kitty Fur Color...** |
 | 🤖 **Robot Mascot ("Pilot")** | Cute rounded companion robot with radiating acoustic antenna, expressive blinking eyes with real-time voice-reactive pupil dilation, thinking spiral eyes during transcription, and happy smile on paste. | Right-click → **Appearance Style → Robot Mascot Companion ('Pilot')** |
 | 🐶 **Pixel Pup & Shiba** | Playful pixelated dog companion with multiple breeds and tail-wag animation. | Right-click → **Appearance Style → Pixel Pup & Shiba** |
-| ⚡ **Pokemon Series** | Pikachu, Charmander, Gengar, and Eevee companion sprites. | Selected via Companion Studio dialog |
-| 📏 **Obsidian Docked Edge Line** | Ultra-minimal docked vertical line. Pulses with audio volume; zero screen distraction. | Right-click → **Appearance Style → Obsidian Docked Edge Line** |
+| 🦊 **Retro Companion Series** | Pixel Fox, Dino, Ghost, and Bunny retro companion sprites with animated tail wags, hops, and glows. | Selected via Companion Studio dialog or Dashboard |
+| 📏 **Edge Line** | Ultra-minimal docked vertical line. Pulses with audio volume; zero screen distraction. | Right-click → **Appearance Style → Edge Line** |
 | 🌊 **Acoustic Wave Equalizer** | 5 dancing acoustic frequency bars reacting to speech RMS. | Right-click → **Appearance Style → Acoustic Wave Equalizer** |
 
 ### Positioning & Moving Companions
@@ -181,10 +181,10 @@ flowchart TD
 
 | Environment | Tested Scope | Status | Result / Notes |
 |:---|:---|:---:|:---|
-| **Notepad (`notepad.exe`)** | Automated dictation cycles & 18-scenario E2E specification | **PASS** | 20/20 and 5/5 consecutive cycles with physical buffer read-back verification (18/18 E2E scenarios PASS). |
-| **Web Browsers (Edge / Chrome / Firefox)** | Rich text, input fields, and web form injection | **PASS** | Automated injection verified without focus stealing; recovery buffer verified on transient window switches. |
-| **Modern Code Editors (VS Code / Cursor / Obsidian)** | Multi-line code comments, markdown drafting, and indent safety | **PASS** | Verified multi-line injection and atomic clipboard restoration in `tests/test_cross_app_injection.py`. |
-| **Multi-Speaker & Acoustic Diversity** | 18 cataloged languages, diverse accents, and non-Latin scripts | **PASS** | Evaluated in `tests/test_multilingual_speech_reality.py` with published WER matrix and model tier guidance. |
+| **Notepad (`notepad.exe`)** | Automated dictation cycles & 18-scenario E2E specification | **PASS (Verified on Real App)** | 20/20 and 5/5 consecutive cycles with physical Win32 edit buffer read-back verification (`tests/test_win32_e2e_scenarios.py`). |
+| **Chromium & Electron Rich Surfaces** | Rich text contenteditable, input fields, and multi-line indent safety | **PASS (Simulated Surface)** | Verified via simulated Chromium/Electron surface in `tests/test_cross_app_injection.py` step 4b; standard Windows clipboard paste (`Ctrl+V`) applies to Chrome/Edge. Physical process readback tests queued. |
+| **Modern Code Editors & Markdown (VS Code / Cursor / Obsidian)** | Multi-line code comments, markdown formatting, and atomic clipboard guard | **PASS (Simulated Surface)** | Verified via simulated rich-editor surface in `tests/test_cross_app_injection.py`. Uses standard Win32 clipboard injection with sequence check; physical process readback tests queued. |
+| **Multi-Speaker Accent Panel** | Human panel with regional accents and noisy acoustic backgrounds | **OPEN / Field Pilot Scheduled** | Automated synthetic SAPI multilingual suite is passing (`tests/test_multilingual_speech_reality.py`); 10-participant human accent evaluation protocol designed and scheduled for upcoming milestone. |
 
 ---
 
