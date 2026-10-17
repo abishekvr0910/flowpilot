@@ -811,6 +811,11 @@ class CompanionStudioDialog(QDialog):
     def closeEvent(self, event):
         if hasattr(self, "preview") and hasattr(self.preview, "_anim_timer"):
             self.preview._anim_timer.stop()
+        if hasattr(self, "tab_pixel_creator") and self.tab_pixel_creator:
+            try:
+                self.tab_pixel_creator.close()
+            except Exception:
+                pass
         super().closeEvent(event)
 
 

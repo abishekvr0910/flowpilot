@@ -46,6 +46,7 @@ hidden_imports = [
     'engine.meeting_notetaker',
     'engine.transforms_engine',
     'engine.history_vault',
+    'engine.local_llm',
     'ui.companion_studio',
     'ui.companion_preview',
     'ui.scratchpad_view',

@@ -425,9 +425,9 @@ class FloatingHUD(QWidget):
         act_dog.triggered.connect(lambda: self.set_visual_style("dog"))
         act_mascot = style_menu.addAction("🤖 Robot Mascot Companion ('Pilot')")
         act_mascot.triggered.connect(lambda: self.set_visual_style("mascot"))
-        act_edge = style_menu.addAction("📏 Wispr Flow Docked Edge Line")
+        act_edge = style_menu.addAction("📏 Obsidian Docked Edge Line")
         act_edge.triggered.connect(lambda: self.set_visual_style("edge_line"))
-        act_waves = style_menu.addAction("🌊 Wispr Wave Equalizer")
+        act_waves = style_menu.addAction("🌊 Acoustic Wave Equalizer")
         act_waves.triggered.connect(lambda: self.set_visual_style("wave_bar"))
 
         if self._visual_style in ("kitty", "dog"):

@@ -37,6 +37,7 @@ scratch/
 _backup*/
 *.bak
 *.tmp
+*.lnk
 
 # Cloned reference repos
 external/

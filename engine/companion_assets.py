@@ -84,7 +84,7 @@ BUILTIN_COMPANIONS = [
     },
     {
         "id": "edge_line",
-        "name": "Wispr Docked Edge Line",
+        "name": "Obsidian Docked Edge Line",
         "type": "builtin",
         "description": "Minimalist docked vertical accent indicator with ambient breathing.",
         "icon": "📏",
@@ -92,7 +92,7 @@ BUILTIN_COMPANIONS = [
     },
     {
         "id": "wave_bar",
-        "name": "Wispr Soundwave Equalizer",
+        "name": "Acoustic Wave Equalizer",
         "type": "builtin",
         "description": "Floating horizontal audio waveform responding dynamically to voice decibels.",
         "icon": "🌊",

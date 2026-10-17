@@ -335,11 +335,33 @@ class TransformsEngine:
         return out
 
     def _apply_translate_en(self, text: str) -> str:
-        # For offline environments without local NMT weights loaded,
-        # clean the casing and structure while logging translate intent.
+        # Check if local offline LLM (Ollama / llama.cpp) is available
+        try:
+            from engine.local_llm import get_local_llm
+            llm = get_local_llm()
+            if llm.is_available():
+                out = llm.transform(text, "Translate this text into clear, fluent English.")
+                if out:
+                    return out
+        except Exception:
+            pass
+
+        # Deterministic fallback
         return self._apply_concise(text)
 
     def _apply_custom(self, text: str, instruction: str) -> str:
+        # 1. Try local offline LLM first for rich generative Command Mode
+        try:
+            from engine.local_llm import get_local_llm
+            llm = get_local_llm()
+            if llm.is_available():
+                out = llm.transform(text, instruction)
+                if out:
+                    return out
+        except Exception:
+            pass
+
+        # 2. Fast deterministic rule-based fallback
         inst = instruction.lower()
         if "bullet" in inst or "list" in inst:
             return self._apply_bullet_points(text)

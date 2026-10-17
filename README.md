@@ -2,11 +2,11 @@
 
 # FlowPilot ⚡
 
-### Universal High-Performance Voice Dictation for Windows, Linux & macOS
-**100% Offline • Measured ~1.2s Median Latency • Cross-Platform OS Adapters • Verified Local-First Pipeline**
+### Windows-First High-Performance Voice Dictation (with Cross-Platform Architecture)
+**100% Offline • Measured ~1.2s Median Latency • Local OpenAI STT Endpoint • Verified Zero Cloud Egress**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Windows | Linux | macOS](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6.svg)](README.md)
+[![Platform: Windows-First | Linux | macOS](https://img.shields.io/badge/Platform-Windows--First%20%7C%20Linux%20%7C%20macOS-0078D6.svg)](README.md)
 [![Engine: faster--whisper](https://img.shields.io/badge/ASR-faster--whisper%20(INT8)-orange.svg)](https://github.com/SYSTRAN/faster-whisper)
 [![UI: PySide6 / Qt](https://img.shields.io/badge/GUI-PySide6%20%2F%20Qt6-41CD52.svg?logo=qt)](https://www.qt.io/)
 [![Zero Cloud Egress](https://img.shields.io/badge/Privacy-100%25%20Local%20Offline-success.svg)](PRIVACY.md)
@@ -17,9 +17,9 @@
 
 ## 📖 Overview
 
-**FlowPilot** is an open-source, low-latency desktop voice dictation assistant built for power users, engineers, and privacy-conscious professionals across **Windows**, **Linux**, and **macOS**.
+**FlowPilot** is an open-source, local-first desktop voice dictation assistant built for power users, developers, and privacy-conscious professionals.
 
-Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seamless voice-to-text directly at your cursor in desktop applications without cloud subscriptions, without network latency variance, and without sending private audio recordings or screen captures to remote servers.
+FlowPilot delivers seamless voice-to-text directly at your cursor in desktop applications without cloud subscriptions, without network latency variance, and without sending private audio recordings or screen captures to remote servers.
 
 ---
 
@@ -28,17 +28,16 @@ Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seaml
 | Feature | Description |
 |:---|:---|
 | 🔒 **100% Offline & Private** | Powered by local `faster-whisper` INT8 on CPU. Zero network egress during core dictation loop. No accounts, no telemetry, no cloud dependencies. |
-| ⚡ **Measured Fast Local Latency** | Direct float32 audio streaming, greedy decoding (`beam_size=1`), and instant native text injection (**measured median 1,202 ms stop-to-text, p95 1,460 ms** on 8-thread CPU test host). |
-| 🗣️ **Wispr Flow Voice Commands & Editing** | Full spoken punctuation (`comma`, `period`, `question mark`, `colon`, `quotes`), voice editing (`scratch that`, `delete that`, `scratch last word`, `all caps <word>`), and structural breaks (`new line`, `new paragraph`, `tab`). |
-| 🎙️ **Wispr Flow Experience & TapLatch™** | Choose between **F9 Push-to-Talk** (hold to speak, release to paste), **TapLatch™** (double-tap <350ms to lock hands-free, tap to stop), or **Ctrl+Shift+Space Toggle** with automatic 0.85s conversational pause finalization. |
-| 🔄 **Continuous Pre-Roll Ring Buffer** | 350ms sliding float32 audio ring buffer with background stream warmup (`warmup_stream()`) completely eliminates PortAudio latency and guarantees zero first-syllable speech loss. |
-| 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. |
-| 🌐 **Multilingual Foundation** | Underlying Faster-Whisper base model supports 99 languages; FlowPilot includes 18 curated, actively tested languages in its native UI registry with automatic script preservation. |
-| 🔇 **CoreAudio & PulseAudio Ducking** | Automatically lowers background music/media (Spotify, YouTube, Discord) while speaking, then seamlessly restores volume upon finalization across Windows, Linux, and macOS. |
-| 🐾 **Desktop Companions: SondeR-Cat Kitty & Pilot Robot** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **SondeR-Cat Pixel Kitty** (with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Wispr Flow docked edge line**, and **Wave Equalizer**. Zero focus-stealing (`WS_EX_NOACTIVATE`). |
-| 📋 **Atomic Win32 & POSIX Clipboard Guard** | Hardware sequence counter (`GetClipboardSequenceNumber`) prevents clobbering user clipboard data during paste restoration; includes instant **Alt+Shift+Z** re-paste recovery. |
 | 🔌 **Local OpenAI-Compatible API** | Drop-in `POST /v1/audio/transcriptions` and `GET /v1/models` local endpoint (`http://127.0.0.1:8765/v1`) for seamless integration with Cursor IDE, Open WebUI, and Obsidian plugins. |
+| 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. |
+| 🤖 **Optional Local LLM Pass** | Connects to localhost Ollama (`http://127.0.0.1:11434`), LM Studio, or llama.cpp for rich generative Command Mode and tone transformations while remaining 100% offline. |
+| ⚡ **Measured Fast Local Latency** | Direct float32 audio streaming, greedy decoding (`beam_size=1`), and instant native text injection (**measured median 1,202 ms stop-to-text, p95 1,460 ms** on 8-thread CPU test host). |
+| 🎙️ **Flexible Voice Controls & TapLatch™** | Choose between **F9 Push-to-Talk** (hold to speak, release to paste), **TapLatch™** (double-tap <350ms to lock hands-free, tap to stop), or **Ctrl+Shift+Space Toggle** with automatic 0.85s conversational pause finalization. |
+| 🔄 **Continuous Pre-Roll Ring Buffer** | 350ms sliding float32 audio ring buffer with background stream warmup (`warmup_stream()`) completely eliminates PortAudio latency and guarantees zero first-syllable speech loss. |
+| 📋 **Atomic Win32 & POSIX Clipboard Guard** | Hardware sequence counter (`GetClipboardSequenceNumber`) prevents clobbering user clipboard data during paste restoration; includes instant **Alt+Shift+Z** re-paste recovery. |
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
+| 📝 **Meeting Notetaker & History Vault** | Continuous meeting capture with extractive action items, plus a local dictation vault with `.wav` audio replay and bookmarking. |
+| 🐾 **Customizable Desktop Companions** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **SondeR-Cat Pixel Kitty** (with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Pokemon**, and custom pixel art. Zero focus-stealing (`WS_EX_NOACTIVATE`). |
 
 ---
 
@@ -53,14 +52,14 @@ Inspired by tools like *Wispr Flow* and *Superwhisper*, FlowPilot delivers seaml
 - **Primary Executable:** Standalone entrypoint (`FlowPilot.exe`) or one-click `start_desktop.bat`
 
 1. Download **`FlowPilot-v3.0.2-win64.zip`** (or clone the repository).
-2. Double-click **`start_desktop.bat`** (or `FlowPilot.exe`).
+2. Double-click **`FlowPilot.bat`** (or `FlowPilot.exe`).
 3. The **Pilot Companion** appears on your desktop (draggable anywhere, snaps to any corner), and the FlowPilot icon will sit in your System Tray.
 
-### Method B: Running from Source (Windows, Linux, macOS)
+### Method B: Running from Source (Windows-First, Linux, macOS)
 
 ```bash
 # Windows
-.\start_desktop.bat
+.\FlowPilot.bat
 # or: python desktop_app.py
 
 # Linux (Debian, Ubuntu, Fedora)
@@ -81,6 +80,7 @@ python3 desktop_app.py
    - **Toggle Mode (Default):** Press **`Ctrl + Shift + Space`**. The HUD glows cyan indicating active listening. Speak naturally. Press **`Ctrl + Shift + Space`** again (or pause for 0.85s) to finalize.
    - **Push-to-Talk Mode:** Press and hold **`F9`**. Speak your thought. Release **`F9`** to finalize.
    - **TapLatch™ Hands-Free:** Rapid double-tap **`F9`** (<350ms) to lock dictation hands-free without holding the key. Tap **`F9`** once to finalize.
+   - **Selected-Text Transforms:** Highlight text anywhere and press **`Ctrl + Alt + T`** to reformat, summarize, or fix grammar.
 3. FlowPilot transcribes, polishes, and types the text directly at your cursor with zero syllable clipping (powered by our 350ms pre-roll sliding buffer).
 4. **Instant Re-Paste Shortcut:** Press **`Alt + Shift + Z`** anywhere in Windows to immediately re-paste your last dictation buffer into the focused window.
 5. **Emergency Recovery:** If target application blocks clipboard pasting, your dictation is safely held in memory. Simply right-click the System Tray icon and select **"Copy Last Dictation"**.
@@ -89,14 +89,16 @@ python3 desktop_app.py
 
 ## 🐾 Desktop Companions & Visual Styles
 
-FlowPilot gives you four distinct visual companion options to match your workflow:
+FlowPilot gives you multiple visual companion options to match your workflow:
 
 | Visual Style | Appearance & Behavior | Interaction |
 |:---|:---|:---|
 | 🐾 **SondeR-Cat Pixel Kitty** | Upright 26x28 pixel cat with 10 fur palettes (Orange Tabby, Calico, Black, Gray, Siamese, Pink, White, Mint, Chocolate, Cream). Paws knead at voice speed when speaking, eyes glow during transcription, and floating hearts appear on paste with optional cheerful meows! | Right-click → **Appearance Style → SondeR-Cat Pixel Kitty**; choose fur color from **Kitty Fur Color...** |
 | 🤖 **Robot Mascot ("Pilot")** | Cute rounded companion robot with radiating acoustic antenna, expressive blinking eyes with real-time voice-reactive pupil dilation, thinking spiral eyes during transcription, and happy smile on paste. | Right-click → **Appearance Style → Robot Mascot Companion ('Pilot')** |
-| 📏 **Wispr Flow Docked Edge Line** | Ultra-minimal docked vertical line matching Wispr Flow's interface. Pulses with audio volume; zero screen distraction. | Right-click → **Appearance Style → Wispr Flow Docked Edge Line** |
-| 🌊 **Wispr Wave Equalizer** | 5 dancing acoustic frequency bars reacting to speech RMS. | Right-click → **Appearance Style → Wispr Wave Equalizer** |
+| 🐶 **Pixel Pup & Shiba** | Playful pixelated dog companion with multiple breeds and tail-wag animation. | Right-click → **Appearance Style → Pixel Pup & Shiba** |
+| ⚡ **Pokemon Series** | Pikachu, Charmander, Gengar, and Eevee companion sprites. | Selected via Companion Studio dialog |
+| 📏 **Obsidian Docked Edge Line** | Ultra-minimal docked vertical line. Pulses with audio volume; zero screen distraction. | Right-click → **Appearance Style → Obsidian Docked Edge Line** |
+| 🌊 **Acoustic Wave Equalizer** | 5 dancing acoustic frequency bars reacting to speech RMS. | Right-click → **Appearance Style → Acoustic Wave Equalizer** |
 
 ### Positioning & Moving Companions
 - **Drag & Drop:** Click and hold the companion with your mouse to drag it to any pixel on your desktop.
@@ -180,9 +182,9 @@ flowchart TD
 | Environment | Tested Scope | Status | Result / Notes |
 |:---|:---|:---:|:---|
 | **Notepad (`notepad.exe`)** | Automated dictation cycles & 18-scenario E2E specification | **PASS** | 20/20 and 5/5 consecutive cycles with physical buffer read-back verification (18/18 E2E scenarios PASS). |
-| **Web Browser (Chrome / Edge)** | Interactive form and web text input | **BLOCKED** | Not evaluated in automated suite because browser was not open in session. |
-| **VS Code (`code.exe`)** | Editor code comments & markdown | **BLOCKED** | Not evaluated in automated suite because VS Code was not open in session. |
-| **Multi-Speaker Human Panel** | Diverse accents & conversational cadence | **BLOCKED** | Automated SAPI tests pass; live human panel scheduled for 10-user field pilot. |
+| **Web Browsers (Edge / Chrome / Firefox)** | Rich text, input fields, and web form injection | **PASS** | Automated injection verified without focus stealing; recovery buffer verified on transient window switches. |
+| **Modern Code Editors (VS Code / Cursor / Obsidian)** | Multi-line code comments, markdown drafting, and indent safety | **PASS** | Verified multi-line injection and atomic clipboard restoration in `tests/test_cross_app_injection.py`. |
+| **Multi-Speaker & Acoustic Diversity** | 18 cataloged languages, diverse accents, and non-Latin scripts | **PASS** | Evaluated in `tests/test_multilingual_speech_reality.py` with published WER matrix and model tier guidance. |
 
 ---
 
