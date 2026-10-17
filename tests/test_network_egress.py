@@ -202,6 +202,43 @@ def test_zero_network_egress():
     assert "not cancel" in polished or "do not cancel" in polished, "FactGuard failed: negation lost"
     assert "Wednesday" in polished, "Self-correction failed"
 
+    # 7. Execute LocalLLMProvider & Transforms Engine zero-egress verification
+    print("\nExecuting LocalLLMProvider & Transforms Engine zero-egress audit...")
+    from engine.local_llm import LocalLLMProvider
+    from engine.transforms_engine import get_transforms_engine
+
+    # 7a. Non-loopback endpoints must be strictly rejected BEFORE any socket is created
+    malicious_endpoints = [
+        "https://api.openai.com/v1",
+        "http://evil-telemetry.example.com:11434",
+        "http://192.168.1.100:11434",
+        "http://10.0.0.1:8080"
+    ]
+    for bad_url in malicious_endpoints:
+        provider = LocalLLMProvider(base_url=bad_url)
+        assert not provider.is_available(force_refresh=True), f"Non-loopback URL was not rejected: {bad_url}"
+        assert not provider._is_loopback(bad_url), f"Non-loopback URL passed _is_loopback: {bad_url}"
+
+    # 7b. Loopback endpoints (127.0.0.1, localhost, ::1) are allowed for local LLM
+    loopback_provider = LocalLLMProvider(base_url="http://127.0.0.1:11434")
+    assert loopback_provider._is_loopback("http://127.0.0.1:11434")
+    assert loopback_provider._is_loopback("http://[::1]:11434")
+    # Health check against local port (even if offline) must not produce outbound connections
+    loopback_provider.is_available(force_refresh=True)
+
+    # 7c. TransformsEngine execution must never trigger outbound traffic
+    transforms = get_transforms_engine()
+    res_tr, _ = transforms.transform_text("hello world test", "make_concise")
+    assert res_tr and len(res_tr) > 0
+    res_custom, _ = transforms.transform_text("bulletize this item", "custom", custom_instruction="Format as bullets")
+    assert res_custom and len(res_custom) > 0
+
+    # Ensure zero outbound sockets were attempted during LLM and Transforms evaluation
+    assert len(outbound_connection_attempts) == 0, f"Outbound connection attempted during LLM test: {outbound_connection_attempts}"
+    post_llm_conns = get_process_connections(current_pid)
+    assert len(post_llm_conns) == 0, f"Outbound socket opened during LocalLLM check: {post_llm_conns}"
+    print(f"Local LLM & Transforms zero-egress verified (route: {transforms.get_last_execution_route()})")
+
     # Check sockets post ContextProcessor
     final_conns = get_process_connections(current_pid)
     print(f"Final remote connections: {final_conns}")

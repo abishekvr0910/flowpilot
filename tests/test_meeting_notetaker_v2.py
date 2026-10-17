@@ -82,7 +82,7 @@ class TestMeetingNotetakerV2(unittest.TestCase):
         sess = self.engine.start_meeting(title="Design Review", template="brainstorming")
         self.engine.add_transcript_segment("Let's brainstorm the companion UI.")
         self.engine.add_transcript_segment("We agreed on the 16x16 pixel editor.")
-        self.engine.add_transcript_segment("I will create the Pokemon presets.")
+        self.engine.add_transcript_segment("I will create the retro presets.")
 
         stopped = self.engine.stop_meeting()
         summary = stopped.summary or self.engine.generate_summary(stopped)

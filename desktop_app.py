@@ -227,7 +227,7 @@ class FlowPilotApp:
             self.hud._cat_palette = "orange tabby"
         elif asset_id == "dog":
             self.hud._cat_palette = "shiba inu"
-        elif asset_id in ("pikachu", "charmander", "gengar", "eevee"):
+        elif asset_id in ("fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
             self.hud._cat_palette = asset_id
         self.hud._cat_pixmap_cache.clear()
         self.hud.update()

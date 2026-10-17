@@ -3,7 +3,7 @@ FlowPilot Interactive Pixel Art Companion Creator & Animation Studio
 Allows users to:
 - Draw custom pixel characters on a 16x16 grid with a retro color palette.
 - Animate multiple frames (Frame 1: Idle, Frame 2: Action/Move, Frame 3: Celebrate).
-- Load pre-built Pokémon (Pikachu, Charmander, Gengar, Eevee) and Pet (Pup, Kitty) templates.
+- Load pre-built Retro Companion (Fox, Dino, Ghost, Bunny) and Pet (Pup, Kitty) templates.
 - Preview animations in real-time.
 - One-click save directly into FlowPilot's Companion Library and apply to desktop!
 """
@@ -184,7 +184,7 @@ class PixelCreatorWidget(QWidget):
         ]
         self._active_frame = 0
         self._init_ui()
-        self._load_template("⚡ Pikachu")
+        self._load_template("🦊 Pixel Fox")
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -193,7 +193,7 @@ class PixelCreatorWidget(QWidget):
 
         # Header with Template Picker
         top_bar = QHBoxLayout()
-        lbl_title = QLabel("🎨 Pixel Art & Pokémon Creator")
+        lbl_title = QLabel("🎨 Pixel Art & Companion Creator")
         lbl_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #38BDF8;")
         top_bar.addWidget(lbl_title)
         top_bar.addStretch()
@@ -201,10 +201,10 @@ class PixelCreatorWidget(QWidget):
         top_bar.addWidget(QLabel("Load Template:"))
         self.combo_template = QComboBox()
         self.combo_template.addItems([
-            "⚡ Pikachu",
-            "🔥 Charmander",
-            "👻 Gengar",
-            "🦊 Eevee",
+            "🦊 Pixel Fox",
+            "🦖 Pixel Dino",
+            "👻 Pixel Ghost",
+            "🐰 Pixel Bunny",
             "🐶 Pixel Pup",
             "🐾 Kitty",
             "✨ Blank Grid"
@@ -312,7 +312,7 @@ class PixelCreatorWidget(QWidget):
         # Metadata & Save
         meta_row = QHBoxLayout()
         meta_row.addWidget(QLabel("Name:"))
-        self.txt_name = QLineEdit("My Custom Pokémon")
+        self.txt_name = QLineEdit("My Custom Companion")
         meta_row.addWidget(self.txt_name)
         right_col.addLayout(meta_row)
 
@@ -374,67 +374,67 @@ class PixelCreatorWidget(QWidget):
         self.canvas.clear()
         grid = [[None]*GRID_SIZE for _ in range(GRID_SIZE)]
 
-        if "Pikachu" in name:
-            self.txt_name.setText("Pikachu Electric")
-            # Draw cute 16x16 Pikachu
+        if "Fox" in name or "Pikachu" in name:
+            self.txt_name.setText("Pixel Fox")
             # Ears
             grid[1][3] = "#18181B"; grid[1][12] = "#18181B"
-            grid[2][4] = "#FACC15"; grid[2][11] = "#FACC15"
-            grid[3][4] = "#FACC15"; grid[3][11] = "#FACC15"
+            grid[2][4] = "#FB923C"; grid[2][11] = "#FB923C"
+            grid[3][4] = "#FB923C"; grid[3][11] = "#FB923C"
             # Head
             for r in range(4, 9):
                 for c in range(4, 12):
-                    grid[r][c] = "#FACC15"
-            # Eyes & Cheeks
+                    grid[r][c] = "#FB923C"
+            # Eyes & White Cheeks
             grid[6][5] = "#18181B"; grid[6][10] = "#18181B"
-            grid[7][4] = "#EF4444"; grid[7][11] = "#EF4444"
-            grid[7][7] = "#18181B"; grid[7][8] = "#18181B"  # mouth
+            grid[7][4] = "#FFFFFF"; grid[7][11] = "#FFFFFF"
+            grid[7][7] = "#18181B"; grid[7][8] = "#18181B"  # nose
             # Body
             for r in range(9, 14):
                 for c in range(5, 11):
-                    grid[r][c] = "#FACC15"
+                    grid[r][c] = "#FB923C"
             # Tail
-            grid[9][12] = "#FACC15"; grid[8][13] = "#FACC15"; grid[7][13] = "#FACC15"
+            grid[9][12] = "#FB923C"; grid[8][13] = "#FB923C"; grid[7][13] = "#FFFFFF"
             # Feet
-            grid[14][5] = "#FACC15"; grid[14][10] = "#FACC15"
+            grid[14][5] = "#18181B"; grid[14][10] = "#18181B"
 
-        elif "Charmander" in name:
-            self.txt_name.setText("Charmander Flame")
+        elif "Dino" in name or "Charmander" in name:
+            self.txt_name.setText("Pixel Dino")
             for r in range(4, 9):
                 for c in range(5, 11):
-                    grid[r][c] = "#FB923C"
-            # Teal eyes
-            grid[5][6] = "#14B8A6"; grid[5][9] = "#14B8A6"
+                    grid[r][c] = "#22C55E"
+            # Cute eyes
+            grid[5][6] = "#18181B"; grid[5][9] = "#18181B"
             # Body
             for r in range(9, 14):
                 for c in range(5, 11):
-                    grid[r][c] = "#FB923C"
-            # Cream belly
+                    grid[r][c] = "#22C55E"
+            # Lime belly
             for r in range(10, 13):
-                grid[r][7] = "#FDE68A"; grid[r][8] = "#FDE68A"
-            # Flame tail
-            grid[11][12] = "#FB923C"; grid[10][13] = "#EF4444"; grid[9][13] = "#FACC15"
-            grid[14][5] = "#FB923C"; grid[14][10] = "#FB923C"
+                grid[r][7] = "#84CC16"; grid[r][8] = "#84CC16"
+            # Tail
+            grid[11][12] = "#22C55E"; grid[10][13] = "#22C55E"; grid[9][13] = "#84CC16"
+            grid[14][5] = "#22C55E"; grid[14][10] = "#22C55E"
 
-        elif "Gengar" in name:
-            self.txt_name.setText("Gengar Shadow")
-            # Ears
+        elif "Ghost" in name or "Gengar" in name:
+            self.txt_name.setText("Pixel Ghost")
+            # Floating crown/spikes
             grid[2][4] = "#A855F7"; grid[2][11] = "#A855F7"
             for r in range(4, 13):
                 for c in range(3, 13):
                     grid[r][c] = "#6366F1"
-            # Red sinister eyes
-            grid[6][5] = "#EF4444"; grid[6][10] = "#EF4444"
-            # White grin
-            for c in range(5, 11):
+            # Glowing friendly eyes
+            grid[6][5] = "#FACC15"; grid[6][10] = "#FACC15"
+            # Cheerful mouth
+            for c in range(6, 10):
                 grid[9][c] = "#FFFFFF"
             grid[13][4] = "#6366F1"; grid[13][11] = "#6366F1"
 
-        elif "Eevee" in name:
-            self.txt_name.setText("Eevee Fluffy")
-            # Big ears
-            grid[1][2] = "#B45309"; grid[1][13] = "#B45309"
-            grid[2][3] = "#B45309"; grid[2][12] = "#B45309"
+        elif "Bunny" in name or "Eevee" in name:
+            self.txt_name.setText("Pixel Bunny")
+            # Long floppy ears
+            grid[1][3] = "#B45309"; grid[1][12] = "#B45309"
+            grid[2][3] = "#F472B6"; grid[2][12] = "#F472B6"
+            grid[3][3] = "#F472B6"; grid[3][12] = "#F472B6"
             for r in range(4, 8):
                 for c in range(5, 11):
                     grid[r][c] = "#B45309"

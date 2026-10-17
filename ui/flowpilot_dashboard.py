@@ -324,10 +324,10 @@ class FlowPilotDashboard(QMainWindow):
         pets_row1 = [
             ("dog", "🐶 Pixel Pup"),
             ("kitty", "🐾 Pixel Kitty"),
-            ("pikachu", "⚡ Pikachu"),
-            ("charmander", "🔥 Charmander"),
-            ("gengar", "👻 Gengar"),
-            ("eevee", "🦊 Eevee"),
+            ("fox", "🦊 Pixel Fox"),
+            ("dino", "🦖 Pixel Dino"),
+            ("ghost", "👻 Pixel Ghost"),
+            ("bunny", "🐰 Pixel Bunny"),
         ]
 
         pets_row2 = [

@@ -17,9 +17,12 @@ Wispr Flow Parity & Leapfrog:
 import sys
 import re
 import time
+import logging
 import threading
 from typing import Optional, Dict, Any, List, Tuple
 import pyperclip
+
+logger = logging.getLogger("FlowPilot.Transforms")
 
 try:
     import win32gui
@@ -80,6 +83,12 @@ class TransformsEngine:
         self._last_transformed_text: str = ""
         self._last_target_hwnd: Optional[int] = None
         self._history: List[Dict[str, Any]] = []
+        self._last_execution_route: str = "factguard_rules"
+
+    def get_last_execution_route(self) -> str:
+        """Returns whether the last transform executed via 'local_llm' or 'factguard_rules'."""
+        with self._lock:
+            return self._last_execution_route
 
     def get_selected_text_from_active_window(self, timeout: float = 0.35) -> Optional[str]:
         """
@@ -342,11 +351,15 @@ class TransformsEngine:
             if llm.is_available():
                 out = llm.transform(text, "Translate this text into clear, fluent English.")
                 if out:
+                    self._last_execution_route = "local_llm"
+                    logger.info(f"[Transforms] Executed via Local LLM (model='{llm.get_active_model() or 'local'}')")
                     return out
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[Transforms] Local LLM translate error: {e}")
 
         # Deterministic fallback
+        self._last_execution_route = "factguard_rules"
+        logger.info("[Transforms] Executed via Deterministic FactGuard Rules (Local LLM unavailable or offline)")
         return self._apply_concise(text)
 
     def _apply_custom(self, text: str, instruction: str) -> str:
@@ -357,11 +370,15 @@ class TransformsEngine:
             if llm.is_available():
                 out = llm.transform(text, instruction)
                 if out:
+                    self._last_execution_route = "local_llm"
+                    logger.info(f"[Transforms] Executed via Local LLM (model='{llm.get_active_model() or 'local'}')")
                     return out
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[Transforms] Local LLM custom transform error: {e}")
 
         # 2. Fast deterministic rule-based fallback
+        self._last_execution_route = "factguard_rules"
+        logger.info("[Transforms] Executed via Deterministic FactGuard Rules (Local LLM unavailable or offline)")
         inst = instruction.lower()
         if "bullet" in inst or "list" in inst:
             return self._apply_bullet_points(text)

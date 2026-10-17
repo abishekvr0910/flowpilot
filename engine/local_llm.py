@@ -7,6 +7,8 @@ Zero external network egress invariant is strictly enforced:
 Only connects to loopback addresses (127.0.0.1, localhost).
 """
 
+import ipaddress
+import socket
 import json
 import logging
 import time
@@ -22,6 +24,20 @@ DEFAULT_ENDPOINTS = [
     "http://127.0.0.1:1234",   # LM Studio default
     "http://127.0.0.1:8080",   # llama.cpp server default
 ]
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Prevents HTTP redirects to guarantee requests remain strictly on local endpoint."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        logger.warning(f"[LocalLLM] Redirect to '{newurl}' blocked to prevent egress.")
+        return None
+
+
+# Opener with ProxyHandler({}) ensures HTTP_PROXY / HTTPS_PROXY env vars cannot leak egress
+_SECURE_LOCAL_OPENER = urllib.request.build_opener(
+    urllib.request.ProxyHandler({}),
+    _NoRedirectHandler()
+)
 
 
 class LocalLLMProvider:
@@ -40,11 +56,29 @@ class LocalLLMProvider:
         self._cache_ttl = 15.0  # Check health every 15s
 
     def _is_loopback(self, url: str) -> bool:
-        """Enforces zero external network egress invariant."""
+        """
+        Enforces zero external network egress invariant.
+        Rejects any external host immediately without emitting outbound DNS requests.
+        Only allows loopback IP literals (127.0.0.0/8, ::1) or 'localhost' / '*.localhost'.
+        """
         try:
             parsed = urlparse(url)
-            host = (parsed.hostname or "").lower()
-            return host in ("127.0.0.1", "localhost", "::1")
+            host = parsed.hostname
+            if not host:
+                return False
+            host_clean = host.strip().lower()
+
+            # 1. Standard localhost names (RFC 6761: guaranteed local, no external DNS needed)
+            if host_clean == "localhost" or host_clean.endswith(".localhost"):
+                return True
+
+            # 2. IP address literal check (IPv4 / IPv6)
+            try:
+                ip = ipaddress.ip_address(host_clean)
+                return ip.is_loopback
+            except ValueError:
+                # Host is not an IP literal and not localhost -> reject to prevent outbound DNS query
+                return False
         except Exception:
             return False
 
@@ -75,7 +109,7 @@ class LocalLLMProvider:
                 headers={"User-Agent": "FlowPilot/LocalLLM"},
                 method="GET"
             )
-            with urllib.request.urlopen(req, timeout=0.6) as resp:
+            with _SECURE_LOCAL_OPENER.open(req, timeout=0.6) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
                     models = [m.get("name") for m in data.get("models", []) if m.get("name")]
@@ -93,7 +127,7 @@ class LocalLLMProvider:
                     headers={"User-Agent": "FlowPilot/LocalLLM"},
                     method="GET"
                 )
-                with urllib.request.urlopen(req, timeout=0.6) as resp:
+                with _SECURE_LOCAL_OPENER.open(req, timeout=0.6) as resp:
                     if resp.status == 200:
                         data = json.loads(resp.read().decode("utf-8"))
                         models = [m.get("id") for m in data.get("data", []) if m.get("id")]
@@ -154,11 +188,12 @@ class LocalLLMProvider:
                 headers={"Content-Type": "application/json", "User-Agent": "FlowPilot/LocalLLM"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with _SECURE_LOCAL_OPENER.open(req, timeout=self.timeout) as resp:
                 if resp.status == 200:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     out = res_data.get("response", "").strip()
                     if out:
+                        logger.info(f"[LocalLLM] Generated transform via Ollama ({model})")
                         return self._clean_llm_output(out)
         except Exception:
             pass
@@ -181,13 +216,14 @@ class LocalLLMProvider:
                 headers={"Content-Type": "application/json", "User-Agent": "FlowPilot/LocalLLM"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with _SECURE_LOCAL_OPENER.open(req, timeout=self.timeout) as resp:
                 if resp.status == 200:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     choices = res_data.get("choices", [])
                     if choices:
                         out = choices[0].get("message", {}).get("content", "").strip()
                         if out:
+                            logger.info(f"[LocalLLM] Generated transform via OpenAI endpoint ({model})")
                             return self._clean_llm_output(out)
         except Exception as e:
             logger.debug(f"[LocalLLM] Request failed: {e}")
