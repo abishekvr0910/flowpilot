@@ -234,6 +234,8 @@ class Win32HotkeyService:
         logger.info(f"[HotkeyService] Queued hotkey ID {hk_id}: {hotkey_str} (mods={hex(mods)}, vk={hex(vk)})")
         return hk_id
 
+    register_hotkey = register
+
     def start(self, timeout: float = 3.0) -> bool:
         """
         Starts the dedicated Windows message pump in a background thread.
@@ -418,6 +420,8 @@ class PynputHotkeyService:
             }
             self.stats["registered_count"] = len(self._hotkeys)
         return hk_id
+
+    register_hotkey = register
 
     def start(self, timeout: float = 3.0) -> bool:
         with self._lock:
