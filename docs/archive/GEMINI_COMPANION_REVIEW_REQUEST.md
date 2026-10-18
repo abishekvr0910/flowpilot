@@ -1,5 +1,7 @@
 # Gemini review request: FlowPilot Companion Studio
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 Review the attached `COMPANION_STUDIO_PLAN.md` as a senior desktop engineer and product designer. Return your critique in text. This is design review only: do not edit code, run tools, inspect the filesystem, start applications, send messages, or delegate to other agents. The provided document is the complete review input.
 
 The user wants a dependable kitty companion, a real customization window, their own emoji and small animated creations, and a Hermes-inspired system that adapts to their preferences. Keep the result small enough to build and enjoyable enough to use.

@@ -1,72 +1,15 @@
-# FlowPilot Open-Source Licensing & Third-Party Attribution Inventory
+# Third-Party Components and License Review
 
-**Product:** FlowPilot Desktop v3.0.2  
-**Classification:** Legal & Licensing Compliance Documentation  
-**Date:** October 15, 2026  
+FlowPilot application source is licensed under [MIT](LICENSE). The application also depends on third-party Python packages, native libraries, Qt components, and speech model assets. This page is an **inventory for review**, not a legal opinion or a claim that every notice has been audited in the packaged executable.
 
-FlowPilot integrates several high-performance open-source libraries. This document lists all third-party components, their respective licenses, and compliance statements.
+The direct runtime dependencies are listed in [pyproject.toml](pyproject.toml) and [requirements.txt](requirements.txt). Important packaged components include PySide6/Qt, faster-whisper, CTranslate2, ONNX Runtime, Silero VAD model assets, sounddevice/PortAudio, soundfile/libsndfile, NumPy, pywin32, pycaw, comtypes, pyperclip, and psutil. The final bundle may contain additional transitive dependencies.
 
----
+Before distributing a new build:
 
-## 1. Summary Licensing Table
+1. Generate a dependency and model-asset inventory from the **actual packaged artifact**, including versions and sources.
+2. Obtain each component's complete license and copyright notice from its installed distribution or upstream project. Do not rely on abbreviated excerpts or assumed license families.
+3. Check Qt/PySide6 and other dynamically bundled native libraries against their applicable redistribution requirements with qualified counsel if distributing commercially.
+4. Include all required notices with the release, then verify them in the extracted ZIP or installer.
+5. Record the reviewed artifact hash and date so the notice set can be tied to one build.
 
-| Component / Library | Version | License | Primary Purpose in FlowPilot |
-|:---|:---|:---|:---|
-| **Python** | 3.11.x | Python Software Foundation (PSF) | Core runtime environment |
-| **PySide6 (Qt for Python)** | 6.x | LGPL v3 / Commercial | Native desktop GUI, Floating HUD, System Tray |
-| **faster-whisper** | 1.x | MIT License | Local Whisper ASR inference pipeline |
-| **CTranslate2** | 4.x | MIT License | High-performance C++ inference engine for Whisper |
-| **Silero VAD** | v5 | MIT License | Voice Activity Detection (encoder/decoder ONNX) |
-| **ONNX Runtime** | 1.16+ | MIT License | Cross-platform runtime for Silero VAD model execution |
-| **sounddevice** | 0.4.x | MIT License | Windows CoreAudio recording via PortAudio |
-| **PortAudio** | v19 | MIT-style License | Cross-platform audio I/O binding |
-| **soundfile** | 0.12.x | BSD 3-Clause License | Audio WAV encoding and decoding |
-| **libsndfile** | 1.x | LGPL v2.1 | Native audio file reading/writing library |
-| **pycaw** | 2024.x | MIT License | Windows CoreAudio session ducking & volume control |
-| **comtypes** | 1.x | MIT License | Windows COM automation interface for CoreAudio |
-| **numpy** | 1.26.x / 2.x | BSD 3-Clause License | Real-time audio array buffering & linear resampling |
-| **psutil** | 6.x | BSD 3-Clause License | Process inspection & memory tracking |
-| **pywin32** | 308+ | PSF License | Native Win32 API (`RegisterHotKey`, `SendInput`) |
-| **pyperclip** | 1.9.x | BSD 3-Clause License | System clipboard access |
-
----
-
-## 2. LGPL v3 Compliance Statement (PySide6 / Qt)
-
-FlowPilot utilizes **PySide6**, the official Python bindings for Qt 6, which is licensed under the GNU Lesser General Public License version 3 (**LGPL v3**).
-
-In full compliance with LGPL v3 requirements:
-1. **Dynamic Linking:** FlowPilot links dynamically to PySide6 and the Qt dynamic link libraries (`.dll`). The Qt libraries are not statically compiled into `FlowPilot.exe`.
-2. **User Relinking Rights:** Any user may replace the bundled Qt/PySide6 dynamic link libraries located within the `_internal/PySide6/` directory with their own customized or recompiled versions of compatible Qt 6 libraries without modifying FlowPilot source code.
-3. **No Qt Modifications:** FlowPilot uses upstream, unmodified PySide6 wheel distributions provided by The Qt Company.
-
----
-
-## 3. License Texts & Copyright Notices
-
-### MIT License
-*Applicable to: faster-whisper, CTranslate2, Silero VAD, ONNX Runtime, sounddevice, pycaw, comtypes*
-> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:  
-> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-### BSD 3-Clause License
-*Applicable to: soundfile, numpy, psutil, pyperclip*
-> Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-> 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-> 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-> 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-### PortAudio License
-> PortAudio Portable Audio Library. Copyright (c) 1999-2026 Ross Bencina and Phil Burk.  
-> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction...
-
-### Python Software Foundation License
-*Applicable to: Python runtime, pywin32*
-> PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2  
-> 1. This LICENSE AGREEMENT is between the Python Software Foundation ("PSF"), and the Individual or Organization ("Licensee") accessing and otherwise using this software ("Python") in source or binary form and its associated documentation...
-
----
-
-## 4. Proprietary & Application Code Notice
-
-FlowPilot application source code and custom utilities are licensed under the MIT License (see `LICENSE` file in the project root).
+The [published v3.0.2 asset](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release) predates this documentation cleanup. Its included notices should be inspected separately before making a compliance claim about that artifact.

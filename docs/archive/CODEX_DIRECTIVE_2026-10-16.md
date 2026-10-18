@@ -1,5 +1,7 @@
 # DIRECTIVE TO CODEX: THE FLOWPILOT STANDARD OF ENGINEERING EXCELLENCE
 
+> **Engineering policy and targets, not a certification of current behavior.** This document was written on October 16, 2026 and contains historical paths, test counts, and performance targets. Before applying it, inspect current source, [privacy behavior](../../PRIVACY.md), and [live CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml). Where a factual description here conflicts with the implementation, correct the implementation or this document rather than presenting the target as achieved.
+
 **Document ID:** FP-DIR-2026-CODEX-01  
 **Target Audience:** OpenAI Codex, Claude, Autonomous Coding Agents, and Core FlowPilot Maintainers  
 **Effective Date:** October 16, 2026  
@@ -24,7 +26,7 @@ This Directive establishes the permanent standard of engineering excellence for 
 Any code change that violates any of these seven principles is considered a **critical defect** and must be immediately reverted:
 
 1. **Zero Cloud Egress (100% Local-First):**
-   Speech-to-text inference (`faster-whisper`), acoustic activity detection (`silero-vad`), and text post-processing (`FactGuard™`) must run 100% on local CPU. No audio frames, transcript tokens, clipboard contents, or screen pixels may ever leave the user's workstation. Loopback sockets are monitored by automated regression tests ([`tests/test_network_egress.py`](tests/test_network_egress.py)).
+   Speech-to-text inference (`faster-whisper`), acoustic activity detection (`silero-vad`), and text post-processing (`FactGuard™`) must run locally. No audio frames, transcript tokens, clipboard contents, or screen pixels may be sent to external services. The [network egress regression test](../../tests/test_network_egress.py) covers selected paths; its scope is not an independent certification.
 2. **Zero Syllable Clipping (Continuous 350ms Pre-Roll):**
    Human speech begins before mechanical keys are fully engaged. The audio capture pipeline must continuously maintain an active, sliding float32 ring buffer seeded prior to hotkey trigger. First-syllable loss is unacceptable.
 3. **Sub-1.5s End-to-End Latency Target:**
@@ -71,7 +73,7 @@ FlowPilot's architecture is synthesized from forensic teardowns of industry-lead
 ```
 
 ### Referral 1: Wispr Flow (The User Experience & Voice Intelligence Benchmark)
-*Forensic Analysis Document:* [`docs/architecture/flowpilot_wispr_feature_inventory.md`](docs/architecture/flowpilot_wispr_feature_inventory.md)
+*Historical analysis:* [`flowpilot_wispr_feature_inventory.md`](../archive/flowpilot_wispr_feature_inventory.md)
 - **Spoken Punctuation Grammar:** Real-time conversion of spoken tokens (`comma` -> `,`, `period` / `full stop` -> `.`, `question mark` -> `?`, `colon` -> `:`, `semicolon` -> `;`, `ellipsis` -> `...`, `quotes` -> `""`, `parens` -> `()`, `brackets` -> `[]`).
 - **Voice Editing & Scratch Commands:**
   - *"scratch that"*, *"delete that"*, or *"cancel that"* erases the preceding sentence or clause before clipboard injection.
@@ -82,7 +84,7 @@ FlowPilot's architecture is synthesized from forensic teardowns of industry-lead
 - **Visual Elegance:** Minimalist docked vertical edge bar that subtly pulses with speech RMS volume, completely eliminating distracting text boxes.
 
 ### Referral 2: whisper-local (The Acoustic Latency & Gesture Benchmark)
-*Forensic Analysis Document:* [`docs/architecture/flowpilot_desktop_architecture.md`](docs/architecture/flowpilot_desktop_architecture.md)
+*Architecture overview:* [`flowpilot_desktop_architecture.md`](flowpilot_desktop_architecture.md)
 - **Continuous Sliding Pre-Roll Ring Buffer:** Maintains a 350ms float32 circular buffer (`collections.deque(maxlen=N)`). When recording triggers, the pre-roll buffer is atomically transferred to seed the active recording frames.
 - **Zero-Latency Audio Stream Warmup:** `warmup_stream()` initializes the PortAudio device in the background at startup, eliminating the 100–180ms driver spin-up latency on Windows MME/WASAPI.
 - **TapLatch™ Finite State Machine:**
@@ -92,20 +94,20 @@ FlowPilot's architecture is synthesized from forensic teardowns of industry-lead
   - `LATCHED` -> Key Down -> `IDLE` (Stops dictation and pastes).
 
 ### Referral 3: SpeakoFlow (The Clipboard Hardware Safety Benchmark)
-*Forensic Analysis Document:* [`tests/test_dissected_upgrades.py`](tests/test_dissected_upgrades.py)
+*Regression test:* [`tests/test_dissected_upgrades.py`](../../tests/test_dissected_upgrades.py)
 - **Atomic Clipboard Hardware Sequence Verification:** Utilizes Win32 `ctypes.windll.user32.GetClipboardSequenceNumber()`.
 - **Race Condition Prevention:** Reads sequence $S_1$ before clipboard overwrite, verifies $S_2$ after clipboard paste, and only restores previous clipboard state if $S_2 == S_1 + 1$. If the user copied new data during the paste window, restoration is aborted to prevent data loss.
 - **Alt+Shift+Z Quick Re-Paste:** Re-injects the most recent dictation buffer instantly into the active window if focus was disrupted.
 
 ### Referral 4: Superwhisper (The Offline Accuracy Benchmark)
-*Forensic Analysis Document:* [`docs/testing/flowpilot_benchmark_matrix.md`](docs/testing/flowpilot_benchmark_matrix.md)
+*Historical benchmark snapshot:* [`flowpilot_benchmark_matrix.md`](../archive/flowpilot_benchmark_matrix.md)
 - **Local Model Architecture:** `faster-whisper` (CTranslate2) utilizing 8-bit integer quantization (`int8`) on CPU with greedy decoding (`beam_size=1`).
 - **Developer Vocabulary Biasing:** Injects engineered domain prompts biasing the beam search toward modern tech stacks (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`).
 
 ### Referral 5: SondeR-Cat & Desktop Pet Ecosystem (The Companionship Benchmark)
-*Forensic Analysis Document:* [`docs/architecture/flowpilot_pet_companion_and_gpt_review_audit.md`](docs/architecture/flowpilot_pet_companion_and_gpt_review_audit.md)
+*Historical companion analysis:* [`flowpilot_pet_companion_and_gpt_review_audit.md`](../archive/flowpilot_pet_companion_and_gpt_review_audit.md)
 - **Rejection of Web/WebSocket Hallucinations:** GPT-generated review documents proposed streaming base64 PNGs over WebSockets to an HTML canvas (50ms+ latency, 20%+ CPU). This was rejected. Both FlowPilot and SondeR-Cat are native **PySide6 / Qt6**.
-- **Native ASCII Sprite Grid Engine:** 26×28 ASCII text grids in [`ui/pet_sprites.py`](ui/pet_sprites.py) rendered via `QPainter` at `scale=3` (78×84 px) with 14 fur palettes (Orange Tabby, Calico, Midnight Black, Classic Gray, Siamese, Pastel Pink, Snow White, Mint, Chocolate, Cream, Lilac, Mimi, JJ, Lilly).
+- **Native ASCII Sprite Grid Engine:** 26×28 ASCII text grids in [`ui/pet_sprites.py`](../../ui/pet_sprites.py) rendered via `QPainter` at `scale=3` (78×84 px) with multiple fur palettes.
 - **Interactive Speech Reactivity:**
   - *Dictating:* Front paws knead and type (`type_a`, `type_b`, `knead_a`, `knead_b`) with speed proportional to microphone RMS volume.
   - *Transcribing:* Pupils glow electric cyan/amber (`#38BDF8` / `#F59E0B`).
@@ -235,14 +237,14 @@ self._preroll_buffer = deque(maxlen=int(self.sample_rate * 0.35 / self.chunk_siz
 
 ## 6. VERIFICATION GATES & REGRESSION TEST HARNESS
 
-FlowPilot enforces a zero-defect regression protocol. Before any code is committed, **all 30 automated test suites must pass 100%**:
+FlowPilot's current runner defines **37 suites**. Before promoting a build, run the complete suite and investigate every failure; explicitly report hardware skips as skips, not passes. Check [live CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the intended commit:
 
 ```bash
-# Execute Full 30-Suite Master Regression
+# Execute current master regression suite
 python tests/run_all_tests.py
 ```
 
-### The 30 Required Verification Suites:
+### Original 30 verification suites (historical list; the runner is authoritative):
 1. `tests/test_audio.py` — Microphone capture & PortAudio ring buffer
 2. `tests/test_stt.py` — Local Faster-Whisper base INT8 speech model
 3. `tests/test_text_injector.py` — Keystroke synthesis & Win32 focus lock
@@ -273,6 +275,8 @@ python tests/run_all_tests.py
 28. `tests/test_cross_app_injection.py` — Cross-application focus & terminal injection
 29. `tests/test_final_specification_e2e.py` — 18-scenario full system specification verification
 30. `tests/test_standalone_binary_smoke.py` — Standalone binary packaging & single-instance smoke
+
+The runner also includes Companion Studio, Insights, Meeting Notetaker (two suites), Pixel Creator, Dashboard, and Selected-Text Transforms/History Vault. See [`tests/run_all_tests.py`](../../tests/run_all_tests.py) for the current list and ordering.
 
 ---
 

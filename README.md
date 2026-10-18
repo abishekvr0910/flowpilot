@@ -30,7 +30,7 @@ FlowPilot transcribes speech on the user's machine and inserts text at the activ
 | 🔒 **Local speech recognition** | Uses `faster-whisper` INT8 on CPU. Cloud STT branches are disabled in current source; the network regression test covers selected dictation paths. History data is stored locally by default. |
 | 🔌 **Local OpenAI-Compatible API** | Drop-in `POST /v1/audio/transcriptions` and `GET /v1/models` local endpoint (`http://127.0.0.1:8765/v1`) for seamless integration with Cursor IDE, Open WebUI, and Obsidian plugins. |
 | 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. |
-| 🤖 **Optional Local LLM Pass** | Connects strictly to localhost Ollama (`http://127.0.0.1:11434`), LM Studio, or llama.cpp for generative Command Mode and tone transformations while remaining 100% offline. **Target Safety:** Selected-Text Transforms (`Ctrl+Alt+T`) operate directly on highlighted text (or the last dictation buffer if nothing is selected). Original text is always restorable instantly via **`Alt+Shift+Z`**. |
+| 🤖 **Optional Local LLM Pass** | Current source can connect to a separately installed localhost model service such as Ollama or LM Studio for command and tone transforms. Offline behavior also depends on that service's configuration. **Target Safety:** Selected-Text Transforms (`Ctrl+Alt+T`) use highlighted text or the last dictation buffer; **`Alt+Shift+Z`** is the recovery shortcut for the last dictation, subject to target-app behavior. |
 | ⚡ **Measured latency** | The [v3.0.2 release evaluation](docs/release/FLOWPILOT_V302_RELEASE_REPORT.md) reports 1,202 ms median and 1,460 ms p95 from stop action to visible text on one 8-thread Windows test host. These are historical host measurements, not a guarantee for current `master` or other hardware. |
 | 🎙️ **Flexible Voice Controls & TapLatch™** | Choose between **F9 Push-to-Talk** (hold to speak, release to paste), **TapLatch™** (double-tap <350ms to lock hands-free, tap to stop), or **Ctrl+Shift+Space Toggle** with automatic 0.85s conversational pause finalization. |
 | 🔄 **Continuous Pre-Roll Ring Buffer** | A 350 ms sliding float32 buffer and background stream warmup are designed to reduce first-syllable clipping; microphone and system timing still vary. |
@@ -149,7 +149,7 @@ You can customize settings via the System Tray context menu (**Right-Click Tray 
 ### Available Tone Modes
 - **`developer`** (Default): Preserves code identifiers, acronyms, and formatting while cleaning vocal fillers.
 - **`cleaned`**: Standard conversational cleanup with natural punctuation and capitalization.
-- **`verbatim`**: 100% exact acoustic transcript — zero filler removal or rewriting.
+- **`verbatim`**: Minimal post-processing of the model's acoustic transcript; recognition errors remain possible.
 - **`casual`**: Conversational tone preserving expressive language.
 - **`email`**: Structured business formatting.
 

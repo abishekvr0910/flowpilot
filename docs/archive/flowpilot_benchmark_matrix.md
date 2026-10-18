@@ -1,5 +1,7 @@
 # FLOWPILOT MULTILINGUAL & PERFORMANCE BENCHMARK MATRIX
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 **Date:** October 14, 2026  
 **Host Environment:** Windows 11 Enterprise (x86_64)  
 **Execution Runtime:** Python 3.11.15 / CTranslate2 INT8 execution on Host CPU  

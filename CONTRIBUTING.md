@@ -33,7 +33,7 @@ pip install -e .[dev]
 
 FlowPilot features comprehensive regression, specification, and safety test suites:
 
-### 1. Complete Automated Audit Suite (20 Tests)
+### 1. Complete Automated Audit Suite (37 Suites)
 Runs microphone checks, Whisper model inference, FactGuard rules, Win32 hotkey loop, network egress verification, and 5-cycle Notepad dictation:
 ```powershell
 python tests/run_all_tests.py
@@ -55,8 +55,8 @@ python tests/test_standalone_binary_smoke.py
 
 ## 📐 Coding Standards & Guidelines
 
-- **Zero Network Egress:** Core dictation components must never make network calls unless the user explicitly configured cloud mode.
-- **Privacy Preservation:** Never log user audio, transcripts, or personal data to stdout, disk files, or diagnostic dumps.
+- **Local Speech Processing:** Cloud transcription branches are disabled. New integrations must preserve the local network boundary and extend the egress regression test.
+- **Privacy Preservation:** Avoid logging raw user audio or transcripts to consoles and diagnostics. The History Vault intentionally stores completed dictation text and WAV audio locally; any change to its behavior must update [PRIVACY.md](PRIVACY.md) and its tests.
 - **FactGuard Preservation:** Any changes to `ContextProcessor` or `WritingIntelligence` must strictly preserve negations, numbers, dates, and technical symbols without hallucination.
 - **Thread Safety:** Audio capture, hotkey listeners, and UI components run on distinct threads; always protect shared resources using locks (`threading.Lock()`).
 - **Win32 Window Focus:** The floating HUD must always retain the `WS_EX_NOACTIVATE` window style so it never steals focus from the user's active window.

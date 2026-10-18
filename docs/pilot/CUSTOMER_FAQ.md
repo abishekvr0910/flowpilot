@@ -1,77 +1,35 @@
-# FlowPilot Customer & Enterprise Frequently Asked Questions (FAQ)
+# FlowPilot FAQ
 
-**Product:** FlowPilot Desktop  
-**Version:** 2.1.0  
-**Classification:** Customer Support & Sales Enablement  
+**Scope:** Current `master` pilot source. The published [v3.0.2 Windows release](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release) has a different feature set. This FAQ is not a purchasing offer or compliance certification.
 
----
+## Is speech recognition local?
 
-## 1. Privacy, Security & Offline Operation
+Yes. The current STT engine uses the local `faster-whisper` model and rejects cloud transcription mode. The [network egress regression test](../../tests/test_network_egress.py) covers selected code paths; it is not an independent audit of every configuration. Optional integrations should be evaluated separately.
 
-### Q: Is FlowPilot truly 100% offline? How can I independently verify this?
-**A:** Yes. FlowPilot runs CTranslate2 quantized Whisper speech recognition directly on your computer's local CPU. Once installed, it opens **zero outbound network connections**. You can independently verify this at any time by:
-1. Running FlowPilot while your laptop is in **Windows Airplane Mode** (Wi-Fi disconnected).
-2. Using Windows Task Manager > Performance > Resource Monitor > Network tab.
-3. Running FlowPilot's automated socket audit script: [`python tests/test_network_egress.py`](file:///S:/APPs/New%20folder/tests/test_network_egress.py).
+## Does FlowPilot store audio or transcripts?
 
-### Q: What happens to my spoken audio? Does FlowPilot store audio recordings on disk?
-**A:** No. Microphone audio is streamed into temporary volatile memory (RAM) strictly for the duration of your utterance. As soon as transcription completes, the memory buffer is cleared and garbage-collected. Spoken audio is never written to your hard drive or transmitted to the cloud.
+Yes, in current `master`. The History Vault saves completed dictation transcripts and WAV recordings locally by default. Meeting notes are saved locally when that feature is used. See [PRIVACY.md](../../PRIVACY.md) for paths, settings, and deletion behavior. The `save_history_text` setting does not turn off the vault.
 
-### Q: Is FlowPilot compliant with HIPAA and GDPR?
-**A:** FlowPilot provides a **HIPAA-Eligible Architecture** and aligns with **GDPR Privacy-by-Design** principles. Because voice data never leaves your local workstation, deploying FlowPilot eliminates third-party cloud data transmission, cross-border data transfer liabilities, and the requirement for complex cloud Business Associate Agreements (BAAs). Your organization maintains complete physical custody of all spoken voice data.
+## Is it certified for HIPAA or GDPR use?
 
----
+No certification or legal suitability determination is claimed. Local processing can reduce some third-party data transfers, but deployment suitability depends on retention, device security, access controls, organizational policy, and legal review.
 
-## 2. Hardware Requirements & Performance
+## Do I need a GPU?
 
-### Q: Do I need an expensive dedicated NVIDIA GPU to run FlowPilot?
-**A:** No. FlowPilot is optimized with CTranslate2 INT8 quantization to run fast and smooth on standard Intel and AMD x86_64 CPUs (Intel Core 4th Gen+ or AMD Ryzen). A 5-second dictation processes in under ~950 ms on standard laptop processors.
+No for the default CPU INT8 model. Speed and memory usage vary by processor, model, microphone, and dictation length. The [v3.0.2 evaluation](../release/FLOWPILOT_V302_RELEASE_REPORT.md) describes one dated test host; its results are not guarantees for current source or other devices.
 
-### Q: How much system memory (RAM) does FlowPilot consume?
-**A:** FlowPilot consumes approximately **~127 MB to ~290 MB of RAM** while running in the background. Unlike Electron-based alternatives that consume 600MB–1,000MB and spin laptop fans, FlowPilot is built natively with PySide6/Win32 for negligible background resource impact.
+## Which shortcuts are available?
 
----
+The defaults include `Ctrl+Shift+Space` for toggle dictation and `F9` for push-to-talk. Shortcuts can conflict with other applications and may be changed in Settings. Use the companion's right-click menu or Companion Studio to select an appearance; double-click does not cycle styles in current source.
 
-## 3. Daily Workflow & Dictation Controls
+## What if text fails to paste?
 
-### Q: What keyboard shortcuts does FlowPilot use?
-**A:** 
-- **`Ctrl + Shift + Space` (Default):** Toggle dictation on/off. Press once to start speaking; press again to paste formatted writing.
-- **`F9` (Push-to-Talk):** Hold `F9` while speaking; release to paste.
-- **`Ctrl + Alt + Space`:** Secondary toggle shortcut if your system has a shortcut conflict.
-- **`Esc`:** Emergency cancel (discards recording and restores background volume).
+The tray's **Copy Last Dictation** action can recover the most recent in-memory result. FlowPilot attempts to restore clipboard contents after insertion and checks the clipboard sequence to avoid overwriting a newer user copy. Target applications and clipboard formats may differ; report reproducible failures.
 
-### Q: Can I run FlowPilot and Wispr Flow on the same computer?
-**A:** Yes. Wispr Flow binds `Ctrl + Win`, while FlowPilot uses `Ctrl + Shift + Space` and `F9`. Both applications can be active simultaneously without shortcut collisions or audio device starvation.
+## What is FactGuard?
 
-### Q: Will dictating with FlowPilot overwrite what I already copied to my clipboard?
-**A:** No. FlowPilot saves your pre-existing clipboard contents before pasting, injects the new text in ~300ms, and automatically restores your original clipboard data within 1.5 seconds.
+It is a deterministic formatting guard designed to preserve numbers, dates, negations, and developer identifiers. It does not guarantee error-free speech recognition or replace review of important text.
 
-### Q: What if a window closes and my text doesn't paste?
-**A:** FlowPilot maintains an in-memory recovery buffer. Simply right-click the FlowPilot tray icon and select **"Copy Last Dictation"**, then press `Ctrl + V` into any document.
+## Is there a paid plan or refund policy?
 
----
-
-## 4. Writing Intelligence & Custom Terminology
-
-### Q: How does spoken self-correction work?
-**A:** If you make a mistake or change your mind mid-sentence (*"Schedule the meeting for Monday -- actually, Tuesday at 3 PM"*), FlowPilot automatically detects the retraction phrase, removes the superseded information ("Monday"), and pastes the corrected statement (*"Schedule the meeting for Tuesday at 3:00 PM."*).
-
-### Q: What is FactGuard™?
-**A:** FactGuard is FlowPilot's deterministic safety layer that inspects the raw speech transcript against the polished output. It mathematically guarantees that numbers, currency amounts, dates, and critical negations (`not`, `never`, `cannot`, `without`) are never deleted or hallucinated by AI rewriting.
-
-### Q: Can our team share a customized dictionary of company terms and acronyms?
-**A:** Yes! FlowPilot stores custom vocabulary in a standard JSON file (`%USERPROFILE%\.flowpilot\personalization.json`). IT administrators can distribute a pre-configured dictionary file via Microsoft Intune or corporate group policy to standardize company nomenclature across hundreds of employee laptops.
-
----
-
-## 5. Licensing, Purchasing & Support
-
-### Q: How is FlowPilot priced?
-**A:** We offer:
-- **Individual Pro:** $49.00 one-time perpetual license with 1 year of updates (or $4.99/mo).
-- **Team / Practice:** $12.00 / seat / month (billed annually) with team dictionary sync and commercial rights.
-- **Enterprise Air-Gapped:** $36.00 – $48.00 / seat / year for volume fleet deployments.
-
-### Q: What is your refund policy?
-**A:** We offer a **14-day risk-free money-back guarantee**. If FlowPilot does not improve your daily writing speed and workflow, simply contact support@flowpilot.local for an immediate 100% refund.
+The source code is [MIT-licensed](../../LICENSE). The [GitHub Releases page](https://github.com/abishekvr0910/flowpilot/releases) lists published downloads. No paid plan or refund policy is offered through this repository. Use [GitHub Issues](https://github.com/abishekvr0910/flowpilot/issues) for non-sensitive support and [SECURITY.md](../../SECURITY.md) for vulnerability reports.

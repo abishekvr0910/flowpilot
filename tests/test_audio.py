@@ -1,3 +1,4 @@
+import os
 import sys
 import sounddevice as sd
 import numpy as np

@@ -42,3 +42,6 @@ _backup*/
 # Cloned reference repos
 external/
 
+# Local-only commercial and internal working documents
+private/
+

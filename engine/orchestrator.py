@@ -186,6 +186,9 @@ class FlowOrchestrator:
                 })
             except Exception as e:
                 with self._state_lock:
+                    if active_session.is_cancelled or self.state == AppState.CANCELLED:
+                        print(f"[Orchestrator] Exception after cancellation (state={self.state}); preserving CANCELLED state.")
+                        return
                     active_session.transition_to(SessionState.ERROR)
                     self.state = AppState.ERROR
                 threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
