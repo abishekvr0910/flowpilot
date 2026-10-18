@@ -72,15 +72,20 @@ async def client_test():
         print("\n[Step 4] Sending WebSocket action: 'start'...")
         await ws.send(json.dumps({"action": "start"}))
 
-        # Expect starting and/or listening event
-        listening_msg = await asyncio.wait_for(ws.recv(), timeout=3.0)
-        listening_data = json.loads(listening_msg)
-        print(f"  Received event: '{listening_data.get('state')}' (target={listening_data.get('target_app')})")
-        if listening_data.get("state") == "starting":
+        # Expect starting and/or listening event (drain intermediate events)
+        listening_received = False
+        for _ in range(10):
             listening_msg = await asyncio.wait_for(ws.recv(), timeout=3.0)
             listening_data = json.loads(listening_msg)
             print(f"  Received event: '{listening_data.get('state')}' (target={listening_data.get('target_app')})")
-        assert listening_data.get("state") == "listening", "Did not receive 'listening' state"
+            if listening_data.get("state") == "listening":
+                listening_received = True
+                break
+            elif listening_data.get("state") in ("starting", "audio_level"):
+                continue
+            else:
+                break
+        assert listening_received, f"Did not receive 'listening' state (got '{listening_data.get('state')}')"
 
         # Receive at least one audio level event
         print("\n[Step 5] Listening for real-time RMS audio level packets...")
