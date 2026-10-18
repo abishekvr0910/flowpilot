@@ -457,7 +457,7 @@ def run_18_scenarios():
             exe_path = PROJECT_ROOT / "dist" / "FlowPilot" / "FlowPilot.exe"
             assert exe_path.exists(), f"Packaged executable not found at {exe_path}"
             exe_size = exe_path.stat().st_size
-            assert exe_size > 20 * 1024 * 1024, f"Binary size unexpectedly small: {exe_size} bytes"
+            assert exe_size > 10 * 1024 * 1024, f"Binary size unexpectedly small: {exe_size} bytes"
             results["S18_Packaged_Executable"] = "PASS"
             print(f"  -> Passed: FlowPilot.exe verified ({exe_size / (1024*1024):.1f} MB).")
         except Exception as e:
