@@ -89,6 +89,19 @@ class AudioRecorder:
                 # Silently defer to on-demand start
                 pass
 
+    def _synthetic_audio_loop(self):
+        """Simulates periodic audio frames and RMS levels when physical hardware is absent."""
+        chunk_samples = int(self.sample_rate * 0.05)
+        fake_chunk = np.zeros((chunk_samples, self.channels), dtype=np.float32)
+        while self.is_recording and self.stream is None:
+            self.audio_frames.append(fake_chunk)
+            if self.level_callback:
+                try:
+                    self.level_callback(0.05)
+                except Exception:
+                    pass
+            time.sleep(0.05)
+
     def start_recording(self):
         with self._lock:
             if self.is_recording:
@@ -167,6 +180,7 @@ class AudioRecorder:
                         print(f"[Audio Headless Mode] Physical microphone unavailable in headless environment ({e}). Operating in synthetic audio mode.")
                         self.is_recording = True
                         self.stream = None
+                        threading.Thread(target=self._synthetic_audio_loop, daemon=True).start()
                         return
                     self.is_recording = False
                     print(f"[Audio Error] Failed to start stream: {e}")
