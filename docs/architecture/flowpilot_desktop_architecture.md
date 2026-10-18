@@ -1,5 +1,7 @@
 # FlowPilot Desktop Architecture & Cross-Platform Blueprint
 
+> **Architecture overview:** Diagrams describe component intent and may omit newer pilot features. Windows is the published distribution target; Linux and macOS adapters are development paths. For current storage behavior and verification status, see [PRIVACY.md](../../PRIVACY.md) and [live CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml).
+
 ## 1. System Architecture Overview
 
 FlowPilot is designed as an event-driven, local-first voice intelligence desktop system. It provides instant, cross-application speech-to-text dictation with automatic background audio ducking, context-aware formatting, and active-window text injection.

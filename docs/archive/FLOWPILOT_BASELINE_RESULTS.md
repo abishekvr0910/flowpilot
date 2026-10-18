@@ -1,5 +1,7 @@
 # FlowPilot Baseline Results & Performance Evolution
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 **Product:** FlowPilot Desktop  
 **Evaluation Target:** Subsystem Reliability & Latency Before vs. After Engineering Overhaul  
 **Host Environment:** Windows 11 x64, Intel Multi-Core Processor, 16GB+ RAM, Intel Smart Sound Array  

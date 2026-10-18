@@ -16,7 +16,7 @@ FlowPilot is designed with a defense-in-depth posture appropriate for desktop vo
 
 ### 1. Zero Network Egress
 - Local execution by default: all speech models (`faster-whisper`, `silero-vad`) execute purely on local CPU execution providers via CTranslate2 and ONNX Runtime.
-- Automated tests ([`tests/test_network_egress.py`](file:///S:/APPs/New%20folder/tests/test_network_egress.py)) continuously monitor network socket bindings to ensure no telemetry beacons, phone-home routines, or remote analytics are present.
+- The [network egress regression test](tests/test_network_egress.py) blocks attempted non-loopback connections in selected code paths. It is not continuous runtime monitoring or an independent certification.
 
 ### 2. Process Isolation & Win32 APIs
 - FlowPilot runs as a standard medium-integrity desktop process. It does not require elevated administrator privileges for normal operation.
@@ -33,7 +33,7 @@ FlowPilot is designed with a defense-in-depth posture appropriate for desktop vo
 If you discover a security vulnerability within FlowPilot:
 
 1. **Do not open a public GitHub issue.**
-2. Report the vulnerability privately via GitHub Security Advisories or by emailing the project maintainers directly.
+2. Report the vulnerability privately via [GitHub's private vulnerability reporting](https://github.com/abishekvr0910/flowpilot/security/advisories/new), if enabled for this repository. If unavailable, contact a maintainer through a previously verified private channel; do not publish exploit details in an issue.
 3. Include detailed steps to reproduce the issue, environment details (Windows version, Python version), and any proof-of-concept material.
 
-We acknowledge receipt of security reports within 48 hours and strive to issue verified patches promptly.
+The maintainer will triage private reports as capacity permits. No contractual response-time guarantee is offered.

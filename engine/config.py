@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 CONFIG_FILE = Path.home() / ".flowpilot" / "config.json"
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "engine_mode": "local",  # "local" (Faster-Whisper offline) or "cloud"
+    "engine_mode": "local",  # Local Faster-Whisper; cloud mode is rejected by STTEngine
     "cloud_provider": "groq",  # "groq" or "openai"
     "groq_api_key": "",
     "openai_api_key": "",
@@ -24,7 +24,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "Next.js", "TypeScript", "Python", "Whisper", "Docker", "AWS Lambda"
     ],
     "telemetry_enabled": False,  # Default disabled; opt-in required for pilot diagnostics
-    "save_history_text": False,  # Default disabled; zero retention of transcribed speech on disk
+    "save_history_text": False,  # Legacy config history only; History Vault still stores dictations locally
     "auto_stop_on_silence": True,  # Wispr Flow behavior: auto-finalize after pause in speech
     "silence_timeout_sec": 0.85,  # Optimized conversational pause (down from 1.4s, saving ~550ms)
     "hud_style": "mascot",  # "mascot" (Cartoon companion Pilot) or "wave" (Wispr dynamic bars)

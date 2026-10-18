@@ -1,5 +1,7 @@
 # FlowPilot v3.0.2 — Master Release Hardening, Model Evaluation & GitHub Handoff Report
 
+> **Historical v3.0.2 release evaluation:** The measurements and pass counts below apply to the tagged release commit, not to current `master` or unpublished pilot builds. Check [live CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for current source status.
+
 **Classification:** Official Post-Publication Audit & Engineering Verification  
 **Published Release:** FlowPilot v3.0.2 (`v3.0.2-release`)  
 **Published Git Commit:** `b9bd76396b2883fa2e87e8b131d231dc39c34515`  
@@ -17,9 +19,9 @@ FlowPilot v3.0.2 has been published to GitHub and independently verified across 
 - **Current Version:** FlowPilot v3.0.2 (`v3.0.2-release`)
 - **Published Commit:** [`b9bd763`](https://github.com/abishekvr0910/flowpilot/commit/b9bd76396b2883fa2e87e8b131d231dc39c34515)
 - **Baseline Version:** FlowPilot v3.0.1 (`v3.0.1-release`, commit `5fd8e2fb640079ac66e6993554e4d21a18f3af03`) — fully preserved.
-- **Automated Regression Suite:** **20 / 20 PASSED** ([`tests/run_all_tests.py`](tests/run_all_tests.py), 63.95s runtime).
-- **18-Scenario Specification Suite:** **18 / 18 PASSED** ([`tests/test_final_specification_e2e.py`](tests/test_final_specification_e2e.py), 16.7s runtime).
-- **Standalone Binary Smoke Test:** **PASSED** ([`tests/test_standalone_binary_smoke.py`](tests/test_standalone_binary_smoke.py)).
+- **Automated Regression Suite:** **20 / 20 PASSED** ([`tests/run_all_tests.py`](../../tests/run_all_tests.py), 63.95s runtime at the release commit).
+- **18-Scenario Specification Suite:** **18 / 18 PASSED** ([`tests/test_final_specification_e2e.py`](../../tests/test_final_specification_e2e.py), 16.7s runtime at the release commit).
+- **Standalone Binary Smoke Test:** **PASSED** ([`tests/test_standalone_binary_smoke.py`](../../tests/test_standalone_binary_smoke.py) at the release commit).
 - **Acoustic Accuracy Audit (44 Cases, 760 Reference Words):**
   - **Raw Acoustic ASR WER:** **15.66%** (119 errors / 760 reference words; 66 S, 45 D, 8 I).
   - **Strict Cleaned Formatted WER:** **12.01%** (89 errors / 741 reference words; 53 S, 27 D, 9 I).

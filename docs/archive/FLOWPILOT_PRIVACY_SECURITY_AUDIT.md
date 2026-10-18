@@ -1,5 +1,7 @@
 # FlowPilot Security & Privacy Forensic Engineering Audit
 
+> **HISTORICAL / SUPERSEDED:** This snapshot is not a current privacy disclosure, independent certification, or proof of legal compliance. Current source saves dictation audio and text locally; see [PRIVACY.md](../../PRIVACY.md) and [live CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml).
+
 **Product:** FlowPilot Desktop  
 **Target Environment:** Windows 10 & 11 (x64)  
 **Classification:** Enterprise Security & Privacy Compliance Review  

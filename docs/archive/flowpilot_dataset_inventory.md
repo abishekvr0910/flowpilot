@@ -1,5 +1,7 @@
 # FLOWPILOT MULTILINGUAL SPEECH DATASET & LICENSING AUDIT
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 **Date:** October 14, 2026  
 **Auditor:** FlowPilot Compliance & Engineering  
 **Scope:** Legal and commercial analysis of public speech corpora for multilingual acoustic evaluation, fine-tuning, and model adaptation.

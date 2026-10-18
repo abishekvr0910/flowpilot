@@ -74,7 +74,11 @@ def test_sondercat_pixel_companion():
     assert wav_path.stat().st_size > 10000, "Meow sound file is incomplete or corrupted"
     print(f"[7] Verified audio sound cue asset: {wav_path.name} ({wav_path.stat().st_size} bytes).")
 
-    # 8. Style Cycling & Backward Compatibility
+    # 8. Locked appearance and intentional style cycling
+    hud._appearance_locked = True
+    hud.toggle_visual_style()
+    assert hud._visual_style == "kitty", "Locked appearance must not cycle"
+    hud._appearance_locked = False
     hud.toggle_visual_style() # -> edge_line
     assert hud._visual_style == "edge_line"
     hud.toggle_visual_style() # -> wave_bar
@@ -83,7 +87,7 @@ def test_sondercat_pixel_companion():
     assert hud._visual_style == "mascot"
     hud.toggle_visual_style() # -> kitty
     assert hud._visual_style == "kitty"
-    print("[8] 4-way appearance cycle verified (kitty -> edge_line -> wave_bar -> mascot -> kitty).")
+    print("[8] Appearance lock and explicit 4-way cycle verified.")
 
     hud.close()
     print("\n[RESULT] SondeR-Cat Pixel Kitty Companion test PASSED 100%.")

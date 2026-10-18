@@ -1,6 +1,6 @@
 # ⚡ FlowPilot 60-Second Quickstart
 
-Welcome to **FlowPilot**! FlowPilot is an open-source, low-latency, 100% private voice dictation assistant for **Windows**, **Linux**, and **macOS** with full Wispr Flow feature parity.
+FlowPilot is a local-first voice dictation app. The [published v3.0.2 download](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release) targets Windows. The current source contains additional pilot features; Linux and macOS adapters are development paths, not equivalent packaged releases. Read [PRIVACY.md](PRIVACY.md) for current-source local history storage.
 
 ---
 
@@ -8,7 +8,7 @@ Welcome to **FlowPilot**! FlowPilot is an open-source, low-latency, 100% private
 
 ### Windows
 - **Option A (One-Click Batch Launcher):** Double-click **`start_desktop.bat`** in the repository root.
-- **Option B (Pre-built Standalone App):** Double-click **`FlowPilot.exe`** (or `dist\FlowPilot\FlowPilot.exe`).
+- **Option B (Published Windows App):** Download and extract the v3.0.2 release ZIP, then run **`FlowPilot.exe`** from its extracted folder.
 - **Option C (From Python Source):**
   ```powershell
   python desktop_app.py
@@ -44,7 +44,7 @@ When FlowPilot starts, you will see your animated desktop companion appear on yo
 - 🚫 **Zero Clutter:** No annoying text pills, no focus-stealing window overlays (`WS_EX_NOACTIVATE`).
 - 🖐️ **Draggable Anywhere:** Drag your companion to any pixel on any monitor. Position is automatically remembered across app restarts.
 - 📐 **Snap to Any Corner:** Right-click the companion to immediately snap to *Bottom-Right*, *Bottom-Left*, *Top-Right*, *Top-Left*, *Left Edge (Middle)*, *Right Edge (Middle)*, or *Bottom-Center*.
-- 🔄 **Quick Cycle:** Double-click the companion anytime to cycle seamlessly between Kitty, Edge Line, Wave Equalizer, and Robot Mascot!
+- **Choose a style:** Use the companion's right-click **Appearance Style** menu or Companion Studio in current source. Double-click is intentionally ignored for appearance changes.
 
 ---
 
@@ -98,4 +98,4 @@ FlowPilot automatically resolves voice editing commands, punctuation, and struct
 - **Instant Re-Paste:** Press **`Alt + Shift + Z`** anywhere in your OS to immediately re-paste your last dictation buffer.
 - **Copy Last Dictation:** If an elevated terminal window blocks automated typing, right-click the System Tray icon or Pilot Companion and select **"Copy Last Dictation"** — your dictation is never lost.
 - **Audio Ducking:** FlowPilot automatically lowers background music (Spotify, YouTube, Discord) while speaking, then restores volume upon pasting.
-- **100% Offline by Default:** Speech recognition runs locally on your CPU via `faster-whisper` INT8. No audio recordings or keystrokes ever leave your device.
+- **Local by Default:** Speech recognition runs on your CPU via `faster-whisper` INT8. Current source saves completed dictation audio and text in its local History Vault; see [PRIVACY.md](PRIVACY.md). Check optional integrations separately under your network policy.

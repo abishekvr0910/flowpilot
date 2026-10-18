@@ -1,5 +1,7 @@
 # FlowPilot Multilingual Speech & Writing Intelligence Validation Report
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 **Product:** FlowPilot Desktop  
 **Target:** Local Multilingual Dictation & Script Preservation  
 **Engine:** `faster-whisper` (Base/Small) + `WritingIntelligence` Rule-Based Deterministic Layer  

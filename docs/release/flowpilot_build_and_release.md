@@ -1,139 +1,40 @@
-# FlowPilot Build & Release Guide
+# Build and Release Guide (Windows)
 
-This document describes how to build, test, package, and distribute FlowPilot as a standalone Windows application and installer.
+This guide describes **building current source**, not the already published v3.0.2 ZIP. Do not publish or label a new release solely because a local executable launches.
 
----
+## Prepare the environment
 
-## 1. Prerequisites & Environment Setup
+Use Windows 10/11, Python 3.11 or newer, and a supported microphone. Clone the repository into a path of your choice:
 
-* **Operating System:** Windows 10 / Windows 11 (64-bit)
-* **Python Runtime:** Python 3.10 or 3.11 (64-bit)
-* **Audio Hardware:** Any functioning microphone (integrated array or USB headset)
-
-### Setup Instructions
 ```powershell
-# 1. Clone repository
-git clone <repo-url> "S:\APPs\New folder"
-cd "S:\APPs\New folder"
-
-# 2. Create virtual environment
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-
-# 3. Install dependencies
+git clone https://github.com/abishekvr0910/flowpilot.git
+cd flowpilot
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-pip install PySide6 pyinstaller
+pip install -e ".[dev,web]"
 ```
 
----
+The runtime model loader uses local-only weights. Provision required `tiny` and `base` model files during the build/setup phase on a connected machine, then validate offline behavior separately. The [CI workflow](../../.github/workflows/ci.yml) shows its current model provisioning step.
 
-## 2. Running Automated Verification
-
-Before building the production package, verify that all 9 subsystems pass the forensic audit suite:
+## Verify before packaging
 
 ```powershell
-python tests\run_all_tests.py
-```
-Expected output:
-```
-[PASS] Microphone & Audio Capture                    (2.64s)
-[PASS] Local Whisper Speech-to-Text Model            (4.27s)
-[PASS] Text Injection & Clipboard Safety             (2.31s)
-[PASS] Windows Audio Ducking & Error Recovery        (1.05s)
-[PASS] UI REST API & WebSocket Protocol              (3.38s)
-[PASS] Global Hotkey Resolution & Normalization      (2.03s)
-[PASS] Win32 RegisterHotKey & Message Loop           (0.55s)
-[PASS] Native PySide6 Desktop HUD & Tray Lifecycle   (2.61s)
-[PASS] End-to-End 5-Cycle Notepad Dictation          (6.54s)
-----------------------------------------------------------------------
-Total Test Time: ~25s | Overall Verdict: ALL TESTS PASSED
+python -X utf8 tests/run_all_tests.py
+npm test
 ```
 
----
+The runner currently defines 37 suites. Physical microphone and audio-ducking checks may be skipped in headless CI; a skip is not a pass for that hardware. Require a green [GitHub Actions run](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the intended commit and perform explicit Windows hardware checks before release. If CI is red, stop and investigate; do not reuse results from an older tag.
 
-## 3. Building Standalone Executable with PyInstaller
+## Build and inspect
 
-FlowPilot includes a tailored `flowpilot.spec` bundling the PySide6 desktop shell, CTranslate2/faster-whisper inference engine, and native Win32 libraries.
-
-### Build Command:
 ```powershell
-pyinstaller flowpilot.spec --noconfirm
+python -m PyInstaller flowpilot.spec --noconfirm
+python -X utf8 tests/test_standalone_binary_smoke.py
 ```
 
-### Resulting Distribution Directory:
-The built application resides in:
-```
-dist/
-└── FlowPilot/
-    ├── FlowPilot.exe        # Main standalone executable
-    ├── python311.dll        # Embedded runtime
-    ├── PySide6/             # Qt GUI libraries & plugins
-    ├── engine/              # Engine package
-    └── ui/                  # UI components
-```
+Inspect the complete `dist/FlowPilot/` directory, not just `FlowPilot.exe`: model assets, Qt plugins, native libraries, notices, startup, microphone access, focus behavior, single-instance lifecycle, and clean exit. Test on a clean Windows machine or disposable VM with the intended audio hardware.
 
----
+## Publish only after review
 
-## 4. Installer Generation (Inno Setup Script)
-
-To produce a single-file setup installer (`FlowPilot_Setup_v2.0.exe`), use the following Inno Setup script (`installer.iss`):
-
-```pascal
-[Setup]
-AppName=FlowPilot
-AppVersion=2.0.0
-AppPublisher=FlowPilot Team
-DefaultDirName={autopf}\FlowPilot
-DefaultGroupName=FlowPilot
-UninstallDisplayIcon={app}\FlowPilot.exe
-Compression=lzma2/ultra64
-SolidCompression=yes
-OutputDir=dist\installer
-OutputBaseFilename=FlowPilot_Setup_v2.0
-PrivilegesRequired=lowest
-
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "startupicon"; Description: "Start FlowPilot automatically when Windows starts"; GroupDescription: "Startup:"; Flags: unchecked
-
-[Files]
-Source: "dist\FlowPilot\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-[Icons]
-Name: "{group}\FlowPilot"; Filename: "{app}\FlowPilot.exe"
-Name: "{group}\Uninstall FlowPilot"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\FlowPilot"; Filename: "{app}\FlowPilot.exe"; Tasks: desktopicon
-Name: "{userstartup}\FlowPilot"; Filename: "{app}\FlowPilot.exe"; Tasks: startupicon
-
-[Run]
-Filename: "{app}\FlowPilot.exe"; Description: "{cm:LaunchProgram,FlowPilot}"; Flags: nowait postinstall skipifsilent
-```
-
----
-
-## 5. Model Distribution Strategy
-
-FlowPilot offers two deployment strategies for local speech recognition weights:
-
-1. **Dynamic On-Demand Download (Default):**
-   - First run downloads `faster-whisper-base` (~145MB) from Hugging Face Hub to `~/.cache/huggingface/hub/`.
-   - Requires internet connection only on first launch.
-2. **Air-Gapped / Pre-Bundled Offline Package:**
-   - Pre-download the model weights using:
-     ```python
-     from faster_whisper import WhisperModel
-     WhisperModel("base", download_root="dist/FlowPilot/models/base")
-     ```
-   - In production, set environment variable `HF_HUB_OFFLINE=1` and point `STTEngine` to the local models folder.
-
----
-
-## 6. Windows Code Signing & Security Notes
-
-To prevent Windows SmartScreen warnings on clean installations:
-1. Obtain an EV (Extended Validation) code signing certificate.
-2. Sign the binary using `signtool.exe`:
-   ```cmd
-   signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a "dist\FlowPilot\FlowPilot.exe"
-   ```
-3. Register the global hotkeys cleanly; Windows Defender will not flag `RegisterHotKey` because it is a standard Win32 API (unlike keyboard hook injections).
+Record the source commit, artifact size, SHA-256 hash, test results, skipped hardware checks, and known limitations in a release-specific manifest. Review bundled third-party notices using [THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md). Publish an immutable versioned ZIP through GitHub Releases only after the exact candidate build has passed the required checks. The [current release manifest](RELEASE_ARTIFACT_MANIFEST.md) documents v3.0.2, not an unpublished v3.1.0 artifact.

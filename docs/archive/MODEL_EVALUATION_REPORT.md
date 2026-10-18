@@ -1,5 +1,7 @@
 # FlowPilot Speech Model Evaluation & Recognition Intelligence Report
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 **Audit Date:** October 15, 2026 (Updated Post-Publication Audit)  
 **Host Environment:** Windows 11 (x64), 8-Thread CPU  
 **Quantization:** INT8 CPU Inference via CTranslate2  

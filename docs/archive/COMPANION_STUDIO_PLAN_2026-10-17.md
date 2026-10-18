@@ -1,5 +1,7 @@
 # FlowPilot Companion Studio and Local Learning
 
+> **Dated design proposal (October 17, 2026):** This records the original problem, alternatives, and acceptance criteria. Some sections describe behavior before the Studio implementation and the implementation checklist below has not been maintained as a release-status report. Inspect current source and [live CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the implemented state. The requested Gemini review did not return a review.
+
 Date: 2026-10-17  
 Status: Proposed design; implementation has not started.  
 Baseline inspected: `262a705`.  

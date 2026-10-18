@@ -1,5 +1,7 @@
 # Gemini review status
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 Date: 2026-10-17  
 Result: Blocked by the installed Gemini CLI's authentication/client eligibility, not by plan preparation.
 

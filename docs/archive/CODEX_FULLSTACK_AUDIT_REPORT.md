@@ -1,5 +1,7 @@
 # FlowPilot Full-Stack Audit and GitHub Reconciliation
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 **Audit date:** 2026-10-15  
 **Workspace:** `S:\APPs\New folder`  
 **Audited branch:** `feature/developer-reliability-upgrade`; started at `b638c8d94cf33337bac29ff74cc17cf6adc0d9e5` and advanced during the audit to `cbdaa78a467699a3893f97e16b63b2a734b0af0b`  

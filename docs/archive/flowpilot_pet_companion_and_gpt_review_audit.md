@@ -1,5 +1,7 @@
 # FlowPilot Forensic Audit & SondeR-Cat Pixel Kitty Companion Report
 
+> **Historical snapshot - superseded.** Retained for provenance only. Do not use this document as current instructions, test status, performance proof, legal/compliance advice, or up-to-date competitor information. See the [archive index](README.md) for current sources.
+
 **Audit Date:** October 16, 2026  
 **System Evaluated:** FlowPilot Desktop Voice Dictation Assistant (`v3.0.2+`)  
 **Components Added:** Native SondeR-Cat Pixel Kitty Companion (`ui/pet_sprites.py`, `ui/floating_hud.py`, `assets/sounds/meow.wav`)  
