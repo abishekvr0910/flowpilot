@@ -8,11 +8,16 @@
  */
 
 import { spawn } from "node:child_process";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const TEST_PORT = 8766;
 const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
 const WS_URL = `ws://127.0.0.1:${TEST_PORT}/ws`;
+const TEST_API_TOKEN = "flowpilot-test-token-0123456789abcdef";
+const authHeaders = { Authorization: `Bearer ${TEST_API_TOKEN}` };
+const testConfigFile = join(process.cwd(), `.flowpilot-node-test-${process.pid}.json`);
 
 console.log("=".repeat(70));
 console.log("  FLOWPILOT FULL-STACK NODE.JS INTEGRATION & CLIENT VERIFICATION");
@@ -25,7 +30,7 @@ console.log("[Phase 1] Launching Python FastAPI / Uvicorn Server on port " + TES
 const serverProcess = spawn("python", [
   "-c",
   `import uvicorn; from engine.server import app; uvicorn.run(app, host='127.0.0.1', port=${TEST_PORT}, log_level='warning')`
-], { stdio: "pipe" });
+], { stdio: "pipe", env: { ...process.env, FLOWPILOT_API_TOKEN: TEST_API_TOKEN, FLOWPILOT_CONFIG_FILE: testConfigFile } });
 
 serverProcess.stderr.on("data", (chunk) => {
   const msg = chunk.toString();
@@ -38,7 +43,7 @@ let serverReady = false;
 for (let i = 0; i < 20; i++) {
   await sleep(500);
   try {
-    const res = await fetch(`${BASE_URL}/api/config`);
+    const res = await fetch(`${BASE_URL}/api/config`, { headers: authHeaders });
     if (res.ok) {
       serverReady = true;
       console.log(`Server responded successfully after ${(i + 1) * 0.5}s.`);
@@ -78,7 +83,9 @@ try {
   // Phase 3: REST API Verification
   console.log("\n[Phase 3] Testing REST API (/api/config)...");
   
-  const configRes = await fetch(`${BASE_URL}/api/config`);
+  const unauthRes = await fetch(`${BASE_URL}/api/config`);
+  if (unauthRes.status !== 401) throw new Error("Unauthenticated config access was not rejected");
+  const configRes = await fetch(`${BASE_URL}/api/config`, { headers: authHeaders });
   const configData = await configRes.json();
   console.log(`  GET /api/config -> Status: ${configRes.status}`);
   console.log(`  Reported Engine Mode: ${configData.engine_mode || "local"}`);
@@ -86,7 +93,7 @@ try {
 
   const postRes = await fetch(`${BASE_URL}/api/config`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders },
     body: JSON.stringify({ active_tone_mode: "developer", engine_mode: "local" })
   });
   const postResult = await postRes.json();
@@ -97,7 +104,7 @@ try {
   console.log("\n[Phase 4] Testing Bidirectional WebSocket (/ws) via Native Node.js WebSocket...");
   
   await new Promise((resolve, reject) => {
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(WS_URL, `flowpilot-token.${TEST_API_TOKEN}`);
     const timeout = setTimeout(() => {
       ws.close();
       reject(new Error("WebSocket handshake timed out"));
@@ -171,4 +178,5 @@ try {
   } catch {
     // Already terminated
   }
+  await rm(testConfigFile, { force: true });
 }

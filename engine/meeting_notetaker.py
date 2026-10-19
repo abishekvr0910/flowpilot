@@ -33,6 +33,7 @@ except Exception:
     sd = None
 
 from engine.stt_engine import get_stt_engine
+from engine.meeting_deliberation import MeetingDeliberationEngine, RetentionPolicy
 
 MEETINGS_DIR = Path.home() / ".flowpilot" / "meetings"
 MEETINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -257,6 +258,22 @@ class MeetingNotetakerEngine:
         self._is_paused = False
         self._stt = get_stt_engine()
 
+        # Multilingual call monitoring and live translation
+        self.translation_mode: bool = False
+        self.target_language: str = "en"
+
+        # Guided AI Deliberation Engine with persisted retention policy
+        self.deliberation = MeetingDeliberationEngine(storage_dir=MEETINGS_DIR)
+        try:
+            from engine.config import load_config
+            cfg = load_config()
+            ret_days = int(cfg.get("meeting_retention_days", 0))
+            if ret_days > 0:
+                self.deliberation.retention_policy.max_age_days = ret_days
+                self.deliberation.enforce_retention_policy()
+        except Exception:
+            pass
+
         # Asynchronous non-blocking transcription queue
         self._queue: queue.Queue = queue.Queue()
         self._worker_active = False
@@ -266,6 +283,24 @@ class MeetingNotetakerEngine:
             on_chunk_ready=self._enqueue_audio_chunk,
             on_audio_level=self.on_audio_level
         )
+
+    def set_translation_mode(self, enabled: bool, target_language: str = "en"):
+        """Enable or disable real-time translation into target language (default English)."""
+        with self._lock:
+            self.translation_mode = bool(enabled)
+            self.target_language = target_language
+
+    def get_live_catchup(self, window_minutes: int = 5):
+        """Generates real-time 'What Did I Miss?' recap for the active session or last recorded session."""
+        with self._lock:
+            sess = self._active_session
+            if not sess:
+                saved = self.list_saved_meetings()
+                if saved:
+                    sess = self.load_meeting(saved[0]["meeting_id"])
+            if not sess:
+                sess = MeetingSession(title="Live Catch-Up")
+            return self.deliberation.generate_catchup(sess, window_seconds=float(window_minutes * 60))
 
     @property
     def is_recording(self) -> bool:
@@ -350,7 +385,8 @@ class MeetingNotetakerEngine:
                     break
                 continue
             try:
-                result = self._stt.transcribe(chunk)
+                task = "translate" if getattr(self, "translation_mode", False) else "transcribe"
+                result = self._stt.transcribe(chunk, task=task)
                 if isinstance(result, dict):
                     raw_text = result.get("text", "")
                 elif isinstance(result, str):

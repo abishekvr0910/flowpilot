@@ -107,7 +107,7 @@ Users can customize the kitty's fur coat at any time via the right-click menu:
 
 ## 4. Verification & Automated Test Results
 
-A new dedicated test suite [`tests/test_sondercat_companion.py`](file:///S:/APPs/New%20folder/tests/test_sondercat_companion.py) was added to the FlowPilot test harness:
+A new dedicated test suite [`tests/test_sondercat_companion.py`](../../tests/test_sondercat_companion.py) was added to the FlowPilot test harness:
 
 ```
 =================================================================

@@ -83,16 +83,29 @@ class TextInjector:
         for attempt in range(max_retries):
             try:
                 pyperclip.copy(text)
+                if sys.platform == "win32":
+                    try:
+                        import ctypes
+                        ctypes.windll.kernel32.SetLastError(0)
+                    except Exception:
+                        pass
                 return True
             except Exception as e:
                 if sys.platform == "win32":
                     try:
                         import ctypes
                         ctypes.windll.user32.CloseClipboard()
+                        ctypes.windll.kernel32.SetLastError(0)
                     except Exception:
                         pass
                 if attempt == max_retries - 1:
                     print(f"[Injector Warning] Clipboard copy failed after {max_retries} attempts: {e}")
+                    if sys.platform == "win32":
+                        try:
+                            import ctypes
+                            ctypes.windll.kernel32.SetLastError(0)
+                        except Exception:
+                            pass
                     return False
                 time.sleep(retry_delay * (attempt + 1))
         return False
@@ -102,15 +115,29 @@ class TextInjector:
         """Reads text from clipboard with retry backoff and lock recovery."""
         for attempt in range(max_retries):
             try:
-                return pyperclip.paste()
+                res = pyperclip.paste()
+                if sys.platform == "win32":
+                    try:
+                        import ctypes
+                        ctypes.windll.kernel32.SetLastError(0)
+                    except Exception:
+                        pass
+                return res
             except Exception:
                 if sys.platform == "win32":
                     try:
                         import ctypes
                         ctypes.windll.user32.CloseClipboard()
+                        ctypes.windll.kernel32.SetLastError(0)
                     except Exception:
                         pass
                 if attempt == max_retries - 1:
+                    if sys.platform == "win32":
+                        try:
+                            import ctypes
+                            ctypes.windll.kernel32.SetLastError(0)
+                        except Exception:
+                            pass
                     return None
                 time.sleep(retry_delay * (attempt + 1))
         return None
@@ -118,6 +145,13 @@ class TextInjector:
     @classmethod
     def _safe_set_foreground(cls, hwnd: int) -> None:
         if not HAS_WIN32 or not hwnd or sys.platform != "win32":
+            return
+        # An active WinUI window may host the actual editor on a different UI
+        # thread. Re-attaching input and setting focus to a guessed child can
+        # move the caret from its RichEdit document to an input-site container.
+        # The caller already has the right foreground window: preserve its
+        # current focused field and do not synthesize Alt.
+        if win32gui.GetForegroundWindow() == hwnd:
             return
         alt_pressed = False
         try:
@@ -150,13 +184,9 @@ class TextInjector:
                 attached = bool(win32process.AttachThreadInput(my_thread, target_thread, True))
                 win32gui.BringWindowToTop(hwnd)
                 win32gui.SetForegroundWindow(hwnd)
-                win32gui.SetActiveWindow(hwnd)
-                edit = cls._find_edit_control(hwnd)
-                if edit:
-                    try:
-                        win32gui.SetFocus(edit)
-                    except Exception:
-                        pass
+                # Do not SetActiveWindow/SetFocus on an enumerated child. WinUI
+                # hosts editor HWNDs on separate threads, and those calls can
+                # displace Notepad's restored caret into an input-site bridge.
             except Exception:
                 pass
             finally:
@@ -172,6 +202,60 @@ class TextInjector:
                 win32gui.SetForegroundWindow(hwnd)
             except Exception:
                 pass
+
+    @classmethod
+    def _is_same_window_hierarchy(cls, hwnd1: int, hwnd2: int) -> bool:
+        """Determines if two window handles share the same root ancestor window."""
+        if not HAS_WIN32 or not hwnd1 or not hwnd2:
+            return hwnd1 == hwnd2
+        if hwnd1 == hwnd2:
+            return True
+        try:
+            root1 = win32gui.GetAncestor(hwnd1, win32con.GA_ROOT) or hwnd1
+            root2 = win32gui.GetAncestor(hwnd2, win32con.GA_ROOT) or hwnd2
+            return root1 == root2
+        except Exception:
+            return False
+
+    @classmethod
+    def _resolve_verified_foreground(
+        cls,
+        target_hwnd: Optional[int],
+        max_attempts: int = 5,
+        delay: float = 0.02
+    ) -> tuple[bool, int, Optional[str]]:
+        """
+        Verifies that target_hwnd (or a window within its root hierarchy) holds active foreground.
+        Per Microsoft Win32 documentation, GetForegroundWindow() can return NULL (0) during an
+        activation change. Treating 0 as permission to paste is unsafe as keystrokes will be
+        misdirected or dropped.
+
+        This method briefly polls (up to max_attempts * delay = 100ms) to allow transient activation
+        changes to settle. If focus remains 0 or belongs to another application, it returns
+        (False, current_fg, error_message).
+        """
+        if not HAS_WIN32 or sys.platform != "win32":
+            return True, 0, None
+
+        for _ in range(max_attempts):
+            cur_fg = win32gui.GetForegroundWindow()
+            if cur_fg != 0:
+                if not target_hwnd or cur_fg == target_hwnd or cls._is_same_window_hierarchy(target_hwnd, cur_fg):
+                    return True, cur_fg, None
+                else:
+                    return (
+                        False,
+                        cur_fg,
+                        f"Active focus switched from HWND {target_hwnd} to {cur_fg}."
+                    )
+            time.sleep(delay)
+
+        return (
+            False,
+            0,
+            f"Active foreground window is unknown (0) after {max_attempts} checks ({max_attempts * delay * 1000:.0f}ms). "
+            f"Activation change in progress or no foreground window; paste retained in recovery buffer."
+        )
 
     @classmethod
     def re_copy_last(cls) -> bool:
@@ -219,43 +303,33 @@ class TextInjector:
             return InjectionResult(status=InjectionStatus.ERROR, error_message="Empty text provided.")
 
         # 1. Target window existence and focus security check
-        if HAS_WIN32 and target_hwnd and sys.platform == "win32":
-            if not win32gui.IsWindow(target_hwnd):
-                cls.last_injected_text = text
-                cls._safe_clipboard_copy(text)
-                return InjectionResult(
-                    status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
-                    error_message=f"Target HWND {target_hwnd} is no longer valid. Preserved in recovery buffer.",
-                    recovery_available=True
-                )
-
-            # Check if active foreground is target or a child of target
-            cur_fg = win32gui.GetForegroundWindow()
-            if cur_fg != target_hwnd:
-                cls._safe_set_foreground(target_hwnd)
-                time.sleep(0.04)
-                cur_fg = win32gui.GetForegroundWindow()
-
-                is_descendant = False
-                p = cur_fg
-                while p:
-                    if p == target_hwnd:
-                        is_descendant = True
-                        break
-                    p = win32gui.GetParent(p)
-
-                # Only abort if cur_fg is another distinct window (cur_fg != 0)
-                if cur_fg != 0 and cur_fg != target_hwnd and not is_descendant:
-                    # Target window lost focus! Abort paste to prevent injecting into wrong app.
+        if HAS_WIN32 and sys.platform == "win32":
+            if target_hwnd:
+                if not win32gui.IsWindow(target_hwnd):
                     cls.last_injected_text = text
-                    cls._safe_clipboard_copy(text)
-                    print(f"[Injector Security] Active focus switched from HWND {target_hwnd} to {cur_fg}. Paste aborted to protect user data.")
                     return InjectionResult(
                         status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
-                        target_hwnd=target_hwnd,
-                        error_message="Active window focus changed during processing. Aborted to prevent wrong-window paste; saved to recovery buffer.",
+                        error_message=f"Target HWND {target_hwnd} is no longer valid. Preserved in recovery buffer.",
                         recovery_available=True
                     )
+
+                # Check if active foreground is target or shares hierarchy with target
+                cur_fg = win32gui.GetForegroundWindow()
+                if cur_fg != target_hwnd and not cls._is_same_window_hierarchy(target_hwnd, cur_fg):
+                    cls._safe_set_foreground(target_hwnd)
+                    time.sleep(0.04)
+
+            # Validate that a known, genuine foreground window exists before any clipboard work
+            ok, cur_fg, err_msg = cls._resolve_verified_foreground(target_hwnd)
+            if not ok:
+                cls.last_injected_text = text
+                print(f"[Injector Security] {err_msg} Paste aborted; saved to recovery buffer.")
+                return InjectionResult(
+                    status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+                    target_hwnd=target_hwnd,
+                    error_message=err_msg,
+                    recovery_available=True
+                )
 
         # 2. Coordinate clipboard backup without race conditions
         with cls._restore_lock:
@@ -309,6 +383,20 @@ class TextInjector:
                         is_legacy_console = True
                 except Exception:
                     pass
+
+                # Clipboard setup can yield long enough for another window to
+                # take focus. Never send Ctrl+V to that unrelated application or during activation changes.
+                ok, cur_fg_now, err_msg = cls._resolve_verified_foreground(target_hwnd)
+                if not ok:
+                    cls.last_injected_text = text
+                    cls._safe_clipboard_copy(text)
+                    print(f"[Injector Security] {err_msg} Paste aborted; saved to recovery buffer.")
+                    return InjectionResult(
+                        status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+                        target_hwnd=target_hwnd,
+                        error_message=err_msg,
+                        recovery_available=True,
+                    )
 
             # 5. Keystroke dispatch (Ctrl+V / Shift+Insert)
             if HAS_WIN32 and sys.platform == "win32":
@@ -496,121 +584,39 @@ class TextInjector:
     @classmethod
     def read_window_buffer(cls, target_hwnd: int) -> Optional[str]:
         """
-        Safely reads the current document buffer from a window.
-        Uses WM_GETTEXT on child edit controls first, falling back to Ctrl+A/Ctrl+C.
-        Preserves and restores pre-existing clipboard contents safely.
+        Read a Win32 edit child's document without changing focus or clipboard.
+
+        Opaque controls return None, never a clipboard value masquerading as
+        physical proof that the text arrived in the intended field.
         """
         if not HAS_WIN32 or not target_hwnd or sys.platform != "win32":
             return None
         if not win32gui.IsWindow(target_hwnd):
             return None
-
-        # Resolve child edit control if available
         edit_ctrl = cls._find_edit_control(target_hwnd)
-
-        # 1. Attempt non-destructive WM_GETTEXT on edit control
+        if edit_ctrl == target_hwnd or not win32gui.IsWindow(edit_ctrl):
+            return None
         try:
             import ctypes
-            length = ctypes.windll.user32.SendMessageW(edit_ctrl, win32con.WM_GETTEXTLENGTH, 0, 0)
-            if length > 0:
-                buf_len = max(length + 2, 8192)
-                buf = ctypes.create_unicode_buffer(buf_len)
-                ctypes.windll.user32.SendMessageW(edit_ctrl, win32con.WM_GETTEXT, buf_len, buf)
-                if buf.value:
-                    return buf.value
+            user32 = ctypes.windll.user32
+            send_timeout = user32.SendMessageTimeoutW
+            send_timeout.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t,
+                                     ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint,
+                                     ctypes.POINTER(ctypes.c_size_t))
+            send_timeout.restype = ctypes.c_void_p
+            result = ctypes.c_size_t()
+            if not send_timeout(edit_ctrl, win32con.WM_GETTEXTLENGTH,
+                                0, None, 0x0002, 150, ctypes.byref(result)):
+                return None
+            buf_len = min(result.value, 100000) + 1
+            buf = ctypes.create_unicode_buffer(buf_len)
+            if not send_timeout(edit_ctrl, win32con.WM_GETTEXT,
+                                buf_len, ctypes.cast(buf, ctypes.c_void_p),
+                                0x0002, 150, ctypes.byref(result)):
+                return None
+            return buf.value
         except Exception:
-            pass
-
-        # 2. Attempt direct Win32 EM_SETSEL (0, -1) + WM_COPY on edit control (works across processes without focus)
-        if edit_ctrl != target_hwnd:
-            with cls._restore_lock:
-                target_to_restore = cls._original_clipboard if cls._original_clipboard is not None else cls._safe_clipboard_paste()
-            our_copy_seq_2 = None
-            content_2 = None
-            try:
-                import ctypes
-                ctypes.windll.user32.SendMessageW(edit_ctrl, 0x00B1, 0, -1)
-                ctypes.windll.user32.SendMessageW(edit_ctrl, win32con.WM_COPY, 0, 0)
-                ctypes.windll.user32.SendMessageW(edit_ctrl, 0x00B1, -1, -1)
-                time.sleep(0.04)
-                our_copy_seq_2 = cls._get_clipboard_sequence_number()
-                content_2 = cls._safe_clipboard_paste()
-                if content_2:
-                    return content_2
-            except Exception:
-                pass
-            finally:
-                with cls._restore_lock:
-                    if target_to_restore is not None:
-                        current_seq = cls._get_clipboard_sequence_number()
-                        current_val = cls._safe_clipboard_paste()
-                        # Strictly verify sequence ownership: skip restore if external app wrote to clipboard
-                        if our_copy_seq_2 is not None and current_seq is not None and current_seq != our_copy_seq_2:
-                            print(f"[Injector Security] External clipboard update detected ({our_copy_seq_2} -> {current_seq}). Skipping restore to protect user copy.")
-                        elif content_2 is not None and current_val is not None and current_val != content_2 and current_val.strip() != content_2.strip():
-                            print("[Injector Security] External clipboard content changed. Skipping restore to protect user copy.")
-                        else:
-                            cls._safe_clipboard_copy(target_to_restore)
-                            cls._last_copy_seq = cls._get_clipboard_sequence_number()
-                    cls._original_clipboard = None
-                    if cls._restore_timer is not None:
-                        cls._restore_timer.cancel()
-                        cls._restore_timer = None
-
-        # 3. Fall back to focus + Ctrl+A / Ctrl+C with safe clipboard restoration
-        with cls._restore_lock:
-            target_to_restore = cls._original_clipboard if cls._original_clipboard is not None else cls._safe_clipboard_paste()
-
-        our_copy_seq_3 = None
-        content_3 = None
-        try:
-            cls._safe_set_foreground(target_hwnd)
-            time.sleep(0.06)
-
-            # Focus the child edit control if different from parent
-            if edit_ctrl != target_hwnd:
-                try:
-                    win32gui.SetFocus(edit_ctrl)
-                except Exception:
-                    pass
-                time.sleep(0.03)
-
-            # Select All (Ctrl+A), Copy (Ctrl+C)
-            win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
-            win32api.keybd_event(ord('A'), 0, 0, 0)
-            time.sleep(0.04)
-            win32api.keybd_event(ord('A'), 0, win32con.KEYEVENTF_KEYUP, 0)
-            win32api.keybd_event(ord('C'), 0, 0, 0)
-            time.sleep(0.04)
-            win32api.keybd_event(ord('C'), 0, win32con.KEYEVENTF_KEYUP, 0)
-            win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
-            time.sleep(0.08)
-
-            our_copy_seq_3 = cls._get_clipboard_sequence_number()
-            content_3 = cls._safe_clipboard_paste()
-
-            # Deselect by pressing Right Arrow
-            win32api.keybd_event(win32con.VK_RIGHT, 0, 0, 0)
-            win32api.keybd_event(win32con.VK_RIGHT, 0, win32con.KEYEVENTF_KEYUP, 0)
-
-            return content_3
-        finally:
-            with cls._restore_lock:
-                if target_to_restore is not None:
-                    current_seq = cls._get_clipboard_sequence_number()
-                    current_val = cls._safe_clipboard_paste()
-                    # Strictly verify sequence ownership: skip restore if external app wrote to clipboard
-                    if our_copy_seq_3 is not None and current_seq is not None and current_seq != our_copy_seq_3:
-                        print(f"[Injector Security] External clipboard update detected ({our_copy_seq_3} -> {current_seq}). Skipping restore to protect user copy.")
-                    elif content_3 is not None and current_val is not None and current_val != content_3 and current_val.strip() != content_3.strip():
-                        print("[Injector Security] External clipboard content changed. Skipping restore to protect user copy.")
-                    else:
-                        cls._safe_clipboard_copy(target_to_restore)
-                        cls._last_copy_seq = cls._get_clipboard_sequence_number()
-                cls._original_clipboard = None
-                if cls._restore_timer is not None:
-                    cls._restore_timer.cancel()
-                    cls._restore_timer = None
+            return None
 
     @classmethod
     def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 2.5) -> bool:

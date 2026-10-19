@@ -15,7 +15,8 @@ echo.
 echo ======================================================================
 echo If you encountered an issue, attach the generated file:
 echo "flowpilot_diagnostic_report.txt"
-echo to your bug report or email it to support@flowpilot.local.
+echo Review the report for window titles, paths, and personal information.
+echo See SUPPORT.md for reporting instructions. Do not post sensitive data.
 echo ======================================================================
 echo.
 pause

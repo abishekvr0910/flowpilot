@@ -52,6 +52,7 @@ class NotetakerView(QWidget):
         self._current_meeting_id: Optional[str] = None
         self._elapsed_seconds = 0
         self._action_checkboxes: List[QCheckBox] = []
+        self._last_deliberation_data: Optional[Dict[str, Any]] = None
 
         self._init_ui()
 
@@ -202,6 +203,14 @@ class NotetakerView(QWidget):
         for k, v in TEMPLATES.items():
             self.combo_template.addItem(v["name"], k)
         header_row.addWidget(self.combo_template)
+
+        self.btn_translate = QPushButton("🌐 Translate: OFF")
+        self.btn_translate.setCheckable(True)
+        self.btn_translate.setToolTip("Toggle real-time Faster-Whisper translation to English")
+        self.btn_translate.setStyleSheet(self._btn_style())
+        self.btn_translate.clicked.connect(self._toggle_translation)
+        header_row.addWidget(self.btn_translate)
+
         c_layout.addLayout(header_row)
 
         # Recording Status Bar
@@ -248,6 +257,12 @@ class NotetakerView(QWidget):
             border: 1px solid #334155;
         """)
         status_bar.addWidget(self.lbl_clock)
+
+        self.btn_catchup = QPushButton("⚡ Catch Up")
+        self.btn_catchup.setToolTip("What Did I Miss? Instant live recap of the last 5 minutes")
+        self.btn_catchup.setStyleSheet(self._btn_style())
+        self.btn_catchup.clicked.connect(self._on_catchup_clicked)
+        status_bar.addWidget(self.btn_catchup)
 
         self.btn_pause = QPushButton("⏸ Pause")
         self.btn_pause.setEnabled(False)
@@ -393,6 +408,39 @@ class NotetakerView(QWidget):
         self.notes_edit.setStyleSheet(self._doc_style())
         tn_layout.addWidget(self.notes_edit)
         self.tabs.addTab(tab_notes, "📝 Minutes & Notes")
+
+        # Tab 4: Guided Deliberation & Intelligence
+        tab_deliberation = QWidget()
+        td_layout = QVBoxLayout(tab_deliberation)
+        td_layout.setContentsMargins(6, 6, 6, 6)
+        td_layout.setSpacing(8)
+
+        self.deliberation_edit = QTextEdit()
+        self.deliberation_edit.setPlaceholderText(
+            "Decision Weighing Matrix, Pros/Cons, and Risk Radar will appear here automatically...\n"
+            "Powered by Sovereign Meeting Deliberation Engine."
+        )
+        self.deliberation_edit.setStyleSheet(self._doc_style())
+        td_layout.addWidget(self.deliberation_edit, stretch=1)
+
+        delib_btn_bar = QHBoxLayout()
+        self.btn_copy_email = QPushButton("📧 Copy Email Draft")
+        self.btn_copy_email.setStyleSheet(self._btn_style())
+        self.btn_copy_email.clicked.connect(self._copy_followup_email)
+        delib_btn_bar.addWidget(self.btn_copy_email)
+
+        self.btn_copy_cards = QPushButton("🎫 Copy Task Cards")
+        self.btn_copy_cards.setStyleSheet(self._btn_style())
+        self.btn_copy_cards.clicked.connect(self._copy_task_cards)
+        delib_btn_bar.addWidget(self.btn_copy_cards)
+
+        self.btn_retention = QPushButton("🧹 Retention Policy & Purge")
+        self.btn_retention.setStyleSheet(self._btn_style())
+        self.btn_retention.clicked.connect(self._on_retention_clicked)
+        delib_btn_bar.addWidget(self.btn_retention)
+
+        td_layout.addLayout(delib_btn_bar)
+        self.tabs.addTab(tab_deliberation, "⚖️ Deliberation")
 
         r_layout.addWidget(self.tabs, stretch=1)
 
@@ -555,8 +603,20 @@ class NotetakerView(QWidget):
             self.level_bar.setValue(0)
 
             if summary:
-                self._render_meeting_data(summary)
+                data_dict = summary.summary if (hasattr(summary, "summary") and summary.summary) else summary
+                self._render_meeting_data(data_dict)
                 self._reload_meeting_list()
+
+                # Sovereign meeting insights recording
+                try:
+                    from engine.insights_engine import InsightsEngine
+                    ins = InsightsEngine()
+                    mins = max(1, self._elapsed_seconds // 60)
+                    act_count = len(data_dict.get("action_items", [])) if hasattr(data_dict, "get") else 0
+                    dec_count = len(data_dict.get("decisions", [])) if hasattr(data_dict, "get") else 0
+                    ins.record_meeting(duration_minutes=mins, action_items_count=act_count, decisions_count=dec_count)
+                except Exception:
+                    pass
 
     def _toggle_pause(self):
         if not self.engine.is_recording:
@@ -670,6 +730,8 @@ class NotetakerView(QWidget):
         self.summary_edit.clear()
         self.action_scroll.clear()
         self.notes_edit.clear()
+        self.deliberation_edit.clear()
+        self._last_deliberation_data = None
 
     def _show_meeting_context_menu(self, pos):
         item = self.meeting_list.itemAt(pos)
@@ -764,6 +826,9 @@ class NotetakerView(QWidget):
         # Set Notes
         self.notes_edit.setPlainText(data.get("notes", ""))
 
+        # Populate Deliberation & Intelligence
+        self._populate_deliberation_ui(data)
+
     def _add_custom_action(self):
         text = self.txt_new_action.text().strip()
         if not text:
@@ -831,3 +896,139 @@ class NotetakerView(QWidget):
                 QMessageBox.information(self, "Export Complete", f"Saved meeting notes to:\n{file_path}")
             except Exception as e:
                 QMessageBox.critical(self, "Export Failed", f"Could not write file: {e}")
+
+    # -------------------------------------------------------------
+    # Deliberation, Translation & Catch-Up Intelligence
+    # -------------------------------------------------------------
+    def _toggle_translation(self):
+        enabled = self.btn_translate.isChecked()
+        self.engine.set_translation_mode(enabled, "en")
+        if enabled:
+            self.btn_translate.setText("🌐 Translate: EN")
+            self.btn_translate.setStyleSheet("""
+                QPushButton {
+                    background-color: #0369A1;
+                    color: #FFFFFF;
+                    font-weight: 600;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    border: 1px solid #38BDF8;
+                    font-size: 12px;
+                }
+            """)
+        else:
+            self.btn_translate.setText("🌐 Translate: OFF")
+            self.btn_translate.setStyleSheet(self._btn_style())
+
+    def _on_catchup_clicked(self):
+        recap = self.engine.get_live_catchup(window_minutes=5)
+        msg_lines = [
+            f"⚡ What Did I Miss? (Last {recap.window_minutes} mins)",
+            f"Active Speakers: {recap.active_speakers_count} | Key Points: {recap.bullet_count}\n"
+        ]
+        if recap.summary_points:
+            for pt in recap.summary_points:
+                msg_lines.append(f"• {pt}")
+        else:
+            msg_lines.append("• No recent speech detected in the catch-up window.")
+
+        if recap.immediate_action_items:
+            msg_lines.append("\nImmediate Action Items:")
+            for act in recap.immediate_action_items:
+                msg_lines.append(f"⚡ {act}")
+
+        recap_text = "\n".join(msg_lines)
+        QMessageBox.information(self, "⚡ Live Catch-Up Recap", recap_text)
+
+    def _populate_deliberation_ui(self, data: Optional[Dict[str, Any]] = None):
+        if not data:
+            self.deliberation_edit.clear()
+            return
+        self._last_deliberation_data = data
+
+        topics = self.engine.deliberation.weigh_decisions(data)
+        risks = self.engine.deliberation.detect_risks_and_blockers(data)
+
+        lines = []
+        lines.append(f"# ⚖️ Deliberation & Intelligence: {data.get('title', 'Meeting Notes')}\n")
+
+        lines.append("## 📊 Decision Weighing Matrix")
+        if topics:
+            for t in topics:
+                status_emoji = "✅" if t.status == "decided" else "💬"
+                lines.append(f"### {status_emoji} {t.title} [{t.status.upper()}]")
+                if t.pros:
+                    lines.append("  **Pros / Benefits:**")
+                    for pro in t.pros:
+                        lines.append(f"    + {pro}")
+                if t.cons:
+                    lines.append("  **Cons / Risks:**")
+                    for con in t.cons:
+                        lines.append(f"    - {con}")
+                if t.consensus:
+                    lines.append(f"  **Consensus:** {t.consensus}")
+                lines.append("")
+        else:
+            lines.append("*(No trade-offs or contested decisions extracted from session)*\n")
+
+        lines.append("## 🚨 Risk & Blocker Radar")
+        if risks:
+            for r in risks:
+                sev_badge = f"[{r.severity.value}]"
+                lines.append(f"- **{sev_badge}** {r.description}")
+                if r.mitigation_hint:
+                    lines.append(f"  ↳ *Mitigation:* {r.mitigation_hint}")
+        else:
+            lines.append("- *(Zero high/medium blockers detected)*")
+
+        self.deliberation_edit.setPlainText("\n".join(lines))
+
+    def _copy_followup_email(self):
+        data = getattr(self, "_last_deliberation_data", None)
+        if not data and self._current_meeting_id:
+            data = self.engine.load_meeting(self._current_meeting_id)
+        if not data:
+            data = {
+                "title": self.txt_title.text().strip(),
+                "duration": self.lbl_clock.text(),
+                "transcript": self.transcript_edit.toPlainText(),
+                "decisions": [line[13:] for line in self.summary_edit.toPlainText().split("\n") if line.startswith("- **Decision:** ")],
+                "action_items": [{"text": line[6:], "done": line.startswith("- [x]")} for line in self.action_scroll.toPlainText().split("\n") if line.startswith("- [")],
+            }
+        draft = self.engine.deliberation.draft_followup_email(data)
+        pyperclip.copy(draft)
+        QMessageBox.information(self, "Follow-Up Email Copied", "Executive follow-up email draft copied to clipboard!")
+
+    def _copy_task_cards(self):
+        data = getattr(self, "_last_deliberation_data", None)
+        if not data and self._current_meeting_id:
+            data = self.engine.load_meeting(self._current_meeting_id)
+        if not data:
+            data = {
+                "title": self.txt_title.text().strip(),
+                "action_items": [{"text": line[6:], "done": line.startswith("- [x]")} for line in self.action_scroll.toPlainText().split("\n") if line.startswith("- [")],
+            }
+        cards = self.engine.deliberation.generate_task_cards(data)
+        card_text = "\n\n---\n\n".join(c.to_markdown() for c in cards)
+        if not card_text:
+            card_text = "No action items available to convert to task cards."
+        pyperclip.copy(card_text)
+        QMessageBox.information(self, "Task Cards Copied", f"Generated and copied {len(cards)} Markdown task cards to clipboard!")
+
+    def _on_retention_clicked(self):
+        policy = self.engine.deliberation.retention_policy
+        items = ["7 days (Ephemeral)", "30 days (Standard Sprint)", "90 days (Quarterly)", "365 days (Annual)", "Keep Indefinitely (0 days)"]
+        choice, ok = QInputDialog.getItem(self, "Retention Policy", "Set retention policy and purge sessions older than:", items, 1, False)
+        if ok and choice:
+            days = int(choice.split(" ")[0]) if not choice.startswith("Keep") else 0
+            policy.max_age_days = days
+            try:
+                from engine.config import load_config, save_config
+                cfg = load_config()
+                cfg["meeting_retention_days"] = days
+                save_config(cfg)
+            except Exception:
+                pass
+            deleted = self.engine.deliberation.enforce_retention_policy()
+            self._reload_meeting_list()
+            QMessageBox.information(self, "Retention Policy Saved", f"Retention policy set to {days} days and persisted.\nPurged {deleted} expired meeting session(s).")

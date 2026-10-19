@@ -5,7 +5,7 @@
 **Audit Date:** October 15, 2026 (Updated Post-Publication Audit)  
 **Host Environment:** Windows 11 (x64), 8-Thread CPU  
 **Quantization:** INT8 CPU Inference via CTranslate2  
-**Test Harness:** [`tests/test_model_benchmarks_extended.py`](file:///S:/APPs/New%20folder/tests/test_model_benchmarks_extended.py) & [`scratch/audit_real_accuracy_corpus.py`](file:///S:/APPs/New%20folder/scratch/audit_real_accuracy_corpus.py)  
+**Test Harness:** [`tests/test_model_benchmarks_extended.py`](../../tests/test_model_benchmarks_extended.py) & historical untracked `scratch/audit_real_accuracy_corpus.py`
 **Classification:** Empirical Speech Architecture & Model Optimization Audit  
 
 ---

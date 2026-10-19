@@ -1,12 +1,11 @@
 """
-FlowPilot Dictation History & Audio Replay Vault (100% Offline & Private)
-Wispr Flow Parity & Leapfrog:
+FlowPilot Opt-In Dictation History & Audio Replay Vault (Local Only)
 - Searchable feed of all past dictations with full-text search across raw, formatted text, and target application
 - Audio Replay Vault: preserves local .wav audio captures for instant replay (▷)
 - Interactive bookmarks (⭐) for frequently referenced or favorite transcriptions
-- Circular retention policy controls (7 days, 30 days, 90 days, Forever)
+- Prunes unbookmarked entries beyond 60 days or 500 items when a new entry is recorded
 - Safe, atomic export (Markdown, CSV, JSON) and one-click clipboard copy
-- Zero cloud egress: all audio and metadata stay strictly local in ~/.flowpilot/history/
+- No remote upload in this module; saved audio and metadata stay in ~/.flowpilot/history/
 """
 
 import os
@@ -29,10 +28,6 @@ HISTORY_DIR = Path.home() / ".flowpilot" / "history"
 AUDIO_DIR = HISTORY_DIR / "audio"
 HISTORY_FILE = HISTORY_DIR / "history_vault.json"
 
-HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-
-
 class HistoryVaultEngine:
     _lock = threading.RLock()
 
@@ -50,9 +45,6 @@ class HistoryVaultEngine:
             self.audio_dir = AUDIO_DIR
             self.history_file = HISTORY_FILE
 
-        self.history_dir.mkdir(parents=True, exist_ok=True)
-        self.audio_dir.mkdir(parents=True, exist_ok=True)
-
         self._entries: List[Dict[str, Any]] = []
         self._current_player = None
         self._is_playing = False
@@ -63,7 +55,6 @@ class HistoryVaultEngine:
         with self._lock:
             if not self.history_file.exists():
                 self._entries = []
-                self._persist_unlocked()
                 return []
 
             try:
@@ -100,6 +91,7 @@ class HistoryVaultEngine:
         if audio_bytes and len(audio_bytes) > 0:
             audio_file = self.audio_dir / f"{entry_id}.wav"
             try:
+                self.audio_dir.mkdir(parents=True, exist_ok=True)
                 with open(audio_file, "wb") as f:
                     f.write(audio_bytes)
                 audio_rel_path = str(audio_file.name)
@@ -309,6 +301,7 @@ class HistoryVaultEngine:
 
     def _persist_unlocked(self) -> None:
         try:
+            self.history_dir.mkdir(parents=True, exist_ok=True)
             temp_path = self.history_file.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(self._entries, f, indent=2, ensure_ascii=False)

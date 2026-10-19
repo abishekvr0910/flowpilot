@@ -7,6 +7,8 @@ Tests for FlowPilot Architectural Upgrades Adopted from Competitive Teardowns:
 """
 
 import sys
+import os
+import atexit
 import time
 import io
 import numpy as np
@@ -17,6 +19,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+os.environ["FLOWPILOT_API_TOKEN"] = "flowpilot-test-token-0123456789abcdef"
+TEST_CONFIG_FILE = PROJECT_ROOT / f".flowpilot-endpoint-test-{os.getpid()}.json"
+os.environ["FLOWPILOT_CONFIG_FILE"] = str(TEST_CONFIG_FILE)
+atexit.register(lambda: TEST_CONFIG_FILE.unlink(missing_ok=True))
 
 from engine.audio_recorder import AudioRecorder
 from engine.hotkey_service import TapLatch
@@ -103,7 +109,7 @@ def test_clipboard_sequence_atomic_check():
 def test_openai_compatible_models_endpoint():
     """Validates GET /v1/models returns OpenAI-compliant model catalog."""
     client = TestClient(app)
-    resp = client.get("/v1/models")
+    resp = client.get("/v1/models", headers={"Authorization": "Bearer flowpilot-test-token-0123456789abcdef"})
     assert resp.status_code == 200
     data = resp.json()
     assert data.get("object") == "list"
@@ -125,7 +131,8 @@ def test_openai_compatible_transcriptions_endpoint():
     # Test JSON response format
     files = {"file": ("test.wav", wav_bytes, "audio/wav")}
     data = {"model": "whisper-1", "response_format": "json"}
-    resp = client.post("/v1/audio/transcriptions", files=files, data=data)
+    resp = client.post("/v1/audio/transcriptions", files=files, data=data,
+                       headers={"Authorization": "Bearer flowpilot-test-token-0123456789abcdef"})
     assert resp.status_code == 200
     res_json = resp.json()
     assert "text" in res_json, "OpenAI transcriptions response must contain 'text' field"
@@ -133,7 +140,8 @@ def test_openai_compatible_transcriptions_endpoint():
     # Test text response format
     files_txt = {"file": ("test.wav", wav_bytes, "audio/wav")}
     data_txt = {"model": "whisper-1", "response_format": "text"}
-    resp_txt = client.post("/v1/audio/transcriptions", files=files_txt, data=data_txt)
+    resp_txt = client.post("/v1/audio/transcriptions", files=files_txt, data=data_txt,
+                           headers={"Authorization": "Bearer flowpilot-test-token-0123456789abcdef"})
     assert resp_txt.status_code == 200
     assert isinstance(resp_txt.text, str)
 

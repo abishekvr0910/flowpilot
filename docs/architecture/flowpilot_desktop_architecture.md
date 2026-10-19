@@ -148,5 +148,5 @@ sequenceDiagram
      - macOS: `~/.cache/huggingface/hub/models--Systran--faster-whisper-base`
    - Weight files: `model.bin` (~145MB for `base`), `config.json`, `tokenizer.json`, `vocabulary.txt`.
 2. **First-Run Behavior:**
-   - On a clean system, `faster-whisper` checks the local cache. If missing, it downloads weights automatically over HTTPS from HuggingFace Hub.
-   - For offline enterprise air-gapped deployments, pre-bundled weights can be placed directly in `<InstallDir>/models/`.
+   - The current runtime loads with `local_files_only=True`. If weights are missing, model loading fails with provisioning guidance; it does not download them during dictation.
+   - Provision the selected model explicitly on a connected setup machine as described in [QUICKSTART.md](../../QUICKSTART.md#running-current-source), or transfer a complete verified model directory/cache through an approved offline process. An empty cache directory is insufficient.

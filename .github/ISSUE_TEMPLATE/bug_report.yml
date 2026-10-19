@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible FlowPilot problem using non-sensitive test data.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use SECURITY.md for vulnerabilities. These issues are public. Do not attach real audio, transcripts, clipboard contents, credentials, or your .flowpilot directory. Support is best effort.
+  - type: input
+    id: build
+    attributes:
+      label: Build identity
+      description: Release tag or source commit; mention local modifications. Include the executable SHA-256 if available.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Windows version, CPU/RAM, microphone, speech model/language, and target app/version. Was the target running as administrator?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Use a made-up phrase. Describe what you expected and what actually happened.
+    validations:
+      required: true
+  - type: dropdown
+    id: insertion
+    attributes:
+      label: Insertion outcome
+      options:
+        - Not an insertion issue
+        - Text arrived on the first attempt
+        - Text arrived only after recovery
+        - Text was duplicated
+        - Text appeared in the wrong field
+        - FlowPilot refused to paste
+        - No text appeared
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Optional error messages. Remove window titles, private paths, personal information, and credentials before posting.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Public report check
+      options:
+        - label: I reviewed this report and its attachments for sensitive content.
+          required: true

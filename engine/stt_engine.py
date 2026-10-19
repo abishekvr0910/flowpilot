@@ -129,7 +129,12 @@ class STTEngine:
 
         return " ".join(prompt_parts)
 
-    def transcribe(self, audio_data: Union[bytes, np.ndarray], custom_vocabulary: Optional[List[str]] = None) -> Dict[str, Any]:
+    def transcribe(
+        self,
+        audio_data: Union[bytes, np.ndarray],
+        custom_vocabulary: Optional[List[str]] = None,
+        task: str = "transcribe"
+    ) -> Dict[str, Any]:
         mode = self.config.get("engine_mode", "local")
         if mode == "cloud":
             raise RuntimeError(
@@ -139,9 +144,15 @@ class STTEngine:
         vocab = custom_vocabulary or self.config.get("custom_vocabulary", [])
         lang = self.config.get("language", "auto")
         bias_prompt = self.build_bias_prompt(vocab, lang)
-        return self._transcribe_local(audio_data, bias_prompt, lang)
+        return self._transcribe_local(audio_data, bias_prompt, lang, task=task)
 
-    def _transcribe_local(self, audio_data: Union[bytes, np.ndarray], initial_prompt: str, language: str) -> Dict[str, Any]:
+    def _transcribe_local(
+        self,
+        audio_data: Union[bytes, np.ndarray],
+        initial_prompt: str,
+        language: str,
+        task: str = "transcribe"
+    ) -> Dict[str, Any]:
         model = self._get_local_model()
         if isinstance(audio_data, np.ndarray):
             audio_input = audio_data
@@ -181,6 +192,7 @@ class STTEngine:
                 audio_input,
                 beam_size=beam_size,
                 language=whisper_lang,
+                task=task,
                 initial_prompt=initial_prompt,
                 vad_filter=vad_filter,
                 vad_parameters=dict(min_silence_duration_ms=400) if vad_filter else None

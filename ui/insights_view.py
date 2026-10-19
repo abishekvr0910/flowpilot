@@ -63,10 +63,21 @@ class InsightsView(QWidget):
         self.card_streak, self.val_streak = self._make_metric_card("Active Streak", "1", "consecutive active days", "#FBBF24")
         self.card_time, self.val_time = self._make_metric_card("Time Saved", "0.0h", "hours saved vs. typing", "#A78BFA")
 
+        # Row 2: Meeting & Guided Deliberation Intelligence
+        self.card_meetings, self.val_meetings = self._make_metric_card("Meeting Hours", "0.0h", "total hours in calls/meetings", "#F43F5E")
+        self.card_decisions, self.val_decisions = self._make_metric_card("Decisions Reached", "0", "consensus decisions recorded", "#10B981")
+        self.card_actions, self.val_actions = self._make_metric_card("Action Items", "0", "commitments tracked", "#06B6D4")
+        self.card_deep_work, self.val_deep_work = self._make_metric_card("Deep Work Ratio", "100%", "dictation vs meeting load", "#E879F9")
+
         cards_grid.addWidget(self.card_words, 0, 0)
         cards_grid.addWidget(self.card_wpm, 0, 1)
         cards_grid.addWidget(self.card_streak, 0, 2)
         cards_grid.addWidget(self.card_time, 0, 3)
+
+        cards_grid.addWidget(self.card_meetings, 1, 0)
+        cards_grid.addWidget(self.card_decisions, 1, 1)
+        cards_grid.addWidget(self.card_actions, 1, 2)
+        cards_grid.addWidget(self.card_deep_work, 1, 3)
         layout.addLayout(cards_grid)
 
         # Freedom Banner (Counter to Wispr Flow's 0-words limit)
@@ -155,6 +166,18 @@ class InsightsView(QWidget):
         self.val_wpm.setText(f"{m.get('wpm', 150)} wpm")
         self.val_streak.setText(f"{m.get('streak', 1)} days")
         self.val_time.setText(f"{m.get('time_saved_hours', 0.0)}h")
+
+        # Meeting Intelligence metrics
+        m_hrs = m.get("meeting_hours", 0.0)
+        self.val_meetings.setText(f"{m_hrs}h")
+        self.val_decisions.setText(str(m.get("meeting_decisions", 0)))
+        self.val_actions.setText(str(m.get("meeting_actions_created", 0)))
+
+        # Deep work calculation: dictation hours vs meeting hours
+        dict_hrs = m.get("time_saved_hours", 0.0) * 1.5
+        total_hrs = dict_hrs + m_hrs
+        deep_pct = 100 if m_hrs == 0 else int(max(10, min(100, (dict_hrs / (total_hrs or 1.0)) * 100)))
+        self.val_deep_work.setText(f"{deep_pct}%")
 
         # Populate table
         recent = m.get("recent_sessions", [])

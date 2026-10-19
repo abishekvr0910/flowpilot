@@ -25,7 +25,11 @@ DEFAULT_INSIGHTS: Dict[str, Any] = {
     "last_active_date": "",
     "time_saved_minutes": 0.0,
     "app_breakdown": {},
-    "recent_sessions": []
+    "recent_sessions": [],
+    "meeting_count": 0,
+    "meeting_minutes": 0.0,
+    "meeting_decisions": 0,
+    "meeting_actions_created": 0
 }
 
 class InsightsEngine:
@@ -133,6 +137,25 @@ class InsightsEngine:
 
         return self.get_metrics()
 
+    def record_meeting(
+        self,
+        duration_minutes: float,
+        action_items_count: int = 0,
+        decisions_count: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Record completed meeting, update meeting count, minutes, actions, and decisions.
+        """
+        with self._lock:
+            dur = max(0.0, float(duration_minutes))
+            self._data["meeting_count"] = self._data.get("meeting_count", 0) + 1
+            self._data["meeting_minutes"] = round(self._data.get("meeting_minutes", 0.0) + dur, 2)
+            self._data["meeting_decisions"] = self._data.get("meeting_decisions", 0) + max(0, int(decisions_count))
+            self._data["meeting_actions_created"] = self._data.get("meeting_actions_created", 0) + max(0, int(action_items_count))
+            self._save()
+
+        return self.get_metrics()
+
     def get_metrics(self) -> Dict[str, Any]:
         with self._lock:
             total_words = self._data.get("total_words", 0)
@@ -150,7 +173,12 @@ class InsightsEngine:
                 "time_saved_hours": round(self._data.get("time_saved_minutes", 0.0) / 60.0, 2),
                 "total_utterances": self._data.get("total_utterances", 0),
                 "recent_sessions": list(self._data.get("recent_sessions", [])),
-                "app_breakdown": dict(self._data.get("app_breakdown", {}))
+                "app_breakdown": dict(self._data.get("app_breakdown", {})),
+                "meeting_count": self._data.get("meeting_count", 0),
+                "meeting_minutes": round(self._data.get("meeting_minutes", 0.0), 2),
+                "meeting_hours": round(self._data.get("meeting_minutes", 0.0) / 60.0, 2),
+                "meeting_decisions": self._data.get("meeting_decisions", 0),
+                "meeting_actions_created": self._data.get("meeting_actions_created", 0)
             }
 
     def reset_metrics(self) -> None:

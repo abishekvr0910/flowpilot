@@ -11,6 +11,7 @@ import sys
 import time
 import subprocess
 import psutil
+import ctypes
 
 def main():
     exe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dist", "FlowPilot", "FlowPilot.exe"))
@@ -50,20 +51,37 @@ def main():
     test_env["FLOWPILOT_HEADLESS"] = "1"
 
 
-    print("\n[Phase 1] Launching FlowPilot.exe with isolated test mutex...")
+    mutex_name = test_env["FLOWPILOT_MUTEX_NAME"]
+    SYNCHRONIZE = 0x00100000
+    kernel32 = ctypes.windll.kernel32
+    timeout_seconds = 15.0
+    deadline = time.monotonic() + timeout_seconds
+    mutex_ready = False
+
+    print(f"\n[Phase 1] Launching FlowPilot.exe with isolated test mutex: {mutex_name}...")
     proc = subprocess.Popen([exe_path], env=test_env)
     
     try:
-        # Give it 4.0 seconds to initialize PySide6, SingleInstance mutex, and HUD
-        time.sleep(4.0)
-        poll = proc.poll()
-        if poll is not None:
-            print(f"FAILED: Process exited prematurely with code {poll}")
+        # Explicit check: poll kernel32.OpenMutexW until the named mutex is held
+        while time.monotonic() < deadline:
+            poll = proc.poll()
+            if poll is not None:
+                print(f"FAILED: Process exited prematurely with code {poll}")
+                sys.exit(1)
+            h_mutex = kernel32.OpenMutexW(SYNCHRONIZE, False, mutex_name)
+            if h_mutex:
+                kernel32.CloseHandle(h_mutex)
+                mutex_ready = True
+                break
+            time.sleep(0.2)
+
+        if not mutex_ready:
+            print(f"FAILED: Named mutex '{mutex_name}' was not acquired within {timeout_seconds}s.")
             sys.exit(1)
-            
+
         p = psutil.Process(proc.pid)
         rss_mb = p.memory_info().rss / (1024 * 1024)
-        print(f"SUCCESS: Process is actively running (PID: {proc.pid}, Resident RAM: {rss_mb:.2f} MB)")
+        print(f"SUCCESS: Process holds named mutex and is actively running (PID: {proc.pid}, Resident RAM: {rss_mb:.2f} MB)")
         
         # Test Phase 2: Launch secondary instance, verify mutex stops duplicate
         print("\n[Phase 2] Verifying Single-Instance Mutex enforcement...")

@@ -418,7 +418,7 @@ class FlowOrchestrator:
 
                 # 6. Save into history and recovery buffer
                 total_duration = round(time.time() - active_session.created_at, 2)
-                save_text = self.config.get("save_history_text", False)
+                save_text = self.config.get("save_history_text") is True
                 history_entry = {
                     "id": int(time.time() * 1000),
                     "session_id": active_session.session_id,
@@ -439,32 +439,7 @@ class FlowOrchestrator:
                     "raw_text": raw_text
                 }
 
-                # Update Local Productivity Insights (Words, WPM, Streaks, Time Saved)
-                try:
-                    from engine.insights_engine import get_insights_engine
-                    target_proc = active_session.target_window_info.get("process_name") or "Desktop"
-                    get_insights_engine().record_dictation(formatted_text, total_duration, str(target_proc))
-                except Exception as _ie_err:
-                    print(f"[Orchestrator Warning] Insights recording deferred: {_ie_err}")
-
-                # Persist to History Vault (Searchable feed, bookmarks, audio replay vault)
-                try:
-                    from engine.history_vault import get_history_vault
-                    get_history_vault().record_dictation(
-                        formatted_text=formatted_text,
-                        raw_text=raw_text,
-                        target_app=str(active_session.target_window_info.get("process_name") or "Desktop"),
-                        duration_sec=total_duration,
-                        audio_bytes=wav_bytes,
-                        language=detected_lang,
-                        session_id=active_session.session_id
-                    )
-                except Exception as _hv_err:
-                    print(f"[Orchestrator Warning] History Vault recording deferred: {_hv_err}")
-
-                
-                # Write local telemetry for pilot program metrics (strictly anonymous, no text)
-                self._record_telemetry({
+                telemetry_event = {
                     "timestamp": time.time(),
                     "session_id": active_session.session_id,
                     "datetime": history_entry["timestamp"],
@@ -480,12 +455,18 @@ class FlowOrchestrator:
                     "injection_status": inj_res.status.value,
                     "injection_confirmed": inj_res.is_confirmed(),
                     "injection_success": success
-                })
-
-                history = self.config.get("history", [])
-                history.insert(0, history_entry)
-                self.config["history"] = history[:50]
-                save_config(self.config)
+                }
+                self._persist_completed_dictation(
+                    enabled=save_text,
+                    history_entry=history_entry,
+                    raw_text=raw_text,
+                    formatted_text=formatted_text,
+                    wav_bytes=wav_bytes,
+                    duration_sec=total_duration,
+                    language=detected_lang,
+                    session=active_session,
+                    telemetry_event=telemetry_event,
+                )
 
                 if not success or inj_res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE:
                     err_msg = inj_res.error_message or "Paste failed (saved to clipboard)"
@@ -510,7 +491,8 @@ class FlowOrchestrator:
                     return
 
                 # 7. Transition to SUCCESS with truthful confirmation reporting
-                notice_msg = "Inserted & confirmed" if inj_res.is_confirmed() else "Pasted (unverified target)"
+                confirmed = inj_res.is_confirmed()
+                notice_msg = "Inserted & confirmed" if confirmed else "Sent — unverified target (please check)"
                 with self._state_lock:
                     active_session.transition_to(SessionState.SUCCESS)
                     self.state = AppState.SUCCESS
@@ -521,7 +503,7 @@ class FlowOrchestrator:
                     "history_entry": history_entry,
                     "session_id": active_session.session_id,
                     "injection_status": inj_res.status.value,
-                    "injection_confirmed": inj_res.is_confirmed(),
+                    "injection_confirmed": confirmed,
                     "notice": notice_msg
                 })
 
@@ -577,8 +559,10 @@ class FlowOrchestrator:
     def update_config(self, new_config: Dict[str, Any]):
         old_hk = self.config.get("hotkey")
         old_mode = self.config.get("hotkey_mode")
-        self.config.update(new_config)
-        save_config(self.config)
+        updated_config = {**self.config, **new_config}
+        if not save_config(updated_config):
+            return False
+        self.config = updated_config
         # Update submodules
         self.stt.config = self.config
         self.processor.config = self.config
@@ -593,6 +577,7 @@ class FlowOrchestrator:
             from engine.hotkey_service import get_hotkey_service
             self.hotkey_service = get_hotkey_service()
             self.start_hotkey_listener()
+        return True
 
     def re_copy_last(self) -> bool:
         """Copies the last dictation text directly to clipboard."""
@@ -675,6 +660,54 @@ class FlowOrchestrator:
             self.recorder.close()
         except Exception:
             pass
+
+    def _persist_completed_dictation(
+        self,
+        *,
+        enabled: bool,
+        history_entry: Dict[str, Any],
+        raw_text: str,
+        formatted_text: str,
+        wav_bytes: bytes,
+        duration_sec: float,
+        language: str,
+        session: DictationSession,
+        telemetry_event: Dict[str, Any],
+    ) -> None:
+        """Persist dictation data only when the user explicitly enables history.
+
+        Never-store mode keeps the recovery buffer in memory but performs no
+        dictation-related disk writes, including insights or pilot metrics.
+        """
+        if not enabled:
+            return
+
+        try:
+            from engine.insights_engine import get_insights_engine
+            target_proc = session.target_window_info.get("process_name") or "Desktop"
+            get_insights_engine().record_dictation(formatted_text, duration_sec, str(target_proc))
+        except Exception as _ie_err:
+            print(f"[Orchestrator Warning] Insights recording deferred: {_ie_err}")
+
+        try:
+            from engine.history_vault import get_history_vault
+            get_history_vault().record_dictation(
+                formatted_text=formatted_text,
+                raw_text=raw_text,
+                target_app=str(session.target_window_info.get("process_name") or "Desktop"),
+                duration_sec=duration_sec,
+                audio_bytes=wav_bytes,
+                language=language,
+                session_id=session.session_id,
+            )
+        except Exception as _hv_err:
+            print(f"[Orchestrator Warning] History Vault recording deferred: {_hv_err}")
+
+        self._record_telemetry(telemetry_event)
+        history = self.config.get("history", [])
+        history.insert(0, history_entry)
+        self.config["history"] = history[:50]
+        save_config(self.config)
 
     def _record_telemetry(self, data: Dict[str, Any]):
         """Records local-only anonymous telemetry for pilot metrics. Zero network egress."""
