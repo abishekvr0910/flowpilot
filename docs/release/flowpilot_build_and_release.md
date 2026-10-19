@@ -29,7 +29,7 @@ python -X utf8 tests/run_all_tests.py
 npm test
 ```
 
-The runner currently defines 38 suites. Physical microphone and audio-ducking checks may be skipped in headless CI; a skip is not a pass for that hardware. Require a green [GitHub Actions run](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the intended commit and perform explicit Windows hardware checks before release. If CI is red, stop and investigate; do not reuse results from an older tag.
+The runner currently defines 38 suites. Physical microphone, audio-ducking, and real-editor insertion suites may be skipped in hosted headless CI; a skip is not a pass for those behaviors. Require a green [GitHub Actions run](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the intended commit and perform explicit interactive Windows hardware and insertion checks before release. If CI is red, stop and investigate; do not reuse results from an older tag.
 
 ## Inspect the exact artifact
 

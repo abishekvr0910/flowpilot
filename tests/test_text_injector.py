@@ -39,6 +39,9 @@ def test_clipboard_is_not_physical_confirmation():
 def test_text_injection():
     test_active_window_focus_is_preserved()
     test_clipboard_is_not_physical_confirmation()
+    if not is_interactive_desktop():
+        print("[RESULT] SKIPPED: Physical Notepad insertion requires an interactive Windows desktop; focus and clipboard-confirmation unit checks passed.")
+        return True
     print("=" * 60)
     print("AUDIT TEST 3: TEXT INSERTION & CLIPBOARD PRESERVATION")
     print("=" * 60)
