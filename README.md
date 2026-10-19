@@ -181,7 +181,7 @@ flowchart TD
 
 ## 🧪 Testing and limitations
 
-The current source defines 38 test suites in [`tests/run_all_tests.py`](tests/run_all_tests.py). Check the [live CI results](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the status of `master`; historical release results do not establish the status of newer source. Headless CI skips physical microphone and audio-ducking checks, so a skipped suite is not a hardware pass. Rich-editor tests use simulated surfaces; they are not proof of physical compatibility with every editor. See [known issues](docs/testing/flowpilot_known_issues.md) and the [benchmark protocol](docs/testing/FLOWPILOT_BENCHMARK_PROTOCOL.md) for scope and limitations.
+The current source defines 38 test suites in [`tests/run_all_tests.py`](tests/run_all_tests.py). Check the [live CI results](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the status of `master`; historical release results do not establish the status of newer source. Hosted, non-interactive Windows CI skips physical microphone, audio-ducking, and real-editor insertion suites; those skips are not hardware or paste passes. Run the physical suites separately on an interactive Windows desktop. Simulated editor tests alone do not prove compatibility with every application. See [known issues](docs/testing/flowpilot_known_issues.md) and the [benchmark protocol](docs/testing/FLOWPILOT_BENCHMARK_PROTOCOL.md) for scope and limitations.
 
 ---
 
