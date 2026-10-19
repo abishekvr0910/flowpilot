@@ -46,6 +46,7 @@ TESTS = [
     ("Productivity Insights Engine", "tests/test_insights_engine.py"),
     ("Meeting Notetaker Engine & Extractive Summary", "tests/test_meeting_notetaker.py"),
     ("Meeting Notetaker Streaming & Library v2", "tests/test_meeting_notetaker_v2.py"),
+    ("Meeting Deliberation & Intelligence", "tests/test_meeting_deliberation.py"),
     ("Retro Pixel Companions & Creator", "tests/test_pixel_companions_and_creator.py"),
     ("FlowPilot Master Dashboard & Scratchpad", "tests/test_flowpilot_dashboard.py"),
     ("Selected-Text Transforms & Dictation History Vault", "tests/test_transforms_and_history.py"),

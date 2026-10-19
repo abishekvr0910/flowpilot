@@ -3,7 +3,16 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any
 
-CONFIG_FILE = Path.home() / ".flowpilot" / "config.json"
+def get_config_file() -> Path:
+    env_file = os.environ.get("FLOWPILOT_CONFIG_FILE")
+    if env_file:
+        return Path(env_file)
+    env_dir = os.environ.get("FLOWPILOT_CONFIG_DIR")
+    if env_dir:
+        return Path(env_dir) / "config.json"
+    return Path.home() / ".flowpilot" / "config.json"
+
+CONFIG_FILE = get_config_file()
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "engine_mode": "local",  # Local Faster-Whisper; cloud mode is rejected by STTEngine
@@ -24,20 +33,22 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "Next.js", "TypeScript", "Python", "Whisper", "Docker", "AWS Lambda"
     ],
     "telemetry_enabled": False,  # Default disabled; opt-in required for pilot diagnostics
-    "save_history_text": False,  # Legacy config history only; History Vault still stores dictations locally
+    "save_history_text": False,  # Never-store by default: no dictation vault, insights, or pilot metrics writes
     "auto_stop_on_silence": True,  # Wispr Flow behavior: auto-finalize after pause in speech
     "silence_timeout_sec": 0.85,  # Optimized conversational pause (down from 1.4s, saving ~550ms)
     "hud_style": "mascot",  # "mascot" (Cartoon companion Pilot) or "wave" (Wispr dynamic bars)
+    "meeting_retention_days": 0,  # 0 = keep indefinitely, or 7, 30, 90, 365 days
     "history": []
 }
 
 def load_config() -> Dict[str, Any]:
-    if not CONFIG_FILE.exists():
-        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    cfg_file = get_config_file()
+    if not cfg_file.exists():
+        cfg_file.parent.mkdir(parents=True, exist_ok=True)
         save_config(DEFAULT_CONFIG)
         return DEFAULT_CONFIG.copy()
     try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+        with open(cfg_file, "r", encoding="utf-8") as f:
             data = json.load(f)
             # Merge defaults for any missing keys
             config = DEFAULT_CONFIG.copy()
@@ -52,10 +63,13 @@ def load_config() -> Dict[str, Any]:
         print(f"[Config] Error loading config: {e}. Using defaults.")
         return DEFAULT_CONFIG.copy()
 
-def save_config(config: Dict[str, Any]) -> None:
+def save_config(config: Dict[str, Any]) -> bool:
+    cfg_file = get_config_file()
     try:
-        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        cfg_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(cfg_file, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
+        return True
     except Exception as e:
         print(f"[Config] Error saving config: {e}")
+        return False

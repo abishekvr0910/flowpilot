@@ -103,5 +103,53 @@ class TestMeetingNotetakerV2(unittest.TestCase):
         self.assertEqual(act.get("id"), "act_999")
         self.assertEqual(act["done"], False)
 
+    def test_notetaker_view_deliberation_gui_integration(self):
+        from PySide6.QtWidgets import QApplication
+        from ui.notetaker_view import NotetakerView
+
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication([])
+
+        view = NotetakerView(notetaker_engine=self.engine)
+        self.assertIsNotNone(view.btn_translate)
+        self.assertTrue(view.btn_translate.isCheckable())
+        self.assertFalse(self.engine.translation_mode)
+
+        # Toggle translation on
+        view.btn_translate.setChecked(True)
+        view._toggle_translation()
+        self.assertTrue(self.engine.translation_mode)
+        self.assertIn("Translate: EN", view.btn_translate.text())
+
+        # Toggle translation off
+        view.btn_translate.setChecked(False)
+        view._toggle_translation()
+        self.assertFalse(self.engine.translation_mode)
+        self.assertIn("Translate: OFF", view.btn_translate.text())
+
+        # Check Catch-up button
+        self.assertIsNotNone(view.btn_catchup)
+
+        # Check 4 tabs
+        self.assertEqual(view.tabs.count(), 4)
+        tab_texts = [view.tabs.tabText(i) for i in range(view.tabs.count())]
+        self.assertTrue(any("Deliberation" in t for t in tab_texts))
+
+        # Test populating deliberation UI
+        mock_data = {
+            "title": "Architecture Deliberation",
+            "transcript": "We weighed offline models. However, latency is a risk. We decided to adopt Faster-Whisper.",
+            "decisions": ["Adopt Faster-Whisper"],
+            "action_items": [{"text": "Benchmark audio latency", "done": False}]
+        }
+        view._populate_deliberation_ui(mock_data)
+        delib_content = view.deliberation_edit.toPlainText()
+        self.assertIn("Decision Weighing Matrix", delib_content)
+        self.assertIn("Risk & Blocker Radar", delib_content)
+        self.assertIn("Adopt Faster-Whisper", delib_content)
+
+        view.deleteLater()
+
 if __name__ == "__main__":
     unittest.main()

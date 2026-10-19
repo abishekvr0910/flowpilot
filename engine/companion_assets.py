@@ -80,7 +80,23 @@ BUILTIN_COMPANIONS = [
         "type": "builtin",
         "description": "Voice-reactive cybernetic pilot with audio-radiating antennas and eye dilation.",
         "icon": "🤖",
-        "available_palettes": ["classic cyan"]
+        "available_palettes": ["classic cyan", "emerald", "amber"]
+    },
+    {
+        "id": "seedling",
+        "name": "Seedling the Sprout",
+        "type": "builtin",
+        "description": "Sleepy botanical companion whose perky sprout awakens and blooms with your voice.",
+        "icon": "🌱",
+        "available_palettes": ["default", "sage"]
+    },
+    {
+        "id": "nimbus",
+        "name": "Nimbus Cloud Sprite",
+        "type": "builtin",
+        "description": "Quiet vapor cloud companion with an internal glowing core responding to dictation.",
+        "icon": "☁️",
+        "available_palettes": ["default", "sunset"]
     },
     {
         "id": "edge_line",
@@ -89,6 +105,14 @@ BUILTIN_COMPANIONS = [
         "description": "Minimalist docked vertical accent indicator with ambient breathing.",
         "icon": "📏",
         "available_palettes": ["accent blue"]
+    },
+    {
+        "id": "signal",
+        "name": "Signal Quiet Indicator",
+        "type": "builtin",
+        "description": "Quiet, neutral capsule indicator with an audio-driven 5-bar envelope and processing dots.",
+        "icon": "🎙️",
+        "available_palettes": ["default"]
     },
     {
         "id": "wave_bar",

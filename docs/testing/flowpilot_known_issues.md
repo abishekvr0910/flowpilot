@@ -2,7 +2,7 @@
 
 **Product:** FlowPilot Desktop  
 **Target Platform:** Windows 10 & Windows 11 (x64)  
-**Date:** October 14, 2026  
+**Reviewed:** October 18, 2026; source behavior can differ from published builds.
 **Document Classification:** Technical Architecture & Field Support  
 
 ---
@@ -12,8 +12,8 @@
 - **Root Cause:** Windows security enforces User Interface Privilege Isolation (UIPI). A medium-integrity process (standard user mode) is strictly forbidden by the NT kernel from injecting synthetic keystrokes (`SendInput`, `AttachThreadInput`, `WM_PASTE`) into high-integrity (elevated / Administrator) windows.
 - **Symptom:** Audio records and transcribes normally, HUD indicates success, but text does not appear in elevated windows (such as an Administrator PowerShell console, elevated Command Prompt, or Regedit).
 - **Mitigation & Handling:**
-  1. **Standard Mode:** FlowPilot copies the transcribed text to the system clipboard and displays a visual indicator. Users can press `Ctrl + V` manually into the elevated application.
-  2. **Elevated Execution:** If your primary workflow requires dictating into administrative terminals or IDEs, launch FlowPilot using **"Run as Administrator"** or configure its shortcut property to always run elevated.
+  1. **Manual recovery:** First check whether text arrived. If absent, use the tray's **Copy Last Dictation**, focus the intended field, and paste manually. Current focus-abort handling retains text in memory without necessarily putting it on the clipboard.
+  2. **Privilege boundary:** Keep normal dictation at standard user privilege. Running FlowPilot elevated broadens its privileges and is not the default remedy. Test any elevated workflow separately.
 
 ---
 
@@ -35,7 +35,7 @@
   - Primary: `Ctrl + Shift + Space`
   - Secondary: `Ctrl + Alt + Space`
   - Tertiary: `F9`
-- **Verification:** Both applications can run simultaneously on the same host without hotkey collisions or audio device starvation.
+- **Verification boundary:** Check the configured shortcuts and selected audio devices on the actual host. Different default chords do not prove that both applications can capture concurrently without conflicts.
 
 ---
 
@@ -54,7 +54,7 @@
 - **Mitigation:**
   - In Windows Terminal, `Ctrl + Shift + V` or `Ctrl + V` works out of the box.
   - In vintage terminals, FlowPilot preserves the transcribed text on the system clipboard. The user can press `Shift + Insert` (standard Unix terminal paste) or right-click to paste.
-  - The latest dictation is always retrievable from the System Tray menu via **"Copy Last Dictation"**.
+  - The latest dictation is retrievable from **"Copy Last Dictation"** while it remains in the process's recovery buffer. It is replaced by later dictations and does not survive app exit.
 
 ---
 
@@ -68,10 +68,8 @@
 
 ## 7. Air-Gapped Model Weight Provisioning
 
-- **Root Cause:** To keep repository clone sizes lightweight, faster-whisper model weights are downloaded from Hugging Face Hub during first run on machines with active internet access.
-- **Air-Gapped Deployment:** For secure, offline-only, or classified environments with zero internet access, administrators can pre-provision the model weights by placing the model directory in:
-  `C:\Users\<Username>\.cache\huggingface\hub\models--Systran--faster-whisper-base\`
-  Once provisioned, FlowPilot functions 100% offline with zero external network connectivity.
+- **Current behavior:** Runtime model loading uses `local_files_only=True`; a missing model fails with a provisioning message rather than downloading automatically.
+- **Provisioning:** Follow [the source setup guide](../../QUICKSTART.md#running-current-source) to explicitly download weights during connected setup, or transfer a complete model directory/cache for disconnected use. Creating an empty cache folder is insufficient. Verify the chosen build and model with local-only loading; evaluate optional integrations separately.
 
 ---
 

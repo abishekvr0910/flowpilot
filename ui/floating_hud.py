@@ -26,10 +26,12 @@ from typing import Optional, Dict, Any
 from PySide6.QtWidgets import (
     QWidget, QProgressBar, QMenu, QApplication
 )
-from PySide6.QtCore import Qt, QPoint, Signal, QTimer, QRectF
+from PySide6.QtCore import Qt, QPoint, Signal, QTimer, QRectF, QElapsedTimer
 from PySide6.QtGui import (
     QPainter, QColor, QBrush, QPen, QLinearGradient, QRadialGradient, QFont, QPixmap
 )
+
+from ui.companion_renderer import CompanionRenderer
 
 # Win32 Constants for Non-Activating Window
 GWL_EXSTYLE = -20
@@ -99,7 +101,9 @@ class FloatingHUD(QWidget):
         # Mouse dragging tracking
         self._drag_start_pos = QPoint()
         self._drag_offset = QPoint()
-        self._is_dragging = False
+        # High-precision elapsed timer for frame-rate-independent animation
+        self._elapsed_timer = QElapsedTimer()
+        self._elapsed_timer.start()
 
         self._init_ui()
 
@@ -109,17 +113,8 @@ class FloatingHUD(QWidget):
         self._anim_timer.start(33)
 
     def _apply_style_dimensions(self):
-        if self._visual_style == "edge_line":
-            self.setFixedSize(14, 68)
-        elif self._visual_style == "wave_bar":
-            self.setFixedSize(58, 26)
-        elif self._visual_style in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
-            self.setFixedSize(78, 84)
-        elif self._visual_style == "mascot":
-            self.setFixedSize(72, 72)
-        else:
-            # Custom emoji, image, or sprite sheet companion
-            self.setFixedSize(84, 84)
+        w, h = CompanionRenderer.get_preferred_size(self._visual_style)
+        self.setFixedSize(w, h)
 
     def _init_ui(self):
         # Frameless, Always on Top, Tool Window
@@ -153,6 +148,8 @@ class FloatingHUD(QWidget):
 
     def set_hotkey_info(self, hotkey_str: str, mode: str = "toggle"):
         # Tooltip with clean hotkey guidance
+        self._hotkey_str = hotkey_str
+        self._hotkey_mode = mode
         clean_hk = hotkey_str.replace("<", "").replace(">", "").strip()
         companion_name = "SondeR-Cat" if self._visual_style == "kitty" else "Pilot"
         tip = f"{companion_name} — Click or hold {clean_hk} to dictate"
@@ -179,6 +176,19 @@ class FloatingHUD(QWidget):
             self.level_bar.setValue(min(int(lvl * 100), 100))
             return
 
+        if (st in ("pasted", "success") and not extra.get("injection_confirmed", True)) or st in ("unverified", "sent_unverified"):
+            st = "unverified"
+
+        self._is_unverified = (st == "unverified")
+
+        if st == "unverified":
+            notice = extra.get("notice", "Sent — unverified target (please check)")
+            self.setToolTip(f"⚠️ {notice} — Click to copy")
+        elif st in ("pasted", "success"):
+            self.setToolTip("✓ FlowPilot: Inserted & confirmed")
+        elif st in ("idle", "error", "cancelled"):
+            self.set_hotkey_info(getattr(self, "_hotkey_str", "<ctrl>+<shift>+<space>"), getattr(self, "_hotkey_mode", "toggle"))
+
         old_state = self._current_state
         self._current_state = st
 
@@ -187,9 +197,9 @@ class FloatingHUD(QWidget):
             self.level_bar.show()
             if old_state not in ("listening", "recording") and self._visual_style == "kitty":
                 self._play_meow()
-        elif self._current_state in ("pasted", "success"):
+        elif self._current_state in ("pasted", "success", "unverified"):
             self.level_bar.hide()
-            if old_state not in ("pasted", "success") and self._visual_style == "kitty":
+            if old_state not in ("pasted", "success", "unverified") and self._visual_style == "kitty" and self._current_state != "unverified":
                 self._play_meow()
         elif self._current_state in ("idle", "error", "cancelled"):
             self.level_bar.hide()
@@ -215,25 +225,29 @@ class FloatingHUD(QWidget):
 
         # Kitty animation state machine
         if self._visual_style == "kitty":
-            st = self._current_state
-            if st in ("listening", "recording"):
-                # Knead/type paws responsive to microphone audio level
-                speed = max(1, int(3 - (self._audio_level * 2.2)))
-                if self._tick % speed == 0:
-                    self._cat_knead_step = (self._cat_knead_step + 1) % 4
-                    knead_frames = ["type_a", "type_b", "knead_a", "knead_b"]
-                    self._cat_frame = knead_frames[self._cat_knead_step]
-            elif st in ("processing", "transcribing", "validating"):
+            if getattr(self, "_reduced_motion", False):
                 self._cat_frame = "sit_a"
-            elif st in ("pasted", "success"):
-                self._cat_frame = "stretch" if (self._tick % 24 < 12) else "sit_a"
+                self._is_blinking = False
             else:
-                # Idle sitting with occasional tail flick and blinks
-                if self._is_blinking:
-                    self._cat_frame = "blink"
+                st = self._current_state
+                if st in ("listening", "recording"):
+                    # Knead/type paws responsive to microphone audio level
+                    speed = max(1, int(3 - (self._audio_level * 2.2)))
+                    if self._tick % speed == 0:
+                        self._cat_knead_step = (self._cat_knead_step + 1) % 4
+                        knead_frames = ["type_a", "type_b", "knead_a", "knead_b"]
+                        self._cat_frame = knead_frames[self._cat_knead_step]
+                elif st in ("processing", "transcribing", "validating"):
+                    self._cat_frame = "sit_a"
+                elif st in ("pasted", "success"):
+                    self._cat_frame = "stretch" if (self._tick % 24 < 12) else "sit_a"
                 else:
-                    cycle = self._tick % 120
-                    self._cat_frame = "sit_b" if cycle > 105 else "sit_a"
+                    # Idle sitting with occasional tail flick and blinks
+                    if self._is_blinking:
+                        self._cat_frame = "blink"
+                    else:
+                        cycle = self._tick % 120
+                        self._cat_frame = "sit_b" if cycle > 105 else "sit_a"
 
         self.update()
 
@@ -419,12 +433,18 @@ class FloatingHUD(QWidget):
         # Appearance style submenu
         style_menu = menu.addMenu("Appearance Style...")
         style_menu.setStyleSheet(menu.styleSheet())
+        act_signal = style_menu.addAction("🎙️ Signal Quiet Indicator")
+        act_signal.triggered.connect(lambda: self.set_visual_style("signal"))
+        act_mascot = style_menu.addAction("🤖 Pilot Robot Mascot")
+        act_mascot.triggered.connect(lambda: self.set_visual_style("mascot"))
+        act_seedling = style_menu.addAction("🌱 Seedling the Sprout")
+        act_seedling.triggered.connect(lambda: self.set_visual_style("seedling"))
+        act_nimbus = style_menu.addAction("☁️ Nimbus Cloud Sprite")
+        act_nimbus.triggered.connect(lambda: self.set_visual_style("nimbus"))
         act_kitty = style_menu.addAction("🐾 SondeR-Cat Pixel Kitty")
         act_kitty.triggered.connect(lambda: self.set_visual_style("kitty"))
         act_dog = style_menu.addAction("🐶 Pixel Pup & Shiba")
         act_dog.triggered.connect(lambda: self.set_visual_style("dog"))
-        act_mascot = style_menu.addAction("🤖 Robot Mascot Companion ('Pilot')")
-        act_mascot.triggered.connect(lambda: self.set_visual_style("mascot"))
         act_edge = style_menu.addAction("📏 Edge Line")
         act_edge.triggered.connect(lambda: self.set_visual_style("edge_line"))
         act_waves = style_menu.addAction("🌊 Acoustic Wave Equalizer")
@@ -496,7 +516,7 @@ class FloatingHUD(QWidget):
         st = self._current_state
 
         # Branch Custom: User-Created Emoji, Image, or Sprite Companion
-        if self._visual_style not in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee", "edge_line", "wave_bar", "mascot"):
+        if self._visual_style not in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee", "edge_line", "signal_edge", "wave_bar", "signal", "mascot", "pilot", "seedling", "nimbus"):
             self._paint_custom_companion(p, w, h, st)
             p.end()
             return
@@ -506,6 +526,26 @@ class FloatingHUD(QWidget):
             self._paint_kitty(p, w, h, st)
             p.end()
             return
+
+        # Core Unified Styles: Signal (Capsule / Soundwave), Edge Line, and Pilot Robot Courier
+        bounds = QRectF(0, 0, w, h)
+        elapsed_ms = self._elapsed_timer.elapsed() if hasattr(self, "_elapsed_timer") else (self._tick * 33.0)
+        dpr = self.devicePixelRatioF() if hasattr(self, "devicePixelRatioF") else 1.0
+
+        CompanionRenderer.render(
+            painter=p,
+            bounds=bounds,
+            style=self._visual_style,
+            state=st,
+            elapsed_ms=elapsed_ms,
+            audio_level=self._audio_level,
+            palette=self._cat_palette,
+            reduced_motion=getattr(self, "_reduced_motion", False),
+            device_pixel_ratio=dpr,
+            is_preview=False
+        )
+        p.end()
+        return
 
         # Branch A: Docked Edge Line (Minimalist sleek vertical bar)
         if self._visual_style == "edge_line":
@@ -820,8 +860,8 @@ class FloatingHUD(QWidget):
                 # Specular sparkle highlight
                 p.fillRect(bx + scale, by, scale, scale, QColor("#FFFFFF"))
 
-        # 4. Floating Pixel Hearts on pasted / success
-        if st in ("pasted", "success"):
+        # 4. Floating Pixel Hearts on confirmed pasted / success
+        if st in ("pasted", "success") and not getattr(self, "_is_unverified", False):
             phase = (self._tick * 2) % 36
             hy = 20 - phase
             alpha = max(0, min(255, 255 - int(phase * 6.5)))

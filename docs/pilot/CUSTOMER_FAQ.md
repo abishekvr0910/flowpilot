@@ -8,7 +8,7 @@ Yes. The current STT engine uses the local `faster-whisper` model and rejects cl
 
 ## Does FlowPilot store audio or transcripts?
 
-Yes, in current `master`. The History Vault saves completed dictation transcripts and WAV recordings locally by default. Meeting notes are saved locally when that feature is used. See [PRIVACY.md](../../PRIVACY.md) for paths, settings, and deletion behavior. The `save_history_text` setting does not turn off the vault.
+Not by default for new dictations in current `master`: `save_history_text: false` bypasses the History Vault and keeps the latest dictation only in memory for recovery. Opting into history saves transcripts and WAV recordings locally. Previously saved entries remain until deleted, and meeting notes are stored separately when that feature is used. See [PRIVACY.md](../../PRIVACY.md) for paths and deletion behavior.
 
 ## Is it certified for HIPAA or GDPR use?
 

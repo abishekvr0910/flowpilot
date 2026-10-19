@@ -1,5 +1,9 @@
 """
-SondeR cat sprites.
+SondeR cat sprite adaptation for FlowPilot.
+Based on SondeR cat by Verisonder (Copyright 2026 Verisonder), Apache-2.0.
+Upstream: https://github.com/Verisonder/SondeR-Cat
+Changes: pixel matrices adapted for native PySide6/QPainter rendering.
+The upstream name is attribution, not an endorsement of FlowPilot.
 
 What the reference actually shows (and v1-v3 got wrong):
   * the sitting cat is TALLER than wide — an upright cat, not a blob

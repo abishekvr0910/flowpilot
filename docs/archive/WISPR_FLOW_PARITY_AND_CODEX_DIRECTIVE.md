@@ -125,7 +125,7 @@ graph TD
 ## 4. Module Specifications for Codex
 
 ### Module 1: Local Insights & Productivity Analytics Engine
-- **Target File:** [`engine/insights_engine.py`](file:///S:/APPs/New%20folder/engine/insights_engine.py)
+- **Target File:** [`engine/insights_engine.py`](../../engine/insights_engine.py)
 - **Persistence:** Local JSON file: `%APPDATA%/FlowPilot/insights.json` (or project root `data/insights.json`).
 - **Core Metrics Tracked:**
   1. `total_words`: Lifetime word count across all dictations and scratchpad sessions.
@@ -139,7 +139,7 @@ graph TD
 - **Zero-Egress Invariant:** All calculations are performed strictly in-process with zero analytics ping, zero Google Analytics, zero telemetry.
 
 ### Module 2: In-App Voice Scratchpad Canvas
-- **Target File:** [`ui/scratchpad_view.py`](file:///S:/APPs/New%20folder/ui/scratchpad_view.py)
+- **Target File:** [`ui/scratchpad_view.py`](../../ui/scratchpad_view.py)
 - **UX & Capabilities:**
   - Rich text or clean Markdown drafting area with high-contrast typography (Dark slate `#0F172A`, cyan accents `#38BDF8`).
   - Integrated "Record Directly into Pad" hotkey / toolbar button (`Space` or `F9`).
@@ -152,7 +152,7 @@ graph TD
   - Auto-save state to `data/scratchpad_autosave.txt` every 2 seconds.
 
 ### Module 3: Local Transforms Engine (Voice-Instructed Rewriting)
-- **Target File:** [`engine/transforms_engine.py`](file:///S:/APPs/New%20folder/engine/transforms_engine.py)
+- **Target File:** [`engine/transforms_engine.py`](../../engine/transforms_engine.py)
 - **Mechanism:**
   1. User selects text in any Windows app (or FlowPilot Scratchpad) and presses the dedicated Transform hotkey (`Ctrl + Shift + T`).
   2. FlowPilot captures selected text via Win32 clipboard readback (`Ctrl + C` emulation with sequence validation).
@@ -170,7 +170,7 @@ graph TD
   - *"Code case"* -> Converts spoken names into `camelCase`, `snake_case`, or `kebab-case`.
 
 ### Module 4: Local Meeting Notetaker
-- **Target File:** [`engine/meeting_notetaker.py`](file:///S:/APPs/New%20folder/engine/meeting_notetaker.py) & [`ui/notetaker_view.py`](file:///S:/APPs/New%20folder/ui/notetaker_view.py)
+- **Target File:** [`engine/meeting_notetaker.py`](../../engine/meeting_notetaker.py) & [`ui/notetaker_view.py`](../../ui/notetaker_view.py)
 - **Continuous Recording Architecture:**
   - Unlike single-burst dictation (capped at 120s), Notetaker runs a long-duration background capture worker using `sounddevice.InputStream`.
   - Audio is chunked into 30-second sliding buffers segmented by `SileroVAD` speech boundaries.
@@ -186,7 +186,7 @@ graph TD
   - Option to auto-delete raw audio upon session termination to minimize disk footprint.
 
 ### Module 5: Circular Audio Replay Buffer & Bookmarking
-- **Target File:** [`engine/history_vault.py`](file:///S:/APPs/New%20folder/engine/history_vault.py)
+- **Target File:** [`engine/history_vault.py`](../../engine/history_vault.py)
 - **Audio Playback (`▷`) & Flagging (`⚑`):**
   - Each short-form dictation saves its 16kHz mono PCM buffer as a temporary 16-bit WAV file in `%APPDATA%/FlowPilot/audio_cache/` named `{session_id}_{timestamp}.wav`.
   - Configurable retention: default max 50 MB or 7 days, circular FIFO cleanup.
@@ -194,7 +194,7 @@ graph TD
   - Bookmarked dictations (`is_bookmarked: true`) are pinned in the vault and exempted from circular deletion.
 
 ### Module 6: Unified FlowPilot Master Dashboard
-- **Target File:** [`ui/flowpilot_dashboard.py`](file:///S:/APPs/New%20folder/ui/flowpilot_dashboard.py)
+- **Target File:** [`ui/flowpilot_dashboard.py`](../../ui/flowpilot_dashboard.py)
 - **Visual Design System:**
   - Dark modern aesthetic mirroring Wispr Flow's clean layout but built on PySide6:
     - Background: `#0B0F19` (Deep Obsidian), Cards: `#111827`, Borders: `#1F2937`.

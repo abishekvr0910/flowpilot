@@ -1,6 +1,7 @@
 // FlowPilot Frontend State & WebSocket Controller
 
 let ws = null;
+let apiToken = null;
 let currentConfig = {};
 let audioWaveformInterval = null;
 
@@ -33,11 +34,23 @@ const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 
 // Initialize WebSocket
+function getApiToken() {
+  if (!apiToken) {
+    apiToken = window.prompt("Enter the local FLOWPILOT_API_TOKEN for this session:")?.trim() || null;
+  }
+  return apiToken;
+}
+
 function connectWebSocket() {
+  const token = getApiToken();
+  if (!token) {
+    wsStatusText.textContent = "API token required (reload to enter)";
+    return;
+  }
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-  ws = new WebSocket(wsUrl);
+  ws = new WebSocket(wsUrl, `flowpilot-token.${token}`);
 
   ws.onopen = () => {
     wsStatusChip.classList.add("connected");
@@ -53,8 +66,13 @@ function connectWebSocket() {
     }
   };
 
-  ws.onclose = () => {
+  ws.onclose = (event) => {
     wsStatusChip.classList.remove("connected");
+    if (event.code === 1008) {
+      apiToken = null;
+      wsStatusText.textContent = "API token rejected (reload to retry)";
+      return;
+    }
     wsStatusText.textContent = "Disconnected (Reconnecting...)";
     setTimeout(connectWebSocket, 2000);
   };
@@ -273,9 +291,16 @@ function prependHistoryItem(item, isNew = true) {
 }
 
 clearHistoryBtn.addEventListener("click", async () => {
-  await fetch("/api/history", { method: "DELETE" });
-  historyList.textContent = "";
-  historyList.appendChild(createEmptyHistoryElement());
+  const token = getApiToken();
+  if (!token) return;
+  const response = await fetch("/api/history", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (response.ok) {
+    historyList.textContent = "";
+    historyList.appendChild(createEmptyHistoryElement());
+  }
 });
 
 // Mic Button in HUD
@@ -303,11 +328,14 @@ saveSettingsBtn.addEventListener("click", () => {
 
 async function saveConfigToServer() {
   try {
-    await fetch("/api/config", {
+    const token = getApiToken();
+    if (!token) return;
+    const response = await fetch("/api/config", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(currentConfig)
     });
+    if (!response.ok) throw new Error(`API rejected settings: ${response.status}`);
   } catch (e) {
     console.error("Failed to save config:", e);
   }

@@ -148,11 +148,20 @@ class TrayManager(QObject):
             self.tray_icon.setIcon(self.icon_processing)
             self.tray_icon.setToolTip("FlowPilot: Transcribing speech...")
             self.action_toggle.setText("Processing...")
+        elif st in ("unverified", "sent_unverified"):
+            self.tray_icon.setIcon(self.icon_processing)
+            self.tray_icon.setToolTip("FlowPilot: Sent — unverified target (please check)")
+            self.action_toggle.setText("Unverified target (check)")
         else:
             self.tray_icon.setIcon(self.icon_idle)
             self.tray_icon.setToolTip(f"FlowPilot: Ready ({hk})")
             self.action_toggle.setText(f"Start Dictation ({hk})")
 
-    def show_notification(self, title: str, message: str, is_error: bool = False):
-        icon = QSystemTrayIcon.Critical if is_error else QSystemTrayIcon.Information
-        self.tray_icon.showMessage(title, message, icon, 3000)
+    def show_notification(self, title: str, message: str, is_error: bool = False, is_warning: bool = False):
+        if is_error:
+            icon = QSystemTrayIcon.Critical
+        elif is_warning:
+            icon = QSystemTrayIcon.Warning
+        else:
+            icon = QSystemTrayIcon.Information
+        self.tray_icon.showMessage(title, message, icon, 4000)

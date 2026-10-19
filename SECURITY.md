@@ -1,39 +1,43 @@
-# FlowPilot Security Policy
+# FlowPilot security policy
 
-## Supported Versions
+**Scope:** current source, reviewed October 18, 2026. See [TRUST.md](TRUST.md) for evidence and release boundaries.
 
-| Version | Supported | Security Maintenance |
-|:---|:---:|:---|
-| 3.0.x | :white_check_mark: | Active (Release Hardened) |
-| 2.1.x | :x: | Deprecated |
-| 2.0.x | :x: | Deprecated |
+## Reporting a vulnerability
 
----
+Do not publish vulnerability details in an ordinary issue. Use [GitHub private vulnerability reporting](https://github.com/abishekvr0910/flowpilot/security/advisories/new) if enabled. If that route is unavailable, use a previously verified private maintainer channel; do not assume an unlisted email address is monitored.
 
-## Security Architecture & Design Guarantees
+Include the source commit or release, Windows version, reproduction steps using synthetic data, impact, and relevant sanitized evidence. Maintainers triage reports as capacity permits. There is no contractual response-time guarantee.
 
-FlowPilot is designed with a defense-in-depth posture appropriate for desktop voice input tools:
+## Version scope
 
-### 1. Zero Network Egress
-- Local execution by default: all speech models (`faster-whisper`, `silero-vad`) execute purely on local CPU execution providers via CTranslate2 and ONNX Runtime.
-- The [network egress regression test](tests/test_network_egress.py) blocks attempted non-loopback connections in selected code paths. It is not continuous runtime monitoring or an independent certification.
+Current development is identified in [pyproject.toml](pyproject.toml). The recorded published Windows artifact is [v3.0.2](docs/release/RELEASE_ARTIFACT_MANIFEST.md), which differs from current source. A fix in the working tree does not fix an older download. Security fixes need release notes and a new verified artifact before users can rely on them.
 
-### 2. Process Isolation & Win32 APIs
-- FlowPilot runs as a standard medium-integrity desktop process. It does not require elevated administrator privileges for normal operation.
-- Global shortcuts are registered using the standard Win32 `RegisterHotKey` API, avoiding intrusive low-level global keyboard hooks (`WH_KEYBOARD_LL`) that could interfere with password managers or trigger security alerts.
-- Single-instance enforcement uses a local Win32 Named Mutex (`Global\FlowPilot_Desktop_SingleInstance_Mutex`) to eliminate race conditions and unauthorized secondary process injection.
+No multi-version security maintenance schedule is promised here. Check release notes for the status of a particular issue and build.
 
-### 3. Non-Destructive Clipboard Management
-- When injecting text via the Windows clipboard (`Ctrl+V`), FlowPilot backs up the user's prior clipboard format and restores it immediately following paste verification, preventing accidental clipboard data loss.
+## Implemented boundaries and limits
 
----
+| Area | Current design | Limit |
+| --- | --- | --- |
+| Speech recognition | CPU inference; model loader requests local files only; cloud STT is disabled. | Setup can download dependencies/models. Separately configured services and destination apps need separate review. |
+| Dictation persistence | New profiles default to history off. Completed dictation persistence is gated by that setting. | Existing settings and records remain. Meetings, scratchpad, configuration, diagnostic output, and Windows facilities are separate. |
+| Keyboard input | Windows shortcuts use Win32 registration; paste uses clipboard/keyboard paths with focus checks and recovery outcomes. | Focus can change; editor behavior and integrity levels vary. Cross-platform adapters use different input mechanisms. |
+| Clipboard | Text backup and delayed restoration use content and sequence checks to avoid overwriting a newer copy. | Restoration is not immediate or dependent on successful verification, and it does not preserve all rich/image formats. The clipboard can be observed by other software. |
+| Single instance | A named mutex coordinates desktop instances. | A mutex is coordination, not authentication or a defense against a malicious process running as the user. |
+| Local integrations | The optional API requires a random 32+ character `FLOWPILOT_API_TOKEN` for REST and WebSocket routes, checks browser Origin, and is launched on loopback. Local LLM requests are restricted to loopback endpoints. | Do not share the token or bind/forward the server to other hosts. Token access does not isolate a malicious process running as the same user; request limits remain future work. |
+| Saved files | Settings and optional records are local files. | FlowPilot does not provide its own encryption at rest. Windows account permissions and disk protection apply. |
 
-## Reporting a Vulnerability
+The [network regression](tests/test_network_egress.py) intercepts selected socket operations in tested execution paths. It is not a runtime firewall, a full dependency audit, or independent certification.
 
-If you discover a security vulnerability within FlowPilot:
+## Operating guidance
 
-1. **Do not open a public GitHub issue.**
-2. Report the vulnerability privately via [GitHub's private vulnerability reporting](https://github.com/abishekvr0910/flowpilot/security/advisories/new), if enabled for this repository. If unavailable, contact a maintainer through a previously verified private channel; do not publish exploit details in an issue.
-3. Include detailed steps to reproduce the issue, environment details (Windows version, Python version), and any proof-of-concept material.
+Run normal dictation as a standard Windows user. If an elevated target refuses insertion, use Copy Last Dictation and manual paste. Do not make administrator execution the default troubleshooting step.
 
-The maintainer will triage private reports as capacity permits. No contractual response-time guarantee is offered.
+Keep the optional API on loopback; do not expose it through port forwarding, LAN binding, or public tunnels. Set a random `FLOWPILOT_API_TOKEN` of at least 32 characters before starting it, rotate the token if disclosed, and test each integration's Bearer-key support. Browser-origin and token checks are implemented; request-size/rate limits still need work. Other local software must not be assumed trustworthy merely because it connects from the same machine.
+
+Review diagnostic output before sharing it: the current code can print foreground window titles, process names, filesystem paths, and exception details. Never send private recordings or your whole profile directory in a public report.
+
+Download from the repository's release page and verify the matching artifact hash and executable signature. Hash matching does not establish publisher identity or safety. See the [release verification guide](docs/release/flowpilot_build_and_release.md). Do not disable Windows security features to make an unfamiliar build run.
+
+## Assurance work still required
+
+Release signing, exact-artifact dependency/license inventories, real interactive-desktop insertion measurements, and tighter API/diagnostic controls belong to the [release acceptance process](docs/release/flowpilot_build_and_release.md). No audit or compliance certification is asserted by this policy.

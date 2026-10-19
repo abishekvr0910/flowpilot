@@ -7,6 +7,7 @@ import unittest
 import tempfile
 import shutil
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -14,6 +15,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from engine.transforms_engine import TransformsEngine, PRESET_TRANSFORMS
 from engine.history_vault import HistoryVaultEngine
+from engine.orchestrator import FlowOrchestrator
+from engine.session import DictationSession
 
 
 class TestTransformsAndHistory(unittest.TestCase):
@@ -101,6 +104,60 @@ class TestTransformsAndHistory(unittest.TestCase):
         # Search non-matching
         no_res = self.vault.list_entries(query="NonExistentTermXYZ")
         self.assertEqual(len(no_res), 0)
+
+    def test_empty_history_vault_does_not_create_files(self):
+        untouched_dir = self.temp_dir / "untouched"
+        vault = HistoryVaultEngine(storage_dir=untouched_dir)
+        self.assertEqual(vault.list_entries(), [])
+        self.assertFalse(untouched_dir.exists())
+
+    def test_never_store_bypasses_all_dictation_persistence(self):
+        orchestrator = object.__new__(FlowOrchestrator)
+        orchestrator.config = {"save_history_text": False, "history": [], "telemetry_enabled": True}
+        orchestrator._record_telemetry = Mock()
+        session = DictationSession(target_window_info={"process_name": "code.exe"})
+
+        with patch("engine.history_vault.get_history_vault") as vault_factory, \
+             patch("engine.insights_engine.get_insights_engine") as insights_factory, \
+             patch("engine.orchestrator.save_config") as save_config_mock:
+            orchestrator._persist_completed_dictation(
+                enabled=False,
+                history_entry={"id": 1, "raw_text": "", "formatted_text": ""},
+                raw_text="private speech", formatted_text="Private speech.",
+                wav_bytes=b"RIFF_PRIVATE_AUDIO", duration_sec=1.0,
+                language="en", session=session, telemetry_event={"char_count": 15},
+            )
+
+        vault_factory.assert_not_called()
+        insights_factory.assert_not_called()
+        save_config_mock.assert_not_called()
+        orchestrator._record_telemetry.assert_not_called()
+        self.assertEqual(orchestrator.config["history"], [])
+        self.assertFalse((self.temp_dir / "history_vault.json").exists())
+        self.assertFalse((self.temp_dir / "audio").exists())
+
+    def test_explicit_history_opt_in_persists_audio(self):
+        orchestrator = object.__new__(FlowOrchestrator)
+        orchestrator.config = {"save_history_text": True, "history": [], "telemetry_enabled": False}
+        orchestrator._record_telemetry = Mock()
+        session = DictationSession(target_window_info={"process_name": "code.exe"})
+        entry = {"id": 1, "raw_text": "test", "formatted_text": "Test."}
+
+        with patch("engine.history_vault.get_history_vault", return_value=self.vault), \
+             patch("engine.insights_engine.get_insights_engine") as insights_factory, \
+             patch("engine.orchestrator.save_config") as save_config_mock:
+            orchestrator._persist_completed_dictation(
+                enabled=True, history_entry=entry, raw_text="test",
+                formatted_text="Test.", wav_bytes=b"RIFF_TEST_AUDIO",
+                duration_sec=1.0, language="en", session=session,
+                telemetry_event={"char_count": 5},
+            )
+
+        insights_factory.return_value.record_dictation.assert_called_once()
+        save_config_mock.assert_called_once()
+        self.assertEqual(orchestrator.config["history"], [entry])
+        self.assertTrue((self.temp_dir / "history_vault.json").exists())
+        self.assertTrue((self.temp_dir / "audio" / f"{session.session_id}.wav").exists())
 
     def test_history_vault_bookmark_and_delete(self):
         entry = self.vault.record_dictation("Note 1", target_app="code.exe")

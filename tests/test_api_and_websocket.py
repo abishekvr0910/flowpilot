@@ -1,16 +1,24 @@
 import sys
+import os
 import time
 import json
 import asyncio
 import threading
 from pathlib import Path
 import urllib.request
+import urllib.error
+from unittest.mock import patch
 import websockets
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+TEST_API_TOKEN = "flowpilot-test-token-0123456789abcdef"
+os.environ["FLOWPILOT_API_TOKEN"] = TEST_API_TOKEN
+TEST_CONFIG_FILE = PROJECT_ROOT / f".flowpilot-api-test-{os.getpid()}.json"
+os.environ["FLOWPILOT_CONFIG_FILE"] = str(TEST_CONFIG_FILE)
 
 import uvicorn
 from engine.server import app
@@ -33,7 +41,21 @@ async def client_test():
 
     # 1. Test GET /api/config
     print("\n[Step 1] Testing GET /api/config...")
-    req = urllib.request.urlopen("http://127.0.0.1:8765/api/config")
+    authorized = {"Authorization": f"Bearer {TEST_API_TOKEN}"}
+    try:
+        urllib.request.urlopen("http://127.0.0.1:8765/api/config")
+        raise AssertionError("Unauthenticated config access unexpectedly succeeded")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 401
+    try:
+        urllib.request.urlopen(urllib.request.Request(
+            "http://127.0.0.1:8765/api/config",
+            headers={"Authorization": f"Bearer {TEST_API_TOKEN}", "Origin": "https://untrusted.example"},
+        ))
+        raise AssertionError("Cross-origin config access unexpectedly succeeded")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 403
+    req = urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8765/api/config", headers=authorized))
     config_data = json.loads(req.read().decode())
     print(f"  Status: {req.status}")
     print(f"  Active tone mode: {config_data.get('active_tone_mode')}")
@@ -43,16 +65,32 @@ async def client_test():
     # 2. Test POST /api/config
     print("\n[Step 2] Testing POST /api/config...")
     payload = json.dumps({"active_tone_mode": "developer", "engine_mode": "local"}).encode()
-    post_req = urllib.request.Request("http://127.0.0.1:8765/api/config", data=payload, headers={"Content-Type": "application/json"})
+    post_req = urllib.request.Request("http://127.0.0.1:8765/api/config", data=payload, headers={"Content-Type": "application/json", **authorized})
     post_res = urllib.request.urlopen(post_req)
     post_data = json.loads(post_res.read().decode())
     print(f"  Status: {post_res.status}")
     print(f"  Response: {post_data.get('status')}")
     assert post_res.status == 200, "POST /api/config failed"
 
+    # A failed disk write must not be reported as a saved setting.
+    from engine.server import orchestrator
+    original_language = orchestrator.config.get("language")
+    rejected_update = urllib.request.Request(
+        "http://127.0.0.1:8765/api/config",
+        data=json.dumps({"language": "de"}).encode(),
+        headers={"Content-Type": "application/json", **authorized},
+    )
+    with patch("engine.orchestrator.save_config", return_value=False):
+        try:
+            urllib.request.urlopen(rejected_update)
+            raise AssertionError("Failed config save was reported as success")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 500
+    assert orchestrator.config.get("language") == original_language
+
     # 2b. Test GET /v1/models (OpenAI compatibility)
     print("\n[Step 2b] Testing GET /v1/models...")
-    m_req = urllib.request.urlopen("http://127.0.0.1:8765/v1/models")
+    m_req = urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8765/v1/models", headers=authorized))
     m_data = json.loads(m_req.read().decode())
     assert m_req.status == 200, "GET /v1/models failed"
     assert m_data.get("object") == "list"
@@ -61,7 +99,14 @@ async def client_test():
     # 3. Test WebSocket connection and events
     print("\n[Step 3] Testing WebSocket (/ws) communication...")
     uri = "ws://127.0.0.1:8765/ws"
-    async with websockets.connect(uri) as ws:
+    rejected = False
+    try:
+        async with websockets.connect(uri) as unauthenticated:
+            await unauthenticated.recv()
+    except Exception:
+        rejected = True
+    assert rejected, "Unauthenticated WebSocket unexpectedly received data"
+    async with websockets.connect(uri, subprotocols=[f"flowpilot-token.{TEST_API_TOKEN}"]) as ws:
         # Receive initial state
         initial_msg = await asyncio.wait_for(ws.recv(), timeout=3.0)
         initial_data = json.loads(initial_msg)
@@ -133,6 +178,7 @@ def test_api_and_websocket_pipeline():
         except Exception:
             pass
         t.join(timeout=2.0)
+        TEST_CONFIG_FILE.unlink(missing_ok=True)
     assert success is True
 
 if __name__ == "__main__":

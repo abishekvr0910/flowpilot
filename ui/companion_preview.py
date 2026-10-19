@@ -11,10 +11,12 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
+from PySide6.QtCore import Qt, QTimer, QRectF, QPointF, QElapsedTimer
 from PySide6.QtGui import (
     QPainter, QColor, QBrush, QPen, QFont, QPixmap, QImage, QLinearGradient, QRadialGradient
 )
+
+from ui.companion_renderer import CompanionRenderer
 
 try:
     import ui.pet_sprites as ps
@@ -37,6 +39,10 @@ class CompanionPreviewWidget(QWidget):
         self._reduced_motion: bool = False
         self._tick: int = 0
         self._audio_sim: float = 0.0
+
+        # High-precision elapsed timer for frame-rate-independent animation
+        self._elapsed_timer = QElapsedTimer()
+        self._elapsed_timer.start()
 
         # Animation timer (30 FPS)
         self._anim_timer = QTimer(self)
@@ -66,8 +72,8 @@ class CompanionPreviewWidget(QWidget):
     def _on_tick(self):
         self._tick += 1
         if self._preview_state == "listening":
-            # Simulate natural breathing audio level
-            self._audio_sim = 0.35 + 0.35 * math.sin(self._tick * 0.18)
+            # Simulate natural breathing audio envelope
+            self._audio_sim = 0.40 + 0.35 * math.sin(self._tick * 0.18)
         else:
             self._audio_sim = 0.0
         self.update()
@@ -75,7 +81,6 @@ class CompanionPreviewWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
         center_x = self.width() / 2.0
         center_y = self.height() / 2.0
@@ -83,7 +88,7 @@ class CompanionPreviewWidget(QWidget):
         painter.save()
         painter.translate(center_x, center_y)
 
-        # Apply motion presets (if reduced_motion is false)
+        # Apply motion presets (strictly suppressed if reduced_motion is true)
         if not self._reduced_motion:
             t = self._tick * 0.08
             preset = self._motion_preset
@@ -107,12 +112,23 @@ class CompanionPreviewWidget(QWidget):
         comp_type = self._companion_data.get("type", "builtin")
         comp_id = self._companion_data.get("id", "kitty")
 
-        if comp_type == "builtin":
-            self._draw_builtin(painter, comp_id)
-        elif comp_type == "emoji":
-            self._draw_emoji(painter)
-        elif comp_type in ("image", "spritesheet"):
-            self._draw_custom_image(painter)
+        elapsed_ms = self._elapsed_timer.elapsed() if hasattr(self, "_elapsed_timer") else (self._tick * 33.0)
+        bounds = QRectF(-36, -36, 72, 72)
+        dpr = self.devicePixelRatioF() if hasattr(self, "devicePixelRatioF") else 1.0
+
+        CompanionRenderer.render(
+            painter=painter,
+            bounds=bounds,
+            style=comp_id,
+            state=self._preview_state,
+            elapsed_ms=elapsed_ms,
+            audio_level=self._audio_sim,
+            palette=self._palette,
+            reduced_motion=self._reduced_motion,
+            device_pixel_ratio=dpr,
+            is_preview=True,
+            custom_data=self._companion_data if comp_type != "builtin" else None
+        )
 
         painter.restore()
 
@@ -121,6 +137,8 @@ class CompanionPreviewWidget(QWidget):
         painter.end()
 
     def _draw_builtin(self, painter: QPainter, comp_id: str):
+        elapsed_ms = self._elapsed_timer.elapsed() if hasattr(self, "_elapsed_timer") else (self._tick * 33.0)
+        CompanionRenderer.render(painter, QRectF(-36, -36, 72, 72), comp_id, self._preview_state, elapsed_ms, self._audio_sim, self._palette, self._reduced_motion)
         if comp_id == "kitty":
             self._draw_kitty(painter)
         elif comp_id == "dog":

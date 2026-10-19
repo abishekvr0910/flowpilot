@@ -341,6 +341,90 @@ def test_companion_studio_ui_draft_and_apply(temp_dir, monkeypatch):
     dialog.deleteLater()
     QApplication.instance().processEvents()
 
+# -----------------------------------------------------------------
+# 7. CompanionRenderer Parity & Reduced Motion Verification
+# -----------------------------------------------------------------
+def test_companion_renderer_parity_and_reduced_motion():
+    from ui.companion_renderer import CompanionRenderer
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtCore import QRectF
+
+    # 1. Normalized state contract
+    assert CompanionRenderer.normalize_state("listening") == "listening"
+    assert CompanionRenderer.normalize_state("recording") == "listening"
+    assert CompanionRenderer.normalize_state("transcribing") == "processing"
+    assert CompanionRenderer.normalize_state("validating") == "processing"
+    assert CompanionRenderer.normalize_state("pasted") == "confirmed"
+    assert CompanionRenderer.normalize_state("success") == "confirmed"
+    assert CompanionRenderer.normalize_state("sent_unverified") == "unverified"
+    assert CompanionRenderer.normalize_state("failed_recovery") == "recovery"
+    assert CompanionRenderer.normalize_state("idle") == "idle"
+
+    # 2. Preferred size contract
+    w, h = CompanionRenderer.get_preferred_size("signal")
+    assert w == 68 and h == 28
+    w, h = CompanionRenderer.get_preferred_size("pilot")
+    assert w == 72 and h == 72
+    w, h = CompanionRenderer.get_preferred_size("seedling")
+    assert w == 72 and h == 72
+    w, h = CompanionRenderer.get_preferred_size("nimbus")
+    assert w == 72 and h == 72
+
+    # 3. Builtin companions registry verification
+    builtin_ids = [c["id"] for c in BUILTIN_COMPANIONS]
+    assert "signal" in builtin_ids
+    assert "mascot" in builtin_ids
+    assert "seedling" in builtin_ids
+    assert "nimbus" in builtin_ids
+
+    # 4. Non-null QPainter rendering in normal and reduced-motion modes
+    img = QImage(120, 120, QImage.Format_ARGB32_Premultiplied)
+    img.fill(0)
+    p = QPainter(img)
+
+    for style in ("signal", "pilot", "kitty", "dog", "edge_line", "seedling", "nimbus"):
+        for state in ("idle", "listening", "processing", "confirmed", "recovery"):
+            for rm in (False, True):
+                CompanionRenderer.render(
+                    painter=p,
+                    bounds=QRectF(10, 10, 80, 80),
+                    style=style,
+                    state=state,
+                    elapsed_ms=1250.0,
+                    audio_level=0.75,
+                    palette="default",
+                    reduced_motion=rm
+                )
+    p.end()
+    assert not img.isNull()
+
+def test_hud_reduced_motion_freezes_state_machine():
+    hud = FloatingHUD()
+    hud.set_visual_style("kitty")
+    hud._reduced_motion = True
+
+    hud.update_state("listening")
+    hud.update_state("audio_level", {"level": 0.95})
+
+    for _ in range(12):
+        hud._on_anim_tick()
+
+    # Under reduced motion, cat frame must be frozen on sit_a (no paw kneading)
+    assert hud._cat_frame == "sit_a"
+    assert hud._is_blinking is False
+
+def test_companion_preview_reduced_motion_and_signal():
+    preview = CompanionPreviewWidget()
+    preview.set_companion({"id": "signal", "type": "builtin"}, reduced_motion=True)
+    assert preview._reduced_motion is True
+
+    preview.set_preview_state("listening")
+    preview.repaint()
+
+    preview.set_companion({"id": "pilot", "type": "builtin"}, reduced_motion=True)
+    preview.set_preview_state("processing")
+    preview.repaint()
+
 if __name__ == "__main__":
     ret = pytest.main([__file__, "-v"])
     sys.exit(int(ret))

@@ -1,11 +1,12 @@
 import asyncio
+import hmac
 import os
 import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile, File, Form, HTTPException
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from engine.orchestrator import FlowOrchestrator
@@ -22,6 +23,15 @@ def redact_sensitive_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
 # Active WebSocket connections
 active_connections: List[WebSocket] = []
 loop = None
+
+def _api_token() -> Optional[str]:
+    """The optional server must never expose dictation controls without a secret."""
+    token = os.environ.get("FLOWPILOT_API_TOKEN", "")
+    return token if len(token) >= 32 else None
+
+def _origin_allowed(origin: Optional[str], host: Optional[str]) -> bool:
+    """Allow same-origin browser clients; CLI clients without Origin still need a token."""
+    return not origin or (host is not None and origin in (f"http://{host}", f"https://{host}"))
 
 def broadcast_state(payload: Dict[str, Any]):
     """Called from background threads when engine state changes."""
@@ -40,6 +50,8 @@ orchestrator = FlowOrchestrator(on_state_change=broadcast_state)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global loop
+    if _api_token() is None:
+        raise RuntimeError("Set FLOWPILOT_API_TOKEN to a random value of at least 32 characters before starting the optional API server.")
     loop = asyncio.get_running_loop()
     try:
         orchestrator.start_hotkey_listener()
@@ -49,6 +61,19 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="FlowPilot Engine API", lifespan=lifespan)
+
+@app.middleware("http")
+async def require_api_token(request: Request, call_next):
+    if request.url.path.startswith(("/api/", "/v1/")):
+        token = _api_token()
+        if token is None:
+            return JSONResponse({"detail": "Local API token is not configured."}, status_code=503)
+        if not _origin_allowed(request.headers.get("origin"), request.headers.get("host")):
+            return JSONResponse({"detail": "Cross-origin API requests are not allowed."}, status_code=403)
+        supplied = request.headers.get("authorization", "")
+        if not supplied.startswith("Bearer ") or not hmac.compare_digest(supplied[7:], token):
+            return JSONResponse({"detail": "A valid local API token is required."}, status_code=401)
+    return await call_next(request)
 
 # Enable CORS with restricted origin policy
 app.add_middleware(
@@ -66,11 +91,7 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "healthy",
-        "engine_state": getattr(orchestrator.state, "value", str(orchestrator.state)),
-        "is_recording": orchestrator.recorder.is_recording
-    }
+    return {"status": "healthy"}
 
 @app.get("/api/v1/status")
 async def api_status():
@@ -85,7 +106,15 @@ async def api_status():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
+    token = _api_token()
+    offered = [part.strip() for part in websocket.headers.get("sec-websocket-protocol", "").split(",")]
+    protocol = next((part for part in offered if part.startswith("flowpilot-token.")), None)
+    supplied = protocol.removeprefix("flowpilot-token.") if protocol else ""
+    if (token is None or not _origin_allowed(websocket.headers.get("origin"), websocket.headers.get("host"))
+            or not hmac.compare_digest(supplied, token)):
+        await websocket.close(code=1008)
+        return
+    await websocket.accept(subprotocol=protocol)
     active_connections.append(websocket)
     try:
         # Send initial config and state with sensitive credentials masked
@@ -127,7 +156,8 @@ async def set_config(new_config: Dict[str, Any]):
         if k in ("groq_api_key", "openai_api_key") and v == "***":
             continue
         clean_config[k] = v
-    orchestrator.update_config(clean_config)
+    if not orchestrator.update_config(clean_config):
+        raise HTTPException(status_code=500, detail="Configuration could not be saved.")
     return {"status": "success", "config": redact_sensitive_config(orchestrator.config)}
 
 @app.post("/api/toggle")
@@ -141,8 +171,11 @@ async def get_history():
 
 @app.delete("/api/history")
 async def clear_history():
+    previous_history = orchestrator.config.get("history", [])
     orchestrator.config["history"] = []
-    save_config(orchestrator.config)
+    if not save_config(orchestrator.config):
+        orchestrator.config["history"] = previous_history
+        raise HTTPException(status_code=500, detail="History could not be cleared.")
     return {"status": "cleared"}
 
 # --- OpenAI-Compatible Speech API (Cursor IDE / Open WebUI Drop-in) ---

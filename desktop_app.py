@@ -185,6 +185,16 @@ class FlowPilotApp:
 
     def _handle_state_update(self, payload: dict):
         state = payload.get("state", "idle")
+        confirmed = payload.get("injection_confirmed", True)
+        notice = payload.get("notice")
+
+        # When injection into destination window could not be physically verified
+        if state in ("pasted", "success") and not confirmed:
+            state = "unverified"
+            payload["state"] = "unverified"
+            notice_text = notice or "Sent — unverified target (please check)"
+            self.tray.show_notification("FlowPilot: Unverified Target", notice_text, is_warning=True)
+
         self.hud.update_state(state, payload)
         self.tray.set_state(state)
 

@@ -40,7 +40,7 @@ A comprehensive forensic audit of the FlowPilot application was conducted to dis
 
 ## 3. Automated Audit Suite Results (9/9 Passed)
 
-Executed via [`tests/run_all_tests.py`](file:///S:/APPs/New%20folder/tests/run_all_tests.py):
+Executed via [`tests/run_all_tests.py`](../../tests/run_all_tests.py):
 
 ```text
 ======================================================================
@@ -96,7 +96,7 @@ Total Test Time: 25.38s | Overall Verdict: ALL TESTS PASSED
 ## 4. Operational Instructions
 
 To launch the native desktop application:
-* Double-click [`start_desktop.bat`](file:///S:/APPs/New%20folder/start_desktop.bat), or
+* Double-click [`start_desktop.bat`](../../start_desktop.bat), or
 * Run `python desktop_app.py`.
 
 The Flow Pill will float at the bottom center of your screen. Pressing **`Ctrl + Shift + Space`** or **`F9`** or clicking the mic icon starts recording and mutes background audio; pressing it again pastes the transcribed text into Notepad, VS Code, Word, or Chrome.

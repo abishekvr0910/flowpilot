@@ -1,101 +1,80 @@
-# ⚡ FlowPilot 60-Second Quickstart
+# Get started with FlowPilot on Windows
 
-FlowPilot is a local-first voice dictation app. The [published v3.0.2 download](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release) targets Windows. The current source contains additional pilot features; Linux and macOS adapters are development paths, not equivalent packaged releases. Read [PRIVACY.md](PRIVACY.md) for current-source local history storage.
+FlowPilot turns speech into text using a local CPU model. You need a Windows PC, a microphone, and locally installed model weights. VB-Cable and traffic-capture tools are only for benchmarks.
 
----
+The recorded published download is [v3.0.2](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release). Current source contains newer features and fixes. This guide labels those separately; check the release notes for the build you install.
 
-## 1. How to Launch FlowPilot
+## Install a published build
 
-### Windows
-- **Option A (One-Click Batch Launcher):** Double-click **`start_desktop.bat`** in the repository root.
-- **Option B (Published Windows App):** Download and extract the v3.0.2 release ZIP, then run **`FlowPilot.exe`** from its extracted folder.
-- **Option C (From Python Source):**
-  ```powershell
-  python desktop_app.py
-  ```
+1. Download the Windows ZIP from the repository's GitHub release page. Check its SHA-256 against the matching [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md).
+2. Extract the **whole folder**, including supporting libraries, and inspect the executable's publisher signature using the [release guide](docs/release/flowpilot_build_and_release.md). If Windows blocks the build, verify its origin before proceeding.
+3. Run `FlowPilot.exe` as a normal user. Use the tray icon to access settings and quit.
+4. Allow desktop microphone access in Windows Settings and select your intended recording device. Check that local model weights are available; current source will report a missing-model error rather than silently downloading them.
 
-### Linux (Ubuntu, Debian, Fedora, Arch)
-```bash
-# Install audio & input prerequisites
-sudo apt install libportaudio2 xdotool pulseaudio-utils   # Debian/Ubuntu
-# or: sudo dnf install portaudio xdotool pulseaudio-utils # Fedora
+A ZIP's presence does not establish that it contains the latest fixes or a complete offline model cache. Check its release-specific notes.
 
-python3 desktop_app.py
+## Running current source
+
+Use Windows and Python 3.12, matching the current CI configuration:
+
+```powershell
+git clone https://github.com/abishekvr0910/flowpilot.git
+cd flowpilot
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
-### macOS (Apple Silicon / Intel)
-```bash
-# Install portaudio
-brew install portaudio
+On a connected machine, explicitly provision the default `base` model once. This setup command can contact Hugging Face and download model files; it does not capture speech:
 
-python3 desktop_app.py
+```powershell
+python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"
 ```
-*(Grant Accessibility and Microphone permissions in macOS System Settings when prompted).*
 
----
+After provisioning, verify that the cache is readable without downloads, then start the app:
 
-## 2. Desktop Companion & Visual Styles
+```powershell
+python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8', local_files_only=True)"
+python desktop_app.py
+```
 
-When FlowPilot starts, you will see your animated desktop companion appear on your screen:
-- 🐾 **SondeR-Cat Pixel Kitty:** Adorable 26x28 pixel cat with 10 fur colors (Orange Tabby, Calico, Midnight Black, Gray, Siamese, Pastel Pink, White, Mint, Chocolate, Cream). Paws knead at voice speed when dictating, eyes glow during transcription, and floating hearts appear on paste with optional cheerful meows!
-- 🤖 **Robot Mascot ("Pilot"):** A cute, compact animated robot companion with blinking eyes, pupil dilation that reacts to your voice volume, acoustic antennae waves, thinking swirls, and a joyful smile upon pasting.
-- 📏 **Wispr Flow Docked Edge Line:** Minimal vertical bar docked against your screen edge that subtly expands in thickness and pulses with voice volume.
-- 🌊 **Wispr Wave Equalizer:** Compact 5-bar animated audio spectrum equalizer.
-- 🚫 **Zero Clutter:** No annoying text pills, no focus-stealing window overlays (`WS_EX_NOACTIVATE`).
-- 🖐️ **Draggable Anywhere:** Drag your companion to any pixel on any monitor. Position is automatically remembered across app restarts.
-- 📐 **Snap to Any Corner:** Right-click the companion to immediately snap to *Bottom-Right*, *Bottom-Left*, *Top-Right*, *Top-Left*, *Left Edge (Middle)*, *Right Edge (Middle)*, or *Bottom-Center*.
-- **Choose a style:** Use the companion's right-click **Appearance Style** menu or Companion Studio in current source. Double-click is intentionally ignored for appearance changes.
+If you select a different model, provision that model separately. For a disconnected deployment, prepare weights on a connected machine and transfer a complete model directory/cache through your normal approved process. Do not assume an empty Hugging Face cache folder contains model weights.
 
----
+Linux and macOS adapters exist for development; the documented packaged-release target is Windows.
 
-## 3. How to Dictate (Three Flexible Ways)
+## Check privacy before the first dictation
 
-Place your cursor in any application (VS Code, Notepad, Browser, Slack, Word, Terminal):
+New source profiles default to `save_history_text: false`. Existing profiles keep their saved choice. To inspect it, quit FlowPilot and review `%USERPROFILE%\.flowpilot\config.json`; restart after editing. Leave `telemetry_enabled` false unless you intentionally enable local pilot metrics.
 
-| Method | Shortcut | Action |
-|:---|:---|:---|
-| **Toggle Mode (Default)** | **`Ctrl + Shift + Space`** *(or click Pilot)* | Press once to speak. Speak naturally. Press again or pause for ~0.85s to finalize and paste at your cursor. |
-| **Push-to-Talk (Wispr Flow style)** | **`F9`** | Press and hold `F9`. Speak while holding. Release `F9` to paste instantly. |
-| **TapLatch™ Hands-Free** | **Rapid double-tap `F9`** | Rapidly tap `F9` twice (<350ms) to lock dictation hands-free. Single tap `F9` to stop and paste. |
+History-off prevents new completed dictations from being saved through the vault/history path. It does not erase older entries or turn off meeting-note and scratchpad storage. The app keeps a short audio pre-roll in memory, so the microphone can remain open while FlowPilot is idle. See [PRIVACY.md](PRIVACY.md) for clipboard, log, and integration boundaries.
 
----
+## Try one sentence
 
-## 4. Wispr Flow Voice Commands & Spoken Punctuation
+1. Open an ordinary, non-administrator Notepad window and click in its document.
+2. Press **Ctrl+Shift+Space**, say a made-up sentence, and press the shortcut again to stop. Automatic silence finalization may stop recording first.
+3. Wait for transcription and check the actual text in the document.
+4. Try your normal editor next; compatibility and timing can differ by application.
 
-FlowPilot automatically resolves voice editing commands, punctuation, and structural formatting on the fly:
+Other controls in current source:
 
-### Spoken Punctuation
-- Say *"comma"* → `,`
-- Say *"period"* or *"full stop"* → `.`
-- Say *"question mark"* → `?`
-- Say *"exclamation point"* → `!`
-- Say *"colon"* → `:`
-- Say *"semicolon"* → `;`
-- Say *"open quote"* / *"close quote"* → `"`
-- Say *"open paren"* / *"close paren"* → `(` / `)`
-- Say *"dot dot dot"* or *"ellipsis"* → `...`
+| Action | Control |
+| --- | --- |
+| Push to talk | Hold F9, speak, then release |
+| Hands-free latch | Double-tap F9; tap again to stop |
+| Recover the latest dictation | Alt+Shift+Z, or tray > Copy Last Dictation |
+| Change appearance | Companion context menu or Companion Studio |
+| Move the companion | Drag, or use its placement menu |
 
-### Voice Editing & Formatting
-- **Voice Erase:** Say *"scratch that"* or *"delete that"* to erase the preceding sentence/clause.
-- **Word Erase:** Say *"scratch last word"* to erase only the previous word.
-- **All Caps:** Say *"all caps urgent"* → `URGENT`.
-- **Spoken Self-Correction:** Say *"let's meet Tuesday, actually Wednesday"* → *"Let's meet Wednesday"*.
+On laptops, F9 may require the Fn key or function-lock setting. Shortcut behavior also depends on your selected mode and conflicts with other apps.
 
-### Structural Commands
-- Say *"new line"* → Inserts `\n` and capitalizes the next sentence.
-- Say *"new paragraph"* → Inserts `\n\n` for a clean paragraph break.
-- Say *"press tab"* or *"tab"* → Inserts `\t`.
+## If text does not arrive
 
-### Smart Formatting
-- **Emails & URLs:** Say *"contact john dot doe at company dot com"* → `john.doe@company.com`.
-- **Code Identifiers (Developer Mode):** Say *"camel case user profile"* → `userProfile`, *"snake case api key"* → `api_key`.
-- **Currencies & Percentages:** Say *"twenty five percent discount on twelve thousand dollars"* → `25% discount on $12,000`.
+Check whether it appeared late before retrying. Place the cursor in the desired field, choose **Copy Last Dictation**, and paste manually. The in-memory buffer holds only the most recent dictation and is lost on exit. Repeating recovery can duplicate text.
 
----
+See [SUPPORT.md](SUPPORT.md) for microphone, model, elevated-window, and reporting guidance. Use a synthetic phrase for reports and review diagnostic logs before attaching them.
 
-## 5. Pro-Tips & Emergency Recovery
+## Voice formatting
 
-- **Instant Re-Paste:** Press **`Alt + Shift + Z`** anywhere in your OS to immediately re-paste your last dictation buffer.
-- **Copy Last Dictation:** If an elevated terminal window blocks automated typing, right-click the System Tray icon or Pilot Companion and select **"Copy Last Dictation"** — your dictation is never lost.
-- **Audio Ducking:** FlowPilot automatically lowers background music (Spotify, YouTube, Discord) while speaking, then restores volume upon pasting.
-- **Local by Default:** Speech recognition runs on your CPU via `faster-whisper` INT8. Current source saves completed dictation audio and text in its local History Vault; see [PRIVACY.md](PRIVACY.md). Check optional integrations separately under your network policy.
+Current-source formatting supports commands such as `comma`, `new line`, `new paragraph`, `scratch that`, `camel case user profile`, and `snake case api key`. Recognition and formatting can still be wrong: review numbers, negations, identifiers, and commands before using the result. Choose verbatim mode when minimal post-processing is preferred.
+
+For configuration, optional local integrations, and architecture, see the [README](README.md). For release evidence and remaining limitations, see [Evaluating FlowPilot](TRUST.md).

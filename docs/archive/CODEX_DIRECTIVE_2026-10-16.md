@@ -84,7 +84,7 @@ FlowPilot's architecture is synthesized from forensic teardowns of industry-lead
 - **Visual Elegance:** Minimalist docked vertical edge bar that subtly pulses with speech RMS volume, completely eliminating distracting text boxes.
 
 ### Referral 2: whisper-local (The Acoustic Latency & Gesture Benchmark)
-*Architecture overview:* [`flowpilot_desktop_architecture.md`](flowpilot_desktop_architecture.md)
+*Architecture overview:* [`flowpilot_desktop_architecture.md`](../architecture/flowpilot_desktop_architecture.md)
 - **Continuous Sliding Pre-Roll Ring Buffer:** Maintains a 350ms float32 circular buffer (`collections.deque(maxlen=N)`). When recording triggers, the pre-roll buffer is atomically transferred to seed the active recording frames.
 - **Zero-Latency Audio Stream Warmup:** `warmup_stream()` initializes the PortAudio device in the background at startup, eliminating the 100–180ms driver spin-up latency on Windows MME/WASAPI.
 - **TapLatch™ Finite State Machine:**
