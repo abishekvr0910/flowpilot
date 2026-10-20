@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from engine import __version__
 from engine.orchestrator import FlowOrchestrator
 from engine.config import load_config, save_config
 
@@ -97,7 +98,7 @@ async def health():
 async def api_status():
     return {
         "status": "online",
-        "version": "3.1.0-pilot",
+        "version": __version__,
         "engine_state": getattr(orchestrator.state, "value", str(orchestrator.state)),
         "is_recording": orchestrator.recorder.is_recording,
         "active_profile": orchestrator.config.get("profile", "developer"),

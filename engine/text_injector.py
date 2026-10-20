@@ -55,10 +55,51 @@ class TextInjector:
     """
 
     last_injected_text: str = ""
+    last_target_hwnd: Optional[int] = None
+    last_target_title: str = ""
     _restore_lock = threading.Lock()
     _restore_timer: Optional[threading.Timer] = None
     _original_clipboard: Optional[str] = None
     _last_copy_seq: Optional[int] = None
+
+    @classmethod
+    def _is_flowpilot_window(cls, hwnd: Optional[int]) -> bool:
+        """Determines if a window handle belongs to FlowPilot itself."""
+        if not HAS_WIN32 or not hwnd or sys.platform != "win32":
+            return False
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            if pid == os.getpid():
+                return True
+            title = win32gui.GetWindowText(hwnd).lower()
+            if "flowpilot" in title:
+                return True
+        except Exception:
+            pass
+        return False
+
+    # Performance-sensitive applications requiring extended clipboard hold and key dwell
+    SLOW_APP_PROCESSES = {
+        "slack.exe", "teams.exe", "ms-teams.exe", "discord.exe", "notion.exe",
+        "outlook.exe", "winword.exe", "powerpnt.exe", "excel.exe", "whatsapp.exe",
+        "code.exe", "cursor.exe", "devenv.exe", "pycharm64.exe", "idea64.exe",
+        "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "obsidian.exe"
+    }
+
+    REMOTE_APP_PROCESSES = {
+        "mstsc.exe", "vncviewer.exe", "anydesk.exe", "teamviewer.exe", "vmware.exe", "virtualboxvm.exe"
+    }
+
+    @classmethod
+    def _get_target_process_name(cls, hwnd: Optional[int]) -> str:
+        """Determines process binary name for a given HWND."""
+        if not HAS_WIN32 or not hwnd or sys.platform != "win32":
+            return ""
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            return psutil.Process(pid).name().lower()
+        except Exception:
+            return ""
 
     @classmethod
     def _get_clipboard_sequence_number(cls) -> Optional[int]:
@@ -273,10 +314,11 @@ class TextInjector:
         def enum_cb(child, _):
             try:
                 cname = win32gui.GetClassName(child).lower()
-                if any(x in cname for x in ("edit", "richedit", "document", "scintilla", "terminal")):
+                if any(x in cname for x in ("edit", "richedit", "document", "scintilla", "terminal", "textbox")):
                     found.append(child)
             except Exception:
                 pass
+            return True
         try:
             win32gui.EnumChildWindows(hwnd, enum_cb, None)
         except Exception:
@@ -343,6 +385,25 @@ class TextInjector:
 
         cls.last_injected_text = text
 
+        # Safely track intended target editor for recovery and "Paste Last"
+        intended_editor = target_hwnd or (cur_fg if ('cur_fg' in locals() and cur_fg) else None)
+        if intended_editor and not cls._is_flowpilot_window(intended_editor):
+            cls.last_target_hwnd = intended_editor
+            if HAS_WIN32 and sys.platform == "win32":
+                try:
+                    cls.last_target_title = win32gui.GetWindowText(intended_editor)
+                except Exception:
+                    pass
+
+        # Determine target application performance profile before try block (Wispr slow-app guidance)
+        cur_fg_proc = cur_fg if (HAS_WIN32 and sys.platform == "win32" and 'cur_fg' in locals()) else None
+        target_proc = cls._get_target_process_name(target_hwnd or cur_fg_proc)
+        is_remote = target_proc in cls.REMOTE_APP_PROCESSES
+        is_slow = (target_proc in cls.SLOW_APP_PROCESSES) or is_remote
+        key_dwell_sec = 0.050 if is_remote else (0.040 if is_slow else 0.02)
+        post_paste_delay = 0.15 if is_remote else (0.10 if is_slow else 0.06)
+        clipboard_hold_sec = 5.0 if is_remote else (3.5 if is_slow else 1.8)
+
         try:
             # 3. Copy text to clipboard with lock retry
             if not cls._safe_clipboard_copy(text):
@@ -389,7 +450,16 @@ class TextInjector:
                 ok, cur_fg_now, err_msg = cls._resolve_verified_foreground(target_hwnd)
                 if not ok:
                     cls.last_injected_text = text
-                    cls._safe_clipboard_copy(text)
+                    # Preserve original clipboard immediately so the newly focused application is not clobbered
+                    if preserve_clipboard and cls._original_clipboard is not None:
+                        cur_seq = cls._get_clipboard_sequence_number()
+                        cur_clip = cls._safe_clipboard_paste()
+                        if (cls._last_copy_seq is not None and cur_seq is not None and cur_seq != cls._last_copy_seq) or (cur_clip is not None and cur_clip != text and cur_clip.strip() != text.strip()):
+                            print(f"[Injector Security] Clipboard changed during focus loss ({cls._last_copy_seq} -> {cur_seq}). Skipping restore to protect user's newer copy.")
+                        else:
+                            cls._safe_clipboard_copy(cls._original_clipboard)
+                        with cls._restore_lock:
+                            cls._original_clipboard = None
                     print(f"[Injector Security] {err_msg} Paste aborted; saved to recovery buffer.")
                     return InjectionResult(
                         status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
@@ -403,16 +473,16 @@ class TextInjector:
                 if is_legacy_console:
                     win32api.keybd_event(win32con.VK_SHIFT, 0, 0, 0)
                     win32api.keybd_event(win32con.VK_INSERT, 0, 0, 0)
-                    time.sleep(0.015)
+                    time.sleep(key_dwell_sec)
                     win32api.keybd_event(win32con.VK_INSERT, 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_SHIFT, 0, win32con.KEYEVENTF_KEYUP, 0)
                 else:
                     win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
                     win32api.keybd_event(ord('V'), 0, 0, 0)
-                    time.sleep(0.02)
+                    time.sleep(key_dwell_sec)
                     win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
-                    time.sleep(0.08)
+                    time.sleep(post_paste_delay)
             elif sys.platform == "darwin":
                 # macOS Cmd+V
                 try:
@@ -500,9 +570,53 @@ class TextInjector:
                             cls._restore_timer = None
 
                 with cls._restore_lock:
-                    cls._restore_timer = threading.Timer(1.5, restore_worker)
+                    cls._restore_timer = threading.Timer(clipboard_hold_sec, restore_worker)
                     cls._restore_timer.daemon = True
                     cls._restore_timer.start()
+
+    @classmethod
+    def inject_last(cls, target_hwnd: Optional[int] = None) -> InjectionResult:
+        """
+        Re-injects the last dictated/formatted text into the intended target editor safely.
+        If invoked from FlowPilot's dashboard, tray, or background hotkey,
+        it automatically brings the intended external editor to the foreground.
+        Never fires blind Ctrl+V into FlowPilot or unknown windows.
+        """
+        if not cls.last_injected_text:
+            return InjectionResult(
+                status=InjectionStatus.ERROR,
+                error_message="No previous dictation text found in recovery buffer.",
+                recovery_available=False
+            )
+
+        cur_fg = win32gui.GetForegroundWindow() if (HAS_WIN32 and sys.platform == "win32") else 0
+
+        # Resolve intended target window
+        chosen_target: Optional[int] = None
+        if target_hwnd is not None and not cls._is_flowpilot_window(target_hwnd):
+            chosen_target = target_hwnd
+        elif cur_fg and not cls._is_flowpilot_window(cur_fg):
+            chosen_target = cur_fg
+        elif cls.last_target_hwnd and not cls._is_flowpilot_window(cls.last_target_hwnd):
+            chosen_target = cls.last_target_hwnd
+
+        if not chosen_target:
+            # Safety invariant: Do not dispatch keystrokes to an unknown or FlowPilot window.
+            # Safely place the text onto clipboard for user manual paste.
+            cls._safe_clipboard_copy(cls.last_injected_text)
+            return InjectionResult(
+                status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+                error_message="Intended editor window is not open. Last dictation copied to clipboard for safe manual paste (Ctrl+V).",
+                recovery_available=True
+            )
+
+        # Bring the intended editor to front if it isn't currently active
+        if HAS_WIN32 and sys.platform == "win32":
+            if cur_fg != chosen_target:
+                cls._safe_set_foreground(chosen_target)
+                time.sleep(0.08)
+
+        return cls.inject_with_status(cls.last_injected_text, target_hwnd=chosen_target)
 
     @classmethod
     def inject(cls, text: str, target_hwnd: Optional[int] = None, preserve_clipboard: bool = True) -> bool:

@@ -11,8 +11,8 @@ from engine.context_processor import ContextProcessor
 from engine.text_injector import TextInjector
 from engine.audio_ducker import AudioDucker
 from engine.audio_feedback import AudioFeedback
-from engine.hotkey_service import get_hotkey_service, Win32HotkeyService
-from engine.personalization import PersonalizationEngine
+from engine.hotkey_service import get_hotkey_service, Win32HotkeyService, dictation_hotkey_conflict, parse_hotkey_string
+from engine.personalization import PersonalizationEngine, get_shared_personalization
 from engine.session import DictationSession, SessionState
 
 class AppState:
@@ -32,8 +32,9 @@ class FlowOrchestrator:
         self.config = load_config()
         self.on_state_change = on_state_change
         
-        self.personalization = PersonalizationEngine()
-        self.recorder = AudioRecorder()
+        self.personalization = get_shared_personalization()
+        mic_dev = self.config.get("audio_device_index", self.config.get("mic_device"))
+        self.recorder = AudioRecorder(device=mic_dev)
         self.stt = STTEngine(self.config, personalization=self.personalization)
         self.processor = ContextProcessor(self.config, personalization=self.personalization)
         self.ducker = AudioDucker(duck_mode="mute")
@@ -48,6 +49,7 @@ class FlowOrchestrator:
         
         self.hotkey_service = get_hotkey_service()
         self.hotkey_listener = None
+        self._auxiliary_hotkeys: Dict[str, Callable[[], None]] = {}
         self.last_dictation: Dict[str, Any] = {}
         self._auto_stop_timer: Optional[threading.Timer] = None
 
@@ -116,7 +118,7 @@ class FlowOrchestrator:
         print("[Orchestrator] Maximum recording duration (120s) reached. Auto-stopping...")
         self.stop_dictation_and_process()
 
-    def start_dictation(self):
+    def start_dictation(self, translation_mode: Optional[bool] = None):
         with self._state_lock:
             if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
                 print(f"[Orchestrator] start_dictation ignored: currently in state {self.state}")
@@ -134,10 +136,13 @@ class FlowOrchestrator:
         print(f"[Orchestrator] Active window target: {self.target_window_info.get('process_name')} ('{self.target_window_info.get('title')}')")
 
         # Create new dictation session with unique session token
+        is_translate = translation_mode if translation_mode is not None else self.config.get("translate_to_english", False)
         session = DictationSession(
             target_window_info=self.target_window_info,
             tone_mode=self.config.get("active_tone_mode", "general")
         )
+        session.task = "translate" if is_translate else "transcribe"
+        session.language = self.config.get("language", "auto")
         with self._state_lock:
             self._current_session = session
 
@@ -145,7 +150,9 @@ class FlowOrchestrator:
         self._notify(AppState.STARTING_RECORDING, {
             "session_id": session.session_id,
             "target_app": self.target_window_info.get("process_name"),
-            "mode": self.config.get("active_tone_mode")
+            "mode": self.config.get("active_tone_mode"),
+            "task": session.task,
+            "language": session.language
         })
 
         # 3. Silence background audio asynchronously
@@ -303,7 +310,9 @@ class FlowOrchestrator:
                 # 3. Transcribe audio (STT) - pass zero-copy float32 array if available
                 t_stt_start = time.perf_counter()
                 stt_input = audio_array if audio_array is not None else wav_bytes
-                stt_result = self.stt.transcribe(stt_input)
+                stt_task = getattr(active_session, "task", "transcribe")
+                stt_lang = getattr(active_session, "language", self.config.get("language", "auto"))
+                stt_result = self.stt.transcribe(stt_input, task=stt_task, language=stt_lang)
                 t_stt_end = time.perf_counter()
 
                 with self._state_lock:
@@ -316,7 +325,7 @@ class FlowOrchestrator:
                 active_session.raw_text = raw_text
                 active_session.detected_language = detected_lang
                 stt_duration = round(t_stt_end - t_stt_start, 3)
-                print(f"[Orchestrator] STT completed ({stt_duration}s, lang={detected_lang}, chars={len(raw_text)}).")
+                print(f"[Orchestrator] STT completed ({stt_duration}s, task={stt_task}, lang={detected_lang}, chars={len(raw_text)}).")
 
                 if not raw_text or not raw_text.strip():
                     with self._state_lock:
@@ -335,12 +344,14 @@ class FlowOrchestrator:
                     self.state = AppState.VALIDATING
                 self._notify(AppState.VALIDATING, {"char_count": len(raw_text), "session_id": active_session.session_id})
 
-                # Post-process via ContextProcessor
+                # Post-process via ContextProcessor (using English formatting if translated, or detected language if original)
                 t_clean_start = time.perf_counter()
+                format_lang = "en" if stt_task == "translate" else detected_lang
                 formatted_text = self.processor.process(
                     raw_text,
                     active_session.target_window_info,
-                    session_mode=active_session.tone_mode
+                    session_mode=active_session.tone_mode,
+                    language=format_lang
                 )
                 if self.personalization:
                     expanded_text, trigger = self.personalization.expand_snippets(formatted_text)
@@ -536,12 +547,12 @@ class FlowOrchestrator:
 
         threading.Thread(target=process_worker, args=(session, t_stop_action), daemon=True, name="FlowPilot-Processor").start()
 
-    def toggle_dictation(self):
+    def toggle_dictation(self, translation_mode: Optional[bool] = None):
         with self._state_lock:
             cur = self.state
 
         if cur == AppState.IDLE:
-            self.start_dictation()
+            self.start_dictation(translation_mode=translation_mode)
         elif cur == AppState.STARTING_RECORDING:
             with self._state_lock:
                 self._stop_pending = True
@@ -552,26 +563,53 @@ class FlowOrchestrator:
             print(f"[Orchestrator] Shortcut pressed while {cur}. Displaying progress notification.")
             self._notify(cur, {"notice": "Processing dictation. Please wait..."})
         elif cur == AppState.SUCCESS:
-            self.start_dictation()
+            self.start_dictation(translation_mode=translation_mode)
         elif cur in (AppState.ERROR, AppState.CANCELLED):
-            self.start_dictation()
+            self.start_dictation(translation_mode=translation_mode)
 
     def update_config(self, new_config: Dict[str, Any]):
         old_hk = self.config.get("hotkey")
         old_mode = self.config.get("hotkey_mode")
+        old_exclusive = self.config.get("hotkey_exclusive", False)
         updated_config = {**self.config, **new_config}
+        new_hk = updated_config.get("hotkey", "Ctrl+Shift+Space")
+        if new_hk != old_hk:
+            updated_config["hotkey_exclusive"] = True
+            try:
+                parse_hotkey_string(new_hk)
+                conflict = dictation_hotkey_conflict(new_hk)
+                if conflict:
+                    print(f"[Orchestrator Warning] Dictation shortcut conflicts with {conflict}.")
+                    return False
+            except ValueError as exc:
+                print(f"[Orchestrator Warning] Invalid dictation shortcut: {exc}")
+                return False
+            current_hk = old_hk if self.hotkey_service.is_alive() else None
+            available, reason = Win32HotkeyService.test_hotkey_availability(new_hk, currently_active_hotkey=current_hk)
+            if not available:
+                print(f"[Orchestrator Warning] Dictation shortcut unavailable: {reason}")
+                return False
         if not save_config(updated_config):
             return False
         self.config = updated_config
         # Update submodules
         self.stt.config = self.config
         self.processor.config = self.config
+
+        # Update audio input device dynamically if changed
+        old_dev = getattr(self.recorder, "device", None)
+        new_dev = self.config.get("audio_device_index", self.config.get("mic_device"))
+        if new_dev != old_dev:
+            print(f"[Orchestrator] Audio input device changed ({old_dev} -> {new_dev}). Updating recorder.")
+            self.recorder.set_device(new_dev, defer_if_recording=True)
+
         print("[Orchestrator] Configuration updated.")
 
         # Re-bind hotkeys dynamically if shortcut or mode changed
         new_hk = self.config.get("hotkey")
         new_mode = self.config.get("hotkey_mode")
-        if (new_hk and new_hk != old_hk) or (new_mode and new_mode != old_mode):
+        new_exclusive = self.config.get("hotkey_exclusive", False)
+        if (new_hk and new_hk != old_hk) or (new_mode and new_mode != old_mode) or new_exclusive != old_exclusive:
             print(f"[Orchestrator] Re-registering hotkey service with updated shortcut '{new_hk}' (mode={new_mode})...")
             self.stop_hotkey_listener()
             from engine.hotkey_service import get_hotkey_service
@@ -583,24 +621,41 @@ class FlowOrchestrator:
         """Copies the last dictation text directly to clipboard."""
         return TextInjector.re_copy_last()
 
-    def re_inject_last(self) -> bool:
-        """Re-injects the last dictation text into the currently active or last target window."""
+    def re_inject_last(self):
+        """
+        Re-injects the last dictation text into the currently active or last target window.
+        Returns the structured InjectionResult (CONFIRMED_INSERTED, SENT_UNVERIFIED,
+        FAILED_RECOVERY_AVAILABLE, or ERROR).
+        """
+        from engine.text_injector import InjectionStatus, InjectionResult
         text = self.last_dictation.get("formatted_text") or TextInjector.last_injected_text
         if not text:
-            return False
-        cur_target = WindowInspector.get_active_window_info().get("hwnd") or self.target_window_info.get("hwnd")
-        return TextInjector.inject(text, cur_target)
+            return InjectionResult(
+                status=InjectionStatus.ERROR,
+                error_message="No previous dictation text found in recovery buffer.",
+                recovery_available=False
+            )
+        cur_info = WindowInspector.get_active_window_info()
+        cur_hwnd = cur_info.get("hwnd", 0)
+        target = cur_hwnd if (cur_hwnd and not TextInjector._is_flowpilot_window(cur_hwnd)) else (self.target_window_info.get("hwnd") or TextInjector.last_target_hwnd)
+        res = TextInjector.inject_last(target_hwnd=target)
+        if isinstance(self.last_dictation, dict) and "injection_status" in self.last_dictation:
+            self.last_dictation["prior_injection_status"] = self.last_dictation.get("injection_status")
+            self.last_dictation["injection_status"] = res.status.value
+        return res
 
     def start_hotkey_listener(self):
         """
         Registers native Win32 global hotkeys using RegisterHotKey.
         Supports both Toggle Mode and Push-to-Talk Mode.
-        - Primary shortcut from config (default: Ctrl + Shift + Space)
-        - Alternative toggle: Ctrl + Alt + Space
-        - Single-key toggle: F9
+        Existing profiles retain the former aliases until the user explicitly
+        chooses a shortcut. After that, only their chosen key controls dictation.
+        Auxiliary actions retain their dedicated shortcuts across changes.
         """
         try:
             from engine.hotkey_service import TapLatch
+            if self.hotkey_service.is_alive():
+                return
             self._tap_latch = TapLatch(
                 on_start=self.start_dictation,
                 on_stop=self.stop_dictation_and_process,
@@ -610,32 +665,47 @@ class FlowOrchestrator:
             primary_hk = self.config.get("hotkey", "Ctrl+Shift+Space")
             clean_hk = primary_hk.replace("<", "").replace(">", "").strip()
             mode = self.config.get("hotkey_mode", "toggle")
+            parse_hotkey_string(clean_hk)
+            conflict = dictation_hotkey_conflict(clean_hk)
+            if conflict:
+                raise ValueError(f"Dictation shortcut conflicts with {conflict}.")
 
             if mode == "push_to_talk":
                 # Push-to-talk with TapLatch double-tap hands-free support
                 self.hotkey_service.register(clean_hk, self._tap_latch.press, on_release=self._tap_latch.release)
-                if clean_hk.lower() != "f9":
-                    self.hotkey_service.register("F9", self._tap_latch.press, on_release=self._tap_latch.release)
-                if clean_hk.lower() != "ctrl+alt+space":
-                    self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
             else:
                 # Toggle: press once to start, press again to stop
                 self.hotkey_service.register(clean_hk, self.toggle_dictation)
-                if clean_hk.lower() != "ctrl+alt+space":
-                    self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
-                if clean_hk.lower() != "f9":
-                    self.hotkey_service.register("F9", self.toggle_dictation)
 
-            # Register Alt+Shift+Z for instant paste-last-dictation recovery
+            if not self.config.get("hotkey_exclusive", False):
+                # Backward compatibility: do not silently remove F9 from an
+                # existing installation before its owner visits Settings.
+                primary_code = parse_hotkey_string(clean_hk)
+                if primary_code != parse_hotkey_string("F9"):
+                    if mode == "push_to_talk":
+                        self.hotkey_service.register("F9", self._tap_latch.press, on_release=self._tap_latch.release)
+                    else:
+                        self.hotkey_service.register("F9", self.toggle_dictation)
+                if primary_code != parse_hotkey_string("Ctrl+Alt+Space"):
+                    self.hotkey_service.register("Ctrl+Alt+Space", self.toggle_dictation)
+
+            for shortcut, callback in self._auxiliary_hotkeys.items():
+                self.hotkey_service.register(shortcut, callback)
+
+            # Register Alt+Shift+Z (Paste Last) and Alt+Shift+X (Copy Last) for instant recovery (Wispr Flow alignment)
             try:
                 self.hotkey_service.register("Alt+Shift+Z", self.re_inject_last)
+            except Exception:
+                pass
+            try:
+                self.hotkey_service.register("Alt+Shift+X", self.re_copy_last)
             except Exception:
                 pass
             
             success = self.hotkey_service.start(timeout=3.0)
             service_name = self.hotkey_service.__class__.__name__
             if success:
-                print(f"[Orchestrator] {service_name} active: '{clean_hk}' (mode={mode}), 'Ctrl + Alt + Space', 'F9', 'Alt + Shift + Z' (Recovery)")
+                print(f"[Orchestrator] {service_name} active: '{clean_hk}' (mode={mode}), auxiliary and recovery shortcuts")
             else:
                 print(f"[Orchestrator Warning] {service_name} encountered errors: {self.hotkey_service.stats['errors']}")
         except Exception as e:
@@ -648,6 +718,12 @@ class FlowOrchestrator:
         if self.hotkey_service:
             self.hotkey_service.stop()
             print("[Orchestrator] Hotkey service stopped.")
+
+    def add_auxiliary_hotkey(self, shortcut: str, callback: Callable[[], None]):
+        """Keep a desktop action bound across dictation shortcut changes."""
+        if self.hotkey_service.is_alive():
+            raise RuntimeError("Register auxiliary hotkeys before starting the listener.")
+        self._auxiliary_hotkeys[shortcut] = callback
 
     def stop(self):
         """Clean shutdown of all orchestrator services."""

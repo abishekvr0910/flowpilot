@@ -32,12 +32,14 @@ class AudioRecorder:
         self.last_audio_array: Optional[np.ndarray] = None
         self.stream: Optional[sd.InputStream] = None
         self.level_callback: Optional[Callable[[float], None]] = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
         # Pre-roll circular ring buffer (prevents clipping the first syllable)
         self.preroll_seconds: float = 0.35
         self.enable_preroll: bool = True
         self._preroll_buffer: collections.deque = collections.deque()
+        self._pending_device: Optional[int] = None
+        self._device_change_pending: bool = False
 
     def get_state(self) -> dict:
         """Returns the current state dictionary of the audio recorder."""
@@ -69,25 +71,28 @@ class AudioRecorder:
         except Exception:
             pass
 
+    def _warmup_stream_locked(self):
+        if self.stream and getattr(self.stream, "active", False):
+            return
+        try:
+            self.capture_sample_rate = self.sample_rate
+            self.stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=self.channels,
+                dtype="float32",
+                device=self.device,
+                callback=self._audio_callback
+            )
+            self.stream.start()
+            print(f"[Audio] Pre-roll stream warmed up and monitoring on device {self.device}.")
+        except Exception as e:
+            # Silently defer to on-demand start
+            pass
+
     def warmup_stream(self):
         """Pre-arms the PortAudio stream at startup so recording starts with zero latency and hot pre-roll."""
         with self._lock:
-            if self.stream and getattr(self.stream, "active", False):
-                return
-            try:
-                self.capture_sample_rate = self.sample_rate
-                self.stream = sd.InputStream(
-                    samplerate=self.sample_rate,
-                    channels=self.channels,
-                    dtype="float32",
-                    device=self.device,
-                    callback=self._audio_callback
-                )
-                self.stream.start()
-                print("[Audio] Pre-roll stream warmed up and monitoring.")
-            except Exception as e:
-                # Silently defer to on-demand start
-                pass
+            self._warmup_stream_locked()
 
     def _synthetic_audio_loop(self):
         """Simulates periodic audio frames and RMS levels when physical hardware is absent."""
@@ -188,59 +193,101 @@ class AudioRecorder:
 
     def stop_recording(self, keep_stream_alive: bool = True) -> Optional[bytes]:
         with self._lock:
-            if not self.is_recording and not self.stream:
-                return None
-            self.is_recording = False
-            if not keep_stream_alive and self.stream:
+            try:
+                if not self.is_recording and not self.stream:
+                    return None
+                self.is_recording = False
+                if not keep_stream_alive and self.stream:
+                    try:
+                        self.stream.stop()
+                        self.stream.close()
+                    except Exception:
+                        pass
+                    self.stream = None
+
+                if not self.audio_frames:
+                    # If running headless without physical audio capture, generate 0.5s synthetic PCM fixture
+                    is_ci = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
+                    if is_ci:
+                        silence = np.zeros(int(self.sample_rate * 0.5), dtype=np.float32)
+                        buf = io.BytesIO()
+                        sf.write(buf, silence, self.sample_rate, format="WAV", subtype="PCM_16")
+                        return buf.getvalue()
+                    print("[Audio] No audio frames captured.")
+                    self.last_audio_array = None
+                    return None
+
+                # Concatenate frames
+                recording = np.concatenate(self.audio_frames, axis=0)
+                self.audio_frames = []
+
+                # Check duration
+                duration = len(recording) / self.capture_sample_rate
+                if duration < 0.3:
+                    print(f"[Audio] Recording too short ({duration:.2f}s). Ignoring.")
+                    self.last_audio_array = None
+                    return None
+
+                # Resample to standard 16kHz if captured at fallback native rate
+                if self.capture_sample_rate != self.sample_rate:
+                    recording = resample_audio(recording, self.capture_sample_rate, self.sample_rate)
+
+                # Store 1D contiguous float32 numpy array at 16kHz for zero-copy faster-whisper inference
+                clean_arr = np.ascontiguousarray(recording.squeeze(), dtype=np.float32)
+                self.last_audio_array = clean_arr
+
+                # Convert to 16-bit PCM WAV in-memory buffer
+                buffer = io.BytesIO()
+                sf.write(buffer, recording, self.sample_rate, format="WAV", subtype="PCM_16")
+                wav_bytes = buffer.getvalue()
+                print(f"[Audio] Captured {duration:.2f}s of audio ({len(wav_bytes)} bytes)")
+                return wav_bytes
+            finally:
+                if getattr(self, "_device_change_pending", False):
+                    pending = self._pending_device
+                    self._device_change_pending = False
+                    self._pending_device = None
+                    self.set_device(pending)
+
+    def set_device(self, device: Optional[int], defer_if_recording: bool = False):
+        """Updates the input audio capture device and dynamically re-warms the stream."""
+        with self._lock:
+            if self.device == device and self.stream and getattr(self.stream, "active", False):
+                self._device_change_pending = False
+                self._pending_device = None
+                return
+            if defer_if_recording and self.is_recording:
+                print(f"[Audio] Recording active; deferring audio device switch to index {device} until recording stops.")
+                self._pending_device = device
+                self._device_change_pending = True
+                return
+            self.device = device
+            self._pending_device = None
+            self._device_change_pending = False
+            was_recording = self.is_recording
+            existing_frames = list(self.audio_frames) if was_recording else []
+            if self.stream:
                 try:
                     self.stream.stop()
                     self.stream.close()
                 except Exception:
                     pass
                 self.stream = None
-
-            if not self.audio_frames:
-                # If running headless without physical audio capture, generate 0.5s synthetic PCM fixture
-                is_ci = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
-                if is_ci:
-                    silence = np.zeros(int(self.sample_rate * 0.5), dtype=np.float32)
-                    buf = io.BytesIO()
-                    sf.write(buf, silence, self.sample_rate, format="WAV", subtype="PCM_16")
-                    return buf.getvalue()
-                print("[Audio] No audio frames captured.")
-                self.last_audio_array = None
-                return None
-
-            # Concatenate frames
-            recording = np.concatenate(self.audio_frames, axis=0)
-            self.audio_frames = []
-            
-            # Check duration
-            duration = len(recording) / self.capture_sample_rate
-            if duration < 0.3:
-                print(f"[Audio] Recording too short ({duration:.2f}s). Ignoring.")
-                self.last_audio_array = None
-                return None
-
-            # Resample to standard 16kHz if captured at fallback native rate
-            if self.capture_sample_rate != self.sample_rate:
-                recording = resample_audio(recording, self.capture_sample_rate, self.sample_rate)
-
-            # Store 1D contiguous float32 numpy array at 16kHz for zero-copy faster-whisper inference
-            clean_arr = np.ascontiguousarray(recording.squeeze(), dtype=np.float32)
-            self.last_audio_array = clean_arr
-
-            # Convert to 16-bit PCM WAV in-memory buffer
-            buffer = io.BytesIO()
-            sf.write(buffer, recording, self.sample_rate, format="WAV", subtype="PCM_16")
-            wav_bytes = buffer.getvalue()
-            print(f"[Audio] Captured {duration:.2f}s of audio ({len(wav_bytes)} bytes)")
-            return wav_bytes
+            self._preroll_buffer.clear()
+            if was_recording:
+                self.is_recording = False
+                self.start_recording()
+                # Preserve all audio frames captured prior to the device switch
+                self.audio_frames = existing_frames + self.audio_frames
+            else:
+                self._warmup_stream_locked()
 
     def close(self):
         """Cleanly terminates and releases the underlying audio device."""
         with self._lock:
             self.is_recording = False
+            self._device_change_pending = False
+            self._pending_device = None
             if self.stream:
                 try:
                     self.stream.stop()

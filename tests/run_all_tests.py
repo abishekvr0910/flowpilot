@@ -50,6 +50,8 @@ TESTS = [
     ("Retro Pixel Companions & Creator", "tests/test_pixel_companions_and_creator.py"),
     ("FlowPilot Master Dashboard & Scratchpad", "tests/test_flowpilot_dashboard.py"),
     ("Selected-Text Transforms & Dictation History Vault", "tests/test_transforms_and_history.py"),
+    ("Multilingual Workstation & Real-Time Translation", "tests/test_multilingual_workstation.py"),
+    ("User-Facing Fixes (Mic Device, Dynamic Personalization & Safe Targeting)", "tests/test_user_facing_fixes.py"),
 ]
 
 
@@ -66,7 +68,7 @@ def run_suite():
 
     for name, script in TESTS:
         ensure_desktop_accessible()
-        print(f"\n--- Running: {name} ({script}) ---")
+        print(f"\n--- Running: {name} ({script}) ---", flush=True)
         t0 = time.time()
         res = subprocess.run([sys.executable, script], capture_output=True, encoding="utf-8", errors="replace")
         dur = time.time() - t0
@@ -74,10 +76,10 @@ def run_suite():
         is_skipped = passed and ("[RESULT] SKIPPED:" in res.stdout or "[SKIP]" in res.stdout)
         results.append((name, passed, is_skipped, dur, res.stdout, res.stderr))
         status_str = "SKIPPED" if is_skipped else ("PASSED" if passed else "FAILED")
-        print(f"Status: {status_str} ({dur:.2f}s)")
+        print(f"Status: {status_str} ({dur:.2f}s)", flush=True)
         if not passed:
-            print("STDOUT:\n", res.stdout)
-            print("STDERR:\n", res.stderr)
+            print("STDOUT:\n", res.stdout, flush=True)
+            print("STDERR:\n", res.stderr, flush=True)
 
     total_dur = time.time() - start_total
     print("\n" + "=" * 70)

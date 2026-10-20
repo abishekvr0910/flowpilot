@@ -53,7 +53,8 @@ class DictationSession:
 
         self.target_window_info: Dict[str, Any] = target_window_info or {}
         self.tone_mode: str = tone_mode
-        self.language: str = "en"
+        self.language: str = "auto"
+        self.task: str = "transcribe"
 
         # Owned audio payload
         self.audio_bytes: Optional[bytes] = None

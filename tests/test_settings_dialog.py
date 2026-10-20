@@ -4,6 +4,7 @@ Automated Test for FlowPilot SettingsDialog & Hotkey Conflict Inspector
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 from PySide6.QtWidgets import QApplication
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -94,8 +95,27 @@ def test_settings_dialog_components():
         QMessageBox.information = orig_info
     assert saved_config.get("hotkey_mode") == "push_to_talk"
     assert saved_config.get("hotkey") == avail_key
+    assert saved_config.get("hotkey_exclusive") is True
     assert saved_config.get("ducking_enabled") is True
     print(f"[8] Saved settings verified: hotkey='{avail_key}', hotkey_mode='push_to_talk'.")
+
+    # A FlowPilot-owned recovery key must never be saved as the dictation key.
+    dialog.combo_shortcut.setEditText("Alt+Shift+Z")
+    with patch.object(QMessageBox, "warning") as warn:
+        dialog._save_settings()
+        warn.assert_called_once()
+    assert saved_config["hotkey"] == avail_key
+    assert "Paste last" in dialog.lbl_hotkey_status.text()
+    print("[9] Reserved recovery shortcut rejected without changing saved settings.")
+
+    # F9 remains a valid personal choice; saving it must preserve the chosen mode.
+    dialog.combo_shortcut.setEditText("F9")
+    with patch.object(Win32HotkeyService, "test_hotkey_availability", return_value=(True, "Available and ready for registration.")):
+        with patch.object(QMessageBox, "information"):
+            dialog._save_settings()
+    assert saved_config["hotkey"] == "F9"
+    assert saved_config["hotkey_mode"] == "push_to_talk"
+    print("[10] F9 saved as the user-selected dictation shortcut.")
 
     # Cleanup test personalization file if created
     test_p_path = PROJECT_ROOT / "config" / "test_personalization.json"

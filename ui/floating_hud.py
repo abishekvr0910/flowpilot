@@ -185,7 +185,14 @@ class FloatingHUD(QWidget):
             notice = extra.get("notice", "Sent — unverified target (please check)")
             self.setToolTip(f"⚠️ {notice} — Click to copy")
         elif st in ("pasted", "success"):
-            self.setToolTip("✓ FlowPilot: Inserted & confirmed")
+            lang = extra.get("language") or extra.get("history_entry", {}).get("language")
+            task = extra.get("task")
+            if task == "translate":
+                self.setToolTip(f"✓ FlowPilot: Translated ({lang.upper() if lang else 'Multilingual'} ➔ EN) & Confirmed")
+            elif lang and lang not in ("en", "unknown"):
+                self.setToolTip(f"✓ FlowPilot: Inserted & confirmed [{lang.upper()}]")
+            else:
+                self.setToolTip("✓ FlowPilot: Inserted & confirmed")
         elif st in ("idle", "error", "cancelled"):
             self.set_hotkey_info(getattr(self, "_hotkey_str", "<ctrl>+<shift>+<space>"), getattr(self, "_hotkey_mode", "toggle"))
 

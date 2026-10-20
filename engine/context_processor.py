@@ -160,24 +160,32 @@ class ContextProcessor:
         self,
         raw_text: str,
         active_window: Optional[Dict[str, Any]] = None,
-        session_mode: Optional[str] = None
+        session_mode: Optional[str] = None,
+        language: Optional[str] = None
     ) -> str:
         if not raw_text or not raw_text.strip():
             return ""
 
         raw_trimmed = raw_text.strip()
         style = ProfileResolver.resolve(self.config, active_window, session_mode)
+        lang_str = language or self.config.get("language", "auto")
 
         # 1. Check for Verbatim Mode
         if style == "verbatim":
-            res = self.local_engine.polish(raw_trimmed, mode="verbatim")
+            res = self.local_engine.polish(raw_trimmed, mode="verbatim", language=lang_str)
             return res["text"]
 
         # 2. Apply Local Deterministic Polishing (Self-corrections, fillers, stutters, lists, tech terms, FactGuard)
-        local_result = self.local_engine.polish(raw_trimmed, mode="polished", style=style)
+        local_result = self.local_engine.polish(raw_trimmed, mode="polished", style=style, language=lang_str)
         polished_text = local_result["text"]
 
-        # 3. Deterministic FactGuard Semantic Verification & Zero Cloud Egress
+        # 3. Apply Voice Snippet Expansion
+        if self.personalization:
+            expanded, _ = self.personalization.expand_snippets(polished_text)
+            if expanded:
+                polished_text = expanded
+
+        # 4. Deterministic FactGuard Semantic Verification & Zero Cloud Egress
         # Remote cloud LLM dispatch is permanently disabled to guarantee zero network egress.
         # All formatting and polishing runs 100% locally with guaranteed preservation
         # of numbers, dates, negations, and technical entities.

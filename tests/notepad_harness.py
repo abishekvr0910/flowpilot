@@ -33,7 +33,7 @@ def open_test_notepad(timeout: float = 10.0) -> tuple[int, subprocess.Popen, Pat
                 if win32gui.IsWindowVisible(hwnd) and win32gui.GetClassName(hwnd) == "Notepad":
                     title = win32gui.GetWindowText(hwnd)
                     edit = TextInjector._find_edit_control(hwnd)
-                    ready = edit != hwnd and win32gui.GetClassName(edit) == "RichEditD2DPT"
+                    ready = edit != hwnd and win32gui.GetClassName(edit) in ("RichEditD2DPT", "Edit", "NotepadTextBox")
                     if fixture.name.casefold() in title.casefold():
                         observed.append((hwnd, title, ready))
                     if fixture.name.casefold() in title.casefold() and ready:
@@ -147,7 +147,7 @@ def focus_notepad_document(hwnd: int, timeout: float = 6.0) -> bool:
             time.sleep(0.05)
             continue
         edit = TextInjector._find_edit_control(hwnd)
-        if edit == hwnd or win32gui.GetClassName(edit) != "RichEditD2DPT":
+        if edit == hwnd or win32gui.GetClassName(edit) not in ("RichEditD2DPT", "Edit", "NotepadTextBox"):
             time.sleep(0.05)
             continue
         top_thread, top_pid = win32process.GetWindowThreadProcessId(hwnd)

@@ -43,6 +43,14 @@ def main():
     assert vad_dec is not None, f"Missing Silero VAD decoder asset in {exe_dir}"
     print(f"Verified bundled Silero VAD assets:\n  Encoder: {vad_enc} ({os.path.getsize(vad_enc)} bytes)\n  Decoder: {vad_dec} ({os.path.getsize(vad_dec)} bytes)")
 
+    cand_model = [
+        os.path.join(exe_dir, "_internal", "models", "faster-whisper-base", "model.bin"),
+        os.path.join(exe_dir, "models", "faster-whisper-base", "model.bin"),
+    ]
+    model_bin = next((p for p in cand_model if os.path.isfile(p)), None)
+    assert model_bin is not None, f"Missing Faster-Whisper base model weights in {exe_dir}"
+    print(f"Verified bundled Whisper model weights: {model_bin} ({os.path.getsize(model_bin)} bytes)")
+
     # Use isolated test mutex to avoid conflicting with or terminating any user instances
     test_env = os.environ.copy()
     test_env["FLOWPILOT_MUTEX_NAME"] = f"Global\\FlowPilot_SmokeTest_{os.getpid()}"

@@ -74,6 +74,12 @@ class FactGuard:
         "neither", "nor", "nobody", "nothing", "nowhere"
     ]
 
+    MULTILINGUAL_NEGATIONS = {
+        "es": ["no", "nunca", "jamás", "jamas", "nadie", "nada", "ninguno", "ninguna", "sin", "tampoco"],
+        "fr": ["pas", "jamais", "rien", "personne", "aucun", "aucune", "sans", "plus", "ni"],
+        "de": ["nicht", "nie", "niemals", "kein", "keine", "keiner", "keines", "nichts", "niemand", "ohne", "weder"]
+    }
+
     NUMERIC_WORD_CONFUSIONS = {
         "fifteen": "15", "fifty": "50",
         "fourteen": "14", "forty": "40",
@@ -95,16 +101,25 @@ class FactGuard:
     def extract_protected_entities(
         cls,
         text: str,
-        custom_terms: Optional[List[str]] = None
+        custom_terms: Optional[List[str]] = None,
+        language: str = ""
     ) -> Dict[str, Any]:
         """
         Extracts structured protected tokens that must never be altered or omitted.
         """
         lower = text.lower()
 
-        # 1. Negations
+        # 1. Negations (English + Multilingual Support)
         found_negations = []
-        for neg in cls.CRITICAL_NEGATIONS:
+        neg_candidates = list(cls.CRITICAL_NEGATIONS)
+        lang_key = (language or "").lower().split("-")[0].split("_")[0]
+        if lang_key in cls.MULTILINGUAL_NEGATIONS:
+            neg_candidates.extend(cls.MULTILINGUAL_NEGATIONS[lang_key])
+        elif not lang_key or lang_key == "auto":
+            for extra_negs in cls.MULTILINGUAL_NEGATIONS.values():
+                neg_candidates.extend(extra_negs)
+        neg_candidates = list(dict.fromkeys(neg_candidates))
+        for neg in neg_candidates:
             if re.search(r"\b" + re.escape(neg) + r"\b", lower):
                 found_negations.append(neg)
 
@@ -155,7 +170,8 @@ class FactGuard:
         polished_text: str,
         retracted_nums: Optional[List[str]] = None,
         retracted_negations: Optional[List[str]] = None,
-        custom_terms: Optional[List[str]] = None
+        custom_terms: Optional[List[str]] = None,
+        language: str = ""
     ) -> Tuple[str, bool, List[str]]:
         """
         Validates fact preservation across negations, numbers, decimals, units,
@@ -168,8 +184,8 @@ class FactGuard:
         safe_retracted_nums = [re.sub(r"[^\d]", "", n) for n in (retracted_nums or [])]
         safe_retracted_negs = [n.lower() for n in (retracted_negations or [])]
 
-        raw_entities = cls.extract_protected_entities(raw_text, custom_terms)
-        pol_entities = cls.extract_protected_entities(polished_text, custom_terms)
+        raw_entities = cls.extract_protected_entities(raw_text, custom_terms, language=language)
+        pol_entities = cls.extract_protected_entities(polished_text, custom_terms, language=language)
 
         # 1. Verify Negations
         for neg in raw_entities["negations"]:
@@ -269,7 +285,14 @@ class WritingIntelligence:
         self.config = config or {}
         self.personalization = personalization or (PersonalizationEngine() if HAS_PERSONALIZATION else None)
 
-    def polish(self, raw_text: str, mode: str = "polished", style: str = "professional", dialect: str = "") -> Dict[str, Any]:
+    def polish(
+        self,
+        raw_text: str,
+        mode: str = "polished",
+        style: str = "professional",
+        dialect: str = "",
+        language: str = ""
+    ) -> Dict[str, Any]:
         """
         Main processing method.
         Returns dict containing:
@@ -284,6 +307,20 @@ class WritingIntelligence:
 
         raw = raw_text.strip()
         changes = []
+
+        # Determine effective language and dialect
+        effective_lang = (language or self.config.get("language", "auto")).lower()
+        lang_prefix = effective_lang.split("-")[0].split("_")[0]
+
+        # Automatic dialect deduction if not explicitly provided
+        active_dialect = dialect or self.config.get("dialect", "")
+        if not active_dialect and HAS_PERSONALIZATION:
+            if lang_prefix == "fr":
+                active_dialect = "fr"
+            elif effective_lang in ("de-ch", "swiss_german", "swiss"):
+                active_dialect = "de-ch"
+            elif effective_lang in ("en-gb", "uk", "british"):
+                active_dialect = "en-GB"
 
         # --- MODE A: VERBATIM MODE ---
         if mode == "verbatim":
@@ -314,13 +351,13 @@ class WritingIntelligence:
         if url_changes:
             changes.extend(url_changes)
 
-        # 3. Wispr Flow Spoken Punctuation and Voice Commands
-        text, voice_changes = self._apply_spoken_commands(text, style=style)
+        # 3. Wispr Flow Spoken Punctuation and Voice Commands (Multilingual)
+        text, voice_changes = self._apply_spoken_commands(text, style=style, language=effective_lang)
         if voice_changes:
             changes.extend(voice_changes)
 
-        # 4. Remove speech fillers and stutters (preserving structural newlines)
-        de_fillered, had_fillers = self._remove_fillers_and_stutters(text)
+        # 4. Remove speech fillers and stutters (language-aware, preserving structural newlines)
+        de_fillered, had_fillers = self._remove_fillers_and_stutters(text, language=effective_lang)
         if had_fillers:
             changes.append("Removed filler words & stutters")
             text = de_fillered
@@ -346,7 +383,6 @@ class WritingIntelligence:
                 changes.extend(dict_changes)
 
         # 8. Apply regional dialect rules if specified
-        active_dialect = dialect or self.config.get("dialect", "")
         if active_dialect and HAS_PERSONALIZATION:
             text = LanguageRegistry.apply_dialect_rules(text, active_dialect)
 
@@ -372,10 +408,10 @@ class WritingIntelligence:
         # 11. Final punctuation and capitalization cleanup (style-aware)
         text = self._finalize_punctuation(text, style=style)
 
-        # 12. FactGuard semantic verification
+        # 12. FactGuard semantic verification (Multilingual)
         custom_terms = self.personalization.get_terms_list() if self.personalization else None
         final_guarded, is_fact_safe, fact_warnings = FactGuard.validate_and_guard(
-            raw, text, retracted_nums=retracted_nums, retracted_negations=retracted_negs, custom_terms=custom_terms
+            raw, text, retracted_nums=retracted_nums, retracted_negations=retracted_negs, custom_terms=custom_terms, language=effective_lang
         )
         if not is_fact_safe:
             changes.extend(fact_warnings)
@@ -467,16 +503,17 @@ class WritingIntelligence:
 
         return text, False, [], []
 
-    def _apply_spoken_commands(self, text: str, style: str = "professional") -> Tuple[str, List[str]]:
+    def _apply_spoken_commands(self, text: str, style: str = "professional", language: str = "en") -> Tuple[str, List[str]]:
         """
         Wispr Flow Spoken Punctuation and Voice Commands Engine:
         - Voice editing: 'scratch that' / 'delete that' (erases preceding sentence or clause)
         - Voice editing: 'scratch last word' / 'delete last word' (erases preceding word)
         - Voice casing: 'all caps [word]'
-        - Voice structure: 'new paragraph', 'new line', 'tab'
+        - Voice structure: 'new paragraph', 'new line', 'tab' (supports English, Spanish, French, German)
         - Spoken punctuation: comma, period, question mark, exclamation point, colon, semicolon, ellipsis, quotes, parens
         """
         changes: List[str] = []
+        lang_prefix = (language or "en").lower().split("-")[0].split("_")[0]
 
         # 1. Voice Editing: "scratch that", "delete that", "cancel that"
         scratch_pat = r"(?:^|[.!?\n])\s*[^.!?\n]+?\s+(?:scratch that|delete that|cancel that)\b"
@@ -495,35 +532,43 @@ class WritingIntelligence:
             text = re.sub(r"\ball caps\s+([a-zA-Z0-9_-]+)\b", lambda m: m.group(1).upper(), text, flags=re.IGNORECASE)
             changes.append("Formatted: all caps")
 
-        # 3. Structural Commands: "new paragraph", "new line", "tab"
-        if re.search(r"\b(?:new paragraph|new para)\b", text, flags=re.IGNORECASE):
-            text = re.sub(r"\s*\b(?:new paragraph|new para)\b\s*", "\n\n", text, flags=re.IGNORECASE)
+        # 3. Structural Commands: "new paragraph", "new line", "tab" (Multilingual)
+        if re.search(r"\b(?:new paragraph|new para|nuevo p[aá]rrafo|nouveau paragraphe|neuer absatz)\b", text, flags=re.IGNORECASE):
+            text = re.sub(r"\s*\b(?:new paragraph|new para|nuevo p[aá]rrafo|nouveau paragraphe|neuer absatz)\b\s*", "\n\n", text, flags=re.IGNORECASE)
             changes.append("Inserted new paragraph")
 
-        if re.search(r"\b(?:new line|newline)\b", text, flags=re.IGNORECASE):
-            text = re.sub(r"\s*\b(?:new line|newline)\b\s*", "\n", text, flags=re.IGNORECASE)
+        if re.search(r"\b(?:new line|newline|nueva l[ií]nea|nouvelle ligne|neue zeile)\b", text, flags=re.IGNORECASE):
+            text = re.sub(r"\s*\b(?:new line|newline|nueva l[ií]nea|nouvelle ligne|neue zeile)\b\s*", "\n", text, flags=re.IGNORECASE)
             changes.append("Inserted new line")
 
         if re.search(r"\b(?:press tab|tab key|tab)\b", text, flags=re.IGNORECASE):
             text = re.sub(r"\s*\b(?:press tab|tab key|tab)\b\s*", "\t", text, flags=re.IGNORECASE)
             changes.append("Inserted tab")
 
-        # 4. Spoken Punctuation
+        # 4. Spoken Punctuation (English + Native Spanish/French/German)
+        # Order compound expressions (semicolon, colon, question mark) before single-word tokens (comma, period)
         punc_patterns = [
-            (r"\s*\bcomma\b", ",", "comma"),
-            (r"\s*\b(?:question mark)\b", "?", "question mark"),
-            (r"\s*\b(?:exclamation mark|exclamation point)\b", "!", "exclamation point"),
-            (r"\s*\bsemicolon\b", ";", "semicolon"),
-            (r"\s*\bcolon\b(?!\s*//|\s*slash\s*slash)", ":", "colon"),
-            (r"\s*\b(?:ellipsis|dot dot dot)\b", "...", "ellipsis"),
-            (r"\bopen quote\s*", '"', "open quote"),
-            (r"\s*close quote\b", '"', "close quote"),
-            (r"\b(?:open paren|open parenthesis)\s*", "(", "open paren"),
-            (r"\s*(?:close paren|close parenthesis)\b", ")", "close paren"),
-            (r"\b(?:open bracket)\s*", "[", "open bracket"),
-            (r"\s*(?:close bracket)\b", "]", "close bracket"),
+            (r"\s*\b(?:semicolon|punto y coma|point-virgule|semikolon|strichpunkt)\b", ";", "semicolon"),
+            (r"\s*\b(?:colon|dos puntos|deux points|doppelpunkt)\b(?!\s*//|\s*slash\s*slash)", ":", "colon"),
+            (r"\s*\b(?:question mark|signo de interrogaci[oó]n|point d'interrogation|fragezeichen)\b", "?", "question mark"),
+            (r"\s*\b(?:exclamation mark|exclamation point|signo de exclamaci[oó]n|signo de admiraci[oó]n|point d'exclamation|ausrufezeichen)\b", "!", "exclamation point"),
+            (r"\s*\b(?:comma|coma|virgule|komma)\b", ",", "comma"),
+            (r"\s*\b(?:ellipsis|dot dot dot|puntos suspensivos|points de suspension|auslassungspunkte)\b", "...", "ellipsis"),
+            (r"\b(?:open quote|abrir comillas|ouvrez les guillemets|anf[uü]hrungszeichen unten)\s*", '"', "open quote"),
+            (r"\s*(?:close quote|cerrar comillas|fermez les guillemets|anf[uü]hrungszeichen oben)\b", '"', "close quote"),
+            (r"\b(?:open paren|open parenthesis|abrir par[eé]ntesis|ouvrir la parenth[eè]se|klammer auf)\s*", "(", "open paren"),
+            (r"\s*(?:close paren|close parenthesis|cerrar par[eé]ntesis|fermer la parenth[eè]se|klammer zu)\b", ")", "close paren"),
+            (r"\b(?:open bracket|abrir corchete|ouvrir le crochet|eckige klammer auf)\s*", "[", "open bracket"),
+            (r"\s*(?:close bracket|cerrar corchete|fermer le crochet|eckige klammer zu)\b", "]", "close bracket"),
             (r"(?<!\ba)\s*\b(?:period|full stop)\b(?!\s+(?:of|time|duration|cycle))", ".", "period")
         ]
+
+        if lang_prefix == "es":
+            punc_patterns.append((r"\s*\bpunto\b(?!\s+(?:de|y|com|net|org))", ".", "period"))
+        elif lang_prefix == "fr":
+            punc_patterns.append((r"\s*\bpoint\b(?!\s+(?:de|virgule|com|net|org))", ".", "period"))
+        elif lang_prefix == "de":
+            punc_patterns.append((r"\s*\bpunkt\b(?!\s+(?:der|des|com|net|org))", ".", "period"))
 
         for pat, repl, label in punc_patterns:
             if re.search(pat, text, flags=re.IGNORECASE):
@@ -550,23 +595,50 @@ class WritingIntelligence:
 
         return text.strip(), changes
 
-    def _remove_fillers_and_stutters(self, text: str) -> Tuple[str, bool]:
+    def _remove_fillers_and_stutters(self, text: str, language: str = "en") -> Tuple[str, bool]:
         original = text
+        lang_prefix = (language or "en").lower().split("-")[0].split("_")[0]
 
-        # 1. Remove filler sounds (um, uh, uhh, er, ah, erm)
-        filler_pattern = r"(?i)\b(um|uh|uhh|er|ah|erm)\b[,]?\s*"
-        text = re.sub(filler_pattern, "", text)
+        # 1. Language-aware filler sounds
+        if lang_prefix == "de":
+            # In German, 'er' means 'he' and must NEVER be stripped as filler
+            filler_pattern = r"(?i)\b(äh|ähm|uh|um)\b[,]?\s*"
+        elif lang_prefix == "fr":
+            filler_pattern = r"(?i)\b(euh|euhm|hum|bah)\b[,]?\s*"
+        elif lang_prefix == "es":
+            filler_pattern = r"(?i)\b(eh|este|mmm)\b[,]?\s*"
+        elif lang_prefix in ("ar", "zh", "ja", "ko", "hi", "ru"):
+            filler_pattern = None
+        else:
+            # Standard English fillers
+            filler_pattern = r"(?i)\b(um|uh|uhh|er|ah|erm)\b[,]?\s*"
 
-        # 2. Remove hesitation "like," when used as filler: "We should, like, do this"
-        text = re.sub(r"(?i)(?<=\w)\s*,?\s*like,\s*(?=\w)", " ", text)
+        if filler_pattern:
+            text = re.sub(filler_pattern, "", text)
 
-        # 3. Remove conversational filler phrases at start or pauses
-        text = re.sub(r"(?i)\b(you know|I mean)\b[,]?\s*", "", text)
+        # 2. Remove hesitation "like," when used as filler (English only)
+        if lang_prefix in ("en", "auto"):
+            text = re.sub(r"(?i)(?<=\w)\s*,?\s*like,\s*(?=\w)", " ", text)
+            text = re.sub(r"(?i)\b(you know|I mean)\b[,]?\s*", "", text)
 
-        # 4. Remove stuttered duplicate words: "I I want to", "the the", "we we" (exempt intentional double tokens like 'slash slash')
-        stutter_pattern = r"(?i)\b(?!slash\b)([a-zA-Z]+)\s+\1\b"
-        text = re.sub(stutter_pattern, r"\1", text)
-        text = re.sub(stutter_pattern, r"\1", text)
+        # 3. Remove stuttered duplicate words
+        # In French, 'nous nous' and 'vous vous' are reflexive verbs ('nous nous sommes')
+        # In German, 'sie sie' is grammatical
+        # In Spanish, 'se se', 'te te'
+        if lang_prefix == "fr":
+            stutter_pattern = r"(?i)\b(?!slash|nous|vous\b)([a-zA-Z\u00C0-\u017F]+)\s+\1\b"
+        elif lang_prefix == "de":
+            stutter_pattern = r"(?i)\b(?!slash|sie\b)([a-zA-Z\u00C0-\u017F]+)\s+\1\b"
+        elif lang_prefix == "es":
+            stutter_pattern = r"(?i)\b(?!slash|se|te\b)([a-zA-Z\u00C0-\u017F]+)\s+\1\b"
+        elif lang_prefix in ("ar", "zh", "ja", "ko", "hi"):
+            stutter_pattern = None
+        else:
+            stutter_pattern = r"(?i)\b(?!slash\b)([a-zA-Z]+)\s+\1\b"
+
+        if stutter_pattern:
+            text = re.sub(stutter_pattern, r"\1", text)
+            text = re.sub(stutter_pattern, r"\1", text)
 
         text = re.sub(r"[^\S\r\n]+", " ", text).strip()
         return text, (text != original)

@@ -69,6 +69,49 @@ class STTEngine:
         self.personalization = personalization or (PersonalizationEngine() if HAS_REGISTRY else None)
         self._local_model: Optional[Any] = None
 
+    @classmethod
+    def resolve_model_path(cls, size: str) -> str:
+        """
+        Resolves local offline Faster-Whisper model weights directory.
+        Priority:
+        1. FLOWPILOT_MODEL_DIR environment variable
+        2. Application bundled models directory (sys._MEIPASS, exe_dir/_internal/models, exe_dir/models)
+        3. Project root models/ directory
+        4. Fallback to model size name for ~/.cache/huggingface/hub resolution
+        """
+        env_dir = os.environ.get("FLOWPILOT_MODEL_DIR")
+        if env_dir and os.path.isdir(env_dir):
+            if os.path.isfile(os.path.join(env_dir, "model.bin")):
+                return env_dir
+            cand = os.path.join(env_dir, f"faster-whisper-{size}")
+            if os.path.isdir(cand) and os.path.isfile(os.path.join(cand, "model.bin")):
+                return cand
+
+        candidates = []
+        if hasattr(sys, "_MEIPASS"):
+            candidates.append(os.path.join(sys._MEIPASS, "models", f"faster-whisper-{size}"))
+            candidates.append(os.path.join(sys._MEIPASS, "models"))
+
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        candidates.extend([
+            os.path.join(exe_dir, "_internal", "models", f"faster-whisper-{size}"),
+            os.path.join(exe_dir, "models", f"faster-whisper-{size}"),
+            os.path.join(exe_dir, "_internal", "models"),
+            os.path.join(exe_dir, "models"),
+        ])
+
+        proj_root = Path(__file__).resolve().parent.parent
+        candidates.extend([
+            str(proj_root / "models" / f"faster-whisper-{size}"),
+            str(proj_root / "models"),
+        ])
+
+        for c in candidates:
+            if os.path.isdir(c) and os.path.isfile(os.path.join(c, "model.bin")):
+                return c
+
+        return size
+
     def preload_model(self):
         """Asynchronously preloads the local faster-whisper model on CPU during application startup."""
         try:
@@ -81,13 +124,13 @@ class STTEngine:
             raise RuntimeError("faster-whisper is not installed. Please use cloud mode or install faster-whisper.")
         if self._local_model is None:
             size = self.config.get("local_model_size", "base")
-            import os
+            model_target = self.resolve_model_path(size)
             threads = self.config.get("cpu_threads") or min(8, os.cpu_count() or 4)
-            print(f"[STT] Loading local faster-whisper model '{size}' on CPU (int8, threads={threads})...")
+            print(f"[STT] Loading local faster-whisper model '{size}' (resolved: {model_target}) on CPU (int8, threads={threads})...")
             try:
                 # Strictly local offline load without querying Hugging Face Hub (zero network egress)
                 self._local_model = WhisperModel(
-                    size,
+                    model_target,
                     device="cpu",
                     compute_type="int8",
                     cpu_threads=threads,
@@ -96,9 +139,9 @@ class STTEngine:
             except Exception as e:
                 # Hard offline guarantee: do NOT download over network automatically at runtime
                 raise RuntimeError(
-                    f"[STT Error] Offline Whisper model '{size}' not found in local cache ({e}). "
+                    f"[STT Error] Offline Whisper model '{size}' (resolved target: '{model_target}') not found ({e}). "
                     f"To preserve strict zero-egress offline operation, automatic runtime downloads are disabled. "
-                    f"Please pre-provision model weights locally or verify ~/.cache/huggingface/hub."
+                    f"Please pre-provision model weights in models/ or verify ~/.cache/huggingface/hub."
                 )
             print(f"[STT] Local model '{size}' loaded on CPU (int8, threads={threads}). Zero-egress offline mode active.")
         return self._local_model
@@ -133,7 +176,8 @@ class STTEngine:
         self,
         audio_data: Union[bytes, np.ndarray],
         custom_vocabulary: Optional[List[str]] = None,
-        task: str = "transcribe"
+        task: str = "transcribe",
+        language: Optional[str] = None
     ) -> Dict[str, Any]:
         mode = self.config.get("engine_mode", "local")
         if mode == "cloud":
@@ -142,7 +186,7 @@ class STTEngine:
                 "FlowPilot strictly executes 100% offline speech recognition via local Faster-Whisper."
             )
         vocab = custom_vocabulary or self.config.get("custom_vocabulary", [])
-        lang = self.config.get("language", "auto")
+        lang = language if language is not None else self.config.get("language", "auto")
         bias_prompt = self.build_bias_prompt(vocab, lang)
         return self._transcribe_local(audio_data, bias_prompt, lang, task=task)
 
@@ -180,7 +224,11 @@ class STTEngine:
             except Exception:
                 audio_input = io.BytesIO(audio_data)
 
-        whisper_lang = None if language == "auto" else language
+        # For translation mode with default English, auto-detect the foreign source language
+        if task == "translate" and language == "en":
+            whisper_lang = None
+        else:
+            whisper_lang = None if (language == "auto" or not language) else language
 
         # Default beam_size=1 (greedy search) provides ~2x speedup on CPU while preserving accuracy
         beam_size = self.config.get("beam_size", 1)
@@ -207,6 +255,7 @@ class STTEngine:
                     audio_input,
                     beam_size=beam_size,
                     language=whisper_lang,
+                    task=task,
                     initial_prompt=initial_prompt,
                     vad_filter=False
                 )
@@ -221,7 +270,8 @@ class STTEngine:
             "text": full_text,
             "detected_language": detected_language,
             "engine": "local_faster_whisper",
-            "duration": getattr(info, "duration", 0)
+            "duration": getattr(info, "duration", 0),
+            "task": task
         }
 
     def _transcribe_cloud(self, wav_bytes: bytes, initial_prompt: str, language: str) -> Dict[str, Any]:

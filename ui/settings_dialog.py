@@ -172,6 +172,31 @@ class SettingsDialog(QDialog):
                 break
         vbox.addWidget(self.combo_model)
 
+        # Input Audio Microphone
+        lbl_mic = QLabel("Input Audio Microphone:")
+        vbox.addWidget(lbl_mic)
+        self.combo_mic = QComboBox()
+        self.combo_mic.addItem("Windows System Default Recording Device", None)
+        try:
+            import sounddevice as sd
+            devs = sd.query_devices()
+            seen_mics = set()
+            for idx, d in enumerate(devs):
+                if d.get("max_input_channels", 0) > 0:
+                    name = d.get("name", f"Device {idx}")
+                    if name not in seen_mics:
+                        seen_mics.add(name)
+                        self.combo_mic.addItem(f"{name} (Index {idx})", idx)
+        except Exception:
+            pass
+        cur_mic = self.config.get("audio_device_index", self.config.get("mic_device"))
+        if cur_mic is not None:
+            for i in range(self.combo_mic.count()):
+                if self.combo_mic.itemData(i) == cur_mic:
+                    self.combo_mic.setCurrentIndex(i)
+                    break
+        vbox.addWidget(self.combo_mic)
+
         # Primary Language Selector (from LanguageRegistry)
         lbl_lang = QLabel("Speech Language & Script:")
         vbox.addWidget(lbl_lang)
@@ -237,10 +262,10 @@ class SettingsDialog(QDialog):
         self.combo_shortcut = QComboBox()
         self.combo_shortcut.setEditable(True)
         self.combo_shortcut.addItems([
-            "Ctrl+Shift+Space",
-            "Ctrl+Alt+Space",
             "F9",
+            "Ctrl+Shift+Space",
             "F8",
+            "Ctrl+Alt+Space",
             "Win+Alt+Space",
             "Ctrl+F9",
             "Ctrl+Alt+D"
@@ -270,12 +295,10 @@ class SettingsDialog(QDialog):
 
         # Hotkey safety banner
         lbl_hotkeys = QLabel(
-            "Global Shortcut Architecture:\n"
-            "• Default Toggle: Ctrl + Shift + Space (Instant conflict-free toggle from any app)\n"
-            "• Single-Key Push-to-Talk: F9 (Seamless hold-to-speak without modifier clutter)\n"
-            "• Note on Ctrl+Win: Windows 11 kernel intercepts raw Ctrl+Win (Win32 vk=0 cannot dispatch WM_HOTKEY) "
-            "and reserves Win+Ctrl+Space for IME/Emoji switching. FlowPilot provides reliable, collision-free shortcuts "
-            "that work side-by-side with any existing desktop tools."
+            "Choose one dictation shortcut, such as F9, and select Toggle or Hold mode above. "
+            "Only your chosen key will start dictation. FlowPilot reserves Ctrl+Alt+T for transforms, "
+            "Alt+Shift+Z for Paste Last, and Alt+Shift+X for Copy Last. "
+            "Test Availability checks whether Windows or another app already owns a shortcut."
         )
         lbl_hotkeys.setStyleSheet("color: #94A3B8; background: #0F172A; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.4;")
         vbox.addWidget(lbl_hotkeys)
@@ -515,7 +538,7 @@ class SettingsDialog(QDialog):
         if not hk:
             self.lbl_hotkey_status.setStyleSheet("color: #EF4444; font-size: 12px;")
             self.lbl_hotkey_status.setText("Please enter or select a hotkey to test.")
-            return
+            return False
         cur_hk = self.config.get("hotkey", "")
         avail, msg = Win32HotkeyService.test_hotkey_availability(hk, currently_active_hotkey=cur_hk)
         if avail:
@@ -524,11 +547,16 @@ class SettingsDialog(QDialog):
         else:
             self.lbl_hotkey_status.setStyleSheet("color: #EF4444; font-weight: bold; font-size: 12px;")
             self.lbl_hotkey_status.setText(f"[CONFLICT/INVALID] {msg}")
+        return avail
 
     # --- SAVE ---
 
     def _save_settings(self):
+        if not self._test_current_hotkey():
+            QMessageBox.warning(self, "Shortcut Unavailable", self.lbl_hotkey_status.text())
+            return
         # STT model size
+        self.config["audio_device_index"] = self.combo_mic.currentData()
         model_text = self.combo_model.currentText()
         if "tiny" in model_text:
             self.config["local_model_size"] = "tiny"
@@ -550,6 +578,7 @@ class SettingsDialog(QDialog):
             self.config["active_tone_mode"] = self.tone_options[idx][0]
 
         self.config["hotkey"] = self.combo_shortcut.currentText().strip()
+        self.config["hotkey_exclusive"] = True
         self.config["hotkey_mode"] = "push_to_talk" if self.radio_ptt.isChecked() else "toggle"
         self.config["ducking_enabled"] = self.chk_ducking.isChecked()
         self.config["sound_effects_enabled"] = self.chk_sound.isChecked()
@@ -557,6 +586,8 @@ class SettingsDialog(QDialog):
         # Save personalization items
         self.personalization.save()
         
-        self.on_save(self.config)
+        if self.on_save(self.config) is False:
+            QMessageBox.warning(self, "Settings Not Applied", "FlowPilot could not apply the selected shortcut. Please choose another key.")
+            return
         QMessageBox.information(self, "Saved", "FlowPilot settings and personalization updated successfully!")
         self.close()

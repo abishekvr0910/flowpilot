@@ -23,8 +23,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "beam_size": 1,  # Default greedy decoding (3x faster than beam search on CPU)
     "vad_filter": False,  # Pre-gated dictation audio does not require redundant VAD chunking (~480ms saved)
     "language": "en",  # Default English avoids ~1,060ms language-detection pass; 'auto' available in settings
+    "translate_to_english": False,  # Real-time Whisper translation of foreign speech to English
     "enable_code_switching": True,
     "hotkey": "<ctrl>+<shift>+<space>",  # or push-to-talk key
+    "hotkey_exclusive": False,  # Preserve legacy aliases until a shortcut is explicitly chosen
     "hotkey_mode": "toggle",  # "toggle" (press to start, press to stop) or "push_to_talk"
     "active_tone_mode": "developer",  # "verbatim", "cleaned", "developer", "casual", "email"
     "auto_detect_active_app": True,

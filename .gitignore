@@ -43,6 +43,9 @@ _backup*/
 # Cloned reference repos
 external/
 
-# Local-only commercial and internal working documents
-private/
+# Local model weights (packaged in release ZIP, not tracked in git)
+models/
+*.bin
 
+# Private internal draft documents
+private/
