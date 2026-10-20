@@ -9,7 +9,7 @@ Built from master (`ecb3a97` + multilingual workstation & slow-app adaptive paci
 | Field | FlowPilot v3.1.0 Distribution Candidate |
 |---|---|
 | Release Version | `v3.1.0` (Workstation & Multilingual Intelligence) |
-| Base Commit | `ecb3a97` + multilingual, user-facing fixes & slow-app upgrades |
+| Base Commit | `a302b80` (Multilingual Workstation, Slow-App Adaptive Pacing, Setup Wizard & Hotkey Protection) |
 | Distribution Archive | `dist/FlowPilot-v3.1.0-win64.zip` |
 | Archive Size | **522,666,896 bytes** (498.45 MB, including bundled Faster-Whisper base model weights and Silero VAD assets) |
 | Archive SHA-256 | `5417451092BCAEA4DBE5B53C3955AC3BD9ED22EB30878B3CC09E3A6B7531B397` |
