@@ -24,7 +24,7 @@ Speech model weights must already be cached locally. If they are missing, the lo
 ## First dictation
 
 1. Open Notepad and click inside a document.
-2. Press `Ctrl+Shift+Space`, speak a short non-sensitive phrase, then press the shortcut again to finish. `F9` is the default push-to-talk option.
+2. Use the dictation shortcut shown in Settings (initially `Ctrl+Shift+Space` in toggle mode), speak a short non-sensitive phrase, then press it again to finish. You can choose `F9` and switch to push-to-talk in Settings; existing profiles also retain the former `F9` alias until a shortcut is explicitly saved.
 3. Check the inserted text and whether focus remained in Notepad. Record the actual stop-to-text time; do not assume a fixed latency.
 4. Select a companion through its right-click **Appearance Style** menu or Companion Studio. Double-click does not cycle styles in current source.
 5. If text does not paste, use the tray's **Copy Last Dictation** action. Check [known issues](../testing/flowpilot_known_issues.md) for elevated-window and hotkey limitations.

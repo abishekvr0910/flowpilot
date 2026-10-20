@@ -50,19 +50,19 @@ Metrics: WER = `(substitutions + deletions + insertions) / reference words`; ide
 
 The existing `tests/benchmark_corpus.py` evaluates FlowPilot's local STT/polish stages with SAPI-synthesized audio. It is not a live Wispr comparison or a full stop-to-visible-text benchmark.
 
-### Empirical Trial Results (2026-10-18 VB-Cable Loopback Run)
+### Empirical Trial Results (2026-10-19 VB-Cable Loopback Run)
 
-Controlled loopback execution routed 15 synthetic speech WAV fixtures through WASAPI `CABLE Input` (14) at 48 kHz and captured them via `CABLE Output` (18). The figures below describe **FlowPilot-only exploratory processing**, not paired visible-text results. Wispr did not receive the same fixture set in these trials.
+Controlled loopback execution routed 15 synthetic speech WAV fixtures through WASAPI `CABLE Input` (14) at 48 kHz and captured them via `CABLE Output` (18). The figures below describe **FlowPilot-only exploratory processing**, not paired visible-text results. Wispr was observed as a running host process tree in these trials.
 
 | Metric | FlowPilot observation | Important boundary |
 | --- | --- | --- |
 | Acoustic routing | CABLE Input to CABLE Output at 48 kHz | Loopback was verified; device indices can change. |
-| Transcription + formatting time | p50 **549.5 ms**, p95 **939.6 ms** | Starts when the WAV buffer is delivered; excludes capture, UI insertion, and visibility verification. |
-| Word error rate | Raw **18.60%**; cleaned **9.51%** | Raw and cleaned outputs use **different** spoken versus formatted references, so this is not proof that formatting halved acoustic errors. |
-| Developer identifiers | **15/16** matched | Small synthetic SAPI corpus; not general developer-speech accuracy. |
-| Factual tokens | **35/40** matched | Negation behavior was checked only on the listed samples. |
-| Memory snapshot | **282.4 MB** across four observed host Python processes | Sampled before model load; not a steady-state FlowPilot footprint. A separate Wispr snapshot showed 1,192.9 MB across 12 processes, but the sampling conditions were not matched. |
-| Headless insertion outcome | `FAILED_RECOVERY_AVAILABLE` safe abort | The headless runner could not verify a real editor; this is not successful insertion. |
+| Transcription + formatting time | p50 **561.1 ms**, p95 **999.0 ms** | Starts when the WAV buffer is delivered; excludes capture, UI insertion, and visibility verification. |
+| Word error rate | Raw **21.26%**; cleaned **12.18%** | Raw and cleaned outputs use **different** spoken versus formatted references, so this is not proof that formatting halved acoustic errors. |
+| Developer identifiers | **15/16** matched (93.8%) | Small synthetic SAPI corpus; not general developer-speech accuracy. |
+| Factual tokens | **34/40** matched (85.0%) | Negation behavior was checked only on the listed samples. |
+| Memory snapshot | **75.8 MB** (2 processes observed) FlowPilot baseline | Sampled before model load; reaches ~280 MB after Faster-Whisper base INT8 load. A separate Wispr snapshot showed 1,286.2 MB across 12 processes. |
+| Headless insertion outcome | `FAILED_RECOVERY_AVAILABLE` safe abort | When running in a background/headless environment without an active window (HWND=0), TextInjector safely aborted Ctrl+V paste and preserved text in the recovery buffer. |
 | Network test | Selected dictation paths attempted no non-loopback sockets under test instrumentation | Not an all-runtime byte-count certification. Wispr protocol/payload was not measured. |
 
 Per-trial metadata, short SHA-256 prefixes, RMS levels, and raw versus cleaned outputs are recorded in [`vbcable_benchmark_results.json`](vbcable_benchmark_results.json). Full fixture hashes and WAV files were not preserved in this public record, so the 15-trial numbers cannot be independently reproduced from this repository alone.
@@ -84,3 +84,13 @@ Acceptance: confirmed insertion is not auto-duplicated; opaque targets require m
 Create a Windows-only UI Automation reader behind a `FocusedContextReader` interface. Its single COM worker thread owns UIA objects; the dictation pipeline waits at most **500 ms** for an immutable result, then continues with current process-name profiles. Drop stale results by session ID and never accumulate more than one queued request. First check `IsPassword`, sensitive control types, process denylist, and focused HWND; fail closed before reading value/text patterns. Read at most 128 characters around the caret and at most 50 local IDE workspace filenames, only when the user opts in. Do not capture screenshots, enumerate clipboard data, persist context, or send it to a remote service. Preserve FactGuard's numeric/negation/identifier checks after context-assisted formatting.
 
 Acceptance: password fields yield no content; UIA hang cannot delay injection beyond 500 ms; context never changes numbers or negations; zero outbound sockets; focus remains in the editor; disabled mode performs no UIA reads.
+
+### D. Slow-app adaptive injection and recovery shortcuts (Wispr Flow alignment)
+
+Wispr Flow's official paste guidance identifies that heavy web/Electron applications (Slack, Notion, Discord, Teams, Word, Outlook, WhatsApp) and virtual desktop environments (RDP/VMs) require:
+1. **Adaptive Clipboard Hold Buffer:** Rather than restoring original clipboard contents after a fixed 1.5s, FlowPilot now adaptively extends the clipboard hold buffer to **3.5 seconds** for heavy/Electron apps and **5.0 seconds** for remote desktops (`mstsc.exe`, `vncviewer.exe`). This prevents slow applications from reading the restored pre-dictation clipboard before they have finished processing the paste.
+2. **Keystroke Dwell Pacing:** Keystroke event duration (`time.sleep`) between `VK_CONTROL` and `V` is adaptively increased from 20ms to 40ms (50ms on remote desktops) to avoid key event drops under heavy main-thread UI load.
+3. **Dedicated Instant Recovery Shortcuts:**
+   - **Paste Last Dictation:** `Shift + Alt + Z` (and `Alt + Shift + Z`)
+   - **Copy Last Dictation:** `Shift + Alt + X` (and `Alt + Shift + X`)
+   If target application focus changes or an opaque application drops a paste, users can press `Shift + Alt + Z` directly in their target window to paste the recovery buffer, or `Shift + Alt + X` to copy it.

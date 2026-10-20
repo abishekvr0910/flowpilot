@@ -42,6 +42,25 @@ VK_MAPPING = {
     "GRAVE": 0xC0, "TILDE": 0xC0, "BACKTICK": 0xC0,
 }
 
+# Dictation must not replace another FlowPilot action. Compare parsed key codes so
+# equivalent spellings (such as Control+Alt+T) cannot bypass this check.
+RESERVED_FLOWPILOT_SHORTCUTS = {
+    (MOD_CONTROL | MOD_ALT, VK_MAPPING["T"]): "Selected-text transforms (Ctrl+Alt+T)",
+    (MOD_ALT | MOD_SHIFT, VK_MAPPING["Z"]): "Paste last dictation (Alt+Shift+Z)",
+    (MOD_ALT | MOD_SHIFT, VK_MAPPING["X"]): "Copy last dictation (Alt+Shift+X)",
+}
+
+RESERVED_WINDOWS_SHORTCUTS = {
+    (MOD_WIN, ord("L")): "Windows Lock Screen (Win+L)",
+    (MOD_WIN, ord("D")): "Windows Show Desktop (Win+D)",
+    (MOD_ALT, VK_MAPPING["TAB"]): "Windows Task Switcher (Alt+Tab)",
+    (MOD_WIN, VK_MAPPING["TAB"]): "Windows Task View (Win+Tab)",
+    (MOD_WIN, ord("R")): "Windows Run Dialog (Win+R)",
+    (MOD_WIN, ord("E")): "Windows File Explorer (Win+E)",
+    (MOD_WIN, ord("X")): "Windows Quick Link Menu (Win+X)",
+    (MOD_WIN, ord("C")): "Windows Copilot / Quick Assistant (Win+C)",
+}
+
 
 def parse_hotkey_string(hotkey_str: str) -> Tuple[int, int]:
     """
@@ -61,10 +80,10 @@ def parse_hotkey_string(hotkey_str: str) -> Tuple[int, int]:
             mods |= MOD_SHIFT
         elif part == "WIN":
             mods |= MOD_WIN
-        elif part in VK_MAPPING:
-            vk = VK_MAPPING[part]
-        elif len(part) == 1 and part.isalnum():
-            vk = ord(part)
+        elif part in VK_MAPPING or (len(part) == 1 and part.isascii() and part.isalnum()):
+            if vk:
+                raise ValueError("A shortcut must contain exactly one primary key.")
+            vk = VK_MAPPING.get(part, ord(part) if len(part) == 1 else 0)
         else:
             raise ValueError(f"Unknown key in hotkey definition: '{part}'")
 
@@ -72,6 +91,19 @@ def parse_hotkey_string(hotkey_str: str) -> Tuple[int, int]:
         raise ValueError(f"Hotkey '{hotkey_str}' does not specify a valid primary key.")
 
     return mods, vk
+
+
+def dictation_hotkey_conflict(hotkey_str: str) -> Optional[str]:
+    """Return a FlowPilot-owned or reserved system action that conflicts with a dictation shortcut."""
+    try:
+        parsed = parse_hotkey_string(hotkey_str)
+        if parsed in RESERVED_FLOWPILOT_SHORTCUTS:
+            return RESERVED_FLOWPILOT_SHORTCUTS[parsed]
+        if parsed in RESERVED_WINDOWS_SHORTCUTS:
+            return RESERVED_WINDOWS_SHORTCUTS[parsed]
+    except Exception:
+        pass
+    return None
 
 
 class TapLatch:
@@ -178,8 +210,6 @@ class Win32HotkeyService:
         Tests whether a given hotkey string can be successfully registered via Win32 RegisterHotKey.
         Returns (is_available: bool, message: str).
         """
-        if sys.platform != "win32":
-            return True, "Available via cross-platform keyboard listener."
         clean = hotkey_str.replace("<", "").replace(">", "").strip()
         parts = [p.strip().upper() for p in clean.replace(" ", "").split("+")]
         has_primary = any(p in VK_MAPPING or (len(p) == 1 and p.isalnum()) for p in parts if p not in ("CTRL", "CONTROL", "ALT", "SHIFT", "WIN"))
@@ -191,6 +221,13 @@ class Win32HotkeyService:
             mods, vk = parse_hotkey_string(clean)
         except ValueError as e:
             return False, f"Invalid format: {e}"
+
+        conflict = dictation_hotkey_conflict(clean)
+        if conflict:
+            return False, f"Conflict: Shortcut is already assigned/reserved for {conflict} (exempted from reassignment)."
+
+        if sys.platform != "win32":
+            return True, "Valid shortcut; availability cannot be checked outside Windows."
 
         if currently_active_hotkey:
             try:

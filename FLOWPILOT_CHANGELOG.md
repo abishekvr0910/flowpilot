@@ -2,13 +2,17 @@
 
 This page distinguishes published releases from work on `master`. Check [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) for downloadable artifacts and [GitHub Actions](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for current verification status.
 
-## Unreleased — current `master` source
+## v3.1.0 — October 20, 2026
 
-- Added Companion Studio, additional pixel companions, meeting notes, productivity insights, selected-text transforms, and a dictation History Vault.
-- The History Vault saves completed dictation text and WAV audio locally by default; see [PRIVACY.md](PRIVACY.md).
-- Updated public documentation to separate current source from the published v3.0.2 artifact and to describe test limitations accurately.
-
-These changes are **not** a published v3.1.0 release. Do not infer a passing regression gate from the v3.0.2 results; check live CI before packaging or promoting a new build.
+- **Multilingual Offline Dictation:** Added tested acoustic support for German, French, Spanish, Japanese, Chinese, and Hindi using bundled Faster-Whisper base weights with zero network calls.
+- **Microphone Device Switching:** Input audio device selection in Settings Dialog and First-Run Wizard binds dynamically to the recorder stream without requiring application restart.
+- **Immediate Personalization:** Custom dictionary biasing and voice snippet expansions apply immediately to live dictation upon save without reloading the application.
+- **Safe "Paste Last" Injection:** Prevents blind keystrokes into FlowPilot's own windows (HUD, Dashboard, Tray), automatically restores focus to the previously active external editor, or safely stages to the clipboard.
+- **Slow-App Paste Resilience:** Introduced window-class adaptive timing profiles (dwell, hold, post-paste) for Outlook, Word, WhatsApp, remote desktop, and JetBrains IDEs.
+- **Text Injector Hardening:** Eliminated copy-failure UnboundLocalError; added focus-loss pre-dispatch abort with clipboard preservation and sequence guard against clipboard overwrite during hold.
+- **Truthful Status Reporting:** Distinguishes `CONFIRMED_INSERTED`, `SENT_UNVERIFIED`, and `FAILED_RECOVERY_AVAILABLE` in the HUD and tray, with dedicated instant recovery hotkeys (`Shift+Alt+Z` to paste last dictation, `Shift+Alt+X` to copy last dictation).
+- **First-Run Onboarding & Key Customization:** Added 5-step local Setup Wizard supporting single-key push-to-talk (e.g. `F9`) and conflict exemption protecting assigned recovery shortcuts (`Alt+Shift+Z`, `Alt+Shift+X`, `Ctrl+Alt+T`) from collision.
+- **Companion Studio & Dictation Vault:** Pixel companions, meeting notes, productivity insights, and local dictation History Vault with never-store mode support.
 
 ## v3.0.2 — published October 15, 2026
 

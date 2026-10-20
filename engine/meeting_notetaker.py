@@ -43,12 +43,24 @@ ACTION_ITEM_PATTERNS = [
     r"\b(action item|to-do|todo|follow up|assigned to|responsible for|deadline)\b",
     r"\b(make sure to|ensure that|please send|please update|schedule a|sync up|reach out to)\b",
     r"\b(will check|will create|will investigate|will write|will prepare|will deploy)\b",
+    # Spanish action items
+    r"\b(voy a|vamos a|tenemos que|hay que|debo|debemos|tarea|responsable|por favor enviar|hacer seguimiento)\b",
+    # French action items
+    r"\b(je vais|nous allons|nous devons|il faut|action|responsable|merci d'envoyer|veuillez|suivi)\b",
+    # German action items
+    r"\b(ich werde|wir werden|wir m[uü]ssen|aufgabe|zust[aä]ndig|bitte senden|sicherstellen|nachverfolgen)\b",
 ]
 
 DECISION_PATTERNS = [
     r"\b(decided|agreed|conclusion|consensus|approved|resolved|plan is)\b",
     r"\b(going with|settled on|confirmed that|final choice|moving forward with)\b",
     r"\b(aligned on|verdict is|signed off|unanimously|verdict)\b",
+    # Spanish decisions
+    r"\b(decidimos|acordamos|aprobado|conclusi[oó]n|consenso|confirmado|la decisi[oó]n es|vamos con)\b",
+    # French decisions
+    r"\b(d[eé]cid[eé]|convenu|approuv[eé]|conclusion|consensus|confirm[eé]|d[eé]cision prise)\b",
+    # German decisions
+    r"\b(beschlossen|geeinigt|vereinbart|best[aä]tigt|entschieden|beschluss|einstimmig)\b",
 ]
 
 TEMPLATES = {

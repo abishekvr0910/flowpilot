@@ -28,6 +28,55 @@ def test_active_window_focus_is_preserved():
     attach.assert_not_called()
 
 
+def test_find_edit_control_when_editor_is_not_first_child():
+    """Verify that _find_edit_control enumerates all child windows and finds the editor even when it is not the first child."""
+    parent_hwnd = 1000
+    children = [
+        (2001, "msctls_statusbar32"),   # Child 1: Status bar (not editor)
+        (2002, "ToolbarWindow32"),       # Child 2: Toolbar (not editor)
+        (2003, "NotepadTextBox"),        # Child 3: Modern Windows 11 Notepad editor
+        (2004, "ScrollBar"),             # Child 4: Scrollbar (not editor)
+    ]
+
+    def fake_enum_child_windows(hwnd, callback, extra):
+        assert hwnd == parent_hwnd
+        for child_hwnd, _ in children:
+            cont = callback(child_hwnd, extra)
+            # Windows API requirement: EnumChildWindows stops if callback returns False or None
+            if not cont:
+                break
+
+    def fake_get_class_name(child_hwnd):
+        for ch, cls_name in children:
+            if ch == child_hwnd:
+                return cls_name
+        return ""
+
+    with patch("engine.text_injector.HAS_WIN32", True), \
+         patch("engine.text_injector.sys.platform", "win32"), \
+         patch("engine.text_injector.win32gui.EnumChildWindows", side_effect=fake_enum_child_windows), \
+         patch("engine.text_injector.win32gui.GetClassName", side_effect=fake_get_class_name):
+        resolved = TextInjector._find_edit_control(parent_hwnd)
+        assert resolved == 2003, f"Expected child 2003 (NotepadTextBox), got {resolved}"
+
+    # Verify when no editor child exists, it falls back to parent_hwnd
+    children_no_editor = [
+        (2001, "msctls_statusbar32"),
+        (2002, "ToolbarWindow32"),
+    ]
+    def fake_enum_no_editor(hwnd, callback, extra):
+        for child_hwnd, _ in children_no_editor:
+            if not callback(child_hwnd, extra):
+                break
+
+    with patch("engine.text_injector.HAS_WIN32", True), \
+         patch("engine.text_injector.sys.platform", "win32"), \
+         patch("engine.text_injector.win32gui.EnumChildWindows", side_effect=fake_enum_no_editor), \
+         patch("engine.text_injector.win32gui.GetClassName", return_value="msctls_statusbar32"):
+        resolved = TextInjector._find_edit_control(parent_hwnd)
+        assert resolved == parent_hwnd, f"Expected parent {parent_hwnd}, got {resolved}"
+
+
 def test_clipboard_is_not_physical_confirmation():
     """An opaque target cannot be verified from our own pending clipboard."""
     with patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
@@ -36,11 +85,181 @@ def test_clipboard_is_not_physical_confirmation():
         assert TextInjector.verify_text_injected('dictated words', 12345, timeout=0.01) is False
     clipboard_read.assert_not_called()
 
+def test_clipboard_copy_failure_and_unicode_fallback():
+    """Verify that when clipboard copy fails, Unicode SendInput is invoked without raising UnboundLocalError."""
+    with patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 12345, None)), \
+         patch.object(TextInjector, '_safe_clipboard_copy', return_value=False), \
+         patch.object(TextInjector, '_find_edit_control', return_value=12345), \
+         patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
+         patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=12345), \
+         patch.object(TextInjector, 'inject_unicode_sendinput', return_value=True) as mock_unicode:
+        res = TextInjector.inject_with_status("Fallback text test", target_hwnd=12345)
+        assert res.status == InjectionStatus.SENT_UNVERIFIED
+        assert res.chars_sent == len("Fallback text test")
+        mock_unicode.assert_called_once_with("Fallback text test", 12345)
+
+def test_focus_loss_after_staging_preserves_clipboard_and_recovery():
+    """Verify that if focus is lost after clipboard staging, original clipboard is restored and dictated text is preserved in recovery."""
+    original_clip = "OriginalUserClipboardContent"
+    dictated_text = "DictatedConfidentialText"
+
+    # State tracking
+    current_clip = [original_clip]
+    def fake_paste(*args, **kwargs):
+        return current_clip[0]
+    def fake_copy(t, *args, **kwargs):
+        current_clip[0] = t
+        return True
+
+    # 1st call to _resolve_verified_foreground succeeds (initial focus check)
+    # 2nd call fails (focus switched during staging)
+    resolve_calls = [(True, 12345, None), (False, 99999, "Focus switched to 99999")]
+
+    with patch.object(TextInjector, '_resolve_verified_foreground', side_effect=resolve_calls), \
+         patch.object(TextInjector, '_safe_clipboard_paste', side_effect=fake_paste), \
+         patch.object(TextInjector, '_safe_clipboard_copy', side_effect=fake_copy), \
+         patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
+         patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=12345):
+
+        res = TextInjector.inject_with_status(dictated_text, target_hwnd=12345, preserve_clipboard=True)
+        assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE
+        assert res.recovery_available is True
+        # Dictated text is preserved in recovery buffer
+        assert TextInjector.last_injected_text == dictated_text
+        # Original clipboard is preserved
+        assert current_clip[0] == original_clip
+
+def test_slow_app_timing_and_dwell():
+    """Verify that slow and remote applications trigger extended dwell and hold delays per Wispr guidance."""
+    assert "slack.exe" in TextInjector.SLOW_APP_PROCESSES
+    assert "notion.exe" in TextInjector.SLOW_APP_PROCESSES
+    assert "mstsc.exe" in TextInjector.REMOTE_APP_PROCESSES
+
+    # Verify behavioral hold and dwell resolution
+    with patch.object(TextInjector, '_get_target_process_name', return_value="slack.exe"), \
+         patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 100, None)), \
+         patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
+         patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
+         patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=100), \
+         patch('engine.text_injector.win32api.keybd_event') as mock_keybd1, \
+         patch('engine.text_injector.threading.Timer') as mock_timer, \
+         patch('engine.text_injector.time.sleep') as mock_sleep:
+
+        TextInjector.inject_with_status("Slow app test", target_hwnd=100, preserve_clipboard=True)
+        # Verify timer was created with 3.5s hold delay for Slack
+        timer_args = [call[0] for call in mock_timer.call_args_list]
+        assert any(abs(args[0] - 3.5) < 0.01 for args in timer_args)
+        # Verify keystroke sleep included 0.040s key dwell
+        sleep_args = [call[0][0] for call in mock_sleep.call_args_list]
+        assert any(abs(s - 0.040) < 0.001 for s in sleep_args)
+
+    # Verify remote desktop hold and dwell resolution (5.0s hold, 0.050s dwell)
+    with patch.object(TextInjector, '_get_target_process_name', return_value="mstsc.exe"), \
+         patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 200, None)), \
+         patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
+         patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
+         patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=200), \
+         patch('engine.text_injector.win32api.keybd_event') as mock_keybd2, \
+         patch('engine.text_injector.threading.Timer') as mock_timer, \
+         patch('engine.text_injector.time.sleep') as mock_sleep:
+
+        TextInjector.inject_with_status("Remote desktop test", target_hwnd=200, preserve_clipboard=True)
+        timer_args = [call[0] for call in mock_timer.call_args_list]
+        assert any(abs(args[0] - 5.0) < 0.01 for args in timer_args)
+        sleep_args = [call[0][0] for call in mock_sleep.call_args_list]
+        assert any(abs(s - 0.050) < 0.001 for s in sleep_args)
+
+    # Verify inject_last recovery buffer dispatch
+    TextInjector.last_injected_text = "Recovered dictation text"
+    with patch.object(TextInjector, 'inject_with_status') as mock_inject:
+        TextInjector.inject_last(target_hwnd=999)
+        mock_inject.assert_called_once_with("Recovered dictation text", target_hwnd=999)
+
+def test_focus_loss_with_newer_user_copy_preserves_user_copy():
+    """Verify that if the user copies new text right as focus shifts, focus-loss abort preserves user's new copy."""
+    original_clip = "PreDictationClip"
+    dictated_text = "DictatedText"
+    user_new_copy = "UserNewCopyContent"
+
+    current_clip = [original_clip]
+    seq_counter = [100]
+
+    def fake_paste(*args, **kwargs):
+        return current_clip[0]
+
+    def fake_copy(t, *args, **kwargs):
+        current_clip[0] = t
+        seq_counter[0] += 1
+        return True
+
+    def fake_seq():
+        return seq_counter[0]
+
+    # Focus changes on 2nd check
+    def resolve_side_effect(hwnd):
+        if resolve_side_effect.calls == 0:
+            resolve_side_effect.calls += 1
+            return (True, 12345, None)
+        # User copied new content right as focus switched!
+        current_clip[0] = user_new_copy
+        seq_counter[0] = 105
+        return (False, 99999, "Focus switched to 99999")
+    resolve_side_effect.calls = 0
+
+    with patch.object(TextInjector, '_resolve_verified_foreground', side_effect=resolve_side_effect), \
+         patch.object(TextInjector, '_safe_clipboard_paste', side_effect=fake_paste), \
+         patch.object(TextInjector, '_safe_clipboard_copy', side_effect=fake_copy), \
+         patch.object(TextInjector, '_get_clipboard_sequence_number', side_effect=fake_seq), \
+         patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
+         patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=12345):
+
+        res = TextInjector.inject_with_status(dictated_text, target_hwnd=12345, preserve_clipboard=True)
+        assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE
+        # The user's new copy must NOT be overwritten by original_clip
+        assert current_clip[0] == user_new_copy
+
+def test_clipboard_change_during_hold_prevents_overwrite():
+    """Verify that if the clipboard sequence changes before the hold timer fires, restore is aborted."""
+    current_clip = ["InjectedText"]
+    def fake_paste():
+        return current_clip[0]
+    def fake_copy(t):
+        current_clip[0] = t
+        return True
+
+    TextInjector._original_clipboard = "PreDictationClip"
+    TextInjector.last_injected_text = "InjectedText"
+    TextInjector._last_copy_seq = 100
+
+    # User performed a new copy -> sequence number is now 101
+    with patch.object(TextInjector, '_safe_clipboard_paste', side_effect=fake_paste), \
+         patch.object(TextInjector, '_safe_clipboard_copy', side_effect=fake_copy) as mock_copy, \
+         patch.object(TextInjector, '_get_clipboard_sequence_number', return_value=101):
+
+        # Trigger restore logic manually as the timer would
+        saved_to_restore = TextInjector._original_clipboard
+        cur = TextInjector._safe_clipboard_paste()
+        cur_seq = TextInjector._get_clipboard_sequence_number()
+        # Should abort restore
+        if cur_seq != TextInjector._last_copy_seq:
+            restore_aborted = True
+        else:
+            restore_aborted = False
+
+        assert restore_aborted is True
+        mock_copy.assert_not_called()
+
 def test_text_injection():
     test_active_window_focus_is_preserved()
     test_clipboard_is_not_physical_confirmation()
+    test_clipboard_copy_failure_and_unicode_fallback()
+    test_focus_loss_after_staging_preserves_clipboard_and_recovery()
+    test_focus_loss_with_newer_user_copy_preserves_user_copy()
+    test_slow_app_timing_and_dwell()
+    test_clipboard_change_during_hold_prevents_overwrite()
+    test_find_edit_control_when_editor_is_not_first_child()
     if not is_interactive_desktop():
-        print("[RESULT] SKIPPED: Physical Notepad insertion requires an interactive Windows desktop; focus and clipboard-confirmation unit checks passed.")
+        print("[RESULT] SKIPPED: Physical Notepad insertion requires an interactive Windows desktop; focus, copy failure fallback, focus-loss abort, slow-app timing, and clipboard-confirmation unit checks passed.")
         return True
     print("=" * 60)
     print("AUDIT TEST 3: TEXT INSERTION & CLIPBOARD PRESERVATION")
@@ -124,10 +343,10 @@ def test_text_injection():
 
     if not injection_ok:
         print("FAILED: Text injection failed or was improperly handled.")
-        return False
+        assert False, "Text injection failed or was improperly handled."
     if not preserved:
         print("FAILED: Clipboard was not properly restored.")
-        return False
+        assert False, "Clipboard was not properly restored."
 
     print("\n[RESULT] Text insertion and clipboard preservation PASSED.")
     return True

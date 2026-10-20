@@ -1,7 +1,7 @@
 """
 FlowPilot Native Desktop Application
 Native Windows desktop app with:
-- Win32 RegisterHotKey global shortcuts (Ctrl+Shift+Space / F9)
+- Win32 RegisterHotKey global shortcuts (user-selected dictation key)
 - Floating microphone HUD (Flow Pill with WS_EX_NOACTIVATE)
 - System Tray integration and notifications
 - Real-time local Whisper speech recognition
@@ -30,6 +30,7 @@ from ui.tray_manager import TrayManager
 from ui.settings_dialog import SettingsDialog
 from ui.companion_studio import CompanionStudioDialog
 from ui.flowpilot_dashboard import FlowPilotDashboard
+from ui.setup_wizard import SetupWizardDialog
 
 class StateBridge(QObject):
     state_changed = Signal(dict)
@@ -57,7 +58,7 @@ class FlowPilotApp:
                     if hasattr(user32, "MessageBoxTimeoutW"):
                         user32.MessageBoxTimeoutW(
                             0,
-                            "FlowPilot is already running!\n\nLook for the companion on your screen or the FlowPilot icon in your System Tray (near the clock).\n\nPress Ctrl+Shift+Space or hold F9 anytime to dictate.",
+                            "FlowPilot is already running!\n\nLook for the companion on your screen or the FlowPilot icon in your System Tray (near the clock).\n\nUse your configured dictation shortcut to speak.",
                             "FlowPilot Voice Intelligence",
                             0x40,  # MB_ICONINFORMATION
                             0,
@@ -93,7 +94,8 @@ class FlowPilotApp:
         self.dashboard = FlowPilotDashboard(
             config=self.config,
             on_save_config=self._on_save_settings,
-            on_dictate=self.orchestrator.toggle_dictation
+            on_dictate=self.orchestrator.toggle_dictation,
+            personalization=self.orchestrator.personalization
         )
         self.settings_dlg = None
         self.studio_dlg = None
@@ -102,6 +104,9 @@ class FlowPilotApp:
         hk_mode = self.config.get("hotkey_mode", "toggle")
         self.hud.set_hotkey_info(hk_str, hk_mode)
         self.tray.set_hotkey_info(hk_str, hk_mode)
+        cur_lang = self.config.get("language", "auto")
+        is_trans = self.config.get("translate_to_english", False)
+        self.tray.set_language_info(cur_lang, is_trans)
 
         # 3. Connect UI Signals
         self.bridge.state_changed.connect(self._handle_state_update)
@@ -120,12 +125,17 @@ class FlowPilotApp:
         self.hud.cancel_requested.connect(self.orchestrator.cancel_dictation)
         self.tray.cancel_requested.connect(self.orchestrator.cancel_dictation)
 
-        # Recovery triggers
+        # Recovery triggers (matching Wispr Shift+Alt+Z / Shift+Alt+X)
         self.hud.recopy_requested.connect(self._on_recopy_last)
         self.tray.recopy_requested.connect(self._on_recopy_last)
+        self.tray.reinject_requested.connect(self._on_reinject_last)
 
         self.hud.settings_requested.connect(self.show_settings)
         self.tray.settings_requested.connect(self.show_settings)
+
+        # Language and Translation triggers
+        self.tray.language_changed.connect(self._on_tray_language_changed)
+        self.tray.translate_toggled.connect(self._on_tray_translate_toggled)
 
         # Companion Studio triggers
         self.hud.studio_requested.connect(self.show_companion_studio)
@@ -156,16 +166,16 @@ class FlowPilotApp:
         self.hud.show()
         self.hud.raise_()
 
-        # Show master application dashboard window
-        if not os.environ.get("CI") and not os.environ.get("FLOWPILOT_HEADLESS"):
-            self.show_dashboard()
+        # Show setup wizard on first run, or master application dashboard window
+        if enforce_single_instance and not os.environ.get("CI") and not os.environ.get("FLOWPILOT_HEADLESS"):
+            if not self.config.get("first_run_completed", False):
+                self.show_setup_wizard()
+            else:
+                self.show_dashboard()
 
-        # 4b. Register global hotkey for Selected-Text Transforms (Ctrl+Alt+T)
+        # 4b. Keep transforms bound when the dictation shortcut is changed live.
         try:
-            self.orchestrator.hotkey_service.register_hotkey(
-                "Ctrl+Alt+T",
-                callback=self._on_transforms_hotkey
-            )
+            self.orchestrator.add_auxiliary_hotkey("Ctrl+Alt+T", self._on_transforms_hotkey)
         except Exception as _e:
             print(f"[FlowPilot Warning] Transforms hotkey registration deferred: {_e}")
 
@@ -174,7 +184,9 @@ class FlowPilotApp:
         print("\n============================================================")
         print("   FLOWPILOT NATIVE DESKTOP APPLICATION ACTIVE")
         print("============================================================")
-        print("[*] Global Shortcuts: 'Ctrl + Shift + Space', 'Ctrl + Alt + Space', 'Ctrl + Alt + T', 'F9'")
+        print(f"[*] Dictation shortcut: '{hk_str}' ({hk_mode}); transforms: 'Ctrl + Alt + T'")
+        if not self.config.get("hotkey_exclusive", False):
+            print("[*] Legacy dictation aliases remain active until you choose a shortcut in Settings: F9, Ctrl + Alt + Space")
         print("[*] Robot Companion:  Pilot Active (Draggable to any corner)")
         print("[*] System Tray:      Active")
         print("============================================================\n")
@@ -231,6 +243,15 @@ class FlowPilotApp:
             self.dashboard.raise_()
             self.dashboard.activateWindow()
 
+    def show_setup_wizard(self):
+        if not hasattr(self, 'wizard_dlg') or not self.wizard_dlg:
+            self.wizard_dlg = SetupWizardDialog(self.dashboard, config=self.config)
+            self.wizard_dlg.setup_completed.connect(self._on_save_settings)
+            self.wizard_dlg.setup_completed.connect(self.show_dashboard)
+        self.wizard_dlg.show()
+        self.wizard_dlg.raise_()
+        self.wizard_dlg.activateWindow()
+
     def _on_companion_switched_from_dashboard(self, asset_id: str):
         self.hud.set_visual_style(asset_id)
         if asset_id == "kitty":
@@ -264,11 +285,51 @@ class FlowPilotApp:
         self.settings_dlg.activateWindow()
 
     def _on_save_settings(self, new_config: dict):
-        self.orchestrator.update_config(new_config)
+        if not self.orchestrator.update_config(new_config):
+            return False
+        self.config = new_config
         hk_str = self.orchestrator.config.get("hotkey", "Ctrl+Shift+Space")
         hk_mode = self.orchestrator.config.get("hotkey_mode", "toggle")
         self.hud.set_hotkey_info(hk_str, hk_mode)
         self.tray.set_hotkey_info(hk_str, hk_mode)
+        self.tray.set_language_info(
+            self.config.get("language", "auto"),
+            self.config.get("translate_to_english", False)
+        )
+        return True
+
+    def _on_tray_language_changed(self, lang_code: str):
+        self.config["language"] = lang_code
+        save_config(self.config)
+        self.orchestrator.update_config(self.config)
+        self.tray.set_language_info(lang_code, self.config.get("translate_to_english", False))
+        lang_name = lang_code.upper() if lang_code != "auto" else "Auto-Detect"
+        self.tray.show_notification("FlowPilot Language Updated", f"Speech recognition set to: {lang_name}")
+
+    def _on_tray_translate_toggled(self, enabled: bool):
+        self.config["translate_to_english"] = enabled
+        save_config(self.config)
+        self.orchestrator.update_config(self.config)
+        status_str = "ENABLED (Foreign speech -> English)" if enabled else "DISABLED (Standard native dictation)"
+        self.tray.show_notification("FlowPilot Translation", f"Real-time speech translation: {status_str}")
+
+    def _on_reinject_last(self):
+        res = self.orchestrator.re_inject_last()
+        from engine.text_injector import InjectionStatus
+        prior_status = self.orchestrator.last_dictation.get("prior_injection_status")
+        was_unverified = (prior_status == InjectionStatus.SENT_UNVERIFIED.value)
+
+        if res.status == InjectionStatus.CONFIRMED_INSERTED:
+            self.tray.show_notification("FlowPilot: Confirmed Inserted", "Last dictation physically verified in target window.")
+        elif res.status == InjectionStatus.SENT_UNVERIFIED:
+            msg = "Keystrokes sent to target window (unverified target buffer)."
+            if was_unverified:
+                msg += " Prior attempt was also unverified; please check for duplicate text."
+            self.tray.show_notification("FlowPilot: Sent (Unverified)", msg, is_warning=True)
+        elif res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE:
+            self.tray.show_notification("FlowPilot: Recovery Saved", "Target window focus lost. Text preserved in recovery buffer (Shift+Alt+X to copy).", is_warning=True)
+        else:
+            self.tray.show_notification("FlowPilot Error", res.error_message or "Could not paste last dictation.", is_error=True)
 
     def _on_recopy_last(self):
         success = self.orchestrator.re_copy_last()
@@ -333,9 +394,70 @@ class FlowPilotApp:
     def run(self):
         return self.app.exec()
 
+def run_self_test() -> int:
+    """Headless self-test validating that the bundled model and STT pipeline can transcribe acoustic audio offline."""
+    import time
+    import os
+    print("=" * 65)
+    print("FLOWPILOT STANDALONE OFFLINE DICTATION SELF-TEST")
+    print("=" * 65)
+    try:
+        from engine.stt_engine import STTEngine
+        from engine.config import load_config
+
+        cfg = load_config()
+        cfg["engine_mode"] = "local"
+        cfg["local_model_size"] = "base"
+
+        resolved_path = STTEngine.resolve_model_path("base")
+        print(f"[Self-Test] Resolved offline model path: {resolved_path}")
+        assert os.path.exists(resolved_path), f"Resolved model path does not exist: {resolved_path}"
+
+        stt = STTEngine(cfg)
+        print("[Self-Test] Loading model...")
+        stt.preload_model()
+
+        print("[Self-Test] Synthesizing speech fixture via SAPI...")
+        import win32com.client
+        import tempfile
+        sp = win32com.client.Dispatch("SAPI.SpVoice")
+        fs = win32com.client.Dispatch("SAPI.SpFileStream")
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+            tmp_wav = tf.name
+        try:
+            fs.Open(tmp_wav, 3)
+            sp.AudioOutputStream = fs
+            sp.Speak("FlowPilot offline dictation verified")
+            fs.Close()
+            with open(tmp_wav, "rb") as f:
+                wav_bytes = f.read()
+        finally:
+            if os.path.isfile(tmp_wav):
+                try:
+                    os.unlink(tmp_wav)
+                except Exception:
+                    pass
+
+        print(f"[Self-Test] Transcribing {len(wav_bytes)} bytes audio buffer...")
+        t0 = time.time()
+        res = stt.transcribe(wav_bytes)
+        t_trans = time.time() - t0
+        text = res.get("text", "") if isinstance(res, dict) else str(res)
+        print(f"[Self-Test] Transcription output: '{text}' (in {t_trans:.2f}s)")
+        assert any(k in text.lower() for k in ("offline", "flowpilot", "dictation", "verified")), f"Unexpected transcription: {text}"
+        print("[Self-Test] PASSED: Standalone binary successfully transcribed offline speech without network egress.")
+        return 0
+    except Exception as e:
+        print(f"[Self-Test] FAILED: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
 def main():
     # Handle Ctrl+C in terminal cleanly
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+    if "--self-test" in sys.argv or "--smoke-test" in sys.argv:
+        sys.exit(run_self_test())
     app = FlowPilotApp()
     sys.exit(app.run())
 

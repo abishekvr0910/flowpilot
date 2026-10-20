@@ -27,8 +27,13 @@ from ui.notetaker_view import NotetakerView
 from ui.insights_view import InsightsView
 from ui.transforms_view import TransformsView
 from ui.history_view import HistoryView
+from ui.dictionary_view import DictionaryView
+from ui.snippets_view import SnippetsView
+from ui.setup_wizard import SetupWizardDialog
 from ui.settings_dialog import SettingsDialog
 from ui.companion_studio import CompanionStudioDialog
+from engine.text_injector import TextInjector
+from engine.personalization import get_shared_personalization, PersonalizationEngine
 
 
 class FlowPilotDashboard(QMainWindow):
@@ -40,12 +45,14 @@ class FlowPilotDashboard(QMainWindow):
         config: Optional[Dict[str, Any]] = None,
         on_save_config: Optional[Callable[[Dict[str, Any]], None]] = None,
         on_dictate: Optional[Callable[[], None]] = None,
+        personalization: Optional[PersonalizationEngine] = None,
         parent=None
     ):
         super().__init__(parent)
         self.config = config or load_config()
         self.on_save_config = on_save_config
         self.on_dictate = on_dictate
+        self.personalization = personalization or get_shared_personalization()
         self.store: CompanionStore = get_companion_store()
 
         username = os.environ.get("USERNAME") or getpass.getuser() or "Abi"
@@ -114,20 +121,24 @@ class FlowPilotDashboard(QMainWindow):
         self.nav_group.setExclusive(True)
 
         self.btn_nav_home = self._create_nav_button("🏠  Dashboard", 0)
-        self.btn_nav_transforms = self._create_nav_button("⚡  Transforms [New!]", 1)
-        self.btn_nav_history = self._create_nav_button("📜  History & Audio", 2)
+        self.btn_nav_dict = self._create_nav_button("📖  Dictionary", 2)
+        self.btn_nav_snippets = self._create_nav_button("⚡  Snippets", 6)
         self.btn_nav_scratch = self._create_nav_button("📝  Scratchpad", 3)
         self.btn_nav_notes = self._create_nav_button("🎙  Notetaker", 4)
+        self.btn_nav_history = self._create_nav_button("📜  History & Audio", 7)
         self.btn_nav_insights = self._create_nav_button("📊  Insights", 5)
-        self.btn_nav_studio = self._create_nav_button("🎨  Companion Studio", 6)
-        self.btn_nav_settings = self._create_nav_button("⚙  Settings", 7)
+        self.btn_nav_transforms = self._create_nav_button("✨  Transforms", 1)
+        self.btn_nav_studio = self._create_nav_button("🎨  Companion Studio", 8)
+        self.btn_nav_settings = self._create_nav_button("⚙  Settings", 9)
 
         side_layout.addWidget(self.btn_nav_home)
-        side_layout.addWidget(self.btn_nav_transforms)
-        side_layout.addWidget(self.btn_nav_history)
+        side_layout.addWidget(self.btn_nav_dict)
+        side_layout.addWidget(self.btn_nav_snippets)
         side_layout.addWidget(self.btn_nav_scratch)
         side_layout.addWidget(self.btn_nav_notes)
+        side_layout.addWidget(self.btn_nav_history)
         side_layout.addWidget(self.btn_nav_insights)
+        side_layout.addWidget(self.btn_nav_transforms)
         side_layout.addWidget(self.btn_nav_studio)
         side_layout.addWidget(self.btn_nav_settings)
 
@@ -168,9 +179,9 @@ class FlowPilotDashboard(QMainWindow):
         self.transforms_view = TransformsView(self, on_dictate_toggle=self.on_dictate)
         self.stack.addWidget(self.transforms_view)
 
-        # Page 2: Dictation History & Audio Replay
-        self.history_view = HistoryView(self)
-        self.stack.addWidget(self.history_view)
+        # Page 2: Custom Dictionary & Glossary
+        self.dictionary_view = DictionaryView(self, personalization=self.personalization)
+        self.stack.addWidget(self.dictionary_view)
 
         # Page 3: Scratchpad
         self.scratchpad_view = ScratchpadView(self, on_dictate_toggle=self.on_dictate)
@@ -184,11 +195,23 @@ class FlowPilotDashboard(QMainWindow):
         self.insights_view = InsightsView(self)
         self.stack.addWidget(self.insights_view)
 
-        # Page 6: Companion Studio Placeholder (Opens Dialog)
+        # Page 6: Voice Snippets
+        self.snippets_view = SnippetsView(self, personalization=self.personalization)
+        self.stack.addWidget(self.snippets_view)
+
+        # Wire live synchronization so edits reflect immediately across all tabs
+        self.personalization.add_change_listener(self.dictionary_view.reload_dictionary)
+        self.personalization.add_change_listener(self.snippets_view.reload_snippets)
+
+        # Page 7: Dictation History & Audio Replay
+        self.history_view = HistoryView(self)
+        self.stack.addWidget(self.history_view)
+
+        # Page 8: Companion Studio Placeholder (Opens Dialog)
         dummy_studio = QWidget()
         self.stack.addWidget(dummy_studio)
 
-        # Page 7: Settings Placeholder (Opens Dialog)
+        # Page 9: Settings Placeholder (Opens Dialog)
         dummy_settings = QWidget()
         self.stack.addWidget(dummy_settings)
 
@@ -226,7 +249,7 @@ class FlowPilotDashboard(QMainWindow):
         return btn
 
     def _on_nav_clicked(self, index: int):
-        if index == 6:
+        if index == 8:
             # Open Companion Studio Modal
             studio = CompanionStudioDialog(self)
             studio.applied.connect(self._on_companion_applied)
@@ -234,7 +257,7 @@ class FlowPilotDashboard(QMainWindow):
             self.btn_nav_home.setChecked(True)
             self.stack.setCurrentIndex(0)
             return
-        elif index == 7:
+        elif index == 9:
             # Open Settings Modal
             dlg = SettingsDialog(self.config, self._on_save_settings, parent=self)
             dlg.exec()
@@ -243,9 +266,13 @@ class FlowPilotDashboard(QMainWindow):
             return
 
         self.stack.setCurrentIndex(index)
-        if index == 2 and hasattr(self, "history_view"):
+        if index == 2 and hasattr(self, "dictionary_view"):
+            self.dictionary_view.reload_dictionary()
+        elif index == 6 and hasattr(self, "snippets_view"):
+            self.snippets_view.reload_snippets()
+        elif index == 7 and hasattr(self, "history_view"):
             self.history_view.reload_history()
-        elif index == 5:
+        elif index == 5 and hasattr(self, "insights_view"):
             self.insights_view.refresh_metrics()
 
     def open_transforms(self, selected_text: Optional[str] = None):
@@ -296,6 +323,105 @@ class FlowPilotDashboard(QMainWindow):
         top_bar.addWidget(btn_dictate_now)
         layout.addLayout(top_bar)
 
+        # Status & Quick Answers Bar (Can I dictate now? What shortcut? What was last dictation?)
+        status_bar = QHBoxLayout()
+        status_bar.setSpacing(12)
+
+        # Card 1: System Readiness
+        card_readiness = QFrame()
+        card_readiness.setStyleSheet("""
+            QFrame {
+                background-color: #0F172A;
+                border: 1px solid #1E293B;
+                border-radius: 8px;
+                padding: 12px;
+            }
+        """)
+        cr_layout = QVBoxLayout(card_readiness)
+        cr_layout.setSpacing(5)
+        lbl_r_title = QLabel("● Ready to Dictate")
+        lbl_r_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #10B981;")
+        lbl_r_desc = QLabel("Faster-Whisper base (INT8 CPU)\n100% Offline • Zero Egress")
+        lbl_r_desc.setStyleSheet("font-size: 11px; color: #94A3B8;")
+        btn_wizard = QPushButton("🔧 Run Setup Wizard")
+        btn_wizard.setStyleSheet("""
+            QPushButton {
+                background-color: #1E293B;
+                color: #38BDF8;
+                border: 1px solid #334155;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 5px 10px;
+                border-radius: 4px;
+            }
+            QPushButton:hover { background-color: #334155; }
+        """)
+        btn_wizard.clicked.connect(self._run_setup_wizard)
+        cr_layout.addWidget(lbl_r_title)
+        cr_layout.addWidget(lbl_r_desc)
+        cr_layout.addWidget(btn_wizard)
+        status_bar.addWidget(card_readiness, 1)
+
+        # Card 2: Active Controls
+        card_ctrl = QFrame()
+        card_ctrl.setStyleSheet("""
+            QFrame {
+                background-color: #0F172A;
+                border: 1px solid #1E293B;
+                border-radius: 8px;
+                padding: 12px;
+            }
+        """)
+        cc_layout = QVBoxLayout(card_ctrl)
+        cc_layout.setSpacing(5)
+        lbl_c_title = QLabel("⌨ Active Controls")
+        lbl_c_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #38BDF8;")
+        hk = self.config.get("hotkey", "Ctrl+Shift+Space")
+        lang = str(self.config.get("language", "auto")).upper()
+        lbl_c_desc = QLabel(f"Dictation Hotkey: {hk}\nLanguage: {lang}\nRecovery: Shift+Alt+Z")
+        lbl_c_desc.setStyleSheet("font-size: 11px; color: #94A3B8;")
+        cc_layout.addWidget(lbl_c_title)
+        cc_layout.addWidget(lbl_c_desc)
+        status_bar.addWidget(card_ctrl, 1)
+
+        # Card 3: Last Dictation & Fast Recovery
+        card_rec = QFrame()
+        card_rec.setStyleSheet("""
+            QFrame {
+                background-color: #0F172A;
+                border: 1px solid #1E293B;
+                border-radius: 8px;
+                padding: 12px;
+            }
+        """)
+        crec_layout = QVBoxLayout(card_rec)
+        crec_layout.setSpacing(5)
+        lbl_rec_title = QLabel("📋 Last Dictation & Recovery")
+        lbl_rec_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #F8FAFC;")
+        self.lbl_last_preview = QLabel(TextInjector.last_injected_text or "No dictations yet in this session.")
+        self.lbl_last_preview.setStyleSheet("font-size: 11px; color: #94A3B8; font-style: italic;")
+        self.lbl_last_preview.setWordWrap(True)
+
+        rec_btn_box = QHBoxLayout()
+        rec_btn_box.setSpacing(6)
+        btn_paste_last = QPushButton("📋 Paste Last (Shift+Alt+Z)")
+        btn_paste_last.setStyleSheet("background-color: #1E293B; color: #CBD5E1; border: 1px solid #334155; font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600;")
+        btn_paste_last.clicked.connect(self._on_quick_paste_last)
+
+        btn_copy_last = QPushButton("📄 Copy Last (Shift+Alt+X)")
+        btn_copy_last.setStyleSheet("background-color: #1E293B; color: #CBD5E1; border: 1px solid #334155; font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600;")
+        btn_copy_last.clicked.connect(self._on_quick_copy_last)
+
+        rec_btn_box.addWidget(btn_paste_last)
+        rec_btn_box.addWidget(btn_copy_last)
+
+        crec_layout.addWidget(lbl_rec_title)
+        crec_layout.addWidget(self.lbl_last_preview)
+        crec_layout.addLayout(rec_btn_box)
+        status_bar.addWidget(card_rec, 2)
+
+        layout.addLayout(status_bar)
+
         # Active Companion Quick Switcher Card
         card_pet = QFrame()
         card_pet.setStyleSheet("""
@@ -303,16 +429,16 @@ class FlowPilotDashboard(QMainWindow):
                 background-color: #0F172A;
                 border: 1px solid #1E293B;
                 border-radius: 10px;
-                padding: 18px;
+                padding: 16px;
             }
         """)
         cp_layout = QVBoxLayout(card_pet)
-        cp_layout.setSpacing(12)
+        cp_layout.setSpacing(10)
 
         lbl_cp_title = QLabel("Desktop Companion Selection")
-        lbl_cp_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #F8FAFC;")
+        lbl_cp_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #F8FAFC;")
         lbl_cp_desc = QLabel("Choose your interactive floating companion on your screen:")
-        lbl_cp_desc.setStyleSheet("font-size: 13px; color: #94A3B8;")
+        lbl_cp_desc.setStyleSheet("font-size: 12px; color: #94A3B8;")
         cp_layout.addWidget(lbl_cp_title)
         cp_layout.addWidget(lbl_cp_desc)
 
@@ -376,39 +502,52 @@ class FlowPilotDashboard(QMainWindow):
                 background-color: #334155;
             }
         """)
-        btn_open_studio.clicked.connect(lambda: self._on_nav_clicked(4))
+        btn_open_studio.clicked.connect(lambda: self._on_nav_clicked(8))
         cp_layout.addWidget(btn_open_studio)
 
         layout.addWidget(card_pet)
 
         # Quick Actions Grid
         quick_grid = QHBoxLayout()
-        quick_grid.setSpacing(14)
+        quick_grid.setSpacing(12)
 
-        # Quick Scratchpad
+        q_dict = self._make_quick_card(
+            "📖 Custom Dictionary",
+            "Teach local engine custom words, code identifiers, and proper names.",
+            "Open Dictionary →",
+            lambda: self._on_nav_clicked(2)
+        )
+        quick_grid.addWidget(q_dict)
+
+        q_snip = self._make_quick_card(
+            "⚡ Voice Snippets",
+            "Expand short spoken trigger phrases into full templates and links.",
+            "Open Snippets →",
+            lambda: self._on_nav_clicked(6)
+        )
+        quick_grid.addWidget(q_snip)
+
         q1 = self._make_quick_card(
             "📝 Voice Scratchpad",
             "Open your dedicated drafting canvas with real-time word counting, bullet formatting, and export.",
             "Open Scratchpad →",
-            lambda: self._on_nav_clicked(1)
+            lambda: self._on_nav_clicked(3)
         )
         quick_grid.addWidget(q1)
 
-        # Quick Notetaker
         q2 = self._make_quick_card(
             "🎙 Meeting Notetaker",
             "Record meetings, generate timestamped rolling transcripts, and extract action items 100% offline.",
             "Open Notetaker →",
-            lambda: self._on_nav_clicked(2)
+            lambda: self._on_nav_clicked(4)
         )
         quick_grid.addWidget(q2)
 
-        # Quick Insights
         q3 = self._make_quick_card(
             "📊 Productivity Insights",
             "Inspect your lifetime words, dictation WPM velocity, active streaks, and hours saved vs. typing.",
             "View Analytics →",
-            lambda: self._on_nav_clicked(3)
+            lambda: self._on_nav_clicked(5)
         )
         quick_grid.addWidget(q3)
 
@@ -416,6 +555,42 @@ class FlowPilotDashboard(QMainWindow):
         layout.addStretch()
 
         return widget
+
+    def _run_setup_wizard(self):
+        wizard = SetupWizardDialog(self, config=self.config)
+        wizard.setup_completed.connect(self._on_save_settings)
+        wizard.exec()
+
+    def _on_quick_paste_last(self):
+        target = TextInjector.last_target_hwnd
+        if target:
+            try:
+                import win32gui
+                if win32gui.IsWindow(target) and not TextInjector._is_flowpilot_window(target):
+                    self.showMinimized()
+                    from PySide6.QtCore import QTimer
+                    QTimer.singleShot(150, lambda: self._do_paste_last(target))
+                    return
+            except Exception:
+                pass
+        self._do_paste_last(None)
+
+    def _do_paste_last(self, target_hwnd: Optional[int] = None):
+        res = TextInjector.inject_last(target_hwnd=target_hwnd)
+        self.lbl_last_preview.setText(TextInjector.last_injected_text or "No text")
+        if res.status.value in ("FAILED_RECOVERY_AVAILABLE", "ERROR") and not target_hwnd:
+            QMessageBox.information(
+                self,
+                "Paste Recovery",
+                "Last dictation text has been copied to your clipboard!\n\nSwitch to your intended application and press Ctrl+V to paste."
+            )
+
+    def _on_quick_copy_last(self):
+        if TextInjector.last_injected_text:
+            TextInjector._safe_clipboard_copy(TextInjector.last_injected_text)
+            QMessageBox.information(self, "Copied", "Last dictation copied to clipboard!")
+        else:
+            QMessageBox.warning(self, "Empty", "No dictation text available to copy.")
 
     def _pet_btn_style(self, active: bool) -> str:
         if active:

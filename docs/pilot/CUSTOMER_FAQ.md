@@ -20,7 +20,7 @@ No for the default CPU INT8 model. Speed and memory usage vary by processor, mod
 
 ## Which shortcuts are available?
 
-The defaults include `Ctrl+Shift+Space` for toggle dictation and `F9` for push-to-talk. Shortcuts can conflict with other applications and may be changed in Settings. Use the companion's right-click menu or Companion Studio to select an appearance; double-click does not cycle styles in current source.
+The initial dictation shortcut is `Ctrl+Shift+Space` in toggle mode. Existing profiles retain `F9` and `Ctrl+Alt+Space` as aliases until a shortcut is explicitly saved in Settings. You can choose `F9` (or another available key) and set toggle or push-to-talk there. FlowPilot blocks its own recovery and transforms shortcuts from being reused for dictation; Windows or other applications can still reserve keys. Use the companion's right-click menu or Companion Studio to select an appearance; double-click does not cycle styles in current source.
 
 ## What if text fails to paste?
 

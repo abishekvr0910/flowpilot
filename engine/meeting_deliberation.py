@@ -183,25 +183,41 @@ class RetentionPolicy:
         return purged
 
 
-# Lexical heuristic patterns for deliberative weighting
+# Lexical heuristic patterns for deliberative weighting (English + Multilingual)
 PRO_PATTERNS = [
     r"\b(advantage|benefit|strength|pros|pro|favorable|ideal|faster|easier|scalable|robust|efficient|clean)\b",
-    r"\b(major advantage|we like|prefer|agree with|supports|great|good choice|simplifies)\b"
+    r"\b(major advantage|we like|prefer|agree with|supports|great|good choice|simplifies)\b",
+    # Spanish / French / German positive deliberative indicators
+    r"\b(ventaja|beneficio|favorable|ideal|m[aá]s r[aá]pido|f[aá]cil|escalable|robusto|eficiente|limpio|preferimos|aprobado|buena elecci[oó]n)\b",
+    r"\b(avantage|b[eé]n[eé]fice|force|favorable|id[eé]al|plus rapide|facile|[eé]volutif|robuste|efficace|propre|pr[eé]f[eè]re|bon choix)\b",
+    r"\b(vorteil|nutzen|st[aä]rke|ideal|schneller|einfacher|skalierbar|robust|effizient|sauber|bevorzugen|gute wahl)\b",
 ]
 
 CON_PATTERNS = [
     r"\b(however|but|risk|overhead|concern|downside|disadvantage|limitation|flaw|issue|bottleneck|problem)\b",
-    r"\b(heavy|slow|complex|costly|migration risk|lock|leak|drawback|cause locks|unsupported)\b"
+    r"\b(heavy|slow|complex|costly|migration risk|lock|leak|drawback|cause locks|unsupported)\b",
+    # Spanish / French / German downside indicators
+    r"\b(pero|sin embargo|riesgo|preocupaci[oó]n|desventaja|limitaci[oó]n|problema|cuello de botella|lento|complejo|costoso)\b",
+    r"\b(cependant|mais|risque|pr[eé]occupation|inconv[eé]nient|limite|d[eé]faut|probl[eè]me|lourd|lent|complexe|co[uû]teux)\b",
+    r"\b(jedoch|aber|risiko|bedenken|nachteil|einschr[aä]nkung|mangel|engpass|problem|schwer|langsam|komplex|teuer)\b",
 ]
 
 RISK_HIGH_PATTERNS = [
     r"\b(critical|security|compliance|vulnerability|data loss|corruption|outage|breach|deadlock)\b",
-    r"\b(blocker|catastrophic|unacceptable|legal risk|regulatory)\b"
+    r"\b(blocker|catastrophic|unacceptable|legal risk|regulatory)\b",
+    # Spanish / French / German critical indicators
+    r"\b(cr[ií]tico|seguridad|vulnerabilidad|p[eé]rdida de datos|corrupci[oó]n|bloqueador|inaceptable)\b",
+    r"\b(critique|s[eé]curit[eé]|vuln[eé]rabilit[eé]|perte de donn[eé]es|corruption|bloqueur|inacceptable)\b",
+    r"\b(kritisch|sicherheit|schwachstelle|datenverlust|besch[aä]digung|ausfall|blocker|unannehmbar)\b",
 ]
 
 RISK_MEDIUM_PATTERNS = [
     r"\b(delay|debt|drift|overhead|dependency|unpinned|latency spike|warning|incompatible)\b",
-    r"\b(budget|fragile|lock contention|flaky)\b"
+    r"\b(budget|fragile|lock contention|flaky)\b",
+    # Spanish / French / German medium risk indicators
+    r"\b(retraso|deuda|dependencia|advertencia|incompatible|presupuesto)\b",
+    r"\b(retard|dette|d[eé]pendance|avertissement|incompatible|budget)\b",
+    r"\b(verz[oö]gerung|schulden|abh[aä]ngigkeit|warnung|inkompatibel|budget)\b",
 ]
 
 

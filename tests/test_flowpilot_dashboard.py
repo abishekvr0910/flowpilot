@@ -5,12 +5,13 @@ Tests for FlowPilot Master Desktop Dashboard Window
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QPushButton
 
 from ui.flowpilot_dashboard import FlowPilotDashboard
 from engine.companion_store import get_companion_store
@@ -29,8 +30,10 @@ class TestFlowPilotDashboard(unittest.TestCase):
         self.assertIsNotNone(self.dash.notetaker_view)
         self.assertIsNotNone(self.dash.insights_view)
         self.assertIsNotNone(self.dash.transforms_view)
+        self.assertIsNotNone(self.dash.dictionary_view)
+        self.assertIsNotNone(self.dash.snippets_view)
         self.assertIsNotNone(self.dash.history_view)
-        self.assertEqual(self.dash.stack.count(), 8)
+        self.assertEqual(self.dash.stack.count(), 10)
 
 
     def test_companion_quick_switch(self):
@@ -58,6 +61,33 @@ class TestFlowPilotDashboard(unittest.TestCase):
         nv.engine.start_meeting("Test Session")
         nv.append_segment("Hello from dashboard notetaker.")
         self.assertIn("Hello from dashboard notetaker.", nv.transcript_edit.toPlainText())
+
+    def test_home_quick_actions_open_their_matching_pages(self):
+        for label, expected_index in (
+            ("Open Scratchpad", 3),
+            ("Open Notetaker", 4),
+            ("View Analytics", 5),
+        ):
+            with self.subTest(action=label):
+                self.dash.btn_nav_home.click()
+                buttons = [
+                    button for button in self.dash.findChildren(QPushButton)
+                    if button.text().startswith(label)
+                ]
+                self.assertEqual(len(buttons), 1)
+                buttons[0].click()
+                self.assertEqual(self.dash.stack.currentIndex(), expected_index)
+
+    def test_home_companion_studio_action_opens_studio(self):
+        buttons = [
+            button for button in self.dash.findChildren(QPushButton)
+            if "Customize Appearance" in button.text()
+        ]
+        self.assertEqual(len(buttons), 1)
+        with patch("ui.flowpilot_dashboard.CompanionStudioDialog.exec", return_value=0) as open_studio:
+            buttons[0].click()
+        open_studio.assert_called_once_with()
+        self.assertEqual(self.dash.stack.currentIndex(), 0)
 
 if __name__ == "__main__":
     unittest.main()

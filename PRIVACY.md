@@ -1,7 +1,7 @@
 # FlowPilot Privacy Policy & Architecture Disclosure
 
-**Last reviewed:** October 18, 2026  
-**Scope:** Current `master` source (v3.1.0-pilot). The published v3.0.2 release is a different build.  
+**Last reviewed:** October 19, 2026<br/>
+**Scope:** Current `master` source (v3.1.0). The published v3.0.2 release is a different build.
 
 ---
 

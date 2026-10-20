@@ -130,7 +130,7 @@ class ScratchpadView(QWidget):
 
         # Text Drafting Canvas
         self.editor = QTextEdit(self)
-        self.editor.setPlaceholderText("Start typing or press 'Dictate into Pad' (or your global hotkey Ctrl+Shift+Space) to speak your thoughts...")
+        self.editor.setPlaceholderText("Start typing or press 'Dictate into Pad' (or your configured shortcut) to speak your thoughts...")
         self.editor.setStyleSheet("""
             QTextEdit {
                 background-color: #0F172A;

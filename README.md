@@ -34,7 +34,7 @@ FlowPilot transcribes speech on the user's machine and inserts text at the activ
 | 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. |
 | 🤖 **Optional Local LLM Pass** | Current source can connect to a separately installed localhost model service such as Ollama or LM Studio for command and tone transforms. Offline behavior also depends on that service's configuration. **Target Safety:** Selected-Text Transforms (`Ctrl+Alt+T`) use highlighted text or the last dictation buffer; **`Alt+Shift+Z`** is the recovery shortcut for the last dictation, subject to target-app behavior. |
 | ⚡ **Measured latency** | The [v3.0.2 release evaluation](docs/release/FLOWPILOT_V302_RELEASE_REPORT.md) reports 1,202 ms median and 1,460 ms p95 from stop action to visible text on one 8-thread Windows test host. These are historical host measurements, not a guarantee for current `master` or other hardware. |
-| 🎙️ **Flexible Voice Controls & TapLatch™** | Choose between **F9 Push-to-Talk** (hold to speak, release to paste), **TapLatch™** (double-tap <350ms to lock hands-free, tap to stop), or **Ctrl+Shift+Space Toggle** with automatic 0.85s conversational pause finalization. |
+| 🎙️ **Flexible Voice Controls & TapLatch™** | Choose a dictation key (for example, **F9**) and select toggle or push-to-talk in Settings. Push-to-talk supports TapLatch™ double-tap hands-free mode. Existing profiles retain the former F9 and Ctrl+Alt+Space aliases until a shortcut is explicitly saved. |
 | 🔄 **Continuous Pre-Roll Ring Buffer** | A 350 ms sliding float32 buffer and background stream warmup are designed to reduce first-syllable clipping; microphone and system timing still vary. |
 | 📋 **Clipboard restoration & recovery** | Windows sequence checks help preserve newer user copies during delayed text restoration. Rich clipboard formats are not fully preserved; **Alt+Shift+Z** requests recovery. |
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
@@ -163,7 +163,7 @@ You can customize settings via the System Tray context menu (**Right-Click Tray 
 
 ```mermaid
 flowchart TD
-    HK["Global Hotkey (Ctrl+Shift+Space / F9)"] -->|Win32 RegisterHotKey| ORCH["FlowOrchestrator"]
+    HK["User-selected dictation hotkey"] -->|Win32 RegisterHotKey| ORCH["FlowOrchestrator"]
     ORCH -->|CoreAudio Ducking| DUCK["AudioDucker (pycaw)"]
     ORCH -->|Non-blocking Capture| REC["AudioRecorder (PortAudio)"]
     ORCH -->|WS_EX_NOACTIVATE| HUD["FloatingHUD (PySide6)"]

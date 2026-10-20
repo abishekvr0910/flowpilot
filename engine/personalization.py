@@ -15,7 +15,7 @@ Provides:
 import json
 import re
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Callable
 
 PERSONALIZATION_FILE = Path.home() / ".flowpilot" / "personalization.json"
 
@@ -64,7 +64,24 @@ class PersonalizationEngine:
         self.dictionary: List[Dict[str, str]] = []
         self.snippets: List[Dict[str, str]] = []
         self.tombstones: List[str] = []
+        self._change_listeners: List[Callable[[], None]] = []
         self.load()
+
+    def add_change_listener(self, callback: Callable[[], None]) -> None:
+        """Registers a callback to be invoked immediately whenever dictionary or snippets change."""
+        if callback not in self._change_listeners:
+            self._change_listeners.append(callback)
+
+    def remove_change_listener(self, callback: Callable[[], None]) -> None:
+        if callback in self._change_listeners:
+            self._change_listeners.remove(callback)
+
+    def _notify_listeners(self) -> None:
+        for cb in list(self._change_listeners):
+            try:
+                cb()
+            except Exception as e:
+                print(f"[Personalization] Change listener exception: {e}")
 
     def load(self) -> None:
         """Loads dictionary and snippets from JSON file, initializing defaults if absent and honoring deletion tombstones."""
@@ -119,6 +136,7 @@ class PersonalizationEngine:
                 }, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"[Personalization] Error saving config: {e}")
+        self._notify_listeners()
 
     # --- DICTIONARY OPERATIONS ---
 
@@ -182,7 +200,14 @@ class PersonalizationEngine:
         changes = []
         result = text
 
-        for item in self.dictionary:
+        # Match longer aliases/terms first to prevent sub-string shadowing
+        sorted_dict = sorted(
+            self.dictionary,
+            key=lambda item: max(len(item.get("alias", "")), len(item.get("term", ""))),
+            reverse=True
+        )
+
+        for item in sorted_dict:
             term = item.get("term", "")
             alias = item.get("alias", "")
             if not term:
@@ -208,6 +233,12 @@ class PersonalizationEngine:
 
     # --- SNIPPET OPERATIONS ---
 
+    RESERVED_KEYWORD_TRIGGERS = {
+        "paste last", "copy last", "re-inject", "re-copy",
+        "new line", "newline", "new paragraph", "tab",
+        "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12"
+    }
+
     def add_snippet(self, trigger: str, expansion: str) -> Dict[str, Any]:
         """
         Adds or updates a voice snippet trigger.
@@ -218,6 +249,9 @@ class PersonalizationEngine:
             return {"status": "error", "message": "Trigger and expansion cannot be empty"}
 
         warnings = []
+        if trigger in self.RESERVED_KEYWORD_TRIGGERS:
+            warnings.append(f"Notice: Trigger '{trigger}' matches a reserved command or key name. Default actions take precedence.")
+
         # Check for conflicting or overlapping triggers
         for item in self.snippets:
             existing_tr = item.get("trigger", "").lower()
@@ -313,3 +347,12 @@ class PersonalizationEngine:
         except Exception as e:
             print(f"[Personalization] Import failed: {e}")
             return False
+
+_shared_personalization: Optional[PersonalizationEngine] = None
+
+def get_shared_personalization() -> PersonalizationEngine:
+    """Returns the shared application-wide PersonalizationEngine singleton."""
+    global _shared_personalization
+    if _shared_personalization is None:
+        _shared_personalization = PersonalizationEngine()
+    return _shared_personalization
