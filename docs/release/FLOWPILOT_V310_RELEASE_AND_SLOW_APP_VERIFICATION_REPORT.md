@@ -2,7 +2,7 @@
 
 **Evaluation Date:** October 20, 2026<br/>
 **Target Release:** FlowPilot v3.1.0 (Standalone Windows 64-bit Desktop Candidate)<br/>
-**Base Commit:** [`ecb3a97`](https://github.com/abishekvr0910/flowpilot/commit/ecb3a97d974f3a7613f717a5a27546113885d3ac) + Multilingual Workstation, Slow-App Hardening, Setup Wizard & User-Facing Fixes<br/>
+**Base Commit:** [`a302b80`](https://github.com/abishekvr0910/flowpilot/commit/a302b80) (Multilingual Workstation, Slow-App Hardening, Setup Wizard & Hotkey Protection)<br/>
 **Verification Gate Status:** **Verified Desktop Gate: PASSED (Interactive desktop validation confirmed across Notepad, VS Code, and Terminal; 36 automated modules passing, 0 failures)**
 
 ---
