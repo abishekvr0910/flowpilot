@@ -4,6 +4,17 @@
 **Inspected Baseline:** `115d2c1` (Post-PR 1)  
 **Target Languages:** English (`en`), Hindi (`hi`), Tamil (`ta`), Malayalam (`ml`)  
 
+**Review correction (2026-10-21):** These 40 entries are text-only recording
+prompts, not an acoustic dataset. The original evaluation runner substituted
+reference text for missing audio. Its zero-WER report was invalid and has been
+superseded. No language accuracy or latency conclusion follows from these prompts.
+Missing audio now produces `missing_audio`, null scores and an incomplete run
+(CLI exit 2), without loading the recognizer. Failures are not scored as empty
+transcriptions. Recorded audio requires explicit consent. Relative audio paths
+are resolved against the manifest directory, not the current working directory.
+Default reports go to ignored `scratch/evaluation/`; transcript inclusion requires
+`--include-text`. Keep real participant recordings and references private.
+
 ---
 
 ## 1. Ethical, Privacy & Consent Invariants
@@ -89,16 +100,21 @@ Each evaluation trial is defined by the following typed JSON schema:
 | :--- | :--- | :--- |
 | **Raw WER** | `(Substitutions + Deletions + Insertions) / Total Spoken Tokens` | Measures acoustic recognition against verbatim `spoken_reference`. Uses language-aware tokenization that preserves Indic script boundaries. |
 | **Unicode CER** | Character edit distance `/ Total Non-Space Characters` | Unicode NFC normalized. Retains Indic combining marks (viramas, vowel signs) without stripping codepoints. |
-| **Critical Fact Accuracy** | `Preserved Entities / Total Critical Entities` | Evaluates retention of numbers, percentages, currency, dates, negations, and code identifiers (`camelCase`, `snake_case`, `--flags`). Set membership alone is insufficient. |
+| **Critical Entity Accuracy** | Matched occurrences `/ max(reference count, hypothesis count)` | Exact numeric, negation and identifier tokens, including duplicates and additions. The preservation flag also checks order. This heuristic is not complete semantic or date-understanding validation; review annotated critical facts separately. |
 | **Formatted Quality Score** | `1.0 - min(1.0, WER(desired_reference, hypothesis))` | Evaluates post-processed written quality against `formatted_reference`. Never conflated with raw ASR accuracy. |
-| **Pipeline Latency** | `T_cold_load`, `T_decode`, `T_format`, `T_stop_to_visible_text` | Milliseconds measured via monotonic timers (`time.perf_counter()`). |
-| **Peak Memory Footprint** | Resident Set Size (RSS MB) via `psutil` | Verifies memory stability and prevents unbounded heap growth on CPU. |
+| **Measured duration** | `T_decode`, `T_format` | Monotonic WAV processing durations. First decode includes lazy model load. Does not measure OS insertion or stop-to-visible-text latency. |
+| **Sampled Memory** | Initial and final process-tree RSS via `psutil` | Two samples, not peak usage or evidence against transient spikes. |
 
 ---
 
 ## 4. Development Smoke Corpus (40 Items)
 
 The initial smoke evaluation dataset ([`docs/evaluation/DEV_SMOKE_CORPUS_MANIFEST.json`](DEV_SMOKE_CORPUS_MANIFEST.json)) defines 40 balanced items:
+
+All audio paths are currently null. Durations in the original template were
+estimates, not measurements. Record consented clips before using this matrix for
+model comparison. The runner does not independently capture network traffic.
+
 - **English (`en`):** 10 items (clean conversational, git commands, URLs, quantities, noise, negations).
 - **Hindi (`hi`):** 10 items (native script, mixed English code-switching, server restart commands, dates, negations).
 - **Tamil (`ta`):** 10 items (native script, React/Docker technical code-switching, FastAPI identifiers, quantities, negations).

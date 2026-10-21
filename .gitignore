@@ -33,6 +33,7 @@ pytest-cache-files-*/
 flowpilot_diagnostic_report.txt
 scratch/
 .flowpilot-*-test-*.json
+personalization.json
 
 # Local configuration overrides and backups
 _backup*/

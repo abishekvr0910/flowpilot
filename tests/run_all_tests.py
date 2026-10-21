@@ -58,6 +58,7 @@ TESTS = [
     ("Personalization & Bounded Prompt Budgeting (PR 3)", "tests/test_personalization_pr3.py"),
     ("Bounded Voice Editing & Atomic Transactions (PR 4)", "tests/test_voice_editor_pr4.py"),
     ("Kiki Anime Companion Prototype & States (Gemini B)", "tests/test_kiki_companion.py"),
+    ("Handoff Integration & Adversarial Safety", "tests/test_review_integration.py"),
 ]
 
 
@@ -76,7 +77,7 @@ def run_suite():
         ensure_desktop_accessible()
         print(f"\n--- Running: {name} ({script}) ---", flush=True)
         t0 = time.time()
-        res = subprocess.run([sys.executable, script], capture_output=True, encoding="utf-8", errors="replace")
+        res = subprocess.run([sys.executable, "-X", "utf8", script], capture_output=True, encoding="utf-8", errors="replace")
         dur = time.time() - t0
         passed = (res.returncode == 0)
         is_skipped = passed and ("[RESULT] SKIPPED:" in res.stdout or "[SKIP]" in res.stdout)

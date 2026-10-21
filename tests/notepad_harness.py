@@ -156,7 +156,23 @@ def focus_notepad_document(hwnd: int, timeout: float = 6.0) -> bool:
             return False
         info = _GuiThreadInfo()
         info.cbSize = ctypes.sizeof(info)
-        if ctypes.windll.user32.GetGUIThreadInfo(top_thread, ctypes.byref(info)) and info.hwndFocus == edit:
+
+        def _check_focus(thread_id: int) -> bool:
+            if not thread_id or not ctypes.windll.user32.GetGUIThreadInfo(thread_id, ctypes.byref(info)):
+                return False
+            foc = info.hwndFocus
+            if not foc:
+                return False
+            if foc == edit:
+                return True
+            try:
+                if hasattr(win32gui, "IsChild") and (win32gui.IsChild(edit, foc) or win32gui.IsChild(foc, edit)):
+                    return True
+            except Exception:
+                pass
+            return False
+
+        if _check_focus(top_thread) or (edit_thread != top_thread and _check_focus(edit_thread)):
             return True
         own_thread = ctypes.windll.kernel32.GetCurrentThreadId()
         attached = False
@@ -175,9 +191,7 @@ def focus_notepad_document(hwnd: int, timeout: float = 6.0) -> bool:
         time.sleep(0.03)
         fg_now = win32gui.GetForegroundWindow()
         fg_ok = (fg_now == 0 or TextInjector._is_same_window_hierarchy(hwnd, fg_now))
-        if (fg_ok and
-                ctypes.windll.user32.GetGUIThreadInfo(top_thread, ctypes.byref(info)) and
-                info.hwndFocus == edit):
+        if fg_ok and (_check_focus(top_thread) or (edit_thread != top_thread and _check_focus(edit_thread))):
             return True
     edit = TextInjector._find_edit_control(hwnd) if win32gui.IsWindow(hwnd) else 0
     fg = win32gui.GetForegroundWindow()

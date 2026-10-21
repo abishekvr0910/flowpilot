@@ -43,6 +43,8 @@ class CompanionPreviewWidget(QWidget):
         # High-precision elapsed timer for frame-rate-independent animation
         self._elapsed_timer = QElapsedTimer()
         self._elapsed_timer.start()
+        self._state_timer = QElapsedTimer()
+        self._state_timer.start()
 
         # Animation timer (30 FPS)
         self._anim_timer = QTimer(self)
@@ -57,6 +59,8 @@ class CompanionPreviewWidget(QWidget):
         self.update()
 
     def set_preview_state(self, state: str):
+        if CompanionRenderer.normalize_state(self._preview_state) != CompanionRenderer.normalize_state(state):
+            self._state_timer.restart()
         self._preview_state = state.lower()
         self.update()
 
@@ -89,7 +93,7 @@ class CompanionPreviewWidget(QWidget):
         painter.translate(center_x, center_y)
 
         # Apply motion presets (strictly suppressed if reduced_motion is true)
-        if not self._reduced_motion:
+        if not self._reduced_motion and self._companion_data.get("id") not in ("kiki", "courier"):
             t = self._tick * 0.08
             preset = self._motion_preset
 
@@ -127,7 +131,8 @@ class CompanionPreviewWidget(QWidget):
             reduced_motion=self._reduced_motion,
             device_pixel_ratio=dpr,
             is_preview=True,
-            custom_data=self._companion_data if comp_type != "builtin" else None
+            custom_data=self._companion_data if comp_type != "builtin" else None,
+            state_elapsed_ms=self._state_timer.elapsed()
         )
 
         painter.restore()

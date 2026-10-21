@@ -409,7 +409,7 @@ class CompanionStudioDialog(QDialog):
 
         # Kitty Fur Color Palette
         p_row = QHBoxLayout()
-        p_row.addWidget(QLabel("Kitty Fur Color Palette:"))
+        p_row.addWidget(QLabel("Companion Color Palette:"))
         self.combo_palette = QComboBox()
         palettes = [
             ("Orange Tabby", "orange tabby"),
@@ -422,6 +422,9 @@ class CompanionStudioDialog(QDialog):
             ("Mint", "mint"),
             ("Chocolate", "chocolate"),
             ("Cream", "cream"),
+            ("Kiki: Autumn Ember", "autumn"),
+            ("Kiki: Cerulean Frost", "frost"),
+            ("Kiki: Matcha Spring", "matcha"),
         ]
         for label, val in palettes:
             self.combo_palette.addItem(label, val)

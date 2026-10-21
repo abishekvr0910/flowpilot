@@ -326,7 +326,7 @@ class WritingIntelligence:
         if mode == "verbatim":
             cleaned = self._clean_basic_spacing(raw)
             if self.personalization:
-                cleaned, dict_ch = self.personalization.apply_dictionary(cleaned)
+                cleaned, dict_ch = self.personalization.apply_dictionary(cleaned, language=effective_lang, profile=style)
                 if dict_ch:
                     changes.extend(dict_ch)
             return {
@@ -378,7 +378,7 @@ class WritingIntelligence:
 
         # 7. Apply Personal Dictionary aliases & casing
         if self.personalization:
-            text, dict_changes = self.personalization.apply_dictionary(text)
+            text, dict_changes = self.personalization.apply_dictionary(text, language=effective_lang, profile=style)
             if dict_changes:
                 changes.extend(dict_changes)
 
@@ -409,7 +409,7 @@ class WritingIntelligence:
         text = self._finalize_punctuation(text, style=style)
 
         # 12. FactGuard semantic verification (Multilingual)
-        custom_terms = self.personalization.get_terms_list() if self.personalization else None
+        custom_terms = self.personalization.get_terms_list(language=effective_lang, profile=style) if self.personalization else None
         final_guarded, is_fact_safe, fact_warnings = FactGuard.validate_and_guard(
             raw, text, retracted_nums=retracted_nums, retracted_negations=retracted_negs, custom_terms=custom_terms, language=effective_lang
         )

@@ -33,7 +33,7 @@ def test_personalization():
 
         # 2. Test Alias Replacement & Casing Normalization
         raw_text = "I am using flow pilot with fast api and postgres to build the backend."
-        transformed, changes = engine.apply_dictionary(raw_text)
+        transformed, changes = engine.apply_dictionary(raw_text, language="en", profile="developer")
         print(f"Applied Dictionary:\n  Raw:         '{raw_text}'\n  Transformed: '{transformed}'\n  Changes:     {changes}")
         assert "FlowPilot" in transformed
         assert "FastAPI" in transformed
@@ -41,7 +41,7 @@ def test_personalization():
 
         # 3. Test Case Normalization for mis-cased terms
         raw_miscased = "Check the fastapi docs and flowpilot settings."
-        cased_text, cased_changes = engine.apply_dictionary(raw_miscased)
+        cased_text, cased_changes = engine.apply_dictionary(raw_miscased, language="en", profile="developer")
         print(f"Applied Casing:\n  Raw:         '{raw_miscased}'\n  Transformed: '{cased_text}'")
         assert "FastAPI" in cased_text
         assert "FlowPilot" in cased_text

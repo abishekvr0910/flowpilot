@@ -9,6 +9,7 @@ Provides rigorous, Unicode-aware evaluation metrics for real-voice speech recogn
 
 import re
 import unicodedata
+from collections import Counter
 from typing import List, Dict, Any, Tuple, Optional
 import numpy as np
 
@@ -122,7 +123,7 @@ def extract_critical_entities(text: str, language: str = "en") -> Dict[str, List
     norm = normalize_unicode(text)
     
     # 1. Numbers, percentages, currency
-    number_pattern = r"(?:[-+]?\$?\€?\£?\₹?\d+(?:,\d+)*(?:\.\d+)?(?:\s*[%kKmMbB])?)"
+    number_pattern = r"(?<!\w)[-+]?[$€£₹]?\d+(?:,\d+)*(?:\.\d+)?(?:%|[kKmMbB](?!\w))?(?!\w)"
     numbers = [m.strip().lower() for m in re.findall(number_pattern, norm) if m.strip() and any(c.isdigit() for c in m)]
 
     # 2. Negations across priority languages
@@ -131,7 +132,7 @@ def extract_critical_entities(text: str, language: str = "en") -> Dict[str, List
     negations = [t for t in tokens_lower if t in all_negations]
 
     # 3. Developer tokens (camelCase, snake_case, CLI flags, URLs)
-    ident_pattern = r"\b(?:[a-zA-Z0-9_]+_[a-zA-Z0-9_]+|[a-z]+[A-Z][a-zA-Z0-9]*|--[a-z0-9\-]+|https?://\S+)\b"
+    ident_pattern = r"(?<!\w)(?:--[a-zA-Z0-9][a-zA-Z0-9\-]*(?:=[^\s]+)?|https?://\S+|[a-zA-Z0-9_]+_[a-zA-Z0-9_]+|[a-z]+[A-Z][a-zA-Z0-9]*)(?!\w)"
     identifiers = [m.strip() for m in re.findall(ident_pattern, norm)]
 
     return {
@@ -148,27 +149,27 @@ def verify_critical_facts(reference: str, hypothesis: str, language: str = "en")
     ref_ents = extract_critical_entities(reference, language=language)
     hyp_ents = extract_critical_entities(hypothesis, language=language)
 
-    hyp_tokens = set(tokenize_multilingual(hypothesis, language=language))
-    hyp_numbers = set(hyp_ents["numbers"])
-    hyp_identifiers = set(hyp_ents["identifiers"])
-
-    missing_numbers = [n for n in ref_ents["numbers"] if n not in hyp_numbers and n not in hypothesis.lower()]
-    missing_negations = [neg for neg in ref_ents["negations"] if neg not in hyp_tokens and neg not in hypothesis.lower()]
-    missing_identifiers = [ident for ident in ref_ents["identifiers"] if ident not in hyp_identifiers and ident not in hypothesis]
-
-    total_entities = len(ref_ents["numbers"]) + len(ref_ents["negations"]) + len(ref_ents["identifiers"])
-    missing_total = len(missing_numbers) + len(missing_negations) + len(missing_identifiers)
+    # Exact extracted tokens, including multiplicity and order. This is an
+    # entity check, not proof that the sentence's entire meaning is unchanged.
+    missing = {key: list((Counter(ref_ents[key]) - Counter(hyp_ents[key])).elements()) for key in ref_ents}
+    added = {key: list((Counter(hyp_ents[key]) - Counter(ref_ents[key])).elements()) for key in ref_ents}
+    total_entities = sum(map(len, ref_ents.values()))
+    hypothesis_entities = sum(map(len, hyp_ents.values()))
+    missing_total = sum(map(len, missing.values()))
     preserved_count = max(0, total_entities - missing_total)
-    accuracy = 1.0 if total_entities == 0 else round(preserved_count / total_entities, 4)
+    denominator = max(total_entities, hypothesis_entities)
+    accuracy = round(preserved_count / denominator, 4) if denominator else 1.0
 
     return {
-        "preserved": missing_total == 0,
+        "preserved": ref_ents == hyp_ents,
         "total_critical_entities": total_entities,
         "preserved_count": preserved_count,
         "accuracy": accuracy,
-        "missing_numbers": missing_numbers,
-        "missing_negations": missing_negations,
-        "missing_identifiers": missing_identifiers
+        "missing_numbers": missing["numbers"],
+        "missing_negations": missing["negations"],
+        "missing_identifiers": missing["identifiers"],
+        "added_entities": added,
+        "entity_order_changed": any(ref_ents[k] != hyp_ents[k] and not missing[k] and not added[k] for k in ref_ents)
     }
 
 def calculate_formatted_quality_score(desired_reference: str, hypothesis: str, language: str = "en") -> float:

@@ -845,7 +845,8 @@ class CompanionRenderer:
         reduced_motion: bool = False,
         device_pixel_ratio: float = 1.0,
         is_preview: bool = False,
-        custom_data: Optional[Dict[str, Any]] = None
+        custom_data: Optional[Dict[str, Any]] = None,
+        state_elapsed_ms: Optional[float] = None
     ) -> None:
         """
         Main rendering entrypoint.
@@ -881,7 +882,8 @@ class CompanionRenderer:
 
         # 3d. Kiki (The Little Scarf Courier - Original Anime Companion)
         elif style_key in ("kiki", "courier"):
-            cls._draw_kiki(painter, cx, cy, canonical_state, elapsed_ms, audio_level, palette, reduced_motion, device_pixel_ratio)
+            age = elapsed_ms if state_elapsed_ms is None else state_elapsed_ms
+            cls._draw_kiki(painter, cx, cy, canonical_state, age, audio_level, palette, reduced_motion, device_pixel_ratio)
 
         # 4. SondeR-Cat Pixel Kitty
         elif style_key == "kitty":
@@ -1248,7 +1250,7 @@ class CompanionRenderer:
         elif state == "processing":
             grid = KIKI_PROCESS
         elif state == "confirmed":
-            grid = KIKI_CONFIRMED
+            grid = KIKI_CONFIRMED if reduced_motion or elapsed_ms < 1200 else KIKI_REST
         elif state == "unverified":
             grid = KIKI_UNVERIFIED
         elif state == "recovery":
@@ -1268,12 +1270,13 @@ class CompanionRenderer:
         pal = KIKI_PALETTES.get(palette_name, KIKI_PALETTES["default"])
         grid_w = len(grid[0])
         grid_h = len(grid)
-        scale = 2  # 2x scale = 48x48 px
+        dpr = max(1.0, device_pixel_ratio)
+        scale = max(1, round(2 * dpr)) / dpr
 
         total_w = grid_w * scale
         total_h = grid_h * scale
-        start_x = int(math.floor(cx - (total_w / 2.0)))
-        start_y = int(math.floor(cy - (total_h / 2.0)))
+        start_x = round((cx - total_w / 2.0) * dpr) / dpr
+        start_y = round((cy - total_h / 2.0) * dpr) / dpr
 
         painter.setPen(Qt.NoPen)
         for gy, row in enumerate(grid):
@@ -1286,9 +1289,9 @@ class CompanionRenderer:
                 col = QColor(color_hex)
                 # Dynamic audio-reactive glow on gold badge / scarf tip during listening
                 if ch == "G" and state == "listening" and not reduced_motion:
-                    pulse = 0.5 + 0.5 * math.sin(elapsed_ms * 0.015)
+                    pulse = max(0.0, min(1.0, audio_level))
                     col = QColor(col.red(), col.green(), col.blue(), int(170 + 85 * pulse))
-                painter.fillRect(start_x + (gx * scale), start_y + (gy * scale), scale, scale, col)
+                painter.fillRect(QRectF(start_x + gx * scale, start_y + gy * scale, scale, scale), col)
 
     # -----------------------------------------------------------------------
     # 4. SondeR-Cat Pixel Kitty

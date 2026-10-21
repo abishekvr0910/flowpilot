@@ -21,7 +21,7 @@ class CorpusItem:
     spoken_reference: str              # Verbatim what was spoken
     formatted_reference: str           # Approved desired writing output
     speaker_id: str
-    consent_verified: bool = True      # Only consented evaluation audio is permitted
+    consent_verified: bool = False     # Consent must be explicit for recorded audio
     audio_file: Optional[str] = None   # Relative path to WAV fixture if available
     duration_sec: float = 0.0
     critical_entities: List[str] = field(default_factory=list)
@@ -38,7 +38,7 @@ class CorpusItem:
             spoken_reference=data["spoken_reference"],
             formatted_reference=data["formatted_reference"],
             speaker_id=data["speaker_id"],
-            consent_verified=data.get("consent_verified", True),
+            consent_verified=data.get("consent_verified", False) is True,
             audio_file=data.get("audio_file"),
             duration_sec=float(data.get("duration_sec", 0.0)),
             critical_entities=list(data.get("critical_entities", []))
@@ -63,15 +63,19 @@ class RealVoiceCorpus:
         """Verifies schema conformance, consent, and non-empty reference strings."""
         errors = []
         valid_languages = {"en", "hi", "ta", "ml"}
+        seen_ids = set()
 
         for item in self.items:
+            if not item.item_id or item.item_id in seen_ids:
+                errors.append(f"Duplicate or empty item id: {item.item_id}")
+            seen_ids.add(item.item_id)
             if item.language not in valid_languages:
                 errors.append(f"[{item.item_id}] Invalid language '{item.language}'. Must be one of {valid_languages}")
             if not item.spoken_reference or not item.spoken_reference.strip():
                 errors.append(f"[{item.item_id}] Empty spoken_reference string.")
             if not item.formatted_reference or not item.formatted_reference.strip():
                 errors.append(f"[{item.item_id}] Empty formatted_reference string.")
-            if not item.consent_verified:
+            if item.audio_file and item.consent_verified is not True:
                 errors.append(f"[{item.item_id}] Unverified consent flag. Only consented evaluation data allowed.")
             if item.audio_file and not os.path.isabs(item.audio_file):
                 # Check path if provided
