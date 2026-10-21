@@ -30,9 +30,9 @@ Every physical desktop test suite now separates safe-abort unit validation from 
 |---|---|---|---|
 | [`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py) | `test_focus_loss_after_staging_preserves_clipboard_and_recovery()` | **PASS** | Focus switch to unknown HWND aborts paste; payload retained in recovery buffer. |
 | [`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py) | `test_focus_loss_with_newer_user_copy_preserves_user_copy()` | **PASS** | When clipboard changes during focus loss, user's newer copy is preserved without overwrite. |
-| [`tests/test_notepad_dictation_e2e.py`](file:///S:/APPs/New%20folder/tests/test_notepad_dictation_e2e.py) | `test_safe_abort_when_focus_unavailable()` | **PASS** | Zero-focus target HWND returns `FAILED_RECOVERY_AVAILABLE` with 100% text retention. |
-| [`tests/test_cross_app_injection.py`](file:///S:/APPs/New%20folder/tests/test_cross_app_injection.py) | `test_cross_app_safe_abort_when_focus_lost()` | **PASS** | Targeting destroyed/invalid HWND triggers safe recovery retention without crashing. |
-| [`tests/test_final_specification_e2e.py`](file:///S:/APPs/New%20folder/tests/test_final_specification_e2e.py) | `test_safe_abort_isolation()` | **PASS** | Explicit E2E safety gate verifies clean abort on unverified windows. |
+| [`tests/test_notepad_dictation_e2e.py`](file:///S:/APPs/New%20folder/tests/test_notepad_dictation_e2e.py) | `test_safe_abort_when_focus_unavailable()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
+| [`tests/test_cross_app_injection.py`](file:///S:/APPs/New%20folder/tests/test_cross_app_injection.py) | `test_cross_app_safe_abort_when_focus_lost()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
+| [`tests/test_final_specification_e2e.py`](file:///S:/APPs/New%20folder/tests/test_final_specification_e2e.py) | `test_safe_abort_isolation()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
 
 ---
 
@@ -140,6 +140,8 @@ The following sections contain the raw captured terminal output from executing t
 
 ```text
 $ python tests/test_notepad_dictation_e2e.py
+[Injector Security] Active foreground window is unknown (0) after 5 checks (100ms). Activation change in progress or no foreground window; paste retained in recovery buffer. Paste aborted; saved to recovery buffer.
+[Injector Security] Active focus switched from HWND 12345 to 99999. Paste aborted; saved to recovery buffer.
   -> Safe abort on missing/switched focus verified successfully.
 [RESULT] SKIPPED: Five physical Notepad insertion cycles require an interactive Windows desktop.
 ```
@@ -148,6 +150,8 @@ $ python tests/test_notepad_dictation_e2e.py
 
 ```text
 $ python tests/test_cross_app_injection.py
+[Injector Security] Active foreground window is unknown (0) after 5 checks (100ms). Activation change in progress or no foreground window; paste retained in recovery buffer. Paste aborted; saved to recovery buffer.
+[Injector Security] Active focus switched from HWND 12345 to 99999. Paste aborted; saved to recovery buffer.
   -> Cross-app safe abort and focus loss recovery verified successfully.
 [RESULT] SKIPPED: Physical cross-application insertion requires an interactive Windows desktop.
 ```
@@ -156,6 +160,8 @@ $ python tests/test_cross_app_injection.py
 
 ```text
 $ python tests/test_final_specification_e2e.py
+[Injector Security] Active foreground window is unknown (0) after 5 checks (100ms). Activation change in progress or no foreground window; paste retained in recovery buffer. Paste aborted; saved to recovery buffer.
+[Injector Security] Active focus switched from HWND 12345 to 99999. Paste aborted; saved to recovery buffer.
   -> Safe abort isolation verified successfully.
 [RESULT] SKIPPED: Physical focus, microphone, and Notepad scenarios require an interactive Windows desktop.
 ```
