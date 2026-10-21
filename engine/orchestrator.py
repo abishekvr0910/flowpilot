@@ -62,6 +62,7 @@ class FlowOrchestrator:
         
         # Link audio level callback
         self.recorder.level_callback = self._on_audio_level
+        self._pending_model_switch: Optional[str] = None
 
         # Asynchronously preload model in background to eliminate cold start
         threading.Thread(target=self.stt.preload_model, daemon=True, name="FlowPilot-ModelPreload").start()
@@ -143,6 +144,7 @@ class FlowOrchestrator:
         )
         session.task = "translate" if is_translate else "transcribe"
         session.language = self.config.get("language", "auto")
+        session.model_size = self.config.get("local_model_size", "base")
         with self._state_lock:
             self._current_session = session
 
@@ -242,6 +244,7 @@ class FlowOrchestrator:
             if self.state == AppState.CANCELLED:
                 self.state = AppState.IDLE
                 self._notify(AppState.IDLE)
+        self._apply_pending_model_switch_if_idle()
 
     def stop_dictation_and_process(self):
         t_stop_action = time.perf_counter()
@@ -544,6 +547,7 @@ class FlowOrchestrator:
                     self.ducker.stop_ducking()
                 except Exception:
                     pass
+                self._apply_pending_model_switch_if_idle()
 
         threading.Thread(target=process_worker, args=(session, t_stop_action), daemon=True, name="FlowPilot-Processor").start()
 
@@ -567,10 +571,23 @@ class FlowOrchestrator:
         elif cur in (AppState.ERROR, AppState.CANCELLED):
             self.start_dictation(translation_mode=translation_mode)
 
+    def _apply_pending_model_switch_if_idle(self):
+        with self._state_lock:
+            if self.state != AppState.IDLE or not self._pending_model_switch:
+                return
+            target_model = self._pending_model_switch
+            self._pending_model_switch = None
+        print(f"[Orchestrator] Applying deferred model switch to '{target_model}'...")
+        self.update_config({"local_model_size": target_model})
+
     def update_config(self, new_config: Dict[str, Any]):
         old_hk = self.config.get("hotkey")
         old_mode = self.config.get("hotkey_mode")
         old_exclusive = self.config.get("hotkey_exclusive", False)
+        old_model = self.config.get("local_model_size", "base")
+        new_model = new_config.get("local_model_size")
+        model_changed = (new_model is not None and new_model != old_model)
+
         updated_config = {**self.config, **new_config}
         new_hk = updated_config.get("hotkey", "Ctrl+Shift+Space")
         if new_hk != old_hk:
@@ -589,6 +606,32 @@ class FlowOrchestrator:
             if not available:
                 print(f"[Orchestrator Warning] Dictation shortcut unavailable: {reason}")
                 return False
+
+        if model_changed:
+            with self._state_lock:
+                in_flight = self.state in (
+                    AppState.RECORDING,
+                    AppState.STARTING_RECORDING,
+                    AppState.STOPPING_RECORDING,
+                    AppState.TRANSCRIBING,
+                    AppState.VALIDATING,
+                    AppState.INSERTING_TEXT
+                )
+            if in_flight:
+                print(f"[Orchestrator] Model switch to '{new_model}' deferred until in-flight dictation completes.")
+                self._pending_model_switch = new_model
+                updated_config["local_model_size"] = old_model
+            else:
+                # Idle: validate and load new model before committing config
+                try:
+                    test_cfg = {**self.config, "local_model_size": new_model}
+                    self.stt.config = test_cfg
+                    self.stt._get_local_model()
+                except Exception as e:
+                    print(f"[Orchestrator Warning] Failed to switch to model '{new_model}': {e}")
+                    self.stt.config = self.config
+                    return False
+
         if not save_config(updated_config):
             return False
         self.config = updated_config

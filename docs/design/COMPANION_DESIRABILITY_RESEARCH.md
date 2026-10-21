@@ -263,3 +263,58 @@ The decision requested is to approve **one original, highly polished companion w
 Covered: adult-toy category evidence, nine product comparisons, customization/motivation research and counterarguments, adult audience selection, art and animation direction, creation options, retention and ethical collection, sharing, licensing, local architecture, security boundaries, accessibility, performance, monetization hypotheses, distribution, validation, and delivery scope.
 
 Method: public primary product documentation/store pages, a primary market-research release, academic publications/abstracts, a qualitative comment-page check, and local source inspection. This was desk research, not an exhaustive systematic literature review. No competitor was installed or benchmarked for this study; no new customer interviews, willingness-to-pay experiment, runtime performance measurement, legal clearance, or full regression run took place. Product/vendor claims remain attributed; proposals and estimates remain unvalidated.
+
+## 13. Parallel delivery addendum: core fixes and companion polish
+
+Date: 2026-10-21. Status: proposed work allocation, not launched workers or approved artwork. This addendum updates delivery mechanics without representing the older research snapshots as current implementation facts.
+
+### Current assessment and smallest useful slice
+
+The working product has local dictation, recovery, personalization and companion infrastructure. The user reports successful F9 insertion in Notepad, VS Code and Terminal. That is valuable manual evidence, not a broad reliability or competitor-parity measurement. Language/model fixes are being edited concurrently and remain pending review.
+
+Provisional reviewer judgment: 6/10 for product completeness, not measured accuracy, percent complete or a competitor score. Remaining priorities are truthful settings/results, real-voice multilingual accuracy, reliable insertion/recovery, approachable setup, and polished original character presentation. A higher rating needs observed independent-user task completion, not just more features or passing test counts.
+
+The current source now has a shared `CompanionRenderer` used by preview and HUD, original Pilot/Seedling/Nimbus render paths, elapsed-time inputs and reduced-motion handling. Do not recreate those components based on older sections of this document. Source inspection also shows preview outer motion still using `_tick * 0.08`; the Pilot drawing path accepts device-pixel ratio but calculates its origin using logical integer coordinates. These are timing/scaling review targets, not a measured visual defect report. No live animation review was performed for this addendum.
+
+The narrow deliverable is one original anime-inspired companion concept, approved at actual desktop size, with coherent state poses and restrained animation. Start with three static silhouette sketches, select one with the user, and finish only that one. Keep existing companions and Signal. A few palettes and compatible accessories are enough; a new gallery, marketplace or generative runtime is out of scope.
+
+Required presentation states: idle, listening, processing, verified completion, sent-unverified and recoverable failure. Treat the last two honestly even if they share a neutral pose with distinct symbols. Give the character a small signature action such as adjusting a scarf or handling a message parcel. No constant jumping, cursor interference, false progress, mandatory sounds or imitation franchise assets.
+
+### Worker ownership
+
+| Worker | Owns | Does not own |
+| --- | --- | --- |
+| Gemini A: core reliability | The bounded [PR 1 directive](GEMINI_PR1_IMPLEMENTATION_DIRECTIVE.md): language registration, model lifecycle, truthful transforms and their callers/tests | Companion renderer, sprites or appearance changes |
+| Gemini B: companion prototype | Original concept assets, isolated deterministic preview, companion-specific tests; renderer/HUD integration only after an agreed review | STT, orchestrator, text injector, live microphone, hotkeys, release manifests |
+| Codex: review and integration | Inspect diffs, challenge tests, review visual evidence, run independent checks when available, coordinate shared-file ownership and the combined gate | Unreviewed automatic merges, publishing or claiming success from a worker's summary |
+
+Initially use two implementation workers, not many competing model/build processes on this approximately 16 GB machine. A temporary read-only QA subagent can review a bounded patch; it must not quietly become another writer of shared files. Do not assume a Codex subagent is a Gemini CLI process: these are different execution mechanisms and must be identified correctly.
+
+### Isolation means more than different terminal windows
+
+- Give each worker its own branch and Git worktree at a recorded baseline. Git worktrees separate working files/indexes while sharing repository data; they are not a security boundary. [Git worktree documentation](https://git-scm.com/docs/git-worktree)
+- Worktrees begin from committed source, not the current dirty tree. Do not stash, reset, commit or copy all of Gemini A's unfinished edits just to initialize Gemini B. Deliberately supply the current directive files and only approved dependencies to each worker.
+- Give workers separate virtual environments or controlled dependency environments, config paths, output/temp directories and test ports. Use existing `FLOWPILOT_CONFIG_DIR` / `FLOWPILOT_CONFIG_FILE` controls and unique test mutex names where supported. Inspect hard-coded home-directory writes before claiming complete profile isolation. Do not repurpose HOME or alter the user's live profile.
+- Share large model weights read-only only if the loader supports explicit provisioned paths; do not duplicate or auto-download models for visual work. Animation previews receive synthetic state/audio-level values, not microphone access or transcript content.
+- OS clipboard, foreground window, audio hardware, system hotkeys and common resources are not isolated by a Git branch or unique mutex. Schedule one exclusive physical-desktop test owner. Other workers use mocked hardware and offscreen Qt rendering. Never launch several microphone-owning desktop instances simply because mutex names differ.
+- If stronger execution containment is required, use a separately configured VM/test account and restricted file/network access. Do not assume a VM reproduces host focus, audio or DPI behavior; those still need scheduled host validation.
+- Keep existing tool approval/sandbox restrictions. No unattended privilege escalation, global installs, certificate changes, destructive cleanup or permission-bypass flags. A preview worker needs no such permissions.
+- Gemini sessions may not inherit Codex's installed skills. Provide explicit task contracts and accessible instruction files; never assume saying "use all skills" automatically transfers engineering safeguards.
+
+### Test-first and visual review sequence
+
+1. Freeze the task's scope, owned files, baseline and observable acceptance criteria. A new file outside that ownership requires coordination, not opportunistic refactoring.
+2. For behavioral changes, add a test that exercises the real production path and fails for the intended reason. Mock hardware/clock boundaries, not the method being repaired. For art, define a pose/contact sheet and visual acceptance checks before coding; a unit test cannot establish that a character is attractive.
+3. Build the smallest implementation in its isolated worktree. For the companion, use the existing native renderer with injectable elapsed time, state, audio envelope and scale. Prototype code remains real code; successful review permits integration, not an unrelated rewrite in the main checkout.
+4. Generate images at fixed times for all six states, dark/light backgrounds, and 100%, 125%, 150% and 200% DPI. Assert visible/nontransparent character content, bounds, state cues, reduced-motion stability and deterministic output under fixed inputs. A non-null pixmap alone is not proof that the character is visible.
+5. Compare HUD and Studio presentation under equivalent inputs. Remove frame-count-dependent decorative motion and test differing repaint schedules at the same elapsed time. Use monotonic timing such as the existing [QElapsedTimer](https://doc.qt.io/qtforpython-6/PySide6/QtCore/QElapsedTimer.html); retain crisp device-pixel placement and bounded caches.
+6. Record a short animation demonstration and inspect transitions at actual size. Tests must cover unverified results not celebrating, preview-only simulated audio, reduced motion, hidden-preview timer behavior, appearance lock, click/drag separation and existing custom-companion compatibility. Repeated confirmation repaints must not endlessly restart celebration.
+7. Measure companion-off, Signal and the candidate on the same host: idle/active CPU, incremental memory, paint-time distribution and impact on dictation latency. Do not quote the old sub-0.2 ms/sub-5 MB design targets as achieved without measurements. Stop needless hidden/static repaints.
+8. Worker submits a bounded patch and evidence: base revision, files changed, commands/exit codes, passed/skipped/failed counts, screenshots/demo, provenance, measurements and limitations. Codex inspects and reruns critical checks; no worker may weaken tests merely to obtain a green report.
+9. Integrate one reviewed change set at a time with the required authorization, then rerun affected tests and the current complete gate against the combined source. Individually green branches can still conflict. Package only a settled, reviewed candidate; do not publish automatically.
+
+### Immediate next action
+
+Let Gemini A finish its current bounded PR 1. Prepare Gemini B's concept/preview task in a separate worktree once its execution is requested, leaving core files untouched. Review the silhouette and state sheet before spending time on accessory combinations. Start with offline, hardware-free visual tests; reserve the real desktop for scheduled integration checks.
+
+This addendum is a planning deliverable guided by product discovery, engineering review, spec-driven planning and the iterative test loop. No worker/terminal/VM was launched, no worktree was created, no artwork was generated and no app code was changed for it. Concurrent core changes were observed but not certified.

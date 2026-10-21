@@ -24,7 +24,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor
 import pyperclip
 
-from engine.transforms_engine import get_transforms_engine, PRESET_TRANSFORMS, TransformsEngine
+from engine.transforms_engine import get_transforms_engine, PRESET_TRANSFORMS, TransformsEngine, TransformResult
 
 
 class TransformsView(QWidget):
@@ -34,6 +34,7 @@ class TransformsView(QWidget):
         super().__init__(parent)
         self.engine: TransformsEngine = get_transforms_engine()
         self.on_dictate_toggle = on_dictate_toggle
+        self._current_result: Optional[TransformResult] = None
         self._init_ui()
 
     def _init_ui(self):
@@ -227,6 +228,20 @@ class TransformsView(QWidget):
 
         layout.addLayout(footer)
 
+        # Enforce initial safe UI state
+        self.btn_replace.setEnabled(False)
+        self.lbl_factguard.setText("")
+
+        # Invalidate stale results when input text or custom prompt changes
+        self.edit_original.textChanged.connect(self._on_input_changed)
+        self.txt_custom.textChanged.connect(self._on_input_changed)
+
+    def _on_input_changed(self):
+        self._current_result = None
+        self.btn_replace.setEnabled(False)
+        self.lbl_factguard.setText("")
+        self.edit_transformed.setStyleSheet(self._editor_style())
+
     def _editor_style(self) -> str:
         return """
             QTextEdit {
@@ -279,14 +294,10 @@ class TransformsView(QWidget):
         if not text:
             return
 
-        transformed, fg_ok = self.engine.transform_text(text, preset_id)
-        self.edit_transformed.setPlainText(transformed)
-        if fg_ok:
-            self.lbl_factguard.setText("🛡️ FactGuard: Verified (Invariants Preserved)")
-            self.lbl_factguard.setStyleSheet("font-size: 11px; color: #10B981; font-weight: bold;")
-        else:
-            self.lbl_factguard.setText("⚠️ FactGuard: Caution (Entity Mismatch)")
-            self.lbl_factguard.setStyleSheet("font-size: 11px; color: #F59E0B; font-weight: bold;")
+        res = self.engine.transform_text(text, preset_id)
+        self._current_result = res
+        self.edit_transformed.setPlainText(res.candidate_text)
+        self._update_status_ui(res)
 
     def _execute_custom(self):
         text = self.edit_original.toPlainText().strip()
@@ -297,20 +308,42 @@ class TransformsView(QWidget):
         if not text or not prompt:
             return
 
-        transformed, fg_ok = self.engine.transform_text(text, "custom", custom_instruction=prompt)
-        self.edit_transformed.setPlainText(transformed)
-        if fg_ok:
-            self.lbl_factguard.setText("🛡️ FactGuard: Verified")
+        res = self.engine.transform_text(text, "custom", custom_instruction=prompt)
+        self._current_result = res
+        self.edit_transformed.setPlainText(res.candidate_text)
+        self._update_status_ui(res)
+
+    def _update_status_ui(self, res: TransformResult):
+        self.btn_replace.setEnabled(res.can_apply)
+        self.edit_transformed.setStyleSheet(self._editor_style())
+
+        if res.status == "success":
+            self.lbl_factguard.setText("🛡️ FactGuard: Verified (Invariants Preserved)")
             self.lbl_factguard.setStyleSheet("font-size: 11px; color: #10B981; font-weight: bold;")
-        else:
-            self.lbl_factguard.setText("⚠️ FactGuard: Caution")
+        elif res.status == "unsupported":
+            msg = res.error_message or "This instruction needs the optional local writing model. Your text was not changed."
+            self.lbl_factguard.setText(f"ℹ️ Unsupported: {msg}")
+            self.lbl_factguard.setStyleSheet("font-size: 11px; color: #94A3B8; font-weight: bold;")
+        elif res.status == "unavailable":
+            msg = res.error_message or "Required model is unavailable. Your text was not changed."
+            self.lbl_factguard.setText(f"⚠️ Unavailable: {msg}")
             self.lbl_factguard.setStyleSheet("font-size: 11px; color: #F59E0B; font-weight: bold;")
+        elif res.status == "blocked":
+            self.lbl_factguard.setText("⛔ Blocked: FactGuard Invariant Violation")
+            self.lbl_factguard.setStyleSheet("font-size: 11px; color: #EF4444; font-weight: bold;")
+        else:
+            self.lbl_factguard.setText("")
 
     def _replace_in_target(self):
-        transformed = self.edit_transformed.toPlainText().strip()
+        if not self._current_result or not self._current_result.can_apply:
+            QMessageBox.warning(self, "Replace Blocked", "This text cannot be applied because the transformation was not successful or was blocked by FactGuard.")
+            return
+
+        transformed = self.edit_transformed.toPlainText()
         if not transformed:
             return
-        success = self.engine.replace_selection(transformed)
+
+        success = self.engine.replace_selection(transformed, result=self._current_result)
         if success:
             self.transform_applied.emit(transformed)
             self.edit_transformed.setStyleSheet("""
