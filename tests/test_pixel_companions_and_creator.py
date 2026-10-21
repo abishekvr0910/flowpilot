@@ -4,6 +4,7 @@ Unit tests for Retro Pixel Companions and Interactive Pixel Art Creator
 
 import sys
 import unittest
+import tempfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -82,24 +83,92 @@ class TestPixelCompanionsAndCreator(unittest.TestCase):
         canvas.clear()
         self.assertIsNone(canvas.get_grid()[1][14])
 
+    def test_canvas_onion_skin_and_shift(self):
+        canvas = PixelCanvasWidget()
+        canvas.set_color("#EF4444")
+        canvas._paint_at_pos(5 * 18, 5 * 18)  # Cell (5, 5)
+        self.assertEqual(canvas.get_grid()[5][5], "#EF4444")
+
+        # Shift right by 2, down by 1
+        canvas.shift(2, 1)
+        grid = canvas.get_grid()
+        self.assertIsNone(grid[5][5])
+        self.assertEqual(grid[6][7], "#EF4444")
+
+        # Onion skin setting
+        ghost_grid = [[None]*16 for _ in range(16)]
+        ghost_grid[2][2] = "#38BDF8"
+        canvas.set_onion_grid(ghost_grid, enabled=True)
+        self.assertTrue(canvas._onion_enabled)
+        self.assertEqual(canvas._onion_grid[2][2], "#38BDF8")
+
     def test_pixel_creator_template_loading(self):
         creator = PixelCreatorWidget()
         creator._load_template("🦊 Pixel Fox")
         self.assertIn("Fox", creator.txt_name.text())
         grid = creator.canvas.get_grid()
-        self.assertEqual(grid[5][5], "#FB923C")
+        self.assertEqual(grid[6][5], "#18181B")
 
         # Load Dino
         creator._load_template("🦖 Pixel Dino")
         self.assertIn("Dino", creator.txt_name.text())
         c_grid = creator.canvas.get_grid()
-        self.assertEqual(c_grid[5][5], "#22C55E")
+        self.assertEqual(c_grid[5][6], "#18181B")
 
         # Load Kiki Courier
         creator._load_template("✉️ Kiki Courier")
         self.assertIn("Kiki", creator.txt_name.text())
         k_grid = creator.canvas.get_grid()
         self.assertEqual(k_grid[7][6], "#FB923C")  # Scarf orange
+        self.assertEqual(len(creator._frames), 3)
+        # Check Frame 2 delivery celebration has mail letter
+        self.assertEqual(creator._frames[2][5][12], "#EF4444")  # Mail seal
+
+    def test_screen_animations_oneko_and_shimeji(self):
+        creator = PixelCreatorWidget()
+        
+        # Test Oneko Screen Cat
+        creator._load_template("🐈 Oneko Screen Cat")
+        self.assertIn("Oneko", creator.txt_name.text())
+        self.assertEqual(creator._frames[0][5][6], "#22C55E")  # Green eyes
+        self.assertEqual(creator._frames[2][2][12], "#F472B6") # Heart celebrate
+
+        # Test Shimeji Desktop Walker
+        creator._load_template("⭐ Shimeji Desktop Walker")
+        self.assertIn("Shimeji", creator.txt_name.text())
+        self.assertEqual(creator._frames[0][2][5], "#14B8A6")  # Teal hair
+        self.assertEqual(creator._frames[2][5][3], "#FDE68A")  # Cheer hands raised
+
+    def test_spritesheet_and_gif_export_import(self):
+        creator = PixelCreatorWidget()
+        creator._load_template("✉️ Kiki Courier")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            sheet_path = tmp / "kiki_sheet.png"
+            gif_path = tmp / "kiki_anim.gif"
+
+            # Export spritesheet
+            ok_sheet = creator.export_spritesheet(sheet_path)
+            self.assertTrue(ok_sheet)
+            self.assertTrue(sheet_path.exists())
+            self.assertGreater(sheet_path.stat().st_size, 100)
+
+            # Export GIF
+            ok_gif = creator.export_gif(gif_path, fps=4)
+            self.assertTrue(ok_gif)
+            self.assertTrue(gif_path.exists())
+            self.assertGreater(gif_path.stat().st_size, 100)
+
+            # Import spritesheet into a fresh creator
+            creator_import = PixelCreatorWidget()
+            creator_import._load_template("✨ Blank Grid")
+            self.assertIsNone(creator_import.canvas.get_grid()[1][6])
+
+            ok_imp = creator_import.import_file(sheet_path)
+            self.assertTrue(ok_imp)
+            # Verify imported frame has cap color
+            self.assertEqual(creator_import._frames[0][1][6], "#14B8A6")
 
 if __name__ == "__main__":
     unittest.main()
