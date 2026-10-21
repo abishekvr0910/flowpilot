@@ -19,6 +19,7 @@ import os
 import sys
 import tempfile
 import time
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -348,19 +349,23 @@ class LocalLLMRewritingAndFactGuardTests(unittest.TestCase):
         provider._cache_timestamp = time.time()
         provider._active_model = "qwen2.5:3b"
 
+        stop_event = threading.Event()
         def slow_open(req, timeout=None):
-            time.sleep(0.5)  # Simulated slow backend
+            stop_event.wait(timeout=0.5)  # Simulated slow backend
             resp = MagicMock()
             resp.status = 200
             resp.read.return_value = json.dumps({"response": "unwanted late result"}).encode("utf-8")
             return resp
 
-        with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_open):
-            t0 = time.monotonic()
-            result = provider.transform("Test content", "make it snappy", timeout=0.3)
-            elapsed = time.monotonic() - t0
-            self.assertLess(elapsed, 0.5, f"Deadline took too long to abort: {elapsed:.3f}s")
-            self.assertIsNone(result, f"Expected None on timeout, got: {result}")
+        try:
+            with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_open):
+                t0 = time.monotonic()
+                result = provider.transform("Test content", "make it snappy", timeout=0.3)
+                elapsed = time.monotonic() - t0
+                self.assertLess(elapsed, 0.5, f"Deadline took too long to abort: {elapsed:.3f}s")
+                self.assertIsNone(result, f"Expected None on timeout, got: {result}")
+        finally:
+            stop_event.set()
 
     def test_voice_command_worker_target_id_matches_scratchpad_and_applies_cleanly(self):
         """Worker uses the Scratchpad instance's target_id so apply succeeds without 'target document changed'."""
@@ -466,19 +471,23 @@ class LocalLLMRewritingAndFactGuardTests(unittest.TestCase):
         provider._cached_available = None
         provider._cache_timestamp = 0
 
+        stop_event = threading.Event()
         def slow_probe(req, timeout=None):
-            time.sleep(0.25)  # 250ms simulated hang
+            stop_event.wait(timeout=0.25)  # 250ms simulated hang
             resp = MagicMock()
             resp.status = 200
             resp.read.return_value = json.dumps({"models": [{"name": "qwen2.5:3b"}]}).encode("utf-8")
             return resp
 
-        with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_probe):
-            t0 = time.monotonic()
-            available = provider.is_available(force_refresh=True, timeout=0.05)
-            elapsed = time.monotonic() - t0
-            self.assertLess(elapsed, 0.10, f"Health check took too long to abort: {elapsed:.3f}s")
-            self.assertFalse(available)
+        try:
+            with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_probe):
+                t0 = time.monotonic()
+                available = provider.is_available(force_refresh=True, timeout=0.05)
+                elapsed = time.monotonic() - t0
+                self.assertLess(elapsed, 0.10, f"Health check took too long to abort: {elapsed:.3f}s")
+                self.assertFalse(available)
+        finally:
+            stop_event.set()
 
     def test_llm_transform_contains_health_check_within_budget(self):
         """Calling transform with 50ms budget must abort within 0.10s even if health check is slow."""
@@ -486,19 +495,23 @@ class LocalLLMRewritingAndFactGuardTests(unittest.TestCase):
         provider._cached_available = None
         provider._cache_timestamp = 0
 
+        stop_event = threading.Event()
         def slow_probe(req, timeout=None):
-            time.sleep(0.25)
+            stop_event.wait(timeout=0.25)
             resp = MagicMock()
             resp.status = 200
             resp.read.return_value = json.dumps({"models": [{"name": "qwen2.5:3b"}]}).encode("utf-8")
             return resp
 
-        with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_probe):
-            t0 = time.monotonic()
-            res = provider.transform("Some text to transform", "make concise", timeout=0.05)
-            elapsed = time.monotonic() - t0
-            self.assertLess(elapsed, 0.10, f"Transform took too long to abort: {elapsed:.3f}s")
-            self.assertIsNone(res)
+        try:
+            with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_probe):
+                t0 = time.monotonic()
+                res = provider.transform("Some text to transform", "make concise", timeout=0.05)
+                elapsed = time.monotonic() - t0
+                self.assertLess(elapsed, 0.10, f"Transform took too long to abort: {elapsed:.3f}s")
+                self.assertIsNone(res)
+        finally:
+            stop_event.set()
 
     def test_voice_command_worker_preserves_collapsed_cursor_selection(self):
         """Collapsed cursor (e.g. at pos 6 with length 0) must NOT be rewritten to (0, 0)."""

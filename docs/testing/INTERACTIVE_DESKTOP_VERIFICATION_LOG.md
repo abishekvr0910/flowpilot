@@ -36,9 +36,10 @@ Every physical desktop test suite now separates safe-abort unit validation from 
 
 ---
 
-## 3. Interactive Desktop Verification Trace (Physical Document Insertion)
+## 3. Illustrative Interactive Reference Specification (Physical Document Insertion Examples)
 
-When executed on an active interactive Windows desktop with genuine input focus attached (`is_interactive_desktop() == True`), the following physical document verification traces are observed:
+> [!NOTE]
+> **Illustrative Reference Examples (Specification Format):** The following console traces represent the expected output format when tests are executed interactively on a physical Windows workstation with genuine display focus (`is_interactive_desktop() == True`). They illustrate physical document buffer confirmation semantics and are reference specification examples, **not live captured outputs from this headless runner environment**. For the live captured output from the current test environment, see Section 4 below.
 
 ### A. Notepad Single-Attempt Physical Verification ([`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py))
 
@@ -131,7 +132,67 @@ CROSS-APPLICATION INJECTION & FOCUS STABILITY: PASSED (100%)
 
 ---
 
-## 4. Current Automated Regression Gate Status
+## 4. Live Captured Test Output (Current Headless / Sub-Desktop Environment)
+
+The following sections contain the raw captured terminal output from executing the test suites in the current non-interactive runner session (`is_interactive_desktop() == False`).
+
+### A. Notepad Dictation E2E Suite ([`tests/test_notepad_dictation_e2e.py`](file:///S:/APPs/New%20folder/tests/test_notepad_dictation_e2e.py))
+
+```text
+$ python tests/test_notepad_dictation_e2e.py
+  -> Safe abort on missing/switched focus verified successfully.
+[RESULT] SKIPPED: Five physical Notepad insertion cycles require an interactive Windows desktop.
+```
+
+### B. Cross-Application Injection Suite ([`tests/test_cross_app_injection.py`](file:///S:/APPs/New%20folder/tests/test_cross_app_injection.py))
+
+```text
+$ python tests/test_cross_app_injection.py
+  -> Cross-app safe abort and focus loss recovery verified successfully.
+[RESULT] SKIPPED: Physical cross-application insertion requires an interactive Windows desktop.
+```
+
+### C. Final Specification E2E Suite ([`tests/test_final_specification_e2e.py`](file:///S:/APPs/New%20folder/tests/test_final_specification_e2e.py))
+
+```text
+$ python tests/test_final_specification_e2e.py
+  -> Safe abort isolation verified successfully.
+[RESULT] SKIPPED: Physical focus, microphone, and Notepad scenarios require an interactive Windows desktop.
+```
+
+### D. Text Injector Unit & Verification Suite ([`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py))
+
+```text
+$ python tests/test_text_injector.py
+[Injector Warning] Clipboard copy failed. Falling back to direct SendInput Unicode typing...
+[Injector Security] Focus switched to 99999 Paste aborted; saved to recovery buffer.
+[Injector Security] Clipboard changed during focus loss (101 -> 105). Skipping restore to protect user's newer copy.
+[Injector Security] Focus switched to 99999 Paste aborted; saved to recovery buffer.
+[Injector] Successfully dispatched 13 characters to HWND 100.
+[Injector] Successfully dispatched 19 characters to HWND 200.
+[RESULT] SKIPPED: Physical Notepad insertion requires an interactive Windows desktop; focus, copy failure fallback, focus-loss abort, slow-app timing, and clipboard-confirmation unit checks passed.
+```
+
+### E. Voice Command Worker & LLM Deadline Suite ([`tests/test_voice_command_and_llm.py`](file:///S:/APPs/New%20folder/tests/test_voice_command_and_llm.py))
+
+```text
+$ python tests/test_voice_command_and_llm.py
+.[LocalLLM] Wall-clock deadline reached (0.3s); transform timed out.
+....[LocalLLM] Wall-clock deadline reached (0.05s); transform timed out.
+[LocalLLM] Concurrent transform dropped: outstanding request already active.
+[LocalLLM] Concurrent transform dropped: outstanding request already active.
+.........[LocalLLM] Non-loopback URL rejected for security: http://api.openai.com
+[LocalLLM] Non-loopback URL rejected for security: http://192.168.1.50:11434
+[LocalLLM] Non-loopback URL rejected for security: http://8.8.8.8:8080
+[LocalLLM] Non-loopback URL rejected for security: https://ollama.ai
+........
+----------------------------------------------------------------------
+Ran 22 tests in 5.059s
+
+OK
+```
+
+### F. Automated Regression Gate Summary (48 Test Suites)
 
 ```text
 Automated Test Run (Non-Interactive Runner):
@@ -141,15 +202,10 @@ Skipped:        4  (Physical desktop UI automation suites requiring interactive 
 Failed:         0
 ```
 
-### Skipped Suites Detail
-
-1. `test_text_injector.py`: Unit tests (9 tests) passed; live Notepad text injection skipped.
-2. `test_notepad_dictation_e2e.py`: Safe abort test passed; 5-cycle physical Notepad dictation skipped.
-3. `test_cross_app_injection.py`: Safe abort test passed; cross-app window injection skipped.
-4. `test_final_specification_e2e.py`: Safe abort test passed; 18-scenario live hardware suite skipped.
-
 ---
 
-## 5. Release Candidate Hold Status
+## 5. Release Candidate Hold Status & Sign-off Gate
 
-Because automated runner sessions execute in an isolated sub-desktop (`exebox-...`) without interactive user display attachments, the four physical injection suites properly report **SKIPPED**. In accordance with the release policy, **this release candidate (v3.1.0-RC1) remains on hold** until physical interactive desktop validation is performed on the designated target Windows workstation.
+Because automated runner sessions execute in an isolated sub-desktop (`exebox-...`) without interactive user display attachments, the four physical injection suites properly report **SKIPPED**. In accordance with the release policy:
+- **v3.1.0-RC1 remains strictly on hold** as a Release Candidate until physical interactive desktop validation is performed on the designated target Windows workstation.
+- Missing desktop access blocks release verification; skips are not converted to passes. Safe-abort verification guarantees user safety on focus loss, but physical document insertion must be verified on live displays before final release approval.

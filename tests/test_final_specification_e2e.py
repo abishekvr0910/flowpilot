@@ -438,12 +438,23 @@ def run_18_scenarios():
     return all_passed
 
 def test_safe_abort_isolation():
-    """Separated safety check: verifies safe-abort to recovery buffer when window is unverified."""
+    """Separated safety check: verifies safe-abort to recovery buffer when focus is missing or switched."""
+    from unittest.mock import patch
     from engine.text_injector import TextInjector, InjectionStatus
     test_payload = "E2E safe abort check: text preserved in recovery buffer."
-    res = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=0)
-    assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE
-    assert TextInjector.last_injected_text == test_payload + "\n"
+
+    # Case 1: Missing foreground window
+    with patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=0):
+        res = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=12345)
+        assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE
+        assert TextInjector.last_injected_text == test_payload + "\n"
+
+    # Case 2: Focus switched away to another application
+    with patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=99999):
+        res2 = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=12345)
+        assert res2.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE
+        assert TextInjector.last_injected_text == test_payload + "\n"
+
     print("  -> Safe abort isolation verified successfully.")
 
 if __name__ == "__main__":
