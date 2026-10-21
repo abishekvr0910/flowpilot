@@ -11,6 +11,7 @@ import time
 import subprocess
 from pathlib import Path
 from typing import Tuple, Optional
+from unittest.mock import patch
 import win32gui
 import win32con
 
@@ -30,13 +31,23 @@ def ensure_notepad() -> Tuple[int, subprocess.Popen, Path]:
     return open_test_notepad()
 
 def test_safe_abort_when_focus_unavailable():
-    """Safety check: when focus is absent or unverified, paste safely aborts to recovery buffer."""
+    """Safety check: when focus is absent (0) or switched, paste safely aborts to recovery buffer."""
     from engine.text_injector import TextInjector, InjectionStatus
     test_payload = "Safe abort test: must not drop text."
-    res = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=0)
-    assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE, f"Expected FAILED_RECOVERY_AVAILABLE, got: {res.status}"
-    assert TextInjector.last_injected_text == test_payload + "\n", "Recovery buffer must hold exact text on abort"
-    print("  -> Safe abort on unverified focus verified successfully.")
+
+    # Case 1: Missing foreground focus (GetForegroundWindow returns 0)
+    with patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=0):
+        res = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=12345)
+        assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE, f"Expected FAILED_RECOVERY_AVAILABLE on focus=0, got: {res.status}"
+        assert TextInjector.last_injected_text == test_payload + "\n", "Recovery buffer must hold exact text on abort"
+
+    # Case 2: Focus switched away to another application
+    with patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=99999):
+        res2 = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=12345)
+        assert res2.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE, f"Expected FAILED_RECOVERY_AVAILABLE on focus mismatch, got: {res2.status}"
+        assert TextInjector.last_injected_text == test_payload + "\n"
+
+    print("  -> Safe abort on missing/switched focus verified successfully.")
 
 def run_5_consecutive_injections():
     if not is_interactive_desktop():
