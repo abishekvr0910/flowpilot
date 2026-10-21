@@ -61,23 +61,13 @@ def get_local_tokenizer() -> Optional[Any]:
 
 def estimate_tokens(text: str, language: Optional[str] = None) -> int:
     """
-    Conservative language-aware token estimation when tokenizer is not loaded.
-    Indic scripts (Tamil, Malayalam, Hindi) average ~2 to 2.5 characters per BPE token.
-    Latin scripts average ~3.8 to 4 characters per BPE token.
+    UTF-8 byte upper bound for Whisper byte-BPE when no tokenizer is available.
+    Deliberately conservative; this is not a measured tokenizer count.
     """
     if not text:
         return 0
 
-    # Count Indic characters (Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada, Malayalam)
-    indic_chars = len(re.findall(r"[\u0900-\u0D7F]", text))
-    other_chars = len(text) - indic_chars
-
-    # Indic BPE expansion heuristic: ~1 token per 2 Indic characters
-    indic_tokens = (indic_chars + 1) // 2
-    # Latin/punctuation heuristic: ~1 token per 3.5 characters + 1 per word
-    latin_tokens = int(other_chars / 3.5) + (len(text.split()) if other_chars > 0 else 0)
-
-    return max(1, indic_tokens + latin_tokens)
+    return len(text.encode("utf-8"))
 
 
 def count_tokens(text: str, tokenizer: Optional[Any] = None, language: Optional[str] = None) -> int:
@@ -92,7 +82,7 @@ def count_tokens(text: str, tokenizer: Optional[Any] = None, language: Optional[
     if tok is not None:
         try:
             # Tokenizer.encode returns an Encoding object with .ids
-            encoding = tok.encode(text)
+            encoding = tok.encode(text, add_special_tokens=False)
             return len(encoding.ids)
         except Exception:
             pass
@@ -128,12 +118,14 @@ class PromptBudgetManager:
         Returns:
             (final_prompt_string, total_token_count, accepted_terms_list)
         """
-        budget_limit = max_total_tokens or self.DEFAULT_MAX_PREFIX_TOKENS
+        budget_limit = self.DEFAULT_MAX_PREFIX_TOKENS if max_total_tokens is None else max(0, max_total_tokens)
         base = (base_prompt or "").strip()
         base_tokens = self.count(base, language=language) if base else 0
 
-        # If base prompt already exceeds budget, truncate base or return it guarded
-        if base_tokens >= budget_limit:
+        # Never send an oversized base through the guarded path.
+        if base_tokens > budget_limit:
+            return "", 0, []
+        if base_tokens == budget_limit:
             return base, base_tokens, []
 
         remaining_budget = budget_limit - base_tokens
@@ -154,12 +146,13 @@ class PromptBudgetManager:
             candidate_glossary = f"Glossary: {', '.join(test_terms)}."
             glossary_tokens = self.count(candidate_glossary, language=language)
 
-            if glossary_tokens <= glossary_budget:
+            combined = f"{base} {candidate_glossary}".strip()
+            if glossary_tokens <= glossary_budget and self.count(combined, language=language) <= budget_limit:
                 accepted_terms.append(t)
                 seen.add(t.lower())
             else:
-                # Term does not fit in remaining token budget; stop packing
-                break
+                # A shorter later term may still fit.
+                continue
 
         if accepted_terms:
             glossary_str = f"Glossary: {', '.join(accepted_terms)}."
@@ -174,7 +167,8 @@ class PromptBudgetManager:
         return final_prompt, total_tokens, accepted_terms
 
     @staticmethod
-    def format_hotwords(terms: List[str], max_terms: int = 30) -> str:
+    def format_hotwords(terms: List[str], max_terms: int = 30, max_tokens: int = 120,
+                       tokenizer: Optional[Any] = None) -> str:
         """
         Formats terms into a clean, comma-separated hotwords string for CTranslate2.
         Avoids duplicate words and bounds term count.
@@ -183,7 +177,8 @@ class PromptBudgetManager:
         seen = set()
         for t in terms:
             cleaned = t.strip()
-            if cleaned and cleaned.lower() not in seen:
+            if (max_terms > 0 and cleaned and cleaned.lower() not in seen and
+                    count_tokens(", ".join(clean_terms + [cleaned]), tokenizer=tokenizer) <= max_tokens):
                 clean_terms.append(cleaned)
                 seen.add(cleaned.lower())
             if len(clean_terms) >= max_terms:

@@ -77,6 +77,43 @@ def test_find_edit_control_when_editor_is_not_first_child():
         assert resolved == parent_hwnd, f"Expected parent {parent_hwnd}, got {resolved}"
 
 
+def test_find_edit_control_resolves_leaf_editor_when_wrapped_by_container():
+    """Verify that _find_edit_control resolves the innermost leaf editor control (e.g. RichEditD2DPT)
+
+    when wrapped inside an outer container like modern Windows 11 Notepad's NotepadTextBox.
+    """
+    parent_hwnd = 1000
+    children = [
+        (2001, "NotepadTextBox"),  # Container wrapper
+        (2002, "RichEditD2DPT"),   # Leaf editor control
+    ]
+
+    def fake_enum_child_windows(hwnd, callback, extra):
+        assert hwnd == parent_hwnd
+        for child_hwnd, _ in children:
+            if not callback(child_hwnd, extra):
+                break
+
+    def fake_get_class_name(child_hwnd):
+        for ch, cls_name in children:
+            if ch == child_hwnd:
+                return cls_name
+        return ""
+
+    def fake_is_child(parent, child):
+        # 2002 is a child of 2001
+        return parent == 2001 and child == 2002
+
+    with patch("engine.text_injector.HAS_WIN32", True), \
+         patch("engine.text_injector.sys.platform", "win32"), \
+         patch("engine.text_injector.win32gui.EnumChildWindows", side_effect=fake_enum_child_windows), \
+         patch("engine.text_injector.win32gui.GetClassName", side_effect=fake_get_class_name), \
+         patch("engine.text_injector.win32gui.IsChild", side_effect=fake_is_child):
+        resolved = TextInjector._find_edit_control(parent_hwnd)
+        assert resolved == 2002, f"Expected leaf child 2002 (RichEditD2DPT), got {resolved}"
+
+
+
 def test_clipboard_is_not_physical_confirmation():
     """An opaque target cannot be verified from our own pending clipboard."""
     with patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
@@ -258,6 +295,7 @@ def test_text_injection():
     test_slow_app_timing_and_dwell()
     test_clipboard_change_during_hold_prevents_overwrite()
     test_find_edit_control_when_editor_is_not_first_child()
+    test_find_edit_control_resolves_leaf_editor_when_wrapped_by_container()
     if not is_interactive_desktop():
         print("[RESULT] SKIPPED: Physical Notepad insertion requires an interactive Windows desktop; focus, copy failure fallback, focus-loss abort, slow-app timing, and clipboard-confirmation unit checks passed.")
         return True

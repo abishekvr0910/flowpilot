@@ -104,6 +104,8 @@ class FloatingHUD(QWidget):
         # High-precision elapsed timer for frame-rate-independent animation
         self._elapsed_timer = QElapsedTimer()
         self._elapsed_timer.start()
+        self._state_timer = QElapsedTimer()
+        self._state_timer.start()
 
         self._init_ui()
 
@@ -197,6 +199,8 @@ class FloatingHUD(QWidget):
             self.set_hotkey_info(getattr(self, "_hotkey_str", "<ctrl>+<shift>+<space>"), getattr(self, "_hotkey_mode", "toggle"))
 
         old_state = self._current_state
+        if CompanionRenderer.normalize_state(old_state) != CompanionRenderer.normalize_state(st):
+            self._state_timer.restart()
         self._current_state = st
 
         if self._current_state in ("listening", "recording"):
@@ -446,6 +450,8 @@ class FloatingHUD(QWidget):
         act_mascot.triggered.connect(lambda: self.set_visual_style("mascot"))
         act_seedling = style_menu.addAction("🌱 Seedling the Sprout")
         act_seedling.triggered.connect(lambda: self.set_visual_style("seedling"))
+        act_kiki = style_menu.addAction("✉ Kiki the Scarf Courier (Prototype)")
+        act_kiki.triggered.connect(lambda: self.set_visual_style("kiki"))
         act_nimbus = style_menu.addAction("☁️ Nimbus Cloud Sprite")
         act_nimbus.triggered.connect(lambda: self.set_visual_style("nimbus"))
         act_kitty = style_menu.addAction("🐾 SondeR-Cat Pixel Kitty")
@@ -523,7 +529,7 @@ class FloatingHUD(QWidget):
         st = self._current_state
 
         # Branch Custom: User-Created Emoji, Image, or Sprite Companion
-        if self._visual_style not in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee", "edge_line", "signal_edge", "wave_bar", "signal", "mascot", "pilot", "seedling", "nimbus"):
+        if self._visual_style not in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee", "edge_line", "signal_edge", "wave_bar", "signal", "mascot", "pilot", "seedling", "nimbus", "kiki"):
             self._paint_custom_companion(p, w, h, st)
             p.end()
             return
@@ -549,7 +555,8 @@ class FloatingHUD(QWidget):
             palette=self._cat_palette,
             reduced_motion=getattr(self, "_reduced_motion", False),
             device_pixel_ratio=dpr,
-            is_preview=False
+            is_preview=False,
+            state_elapsed_ms=self._state_timer.elapsed()
         )
         p.end()
         return

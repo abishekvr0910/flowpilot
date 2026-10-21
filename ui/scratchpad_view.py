@@ -11,6 +11,7 @@ A native drafting workspace with:
 """
 
 from pathlib import Path
+import uuid
 from typing import Optional, Callable, Tuple
 
 from PySide6.QtWidgets import (
@@ -22,8 +23,16 @@ from PySide6.QtGui import QFont, QTextCursor, QColor
 import pyperclip
 
 from engine.voice_editor import get_voice_editor, VoiceEditor, EditTransaction
+from engine.config import get_config_file
 
-AUTOSAVE_FILE = Path.home() / ".flowpilot" / "scratchpad_autosave.txt"
+AUTOSAVE_FILE = get_config_file().parent / "scratchpad_autosave.txt"
+
+
+def _python_selection(text, cursor):
+    """Qt cursor offsets are UTF-16 units, not Python Unicode offsets."""
+    encoded = text.encode("utf-16-le")
+    return tuple(len(encoded[:offset * 2].decode("utf-16-le"))
+                 for offset in (cursor.selectionStart(), cursor.selectionEnd()))
 
 
 class ScratchpadView(QWidget):
@@ -34,6 +43,7 @@ class ScratchpadView(QWidget):
         self.on_dictate_toggle = on_dictate_toggle
         self.voice_editor: VoiceEditor = get_voice_editor()
         self.active_transaction: Optional[EditTransaction] = None
+        self._target_id = f"scratchpad:{uuid.uuid4().hex}"
         self._init_ui()
         self._load_autosave()
 
@@ -226,7 +236,7 @@ class ScratchpadView(QWidget):
             }
             QPushButton:hover { background-color: #334155; color: #FFFFFF; }
         """)
-        self.btn_cancel_edit.clicked.connect(lambda: self.edit_panel.setVisible(False))
+        self.btn_cancel_edit.clicked.connect(self._cancel_edit)
 
         panel_row1.addWidget(self.input_edit_command, 5)
         panel_row1.addWidget(self.btn_preview_edit, 1)
@@ -260,6 +270,8 @@ class ScratchpadView(QWidget):
             }
         """)
         self.editor.textChanged.connect(self._on_text_changed)
+        self.editor.selectionChanged.connect(self._invalidate_preview)
+        self.input_edit_command.textChanged.connect(self._invalidate_preview)
         layout.addWidget(self.editor)
 
         # Auto-save timer (debounced 1.5s)
@@ -296,14 +308,14 @@ class ScratchpadView(QWidget):
             return
 
         cursor = self.editor.textCursor()
-        sel_range = (cursor.selectionStart(), cursor.selectionEnd())
         doc_text = self.editor.toPlainText()
+        sel_range = _python_selection(doc_text, cursor)
 
         tx = self.voice_editor.plan_edit(
             document_text=doc_text,
             selected_range=sel_range,
             instruction=instruction,
-            target_id="scratchpad:editor",
+            target_id=self._target_id,
             target_type="scratchpad"
         )
         self.active_transaction = tx
@@ -323,21 +335,24 @@ class ScratchpadView(QWidget):
             return
 
         cursor = self.editor.textCursor()
-        sel_range = (cursor.selectionStart(), cursor.selectionEnd())
         doc_text = self.editor.toPlainText()
+        sel_range = _python_selection(doc_text, cursor)
+        transaction = self.active_transaction
 
         ok, resulting_text, msg = self.voice_editor.apply_transaction(
-            transaction=self.active_transaction,
+            transaction=transaction,
             current_document_text=doc_text,
-            current_selection=sel_range
+            current_selection=sel_range,
+            current_target_id=self._target_id
         )
 
         if ok:
             # Preserve cursor near the edited position
-            new_cursor_pos = min(len(resulting_text), self.active_transaction.selected_range[1])
+            new_cursor_pos = min(len(resulting_text), transaction.selected_range[1])
+            self.active_transaction = None
             self.editor.setPlainText(resulting_text)
             new_cursor = self.editor.textCursor()
-            new_cursor.setPosition(new_cursor_pos)
+            new_cursor.setPosition(len(resulting_text[:new_cursor_pos].encode("utf-16-le")) // 2)
             self.editor.setTextCursor(new_cursor)
 
             self.lbl_edit_diff.setText(f"✓ Applied! (Say 'undo that edit' to revert)")
@@ -345,10 +360,11 @@ class ScratchpadView(QWidget):
             self.btn_apply_edit.setEnabled(False)
             self.active_transaction = None
             self._save_autosave()
-            QTimer.singleShot(2500, lambda: self.edit_panel.setVisible(False))
         else:
             self.lbl_edit_diff.setText(f"✕ Apply failed: {msg}")
             self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
+            self.btn_apply_edit.setEnabled(False)
+            self.active_transaction = None
 
     def execute_voice_command(self, instruction: str, auto_apply: bool = False) -> EditTransaction:
         """
@@ -359,14 +375,14 @@ class ScratchpadView(QWidget):
         self.input_edit_command.setText(instruction)
 
         cursor = self.editor.textCursor()
-        sel_range = (cursor.selectionStart(), cursor.selectionEnd())
         doc_text = self.editor.toPlainText()
+        sel_range = _python_selection(doc_text, cursor)
 
         tx = self.voice_editor.plan_edit(
             document_text=doc_text,
             selected_range=sel_range,
             instruction=instruction,
-            target_id="scratchpad:editor",
+            target_id=self._target_id,
             target_type="scratchpad"
         )
         self.active_transaction = tx
@@ -375,7 +391,7 @@ class ScratchpadView(QWidget):
             self.lbl_edit_diff.setText(f"✓ Planned: {tx.diff_preview}")
             self.lbl_edit_diff.setStyleSheet("color: #34D399; font-size: 12px; font-family: monospace;")
             self.btn_apply_edit.setEnabled(True)
-            if auto_apply:
+            if auto_apply and tx.operation != "remove_selection":
                 self._on_apply_edit()
         else:
             self.lbl_edit_diff.setText(f"⚠ {tx.error_message or tx.diff_preview}")
@@ -432,11 +448,23 @@ class ScratchpadView(QWidget):
         self.editor.ensureCursorVisible()
 
     def _on_text_changed(self):
+        self._invalidate_preview()
         text = self.editor.toPlainText()
         words = len(text.split())
         chars = len(text)
         self.lbl_stats.setText(f"{words} words | {chars} chars")
         self._autosave_timer.start(1500)
+
+    def _invalidate_preview(self):
+        if self.active_transaction is not None:
+            self.voice_editor.cancel_transaction(self.active_transaction.transaction_id)
+            self.active_transaction = None
+            self.btn_apply_edit.setEnabled(False)
+            self.lbl_edit_diff.setText("Text, selection, or instruction changed. Preview again.")
+
+    def _cancel_edit(self):
+        self._invalidate_preview()
+        self.edit_panel.setVisible(False)
 
     def _copy_all(self):
         text = self.editor.toPlainText().strip()

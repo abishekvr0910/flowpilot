@@ -266,7 +266,8 @@ class STTEngine:
         custom_vocabulary: List[str],
         language: str,
         profile: Optional[str] = None,
-        max_prompt_tokens: int = 180
+        max_prompt_tokens: int = 180,
+        include_personalization: bool = True
     ) -> str:
         """
         Builds a tokenizer-bounded phonetic bias prompt for Whisper using LanguageRegistry
@@ -274,7 +275,7 @@ class STTEngine:
         Guarantees isolation (scoped terms don't leak) and respects decoder token budget.
         """
         vocab = list(custom_vocabulary)
-        if self.personalization:
+        if self.personalization and include_personalization:
             # Merge personal dictionary terms scoped to current language & profile
             dict_terms = self.personalization.get_terms_list(language=language, profile=profile)
             for t in dict_terms:
@@ -324,14 +325,14 @@ class STTEngine:
                 info = LanguageRegistry.get_language(lang) or LanguageRegistry.get_language("auto")
                 if info and info.default_bias_prompt:
                     base_prompt = info.default_bias_prompt
-            initial_prompt = base_prompt
+            initial_prompt, _, _ = self.budget_manager.build_bounded_prompt(lang, base_prompt, [], 60)
 
             all_terms = list(vocab)
             if self.personalization:
                 for t in self.personalization.get_terms_list(language=lang, profile=profile):
                     if t not in all_terms:
                         all_terms.append(t)
-            hotwords = PromptBudgetManager.format_hotwords(all_terms)
+            hotwords = PromptBudgetManager.format_hotwords(all_terms, tokenizer=self.budget_manager.tokenizer)
         elif strategy == "hybrid":
             # Avoid sending same glossary through both mechanisms blindly:
             # Top priority terms go to hotwords, remaining terms + base go to initial_prompt
@@ -342,8 +343,10 @@ class STTEngine:
                         all_terms.append(t)
             hotwords_terms = all_terms[:10]
             prompt_terms = all_terms[10:]
-            hotwords = PromptBudgetManager.format_hotwords(hotwords_terms) if hotwords_terms else None
-            initial_prompt = self.build_bias_prompt(prompt_terms, lang, profile=profile)
+            hotwords = PromptBudgetManager.format_hotwords(hotwords_terms, max_tokens=60,
+                tokenizer=self.budget_manager.tokenizer) if hotwords_terms else None
+            initial_prompt = self.build_bias_prompt(prompt_terms, lang, profile=profile,
+                max_prompt_tokens=120, include_personalization=False)
         else:  # "initial_prompt" (default)
             initial_prompt = self.build_bias_prompt(vocab, lang, profile=profile)
             hotwords = None
@@ -359,6 +362,16 @@ class STTEngine:
         hotwords: Optional[str] = None
     ) -> Dict[str, Any]:
         with self._acquire_model_session() as model:
+            # Enforce the combined budget using the actual loaded model's
+            # tokenizer, including packaged models and model changes.
+            tokenizer = getattr(model, "hf_tokenizer", None)
+            budget = PromptBudgetManager(tokenizer=tokenizer)
+            initial_prompt, _, _ = budget.build_bounded_prompt(language, initial_prompt, [], 180)
+            if hotwords:
+                terms = hotwords.split(", ")
+                while terms and budget.count(initial_prompt + " " + ", ".join(terms)) > 180:
+                    terms.pop()
+                hotwords = ", ".join(terms) or None
             if isinstance(audio_data, np.ndarray):
                 audio_input = audio_data
             else:

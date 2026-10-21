@@ -24,7 +24,9 @@ from typing import Dict, Any, List, Optional, Tuple, Callable, Set
 
 from engine.prompt_budget import PromptBudgetManager
 
-PERSONALIZATION_FILE = Path.home() / ".flowpilot" / "personalization.json"
+from engine.config import get_config_file
+
+PERSONALIZATION_FILE = get_config_file().parent / "personalization.json"
 
 DEFAULT_DICTIONARY: List[Dict[str, Any]] = [
     {
@@ -385,7 +387,7 @@ class PersonalizationEngine:
         - Scoped language terms do NOT leak into unrelated languages.
         - Scoped profile terms do NOT leak into unrelated apps.
         - Global terms (language=None and profile=None) match everywhere.
-        - When language or profile is unspecified (None), all terms apply.
+        - Unknown context never authorizes a restricted term.
         """
         results = []
         lang_norm = language.strip().lower() if language and language != "auto" else None
@@ -397,16 +399,16 @@ class PersonalizationEngine:
             item_prof = item.get("profile")
 
             # 1. Language Scoping Check: filter if language is specified and term is language-restricted
-            if lang_norm is not None and item_lang is not None:
+            if item_lang is not None:
                 item_lang_l = item_lang.lower()
-                if item_lang_l != lang_norm and not lang_norm.startswith(item_lang_l):
+                if lang_norm is None or item_lang_l != lang_norm.split("-")[0].split("_")[0]:
                     continue
 
             # 2. Profile & Process Scoping Check: filter if profile/process is specified and term is profile-restricted
-            if (prof_norm is not None or proc_norm is not None) and item_prof is not None:
+            if item_prof is not None:
                 item_prof_l = item_prof.lower()
                 profile_match = prof_norm and (item_prof_l == prof_norm)
-                process_match = proc_norm and (item_prof_l in proc_norm or proc_norm.endswith(item_prof_l))
+                process_match = proc_norm and item_prof_l == proc_norm
                 if not profile_match and not process_match:
                     continue
 
@@ -443,7 +445,7 @@ class PersonalizationEngine:
         Enforces token budget and bounds context window.
         Format: 'Technical glossary: Term1, Term2, Term3.'
         """
-        terms = self.get_terms_list(language=language, profile=profile)[:max_terms]
+        terms = [entry["term"] for entry in self.get_scoped_entries(language=language, profile=profile)][:max_terms]
         if not terms:
             return ""
 
@@ -464,7 +466,7 @@ class PersonalizationEngine:
         """
         Returns a comma-separated string of hotwords for CTranslate2 / faster-whisper.
         """
-        terms = self.get_terms_list(language=language, profile=profile)
+        terms = [entry["term"] for entry in self.get_scoped_entries(language=language, profile=profile)]
         return PromptBudgetManager.format_hotwords(terms, max_terms=max_terms)
 
     def apply_dictionary(

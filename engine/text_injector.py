@@ -323,7 +323,19 @@ class TextInjector:
             win32gui.EnumChildWindows(hwnd, enum_cb, None)
         except Exception:
             pass
-        return found[0] if found else hwnd
+        if not found:
+            return hwnd
+        # When an outer container matches (such as WinUI's NotepadTextBox wrapping
+        # RichEditD2DPT), resolve the innermost leaf edit control that actually
+        # owns document caret and responds to WM_GETTEXT.
+        if len(found) > 1 and hasattr(win32gui, "IsChild"):
+            try:
+                leaves = [c for c in found if not any(win32gui.IsChild(c, other) for other in found if other != c)]
+                if leaves:
+                    return leaves[0]
+            except Exception:
+                pass
+        return found[0]
 
     @classmethod
     def inject_with_status(

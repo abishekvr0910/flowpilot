@@ -134,7 +134,8 @@ class FlowOrchestrator:
 
         # 1. Capture target window immediately at T0
         self.target_window_info = WindowInspector.get_active_window_info()
-        print(f"[Orchestrator] Active window target: {self.target_window_info.get('process_name')} ('{self.target_window_info.get('title')}')")
+        # Window titles can contain document names or private text. Do not log them.
+        print("[Orchestrator] Active window target captured locally.")
 
         # Create new dictation session with unique session token
         is_translate = translation_mode if translation_mode is not None else self.config.get("translate_to_english", False)
@@ -315,7 +316,9 @@ class FlowOrchestrator:
                 stt_input = audio_array if audio_array is not None else wav_bytes
                 stt_task = getattr(active_session, "task", "transcribe")
                 stt_lang = getattr(active_session, "language", self.config.get("language", "auto"))
-                stt_result = self.stt.transcribe(stt_input, task=stt_task, language=stt_lang)
+                from engine.context_processor import ProfileResolver
+                stt_profile = ProfileResolver.resolve(self.config, active_session.target_window_info, active_session.tone_mode)
+                stt_result = self.stt.transcribe(stt_input, task=stt_task, language=stt_lang, profile=stt_profile)
                 t_stt_end = time.perf_counter()
 
                 with self._state_lock:

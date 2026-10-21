@@ -17,6 +17,8 @@ import re
 import time
 import uuid
 import hashlib
+import threading
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -41,6 +43,7 @@ class EditTransaction:
     error_message: Optional[str] = None
     consumed: bool = False
     created_at: float = field(default_factory=time.time)
+    source_selection: Tuple[int, int] = (0, 0)
 
 
 # Regex patterns for natural language voice editing instructions
@@ -99,18 +102,27 @@ class VoiceEditor:
     def __init__(self):
         # Transaction history per target_id: target_id -> List[EditTransaction]
         self._history: Dict[str, List[EditTransaction]] = {}
+        self._issued: Dict[str, EditTransaction] = {}
+        self._lock = threading.RLock()
 
     def get_history(self, target_id: str) -> List[EditTransaction]:
-        return list(self._history.get(target_id, []))
+        with self._lock:
+            return deepcopy(self._history.get(target_id, []))
 
     def clear_history(self, target_id: str) -> None:
-        if target_id in self._history:
-            self._history[target_id].clear()
+        with self._lock:
+            self._history.pop(target_id, None)
+            self._issued = {k: v for k, v in self._issued.items() if v.target_id != target_id}
+
+    def cancel_transaction(self, transaction_id: str) -> None:
+        with self._lock:
+            self._issued.pop(transaction_id, None)
 
     @staticmethod
     def check_target_safety(process_name: Optional[str] = None, window_title: Optional[str] = None) -> Tuple[bool, Optional[str]]:
         """
-        Guarantees terminal and password safety.
+        Heuristic warning only; this cannot certify a field as non-password.
+        External editing stays disabled until a verified target adapter exists.
         Returns (is_safe, error_or_warning_message).
         """
         proc = (process_name or "").lower().strip()
@@ -127,6 +139,35 @@ class VoiceEditor:
         return True, None
 
     def plan_edit(
+        self, document_text: str, selected_range: Tuple[int, int] = (0, 0),
+        instruction: str = "", target_id: str = "scratchpad:editor",
+        target_type: str = "scratchpad"
+    ) -> EditTransaction:
+        """Issue a sealed, one-use plan for an owned scratchpad document."""
+        with self._lock:
+            self._issued = {k: v for k, v in self._issued.items() if v.target_id != target_id}
+            error = None
+            if target_type != "scratchpad":
+                error = "External voice editing is not supported; use the owned Scratchpad."
+            elif (len(selected_range) != 2 or
+                  not all(isinstance(x, int) for x in selected_range) or
+                  not 0 <= selected_range[0] <= selected_range[1] <= len(document_text)):
+                error = "Selection is outside the document; select the text again."
+            if error:
+                tx = self._build_aborted(f"tx_{uuid.uuid4().hex}", target_id, target_type,
+                                         hash_text(document_text), selected_range, instruction, error)
+                tx.original_text = tx.candidate_text = document_text
+                return tx
+            tx = self._plan_edit(document_text, selected_range, instruction, target_id, target_type)
+            tx.source_selection = tuple(selected_range)
+            if tx.can_apply:
+                # New previews supersede old previews for the same document.
+                self._issued[tx.transaction_id] = deepcopy(tx)
+                while len(self._issued) > 128:
+                    self._issued.pop(next(iter(self._issued)))
+            return tx
+
+    def _plan_edit(
         self,
         document_text: str,
         selected_range: Tuple[int, int] = (0, 0),
@@ -143,10 +184,6 @@ class VoiceEditor:
         instruction_clean = (instruction or "").strip()
 
         start, end = selected_range
-        # Clamp selection range to document bounds
-        doc_len = len(document_text)
-        start = max(0, min(start, doc_len))
-        end = max(start, min(end, doc_len))
         has_selection = (end > start)
 
         if not instruction_clean:
@@ -170,7 +207,7 @@ class VoiceEditor:
         # 1. UNDO REQUEST
         if RE_UNDO_EDIT.match(instruction_clean):
             history = self._history.get(target_id, [])
-            applied_txs = [t for t in history if t.status == "applied"]
+            applied_txs = [t for t in history if t.status == "applied" and t.operation != "undo"]
             if not applied_txs:
                 return EditTransaction(
                     transaction_id=tx_id,
@@ -475,53 +512,46 @@ class VoiceEditor:
         self,
         transaction: EditTransaction,
         current_document_text: str,
-        current_selection: Tuple[int, int] = (0, 0)
+        current_selection: Tuple[int, int] = (0, 0),
+        current_target_id: Optional[str] = None
     ) -> Tuple[bool, str, str]:
         """
         Atomically executes the EditTransaction after revalidating document revision and constraints.
         Returns:
             (success, resulting_text, status_message)
         """
-        # 1. Guard against consumed transaction
-        if transaction.consumed:
-            return False, current_document_text, "Transaction has already been applied or consumed."
-
-        # 2. Guard against non-applicable transaction
-        if not transaction.can_apply:
-            return False, current_document_text, transaction.error_message or "Transaction is not eligible to apply."
-
-        # 3. Revalidate document revision
-        current_rev = hash_text(current_document_text)
-        if current_rev != transaction.source_revision:
-            transaction.status = "aborted"
-            transaction.error_message = "Document was modified concurrently. Edit aborted to prevent clobbering."
-            return False, current_document_text, transaction.error_message
-
-        # 4. Invariant: FactGuard preservation outside the explicit delta
-        if transaction.operation in ("replace_span", "preset_transform"):
-            fg = FactGuard.verify_invariants(transaction.original_text, transaction.candidate_text)
-            # If the operation was explicitly replacing a date/number (e.g. "replace Friday with Monday"),
-            # ensure that no other facts were altered outside the target parameter
-            if not fg.get("passed", True):
-                find_param = transaction.parameters.get("find", "").lower()
-                # Check if the invariant failure was exclusively due to the intentional user change
-                # Otherwise, fail closed
-                altered_entities = fg.get("violations", [])
-                unauthorized_violations = [v for v in altered_entities if find_param not in str(v).lower()]
-                if unauthorized_violations:
-                    transaction.status = "aborted"
-                    transaction.error_message = f"FactGuard invariant violation outside authorized change: {unauthorized_violations}"
-                    return False, current_document_text, transaction.error_message
-
-        # 5. Commit transaction
-        transaction.consumed = True
-        transaction.status = "applied"
-
-        # Record in target history for verified undo
-        target_hist = self._history.setdefault(transaction.target_id, [])
-        target_hist.append(transaction)
-
-        return True, transaction.candidate_text, "Edit applied successfully."
+        with self._lock:
+            sealed = self._issued.pop(transaction.transaction_id, None)
+            error = None
+            if sealed is None or transaction != sealed:
+                error = "Transaction is unknown, changed, superseded, or has already been applied or consumed."
+            elif current_target_id is not None and current_target_id != sealed.target_id:
+                error = "The target document changed. Preview the edit again."
+            elif current_document_text != sealed.original_text or hash_text(current_document_text) != sealed.source_revision:
+                error = "Document was modified concurrently. Edit aborted to prevent clobbering."
+            elif tuple(current_selection) != sealed.source_selection:
+                error = "Selection changed. Preview the edit again."
+            elif sealed.operation == "preset_transform" and not FactGuard.verify_invariants(
+                    sealed.original_text, sealed.candidate_text).get("passed", False):
+                error = "FactGuard rejected the preset: protected facts changed."
+            # Explicit replace/delete/append plans are sealed exact splices. Their
+            # authorized delta may change a fact; the rest stays byte-for-byte intact.
+            transaction.consumed = True
+            transaction.can_apply = False
+            if error:
+                transaction.status = "aborted"
+                transaction.error_message = error
+                return False, current_document_text, error
+            transaction.status = "applied"
+            history = self._history.setdefault(sealed.target_id, [])
+            if sealed.operation == "undo":
+                for previous in history:
+                    if previous.transaction_id == sealed.parameters["target_tx_id"]:
+                        previous.status = "undone"
+            else:
+                history.append(deepcopy(transaction))
+                del history[:-32]
+            return True, sealed.candidate_text, "Edit applied successfully."
 
     def _build_aborted(
         self,

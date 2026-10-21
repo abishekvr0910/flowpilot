@@ -22,6 +22,14 @@ NORMALIZED_CELL_SIZE = 96          # 96x96 logical pixels
 
 BUILTIN_COMPANIONS = [
     {
+        "id": "kiki",
+        "name": "Kiki the Scarf Courier (Prototype)",
+        "type": "builtin",
+        "description": "Original pixel courier with distinct listening, processing, delivery and recovery poses.",
+        "icon": "✉",
+        "available_palettes": ["autumn", "frost", "matcha"]
+    },
+    {
         "id": "kitty",
         "name": "SondeR-Cat Pixel Kitty",
         "type": "builtin",

@@ -6,7 +6,7 @@
     "spoken_reference": "the meeting is scheduled for next monday morning at nine thirty",
     "formatted_reference": "The meeting is scheduled for next Monday morning at 9:30.",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.2,
     "critical_entities": [
@@ -21,7 +21,7 @@
     "spoken_reference": "git commit dash m fix parse hotkey string in hotkey service dot py",
     "formatted_reference": "git commit -m 'fix parse_hotkey_string in hotkey_service.py'",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 4.1,
     "critical_entities": [
@@ -38,7 +38,7 @@
     "spoken_reference": "we did not push the binary release because tests failed",
     "formatted_reference": "We did not push the binary release because tests failed.",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.5,
     "critical_entities": [
@@ -53,7 +53,7 @@
     "spoken_reference": "the latency dropped by twenty five point four percent from one point five seconds to eight hundred milliseconds",
     "formatted_reference": "The latency dropped by 25.4% from 1.5s to 800ms.",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 5.0,
     "critical_entities": [
@@ -69,7 +69,7 @@
     "spoken_reference": "check the pull request at https github com flowpilot releases tag v three point one point zero",
     "formatted_reference": "Check the pull request at https://github.com/flowpilot/releases/tag/v3.1.0",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 5.5,
     "critical_entities": [
@@ -84,7 +84,7 @@
     "spoken_reference": "please reload the ctranslate two runtime on cpu int eight",
     "formatted_reference": "Please reload the CTranslate2 runtime on CPU int8.",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.6,
     "critical_entities": [
@@ -100,7 +100,7 @@
     "spoken_reference": "do not delete the cached model directory",
     "formatted_reference": "Do not delete the cached model directory.",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 2.9,
     "critical_entities": [
@@ -115,7 +115,7 @@
     "spoken_reference": "set variable max retries to three and timeout to five seconds",
     "formatted_reference": "Set variable max_retries = 3 and timeout = 5s.",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.8,
     "critical_entities": [
@@ -131,7 +131,7 @@
     "spoken_reference": "voice dictation requires zero cloud egress and total privacy",
     "formatted_reference": "Voice dictation requires zero cloud egress and total privacy.",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.7,
     "critical_entities": [
@@ -146,7 +146,7 @@
     "spoken_reference": "invoice number forty two for seven hundred and fifty dollars was paid on october twenty first",
     "formatted_reference": "Invoice #42 for $750 was paid on October 21st.",
     "speaker_id": "dev-spk-en-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 4.6,
     "critical_entities": [
@@ -162,7 +162,7 @@
     "spoken_reference": "आज का काम समय पर पूरा हो गया है",
     "formatted_reference": "आज का काम समय पर पूरा हो गया है।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 2.8,
     "critical_entities": [
@@ -177,7 +177,7 @@
     "spoken_reference": "server restart करने के बाद python script सही चल रही है",
     "formatted_reference": "Server restart करने के बाद Python script सही चल रही है।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 4.2,
     "critical_entities": [
@@ -194,7 +194,7 @@
     "spoken_reference": "यह फ़ाइल किसी भी सर्वर पर नहीं भेजी जाएगी",
     "formatted_reference": "यह फ़ाइल किसी भी सर्वर पर नहीं भेजी जाएगी।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.5,
     "critical_entities": [
@@ -209,7 +209,7 @@
     "spoken_reference": "कुल पच्चीस हज़ार रुपये खाते में जमा किए गए",
     "formatted_reference": "कुल ₹25,000 खाते में जमा किए गए।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.9,
     "critical_entities": [
@@ -223,7 +223,7 @@
     "spoken_reference": "database connection timeout को दस सेकंड पर set करें",
     "formatted_reference": "Database connection timeout को 10s पर set करें।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 4.0,
     "critical_entities": [
@@ -239,7 +239,7 @@
     "spoken_reference": "कृपया माइक का volume थोड़ा बढ़ाएं",
     "formatted_reference": "कृपया माइक का volume थोड़ा बढ़ाएं।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.1,
     "critical_entities": [
@@ -254,7 +254,7 @@
     "spoken_reference": "हम किसी भी परिस्थिति में पासवर्ड शेयर नहीं करेंगे",
     "formatted_reference": "हम किसी भी परिस्थिति में पासवर्ड शेयर नहीं करेंगे।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.6,
     "critical_entities": [
@@ -269,7 +269,7 @@
     "spoken_reference": "नया feature master branch में merge हो चुका है",
     "formatted_reference": "नया feature master branch में merge हो चुका है।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.8,
     "critical_entities": [
@@ -286,7 +286,7 @@
     "spoken_reference": "सभी परीक्षण सफलतापूर्वक पास हो गए हैं",
     "formatted_reference": "सभी परीक्षण सफलतापूर्वक पास हो गए हैं।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.2,
     "critical_entities": [
@@ -301,7 +301,7 @@
     "spoken_reference": "पंद्रह अगस्त उन्नीस सौ सैंतालीस को भारत आज़ाद हुआ",
     "formatted_reference": "15 अगस्त 1947 को भारत आज़ाद हुआ।",
     "speaker_id": "dev-spk-hi-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 4.1,
     "critical_entities": [
@@ -317,7 +317,7 @@
     "spoken_reference": "இன்றைய பணிகள் அனைத்தும் சரியாக முடிந்துவிட்டன",
     "formatted_reference": "இன்றைய பணிகள் அனைத்தும் சரியாக முடிந்துவிட்டன.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.4,
     "critical_entities": [
@@ -331,7 +331,7 @@
     "spoken_reference": "react frontend build இப்போது சரியாக இயங்குகிறது",
     "formatted_reference": "React frontend build இப்போது சரியாக இயங்குகிறது.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 4.0,
     "critical_entities": [
@@ -347,7 +347,7 @@
     "spoken_reference": "இந்த தரவு இணையத்தில் பகிரப்படவில்லை",
     "formatted_reference": "இந்த தரவு இணையத்தில் பகிரப்படவில்லை.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.5,
     "critical_entities": [
@@ -361,7 +361,7 @@
     "spoken_reference": "மொத்தம் ஐந்நூறு பயனர்கள் பதிவு செய்துள்ளனர்",
     "formatted_reference": "மொத்தம் 500 பயனர்கள் பதிவு செய்துள்ளனர்.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.8,
     "critical_entities": [
@@ -376,7 +376,7 @@
     "spoken_reference": "fastapi router path ஐ சரிபார்க்கவும்",
     "formatted_reference": "FastAPI router path ஐ சரிபார்க்கவும்.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.2,
     "critical_entities": [
@@ -392,7 +392,7 @@
     "spoken_reference": "குரல் பதிவு ஒலி தெளிவாக கேட்கிறது",
     "formatted_reference": "குரல் பதிவு ஒலி தெளிவாக கேட்கிறது.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.0,
     "critical_entities": [
@@ -407,7 +407,7 @@
     "spoken_reference": "இரகசிய குறியீட்டை யாரிடமும் சொல்ல வேண்டாம்",
     "formatted_reference": "இரகசிய குறியீட்டை யாரிடமும் சொல்ல வேண்டாம்.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.3,
     "critical_entities": [
@@ -421,7 +421,7 @@
     "spoken_reference": "docker container ஐ restart செய்யவும்",
     "formatted_reference": "Docker container ஐ restart செய்யவும்.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.4,
     "critical_entities": [
@@ -437,7 +437,7 @@
     "spoken_reference": "தமிழ் மொழி குரல் பதிவு வெற்றிகரமாக செயல்படுகிறது",
     "formatted_reference": "தமிழ் மொழி குரல் பதிவு வெற்றிகரமாக செயல்படுகிறது.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.8,
     "critical_entities": [
@@ -452,7 +452,7 @@
     "spoken_reference": "இரண்டாயிரத்து இருபத்தாறாம் ஆண்டு அக்டோபர் மாதம்",
     "formatted_reference": "2026 ஆம் ஆண்டு அக்டோபர் மாதம்.",
     "speaker_id": "dev-spk-ta-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.7,
     "critical_entities": [
@@ -467,7 +467,7 @@
     "spoken_reference": "ഇന്നത്തെ ജോലികൾ എല്ലാം പൂർത്തിയായി",
     "formatted_reference": "ഇന്നത്തെ ജോലികൾ എല്ലാം പൂർത്തിയായി.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 2.9,
     "critical_entities": [
@@ -481,7 +481,7 @@
     "spoken_reference": "nodejs application crash ആയിട്ടുണ്ട്",
     "formatted_reference": "Node.js application crash ആയിട്ടുണ്ട്.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.4,
     "critical_entities": [
@@ -497,7 +497,7 @@
     "spoken_reference": "ഈ ഡാറ്റ പുറത്തേക്ക് അയച്ചിട്ടില്ല",
     "formatted_reference": "ഈ ഡാറ്റ പുറത്തേക്ക് അയച്ചിട്ടില്ല.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.1,
     "critical_entities": [
@@ -512,7 +512,7 @@
     "spoken_reference": "നൂറ്റമ്പത് രൂപ മാത്രമാണ് ഇതിന്റെ ചിലവ്",
     "formatted_reference": "₹150 മാത്രമാണ് ഇതിന്റെ ചിലവ്.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.3,
     "critical_entities": [
@@ -526,7 +526,7 @@
     "spoken_reference": "postgresql database query പരിശോധിച്ച് നോക്കുക",
     "formatted_reference": "PostgreSQL database query പരിശോധിച്ച് നോക്കുക.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.9,
     "critical_entities": [
@@ -542,7 +542,7 @@
     "spoken_reference": "ശബ്ദം വ്യക്തമായി കേൾക്കുന്നുണ്ട്",
     "formatted_reference": "ശബ്ദം വ്യക്തമായി കേൾക്കുന്നുണ്ട്.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 2.7,
     "critical_entities": [
@@ -556,7 +556,7 @@
     "spoken_reference": "പാസ്‌വേഡ് ആർക്കും നൽകരുത്",
     "formatted_reference": "പാസ്‌വേഡ് ആർക്കും നൽകരുത്.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 2.8,
     "critical_entities": [
@@ -571,7 +571,7 @@
     "spoken_reference": "kubernetes cluster deploy ചെയ്തു കഴിഞ്ഞു",
     "formatted_reference": "Kubernetes cluster deploy ചെയ്തു കഴിഞ്ഞു.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.7,
     "critical_entities": [
@@ -587,7 +587,7 @@
     "spoken_reference": "മലയാളം സംഭാഷണം കൃത്യമായി തിരിച്ചറിയുന്നു",
     "formatted_reference": "മലയാളം സംഭാഷണം കൃത്യമായി തിരിച്ചറിയുന്നു.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 3.5,
     "critical_entities": [
@@ -602,7 +602,7 @@
     "spoken_reference": "രണ്ടായിരത്തി ഇരുപത്താറ് വർഷം",
     "formatted_reference": "2026 വർഷം.",
     "speaker_id": "dev-spk-ml-01",
-    "consent_verified": true,
+    "consent_verified": false,
     "audio_file": null,
     "duration_sec": 2.9,
     "critical_entities": [
