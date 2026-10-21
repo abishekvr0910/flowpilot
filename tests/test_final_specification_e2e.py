@@ -52,6 +52,9 @@ from tests.notepad_harness import (
 )
 
 def run_18_scenarios():
+    if not is_interactive_desktop():
+        print("[RESULT] SKIPPED: Physical focus, microphone, and Notepad scenarios require an interactive Windows desktop.")
+        return True
     print("=" * 75)
     print("       FLOWPILOT 18-SCENARIO COMPREHENSIVE VERIFICATION SUITE")
     print("=" * 75)
@@ -160,20 +163,13 @@ def run_18_scenarios():
 
             # Verify the actual transcript; reports first-attempt vs recovery separately
             res = paste_and_verify_notepad(final_text + "\n", final_text, np_hwnd)
-            buffer_ok = res.verified
-            interactive = is_interactive_desktop()
-            if not buffer_ok and (os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS") or not interactive):
-                print(f"  Note: Host session is non-interactive (first_attempt={res.first_attempt_success}, recovered={res.recovered}).")
-                buffer_ok = True
-            assert buffer_ok, f"Transcribed speech not found in Notepad buffer! (Status: {res.status}, error: {res.error})"
+            assert res.verified, f"Transcribed speech not found in Notepad buffer! (Status: {res.status}, error: {res.error})"
             if res.first_attempt_success:
                 print(f"  -> First-attempt injection PASSED without retry.")
             elif res.recovered:
                 print(f"  -> Recovered proven-absent paste in Scenario 4.")
-            else:
-                print(f"  -> Product safely prevented injection into unverified focus in non-interactive environment.")
             results["S4_Transcription_Insertion"] = "PASS"
-            print(f"  -> Passed: Real speech transcribed ('{final_text}') verified safely.")
+            print(f"  -> Passed: Real speech transcribed ('{final_text}') verified physically in buffer.")
         except Exception as e:
             results["S4_Transcription_Insertion"] = f"FAIL: {e}"
             print(f"  -> Failed: {e}")
@@ -189,18 +185,11 @@ def run_18_scenarios():
                     assert focus_notepad_document(np_hwnd), f"Notepad document was not focused for cycle {i}"
                 msg = f"Scenario 5 repeat cycle {i}."
                 res = paste_and_verify_notepad(msg + "\n", msg, np_hwnd)
-                verified = res.verified
-                interactive = is_interactive_desktop()
-                if not verified and (os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS") or not interactive):
-                    print(f"  Note: Host session is non-interactive for cycle {i} (first_attempt={res.first_attempt_success}, recovered={res.recovered}).")
-                    verified = True
-                assert verified, f"Cycle {i} text not found in Notepad! (Status: {res.status}, error: {res.error})"
+                assert res.verified, f"Cycle {i} text not found in Notepad! (Status: {res.status}, error: {res.error})"
                 if res.first_attempt_success:
                     print(f"  -> First-attempt injection PASSED for cycle {i}.")
                 elif res.recovered:
-                    print(f"  -> Recovered proven-absent paste in cycle {i}.")
-                else:
-                    print(f"  -> Product safely prevented injection into unverified focus for cycle {i}.")
+                    print(f"  -> Recovered paste after {res.retries} retry: {msg}")
             results["S5_Repeated_Cycles"] = "PASS"
             print("  -> Passed: 3 repeated cycles executed cleanly with physical buffer confirmation.")
         except Exception as e:
@@ -448,6 +437,16 @@ def run_18_scenarios():
     print("=" * 75)
     return all_passed
 
+def test_safe_abort_isolation():
+    """Separated safety check: verifies safe-abort to recovery buffer when window is unverified."""
+    from engine.text_injector import TextInjector, InjectionStatus
+    test_payload = "E2E safe abort check: text preserved in recovery buffer."
+    res = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=0)
+    assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE
+    assert TextInjector.last_injected_text == test_payload + "\n"
+    print("  -> Safe abort isolation verified successfully.")
+
 if __name__ == "__main__":
+    test_safe_abort_isolation()
     success = run_18_scenarios()
     sys.exit(0 if success else 1)

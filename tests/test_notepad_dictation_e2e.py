@@ -29,7 +29,19 @@ def ensure_notepad() -> Tuple[int, subprocess.Popen, Path]:
     """Return the editable HWND, launcher process, and unique synthetic file."""
     return open_test_notepad()
 
+def test_safe_abort_when_focus_unavailable():
+    """Safety check: when focus is absent or unverified, paste safely aborts to recovery buffer."""
+    from engine.text_injector import TextInjector, InjectionStatus
+    test_payload = "Safe abort test: must not drop text."
+    res = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=0)
+    assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE, f"Expected FAILED_RECOVERY_AVAILABLE, got: {res.status}"
+    assert TextInjector.last_injected_text == test_payload + "\n", "Recovery buffer must hold exact text on abort"
+    print("  -> Safe abort on unverified focus verified successfully.")
+
 def run_5_consecutive_injections():
+    if not is_interactive_desktop():
+        print("[RESULT] SKIPPED: Five physical Notepad insertion cycles require an interactive Windows desktop.")
+        return True
     print("=" * 65)
     print("FLOWPILOT AUDIT: 5 CONSECUTIVE NOTEPAD DICTATION CYCLES")
     print("=" * 65)
@@ -71,18 +83,11 @@ def run_5_consecutive_injections():
             # Retry once only after this test document proves the first paste
             # absent. A sent-but-opaque target must never be retried blindly.
             res = paste_and_verify_notepad(phrase + "\n", phrase, target_hwnd)
-            verified = res.verified
-            interactive = is_interactive_desktop()
-            if not verified and (os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS") or not interactive):
-                print(f"  Note: Host session is non-interactive (first_attempt={res.first_attempt_success}, recovered={res.recovered}).")
-                verified = True
-            assert verified, f"Cycle {i} text was not physically found in Notepad document! (Status: {res.status}, error: {res.error})"
+            assert res.verified, f"Cycle {i} text was not physically found in Notepad document! (Status: {res.status}, error: {res.error})"
             if res.first_attempt_success:
                 print(f"  -> First-attempt injection PASSED: '{phrase}'")
             elif res.recovered:
                 print(f"  -> Recovered paste after {res.retries} retry: '{phrase}'")
-            else:
-                print(f"  -> Product safely prevented injection into unverified focus in non-interactive environment.")
             time.sleep(0.2)
 
         orchestrator.stop_hotkey_listener()
@@ -97,5 +102,6 @@ def run_5_consecutive_injections():
         cleanup_test_fixture(fixture, notepad_hwnd, proc)
 
 if __name__ == "__main__":
+    test_safe_abort_when_focus_unavailable()
     success = run_5_consecutive_injections()
     sys.exit(0 if success else 1)
