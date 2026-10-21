@@ -490,7 +490,77 @@ class VoiceEditor:
                 can_apply=True
             )
 
-        # 6. UNSUPPORTED INSTRUCTION (Arbitrary open-ended prompts without local LLM)
+        # 6. OPTIONAL LOCAL LLM REWRITING (Bounded natural language rewrites/transforms)
+        try:
+            from engine.local_llm import get_local_llm
+            llm = get_local_llm()
+            if llm.is_available():
+                target_scope = document_text[start:end] if has_selection else document_text
+                transformed = llm.transform(target_scope, instruction_clean)
+                if transformed and transformed.strip():
+                    transformed_clean = transformed.strip()
+                    # Enforce FactGuard invariant check: protected numbers, dates, negations
+                    fg = FactGuard.verify_invariants(target_scope, transformed_clean)
+                    if fg.get("passed", False):
+                        new_text = (document_text[:start] + transformed_clean + document_text[end:]) if has_selection else transformed_clean
+                        diff_preview = f"Local AI rewrite: {len(target_scope)} -> {len(transformed_clean)} chars"
+                        tx = EditTransaction(
+                            transaction_id=tx_id,
+                            target_id=target_id,
+                            target_type=target_type,
+                            source_revision=rev_hash,
+                            selected_range=(start, start + len(transformed_clean)),
+                            instruction=instruction_clean,
+                            operation="local_llm_rewrite",
+                            parameters={"instruction": instruction_clean},
+                            original_text=document_text,
+                            candidate_text=new_text,
+                            diff_preview=diff_preview,
+                            status="pending",
+                            can_apply=True
+                        )
+                        with self._lock:
+                            self._issued[tx_id] = deepcopy(tx)
+                        return tx
+                    else:
+                        violations = fg.get("violations", [])
+                        return EditTransaction(
+                            transaction_id=tx_id,
+                            target_id=target_id,
+                            target_type=target_type,
+                            source_revision=rev_hash,
+                            selected_range=(start, end),
+                            instruction=instruction_clean,
+                            operation="local_llm_rewrite",
+                            parameters={"instruction": instruction_clean},
+                            original_text=document_text,
+                            candidate_text=document_text,
+                            diff_preview=f"FactGuard rejected rewrite ({violations}).",
+                            status="aborted",
+                            can_apply=False,
+                            error_message=f"FactGuard rejected local rewrite: protected facts changed ({violations}). Document remains unchanged."
+                        )
+                else:
+                    return EditTransaction(
+                        transaction_id=tx_id,
+                        target_id=target_id,
+                        target_type=target_type,
+                        source_revision=rev_hash,
+                        selected_range=(start, end),
+                        instruction=instruction_clean,
+                        operation="local_llm_rewrite",
+                        parameters={"instruction": instruction_clean},
+                        original_text=document_text,
+                        candidate_text=document_text,
+                        diff_preview="Local AI model returned empty output.",
+                        status="unavailable",
+                        can_apply=False,
+                        error_message="Local AI rewrite returned empty output or timed out. Document remains unchanged."
+                    )
+        except Exception as e:
+            logger.debug(f"[VoiceEditor] Local LLM rewrite error: {e}")
+
+        # 7. UNSUPPORTED INSTRUCTION (Arbitrary open-ended prompts without active local LLM)
         return EditTransaction(
             transaction_id=tx_id,
             target_id=target_id,
@@ -531,9 +601,9 @@ class VoiceEditor:
                 error = "Document was modified concurrently. Edit aborted to prevent clobbering."
             elif tuple(current_selection) != sealed.source_selection:
                 error = "Selection changed. Preview the edit again."
-            elif sealed.operation == "preset_transform" and not FactGuard.verify_invariants(
+            elif sealed.operation in ("preset_transform", "local_llm_rewrite") and not FactGuard.verify_invariants(
                     sealed.original_text, sealed.candidate_text).get("passed", False):
-                error = "FactGuard rejected the preset: protected facts changed."
+                error = "FactGuard rejected the preset or rewrite: protected facts changed."
             # Explicit replace/delete/append plans are sealed exact splices. Their
             # authorized delta may change a fact; the rest stays byte-for-byte intact.
             transaction.consumed = True

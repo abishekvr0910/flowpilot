@@ -40,6 +40,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "silence_timeout_sec": 0.85,  # Optimized conversational pause (down from 1.4s, saving ~550ms)
     "hud_style": "mascot",  # "mascot" (Cartoon companion Pilot) or "wave" (Wispr dynamic bars)
     "meeting_retention_days": 0,  # 0 = keep indefinitely, or 7, 30, 90, 365 days
+    "enable_local_llm": False,  # Optional local writing model for open-ended voice edits/rewrites
+    "local_llm_endpoint": "http://127.0.0.1:11434",  # Strictly localhost only
+    "local_llm_model": "",  # Explicit model identity required; no silent guessing
+    "local_llm_timeout": 3.0,  # Strict wall-clock deadline in seconds
     "history": []
 }
 
