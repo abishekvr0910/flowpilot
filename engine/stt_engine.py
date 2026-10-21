@@ -61,6 +61,7 @@ except ImportError:
 try:
     from engine.language_registry import LanguageRegistry
     from engine.personalization import PersonalizationEngine
+    from engine.prompt_budget import PromptBudgetManager
     HAS_REGISTRY = True
 except ImportError:
     HAS_REGISTRY = False
@@ -69,6 +70,7 @@ class STTEngine:
     def __init__(self, config: Dict[str, Any], personalization: Optional[Any] = None):
         self.config = config
         self.personalization = personalization or (PersonalizationEngine() if HAS_REGISTRY else None)
+        self.budget_manager = PromptBudgetManager()
         self._local_model: Optional[Any] = None
         self._active_model_size: Optional[str] = None
         self._active_model_target: Optional[str] = None
@@ -259,38 +261,50 @@ class STTEngine:
             self._active_model_size = None
             self._inference_cond.notify_all()
 
-    def build_bias_prompt(self, custom_vocabulary: List[str], language: str) -> str:
+    def build_bias_prompt(
+        self,
+        custom_vocabulary: List[str],
+        language: str,
+        profile: Optional[str] = None,
+        max_prompt_tokens: int = 180
+    ) -> str:
         """
-        Builds a phonetic bias prompt for Whisper using LanguageRegistry
+        Builds a tokenizer-bounded phonetic bias prompt for Whisper using LanguageRegistry
         and personal custom dictionary to bias technical terms and multilingual flow.
+        Guarantees isolation (scoped terms don't leak) and respects decoder token budget.
         """
         vocab = list(custom_vocabulary)
         if self.personalization:
-            # Merge personal dictionary terms
-            dict_terms = self.personalization.get_terms_list()
+            # Merge personal dictionary terms scoped to current language & profile
+            dict_terms = self.personalization.get_terms_list(language=language, profile=profile)
             for t in dict_terms:
                 if t not in vocab:
                     vocab.append(t)
 
+        base_prompt = ""
         if HAS_REGISTRY:
-            return LanguageRegistry.get_bias_prompt(language, vocab)
+            info = LanguageRegistry.get_language(language) or LanguageRegistry.get_language("auto")
+            if info and info.default_bias_prompt:
+                base_prompt = info.default_bias_prompt
 
-        prompt_parts = []
-        if vocab:
-            vocab_str = ", ".join(vocab)
-            prompt_parts.append(f"Technical glossary: {vocab_str}.")
+        if not base_prompt and self.config.get("enable_code_switching", True):
+            base_prompt = "Natural conversational flow with accurate multilingual code-switching and correct capitalization."
 
-        if self.config.get("enable_code_switching", True):
-            prompt_parts.append("Natural conversational flow with accurate multilingual code-switching and correct capitalization.")
-
-        return " ".join(prompt_parts)
+        bounded_prompt, _, _ = self.budget_manager.build_bounded_prompt(
+            language=language,
+            base_prompt=base_prompt,
+            custom_terms=vocab,
+            max_total_tokens=max_prompt_tokens
+        )
+        return bounded_prompt
 
     def transcribe(
         self,
         audio_data: Union[bytes, np.ndarray],
         custom_vocabulary: Optional[List[str]] = None,
         task: str = "transcribe",
-        language: Optional[str] = None
+        language: Optional[str] = None,
+        profile: Optional[str] = None
     ) -> Dict[str, Any]:
         mode = self.config.get("engine_mode", "local")
         if mode == "cloud":
@@ -300,15 +314,49 @@ class STTEngine:
             )
         vocab = custom_vocabulary or self.config.get("custom_vocabulary", [])
         lang = language if language is not None else self.config.get("language", "auto")
-        bias_prompt = self.build_bias_prompt(vocab, lang)
-        return self._transcribe_local(audio_data, bias_prompt, lang, task=task)
+
+        strategy = self.config.get("biasing_strategy", "initial_prompt")
+
+        if strategy == "hotwords":
+            # Pass vocabulary terms as hotwords, initial_prompt contains base prompt
+            base_prompt = ""
+            if HAS_REGISTRY:
+                info = LanguageRegistry.get_language(lang) or LanguageRegistry.get_language("auto")
+                if info and info.default_bias_prompt:
+                    base_prompt = info.default_bias_prompt
+            initial_prompt = base_prompt
+
+            all_terms = list(vocab)
+            if self.personalization:
+                for t in self.personalization.get_terms_list(language=lang, profile=profile):
+                    if t not in all_terms:
+                        all_terms.append(t)
+            hotwords = PromptBudgetManager.format_hotwords(all_terms)
+        elif strategy == "hybrid":
+            # Avoid sending same glossary through both mechanisms blindly:
+            # Top priority terms go to hotwords, remaining terms + base go to initial_prompt
+            all_terms = list(vocab)
+            if self.personalization:
+                for t in self.personalization.get_terms_list(language=lang, profile=profile):
+                    if t not in all_terms:
+                        all_terms.append(t)
+            hotwords_terms = all_terms[:10]
+            prompt_terms = all_terms[10:]
+            hotwords = PromptBudgetManager.format_hotwords(hotwords_terms) if hotwords_terms else None
+            initial_prompt = self.build_bias_prompt(prompt_terms, lang, profile=profile)
+        else:  # "initial_prompt" (default)
+            initial_prompt = self.build_bias_prompt(vocab, lang, profile=profile)
+            hotwords = None
+
+        return self._transcribe_local(audio_data, initial_prompt, lang, task=task, hotwords=hotwords)
 
     def _transcribe_local(
         self,
         audio_data: Union[bytes, np.ndarray],
         initial_prompt: str,
         language: str,
-        task: str = "transcribe"
+        task: str = "transcribe",
+        hotwords: Optional[str] = None
     ) -> Dict[str, Any]:
         with self._acquire_model_session() as model:
             if isinstance(audio_data, np.ndarray):
@@ -356,7 +404,8 @@ class STTEngine:
                     task=task,
                     initial_prompt=initial_prompt,
                     vad_filter=vad_filter,
-                    vad_parameters=dict(min_silence_duration_ms=400) if vad_filter else None
+                    vad_parameters=dict(min_silence_duration_ms=400) if vad_filter else None,
+                    hotwords=hotwords
                 )
                 segment_list = list(segments)
             except Exception as e:
@@ -370,7 +419,8 @@ class STTEngine:
                         language=whisper_lang,
                         task=task,
                         initial_prompt=initial_prompt,
-                        vad_filter=False
+                        vad_filter=False,
+                        hotwords=hotwords
                     )
                     segment_list = list(segments)
                 else:
