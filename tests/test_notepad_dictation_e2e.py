@@ -31,21 +31,51 @@ def ensure_notepad() -> Tuple[int, subprocess.Popen, Path]:
     return open_test_notepad()
 
 def test_safe_abort_when_focus_unavailable():
-    """Safety check: when focus is absent (0) or switched, paste safely aborts to recovery buffer."""
+    """Safety check: when focus is absent (0) or switched, paste safely aborts to recovery buffer.
+    Mocks IsWindow=True, different window hierarchies, and foreground activation;
+    asserts the foreground focus check runs and no clipboard writes or keystrokes occur.
+    """
     from engine.text_injector import TextInjector, InjectionStatus
     test_payload = "Safe abort test: must not drop text."
+    target_hwnd = 12345
 
     # Case 1: Missing foreground focus (GetForegroundWindow returns 0)
-    with patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=0):
-        res = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=12345)
+    with patch("engine.text_injector.win32gui.IsWindow", return_value=True), \
+         patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=0), \
+         patch("engine.text_injector.win32gui.GetAncestor", side_effect=lambda h, f: h), \
+         patch.object(TextInjector, "_safe_set_foreground") as mock_set_fg, \
+         patch.object(TextInjector, "_resolve_verified_foreground", wraps=TextInjector._resolve_verified_foreground) as spy_resolve_fg, \
+         patch.object(TextInjector, "_safe_clipboard_copy") as mock_clip_copy, \
+         patch("engine.text_injector.win32api.keybd_event") as mock_keybd, \
+         patch.object(TextInjector, "inject_unicode_sendinput") as mock_sendinput:
+
+        res = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=target_hwnd)
         assert res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE, f"Expected FAILED_RECOVERY_AVAILABLE on focus=0, got: {res.status}"
         assert TextInjector.last_injected_text == test_payload + "\n", "Recovery buffer must hold exact text on abort"
+        assert mock_set_fg.called, "Foreground activation must be attempted when target is not foreground"
+        assert spy_resolve_fg.called, "Foreground verification check must run"
+        mock_clip_copy.assert_not_called()
+        mock_keybd.assert_not_called()
+        mock_sendinput.assert_not_called()
 
-    # Case 2: Focus switched away to another application
-    with patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=99999):
-        res2 = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=12345)
+    # Case 2: Focus switched away to another application (different hierarchy: 99999 vs 12345)
+    with patch("engine.text_injector.win32gui.IsWindow", return_value=True), \
+         patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=99999), \
+         patch("engine.text_injector.win32gui.GetAncestor", side_effect=lambda h, f: h), \
+         patch.object(TextInjector, "_safe_set_foreground") as mock_set_fg, \
+         patch.object(TextInjector, "_resolve_verified_foreground", wraps=TextInjector._resolve_verified_foreground) as spy_resolve_fg, \
+         patch.object(TextInjector, "_safe_clipboard_copy") as mock_clip_copy, \
+         patch("engine.text_injector.win32api.keybd_event") as mock_keybd, \
+         patch.object(TextInjector, "inject_unicode_sendinput") as mock_sendinput:
+
+        res2 = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=target_hwnd)
         assert res2.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE, f"Expected FAILED_RECOVERY_AVAILABLE on focus mismatch, got: {res2.status}"
         assert TextInjector.last_injected_text == test_payload + "\n"
+        assert mock_set_fg.called, "Foreground activation must be attempted when target is not foreground"
+        assert spy_resolve_fg.called, "Foreground verification check must run"
+        mock_clip_copy.assert_not_called()
+        mock_keybd.assert_not_called()
+        mock_sendinput.assert_not_called()
 
     print("  -> Safe abort on missing/switched focus verified successfully.")
 
