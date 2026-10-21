@@ -144,6 +144,8 @@ class VoiceEditor:
         target_type: str = "scratchpad"
     ) -> EditTransaction:
         """Issue a sealed, one-use plan for an owned scratchpad document."""
+        if selected_range is None:
+            selected_range = (0, 0)
         with self._lock:
             self._issued = {k: v for k, v in self._issued.items() if v.target_id != target_id}
             error = None

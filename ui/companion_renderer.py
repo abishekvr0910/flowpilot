@@ -1422,6 +1422,37 @@ class CompanionRenderer:
             painter.setFont(font)
             painter.setPen(QColor("#F8FAFC"))
             painter.drawText(bounds, Qt.AlignCenter, emoji_char)
+        elif c_type in ("image", "spritesheet"):
+            comp_dir = custom_data.get("directory")
+            frames = custom_data.get("frames", [])
+            if frames and isinstance(frames, list) and len(frames) > 0:
+                if reduced_motion:
+                    # Strict reduced motion invariant: freeze on rest frame 0
+                    frame_idx = 0
+                elif state in ("pasted", "success", "confirmed"):
+                    frame_idx = min(len(frames) - 1, 2)
+                elif state in ("listening", "recording"):
+                    listen_count = max(1, min(2, len(frames) - 1))
+                    frame_idx = int((elapsed_ms / 250.0)) % (listen_count + 1)
+                    if frame_idx >= 2 and len(frames) >= 3:
+                        frame_idx = 1
+                else:
+                    frame_idx = 0
+                img_name = frames[frame_idx]
+            else:
+                img_name = custom_data.get("image_file", "sprite.png")
+
+            if comp_dir:
+                from pathlib import Path
+                img_path = Path(comp_dir) / img_name
+                if img_path.exists():
+                    pix = QPixmap(str(img_path))
+                    if not pix.isNull():
+                        scaled = pix.scaled(int(bounds.width()), int(bounds.height()), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        painter.drawPixmap(int(cx - scaled.width() / 2), int(cy - scaled.height() / 2), scaled)
+                        return
+
+            cls._draw_fallback_glyph(painter, cx, cy, "🤖")
         else:
             cls._draw_fallback_glyph(painter, cx, cy, "🤖")
 

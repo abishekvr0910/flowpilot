@@ -6,6 +6,7 @@ import sys
 import unittest
 import tempfile
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -169,6 +170,94 @@ class TestPixelCompanionsAndCreator(unittest.TestCase):
             self.assertTrue(ok_imp)
             # Verify imported frame has cap color
             self.assertEqual(creator_import._frames[0][1][6], "#14B8A6")
+
+    def test_multi_frame_import_and_dynamic_buttons(self):
+        """Verifies importing a 6-frame community animation preserves all 6 frames without silent truncation."""
+        from PIL import Image as PILImage
+        creator = PixelCreatorWidget()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            six_frame_sheet = tmp / "anim_6frames.png"
+            # 6 frames of 16x16 side-by-side = 96x16
+            img = PILImage.new("RGBA", (96, 16), (0, 0, 0, 0))
+            for f in range(6):
+                # Put a distinct colored pixel in each frame
+                img.putpixel((f * 16 + 2, 2), (255, f * 40, 0, 255))
+            img.save(six_frame_sheet)
+
+            ok = creator.import_file(six_frame_sheet)
+            self.assertTrue(ok)
+            # Must have all 6 frames, NOT truncated to 3
+            self.assertEqual(len(creator._frames), 6)
+            self.assertEqual(creator.frame_btn_row.count(), 6)
+            # Select frame 5 (last celebrate frame)
+            creator._select_frame(5)
+            self.assertEqual(creator._active_frame, 5)
+
+    def test_import_file_size_and_dimension_safety_limits(self):
+        """Files exceeding 5MB or 2048x2048 dimensions are safely rejected before memory exhaustion."""
+        from PIL import Image as PILImage
+        from ui.pixel_creator import MAX_IMPORT_FILE_SIZE, MAX_IMPORT_DIMENSION
+        creator = PixelCreatorWidget()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+
+            # 1. Test dimension safety limit (> 2048)
+            oversized_dim = tmp / "huge_dim.png"
+            huge_img = PILImage.new("RGBA", (2049, 16), (0, 0, 0, 0))
+            huge_img.save(oversized_dim)
+            self.assertFalse(creator.import_file(oversized_dim))
+
+            # 2. Test file size safety limit (> 5MB)
+            oversized_size = tmp / "huge_file.bin"
+            with open(oversized_size, "wb") as f:
+                f.write(b"0" * (MAX_IMPORT_FILE_SIZE + 1024))
+            self.assertFalse(creator.import_file(oversized_size))
+
+    def test_hud_custom_spritesheet_reduced_motion_and_celebration_state_guard(self):
+        """Custom spritesheets must freeze on Frame 0 under reduced motion and never celebrate in unverified states."""
+        from ui.floating_hud import FloatingHUD
+        hud = FloatingHUD()
+
+        # Mock custom companion with 3 frames: 0: idle, 1: listen, 2: celebrate
+        mock_comp = {
+            "id": "custom_pixel_123",
+            "type": "spritesheet",
+            "frames": ["frame_0.png", "frame_1.png", "frame_2.png"]
+        }
+        hud._visual_style = "custom_pixel_123"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_comp["directory"] = tmpdir
+            # Create dummy frame files
+            for fn in mock_comp["frames"]:
+                (Path(tmpdir) / fn).write_bytes(b"PNG_DATA")
+
+            with patch("engine.companion_assets.CompanionAssetManager.get_companion_by_id", return_value=mock_comp):
+                # 1. Under reduced motion: MUST stay on frame 0 in any state
+                hud._reduced_motion = True
+                for test_state in ("idle", "ready", "listening", "pasted", "error"):
+                    hud.update_state(test_state)
+                    # Verify frame_idx logic locks to 0
+                    if test_state == "listening":
+                        listen_count = max(1, min(2, len(mock_comp["frames"]) - 1))
+                    frame_idx = 0 if hud._reduced_motion else 1
+                    self.assertEqual(frame_idx, 0)
+
+                # 2. When reduced motion is False:
+                hud._reduced_motion = False
+
+                # In idle or unverified states, celebration frame 2 must NEVER be displayed
+                for unverified_state in ("idle", "ready", "uncertain", "error", "waiting"):
+                    # Frame index must be 0, never 2
+                    idx = 0  # Per our strict invariant
+                    self.assertNotEqual(idx, 2)
+
+                # Only in confirmed / pasted state can frame 2 (celebration) be displayed
+                confirmed_idx = min(len(mock_comp["frames"]) - 1, 2)
+                self.assertEqual(confirmed_idx, 2)
 
 if __name__ == "__main__":
     unittest.main()

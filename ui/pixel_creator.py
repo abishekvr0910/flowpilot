@@ -51,6 +51,9 @@ PALETTE_COLORS = [
 ]
 
 GRID_SIZE = 16
+MAX_IMPORT_FILE_SIZE = 5 * 1024 * 1024  # 5 MiB file size safety limit
+MAX_IMPORT_DIMENSION = 2048            # 2048x2048 max resolution safety limit
+MAX_SPRITE_FRAMES = 12                 # Maximum frames per animation pack
 
 
 def _create_empty_grid() -> List[List[Optional[str]]]:
@@ -354,18 +357,9 @@ class PixelCreatorWidget(QWidget):
         lbl_frames.setStyleSheet("font-weight: bold; color: #94A3B8;")
         right_col.addWidget(lbl_frames)
 
-        frame_btn_row = QHBoxLayout()
-        self.frame_btn_group = QButtonGroup(self)
-        frame_names = ["1: Idle", "2: Action / Move", "3: Celebrate"]
-        for idx, fname in enumerate(frame_names):
-            fb = QPushButton(fname)
-            fb.setCheckable(True)
-            if idx == 0:
-                fb.setChecked(True)
-            fb.clicked.connect(lambda _, fidx=idx: self._select_frame(fidx))
-            self.frame_btn_group.addButton(fb, idx)
-            frame_btn_row.addWidget(fb)
-        right_col.addLayout(frame_btn_row)
+        self.frame_btn_row = QHBoxLayout()
+        right_col.addLayout(self.frame_btn_row)
+        self._rebuild_frame_buttons()
 
         # Live Animation Preview
         lbl_prev = QLabel("Live Animation Loop:")
@@ -469,6 +463,34 @@ class PixelCreatorWidget(QWidget):
     def _on_speed_changed(self, idx: int):
         fps = [2, 4, 6, 8][idx]
         self.anim_preview.set_fps(fps)
+
+    def _rebuild_frame_buttons(self):
+        """Dynamically builds frame buttons based on the current number of frames (3 to 12)."""
+        while self.frame_btn_row.count():
+            item = self.frame_btn_row.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        self.frame_btn_group = QButtonGroup(self)
+        n = len(self._frames)
+        for idx in range(n):
+            if idx == 0:
+                name = "1: Idle"
+            elif idx == n - 1 and n >= 3:
+                name = f"{idx+1}: Celebrate"
+            elif idx == 1:
+                name = "2: Action"
+            else:
+                name = f"{idx+1}: Frame"
+
+            fb = QPushButton(name)
+            fb.setCheckable(True)
+            if idx == self._active_frame:
+                fb.setChecked(True)
+            fb.clicked.connect(lambda _, fidx=idx: self._select_frame(fidx))
+            self.frame_btn_group.addButton(fb, idx)
+            self.frame_btn_row.addWidget(fb)
 
     # -----------------------------------------------------------------------
     # Template Generation (Lively Multi-Frame Animations)
@@ -746,6 +768,8 @@ class PixelCreatorWidget(QWidget):
         # Blank Grid falls through to empty frames
         self.txt_name.setText(title)
         self._frames = frames
+        self._active_frame = 0
+        self._rebuild_frame_buttons()
         self.anim_preview.set_all_frames(self._frames)
         self.canvas.set_grid(self._frames[self._active_frame])
         prev_idx = (self._active_frame - 1) % len(self._frames)
@@ -804,15 +828,30 @@ class PixelCreatorWidget(QWidget):
         return filepath.exists()
 
     def import_file(self, filepath: Path) -> bool:
-        """Imports frames from an animated GIF or horizontal spritesheet PNG."""
+        """Imports frames from an animated GIF or horizontal spritesheet PNG with bounded safety checks."""
         if not PILImage:
             return False
         filepath = Path(filepath)
         if not filepath.exists():
             return False
 
+        # 1. Enforce file size safety limit BEFORE decoding
+        try:
+            fsize = filepath.stat().st_size
+            if fsize > MAX_IMPORT_FILE_SIZE or fsize == 0:
+                print(f"[PixelCreator] File size {fsize} bytes exceeds limit ({MAX_IMPORT_FILE_SIZE} bytes).")
+                return False
+        except Exception:
+            return False
+
         try:
             with PILImage.open(filepath) as img:
+                # 2. Enforce dimension limits to prevent decompression bombs
+                w, h = img.size
+                if w > MAX_IMPORT_DIMENSION or h > MAX_IMPORT_DIMENSION or w == 0 or h == 0:
+                    print(f"[PixelCreator] Image dimension {w}x{h} exceeds safe limit ({MAX_IMPORT_DIMENSION}).")
+                    return False
+
                 loaded_grids: List[List[List[Optional[str]]]] = []
 
                 # Animated GIF
@@ -826,12 +865,11 @@ class PixelCreatorWidget(QWidget):
                                 if p[3] >= 50:
                                     grid[r][c] = "#{:02X}{:02X}{:02X}".format(p[0], p[1], p[2])
                         loaded_grids.append(grid)
-                        if len(loaded_grids) >= 3:
+                        if len(loaded_grids) >= MAX_SPRITE_FRAMES:
                             break
                 else:
-                    # Spritesheet
-                    w, h = img.size
-                    n_frames = max(1, min(3, w // h))
+                    # Spritesheet (horizontal strip: width is multiple of height)
+                    n_frames = max(1, min(MAX_SPRITE_FRAMES, w // max(1, h)))
                     for i in range(n_frames):
                         crop = img.crop((i * h, 0, (i + 1) * h, h)).convert("RGBA").resize((GRID_SIZE, GRID_SIZE), PILImage.Resampling.NEAREST)
                         grid = _create_empty_grid()
@@ -842,11 +880,16 @@ class PixelCreatorWidget(QWidget):
                                     grid[r][c] = "#{:02X}{:02X}{:02X}".format(p[0], p[1], p[2])
                         loaded_grids.append(grid)
 
-                # Ensure at least 3 frames
-                while len(loaded_grids) < 3:
-                    loaded_grids.append(_clone_grid(loaded_grids[-1] if loaded_grids else _create_empty_grid()))
+                if not loaded_grids:
+                    return False
 
-                self._frames = loaded_grids[:3]
+                # Ensure at least 3 frames for full Idle / Move / Celebrate lifecycle
+                while len(loaded_grids) < 3:
+                    loaded_grids.append(_clone_grid(loaded_grids[-1]))
+
+                self._frames = loaded_grids[:MAX_SPRITE_FRAMES]
+                self._active_frame = 0
+                self._rebuild_frame_buttons()
                 self.anim_preview.set_all_frames(self._frames)
                 self.canvas.set_grid(self._frames[self._active_frame])
                 prev_idx = (self._active_frame - 1) % len(self._frames)

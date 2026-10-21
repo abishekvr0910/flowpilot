@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLabel, QLineEdit,
     QPushButton, QFileDialog, QMessageBox, QFrame
 )
-from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtCore import Qt, Signal, QTimer, QThread
 from PySide6.QtGui import QFont, QTextCursor, QColor
 import pyperclip
 
@@ -36,6 +36,42 @@ def _python_selection(text, cursor):
     encoded = text.encode("utf-16-le")
     return tuple(len(encoded[:offset * 2].decode("utf-16-le"))
                  for offset in (cursor.selectionStart(), cursor.selectionEnd()))
+
+
+class VoiceCommandWorker(QThread):
+    """Background worker executing ASR decode and LLM transform off the UI thread."""
+    command_planned = Signal(str, object, str)  # (cleaned_instruction, tx, error_msg)
+    status_updated = Signal(str)
+
+    def __init__(self, stt, editor, doc_text, sel_range, audio, parent=None):
+        super().__init__(parent)
+        self.stt = stt
+        self.editor = editor
+        self.doc_text = doc_text
+        self.sel_range = sel_range
+        self.audio = audio
+
+    def run(self):
+        try:
+            self.status_updated.emit("Transcribing voice command...")
+            res = self.stt.transcribe(self.audio)
+            raw = res.get("text", "").strip() if isinstance(res, dict) else str(res).strip()
+            if not raw:
+                self.command_planned.emit("", None, "No clear speech recognized. Please repeat the command.")
+                return
+
+            cleaned = raw.rstrip(".!? ")
+            self.status_updated.emit("Planning voice edit...")
+            start, end = self.sel_range if self.sel_range else (0, 0)
+            has_sel = (start != end and 0 <= start < end <= len(self.doc_text))
+            tx = self.editor.plan_edit(
+                self.doc_text,
+                instruction=cleaned,
+                selected_range=(start, end) if has_sel else (0, 0)
+            )
+            self.command_planned.emit(cleaned, tx, "")
+        except Exception as e:
+            self.command_planned.emit("", None, f"Command execution failed: {e}")
 
 
 class ScratchpadView(QWidget):
@@ -54,6 +90,7 @@ class ScratchpadView(QWidget):
         self._stt_engine = stt_engine
         self._audio_recorder = audio_recorder
         self._is_recording_command = False
+        self._command_worker: Optional[VoiceCommandWorker] = None
         self.voice_editor: VoiceEditor = get_voice_editor()
         self.active_transaction: Optional[EditTransaction] = None
         self._target_id = f"scratchpad:{uuid.uuid4().hex}"
@@ -519,7 +556,41 @@ class ScratchpadView(QWidget):
         else:
             self._start_command_recording()
 
+    def _reset_speak_button_style(self):
+        self.btn_speak_command.setText("🎙️ Speak Command")
+        self.btn_speak_command.setStyleSheet("""
+            QPushButton {
+                background-color: #7C3AED;
+                color: #FFFFFF;
+                font-weight: 600;
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #6D28D9; }
+        """)
+
+    def _cancel_command_recording(self):
+        """Immediately closes recording stream and restores UI to idle state."""
+        if self._is_recording_command:
+            self._is_recording_command = False
+            self._reset_speak_button_style()
+            recorder = self._get_audio_recorder()
+            if recorder:
+                try:
+                    recorder.stop_recording(keep_stream_alive=False)
+                except Exception:
+                    pass
+
     def _start_command_recording(self):
+        # Abort any prior in-flight background worker
+        if self._command_worker and self._command_worker.isRunning():
+            try:
+                self._command_worker.quit()
+                self._command_worker.wait(200)
+            except Exception:
+                pass
+
         recorder = self._get_audio_recorder()
         if not recorder:
             self.lbl_edit_diff.setText("⚠ Microphone is not available.")
@@ -547,33 +618,74 @@ class ScratchpadView(QWidget):
         if not self._is_recording_command:
             return
         self._is_recording_command = False
-        self.btn_speak_command.setText("🎙️ Speak Command")
-        self.btn_speak_command.setStyleSheet("""
-            QPushButton {
-                background-color: #7C3AED;
-                color: #FFFFFF;
-                font-weight: 600;
-                padding: 8px 12px;
-                border-radius: 6px;
-                border: none;
-            }
-            QPushButton:hover { background-color: #6D28D9; }
-        """)
+        self._reset_speak_button_style()
+
         recorder = self._get_audio_recorder()
-        audio = recorder.stop_recording() if recorder else None
+        audio = None
+        if recorder:
+            try:
+                audio = recorder.stop_recording(keep_stream_alive=False)
+            except Exception as e:
+                logger.warning(f"Error stopping command recorder: {e}")
+
         if audio is None or len(audio) == 0:
             self.lbl_edit_diff.setText("⚠ No audio captured. Try speaking again.")
             self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
             return
 
+        stt = self._get_stt_engine()
+        if not stt:
+            self.lbl_edit_diff.setText("⚠ STT engine is not available.")
+            self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
+            return
+
+        # Execute transcription and edit planning on a background thread to prevent UI freezing
         self.lbl_edit_diff.setText("Transcribing voice command...")
         self.lbl_edit_diff.setStyleSheet("color: #A5B4FC; font-size: 12px; font-family: monospace; padding-left: 4px;")
-        self.process_voice_command_audio(audio)
+
+        doc_text = self.editor.toPlainText()
+        cursor = self.editor.textCursor()
+        sel_range = _python_selection(doc_text, cursor)
+
+        self._command_worker = VoiceCommandWorker(
+            stt=stt,
+            editor=self.voice_editor,
+            doc_text=doc_text,
+            sel_range=sel_range,
+            audio=audio,
+            parent=self
+        )
+        self._command_worker.status_updated.connect(self._on_command_worker_status)
+        self._command_worker.command_planned.connect(self._on_command_worker_result)
+        self._command_worker.start()
+
+    def _on_command_worker_status(self, msg: str):
+        self.lbl_edit_diff.setText(msg)
+        self.lbl_edit_diff.setStyleSheet("color: #A5B4FC; font-size: 12px; font-family: monospace; padding-left: 4px;")
+
+    def _on_command_worker_result(self, cleaned: str, tx: Optional[EditTransaction], err: str):
+        if err or not tx:
+            self.lbl_edit_diff.setText(f"⚠ {err or 'Command planning failed.'}")
+            self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
+            return
+
+        self.input_edit_command.setText(cleaned)
+        self.active_transaction = tx
+        if tx.can_apply:
+            self.lbl_edit_diff.setText(f"✓ Planned: {tx.diff_preview}")
+            self.lbl_edit_diff.setStyleSheet("color: #34D399; font-size: 12px; font-family: monospace;")
+            self.btn_apply_edit.setEnabled(True)
+        else:
+            self.lbl_edit_diff.setText(f"⚠ {tx.error_message or tx.diff_preview}")
+            self.lbl_edit_diff.setStyleSheet("color: #F87171; font-size: 12px; font-family: monospace;")
+            self.btn_apply_edit.setEnabled(False)
+
+        self.command_planned.emit(tx)
 
     def process_voice_command_audio(self, audio) -> Optional[EditTransaction]:
         """
-        Transcribes recorded audio and plans the voice edit transaction.
-        Visualizes the recognized command in the input box and diff in preview before Apply.
+        Transcribes recorded audio and plans the voice edit transaction synchronously.
+        Used for headless testing and programmatic invocation.
         """
         stt = self._get_stt_engine()
         if not stt:
@@ -602,12 +714,13 @@ class ScratchpadView(QWidget):
         return self.active_transaction
 
     def _cancel_edit(self):
-        if self._is_recording_command:
-            self._is_recording_command = False
-            self.btn_speak_command.setText("🎙️ Speak Command")
-            recorder = self._get_audio_recorder()
-            if recorder:
-                recorder.stop_recording()
+        self._cancel_command_recording()
+        if self._command_worker and self._command_worker.isRunning():
+            try:
+                self._command_worker.quit()
+                self._command_worker.wait(100)
+            except Exception:
+                pass
         self._invalidate_preview()
         self.edit_panel.setVisible(False)
 
@@ -658,10 +771,24 @@ class ScratchpadView(QWidget):
         self._save_autosave()
 
     def hideEvent(self, event):
+        self._cancel_command_recording()
+        if self._command_worker and self._command_worker.isRunning():
+            try:
+                self._command_worker.quit()
+                self._command_worker.wait(100)
+            except Exception:
+                pass
         self.save_now()
         super().hideEvent(event)
 
     def closeEvent(self, event):
+        self._cancel_command_recording()
+        if self._command_worker and self._command_worker.isRunning():
+            try:
+                self._command_worker.quit()
+                self._command_worker.wait(100)
+            except Exception:
+                pass
         self.save_now()
         super().closeEvent(event)
 

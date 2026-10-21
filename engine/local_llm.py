@@ -12,6 +12,7 @@ import socket
 import json
 import logging
 import time
+import concurrent.futures
 import urllib.request
 import urllib.error
 from typing import Optional, Dict, Any, Tuple, List
@@ -39,6 +40,12 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 _SECURE_LOCAL_OPENER = urllib.request.build_opener(
     urllib.request.ProxyHandler({}),
     _NoRedirectHandler()
+)
+
+# Dedicated worker pool for bounded LLM transformations to guarantee hard timeout cancellation
+_TRANSFORM_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=2,
+    thread_name_prefix="FlowPilot-LocalLLM"
 )
 
 
@@ -197,8 +204,11 @@ class LocalLLMProvider:
 
         # Bounded wall-clock deadline across request
         wall_start = time.monotonic()
-        max_duration = min(timeout or self.timeout, 5.0)
+        max_duration = min(timeout if timeout is not None else self.timeout, 5.0)
         deadline = wall_start + max_duration
+
+        if max_duration <= 0.0 or time.monotonic() >= deadline:
+            return None
 
         # Bounded input length to prevent resource lock
         text_bounded = text[:4000]
@@ -212,13 +222,45 @@ class LocalLLMProvider:
             "Output ONLY the final rewritten text, without conversational prefixes, quotes, or explanations."
         )
 
+        # Enforce strict wall-clock deadline containment via worker executor
+        future = _TRANSFORM_EXECUTOR.submit(
+            self._execute_transform_call,
+            text_bounded,
+            instruction_bounded,
+            sys_msg,
+            model,
+            deadline
+        )
+        try:
+            remaining = max(0.01, deadline - time.monotonic())
+            result = future.result(timeout=remaining)
+            if time.monotonic() > deadline:
+                logger.warning(f"[LocalLLM] Request exceeded deadline ({time.monotonic() - wall_start:.2f}s > {max_duration}s); dropping late result.")
+                return None
+            return result
+        except concurrent.futures.TimeoutError:
+            logger.warning(f"[LocalLLM] Wall-clock deadline reached ({max_duration}s); transform timed out.")
+            return None
+        except Exception as e:
+            logger.debug(f"[LocalLLM] Transform execution failed: {e}")
+            return None
+
+    def _execute_transform_call(
+        self,
+        text_bounded: str,
+        instruction_bounded: str,
+        sys_msg: str,
+        model: str,
+        deadline: float
+    ) -> Optional[str]:
         user_content = f"Instruction: {instruction_bounded}\n\nText:\n{text_bounded}"
 
         # 1. Try Ollama native /api/generate
         try:
-            remaining = max(0.2, deadline - time.monotonic())
-            if remaining <= 0.2:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0.05:
                 return None
+
             payload = json.dumps({
                 "model": model,
                 "prompt": f"{sys_msg}\n\n{user_content}\n\nRewritten text:",
@@ -237,10 +279,12 @@ class LocalLLMProvider:
                 method="POST"
             )
             with _SECURE_LOCAL_OPENER.open(req, timeout=remaining) as resp:
+                if time.monotonic() > deadline:
+                    return None
                 if resp.status == 200:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     out = res_data.get("response", "").strip()
-                    if out:
+                    if out and time.monotonic() <= deadline:
                         logger.info(f"[LocalLLM] Generated transform via Ollama ({model})")
                         return self._clean_llm_output(out)
         except Exception:
@@ -248,9 +292,10 @@ class LocalLLMProvider:
 
         # 2. Try OpenAI-compatible /v1/chat/completions (LM Studio, llama.cpp, Ollama)
         try:
-            remaining = max(0.2, deadline - time.monotonic())
-            if remaining <= 0.2:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0.05:
                 return None
+
             payload = json.dumps({
                 "model": model,
                 "messages": [
@@ -268,12 +313,14 @@ class LocalLLMProvider:
                 method="POST"
             )
             with _SECURE_LOCAL_OPENER.open(req, timeout=remaining) as resp:
+                if time.monotonic() > deadline:
+                    return None
                 if resp.status == 200:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     choices = res_data.get("choices", [])
                     if choices:
                         out = choices[0].get("message", {}).get("content", "").strip()
-                        if out:
+                        if out and time.monotonic() <= deadline:
                             logger.info(f"[LocalLLM] Generated transform via OpenAI endpoint ({model})")
                             return self._clean_llm_output(out)
         except Exception as e:
