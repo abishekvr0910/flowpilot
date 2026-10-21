@@ -56,6 +56,7 @@ TESTS = [
     ("Honest Transforms & Enforced Apply Guardrails", "tests/test_honest_transforms.py"),
     ("Multilingual Evaluation Metrics & Corpus Schema", "tests/test_evaluation_metrics.py"),
     ("Personalization & Bounded Prompt Budgeting (PR 3)", "tests/test_personalization_pr3.py"),
+    ("Bounded Voice Editing & Atomic Transactions (PR 4)", "tests/test_voice_editor_pr4.py"),
 ]
 
 
