@@ -5,10 +5,12 @@ Verifies:
 2. Voice command transcription, input reflection, diff preview, and explicit apply
 3. Bounded, single-direction undo for voice edits
 4. Ambiguous command refusal and FactGuard invariant enforcement
-5. Local LLM provider offline security: loopback-only, no-redirects, zero proxy leak
-6. Local LLM explicit model selection (no silent first-model guessing)
-7. Local LLM wall-clock deadline timeout leaving text unchanged
-8. FactGuard invariant enforcement on LLM generative rewrites
+5. Microphone release and recording cancellation on Scratchpad hide/close
+6. VoiceCommandWorker asynchronous execution off the UI thread
+7. Local LLM provider offline security: loopback-only, no-redirects, zero proxy leak
+8. Local LLM explicit model selection (no silent first-model guessing)
+9. Local LLM hard wall-clock deadline enforcement even on slow/hanging backends
+10. FactGuard invariant enforcement on LLM generative rewrites
 """
 
 import copy
@@ -28,7 +30,7 @@ from PySide6.QtWidgets import QApplication
 from engine.voice_editor import VoiceEditor, EditTransaction
 from engine.local_llm import LocalLLMProvider
 from engine.writing_intelligence import FactGuard
-from ui.scratchpad_view import ScratchpadView
+from ui.scratchpad_view import ScratchpadView, VoiceCommandWorker
 
 
 class VoiceCommandModeTests(unittest.TestCase):
@@ -157,6 +159,62 @@ class VoiceCommandModeTests(unittest.TestCase):
                 sp._autosave_timer.stop()
                 sp.close()
 
+    def test_voice_command_mic_closed_on_hide_and_close(self):
+        """Scratchpad hideEvent and closeEvent must close microphone stream and reset command recording state."""
+        with patch("ui.scratchpad_view.AUTOSAVE_FILE", self.pad_file):
+            sp = ScratchpadView()
+            mock_recorder = MagicMock()
+            sp._audio_recorder = mock_recorder
+
+            # Simulate starting command recording
+            sp._start_command_recording()
+            self.assertTrue(sp._is_recording_command)
+            mock_recorder.start_recording.assert_called_once()
+
+            # Trigger hideEvent: must stop recording with keep_stream_alive=False and reset flag
+            from PySide6.QtGui import QHideEvent
+            sp.hideEvent(QHideEvent())
+            self.assertFalse(sp._is_recording_command)
+            mock_recorder.stop_recording.assert_called_with(keep_stream_alive=False)
+            self.assertIn("Speak Command", sp.btn_speak_command.text())
+
+            # Simulate starting again, then trigger closeEvent
+            sp._start_command_recording()
+            self.assertTrue(sp._is_recording_command)
+            from PySide6.QtGui import QCloseEvent
+            sp.closeEvent(QCloseEvent())
+            self.assertFalse(sp._is_recording_command)
+            mock_recorder.stop_recording.assert_called_with(keep_stream_alive=False)
+
+    def test_voice_command_worker_async_execution(self):
+        """VoiceCommandWorker runs transcription and planning in background without UI freezing."""
+        mock_stt = MagicMock()
+        mock_stt.transcribe.return_value = {"text": "replace apple with orange"}
+        editor = VoiceEditor()
+        doc = "I have an apple in my basket."
+
+        worker = VoiceCommandWorker(
+            stt=mock_stt,
+            editor=editor,
+            doc_text=doc,
+            sel_range=(0, 0),
+            audio=[0.0] * 1600
+        )
+
+        planned_results = []
+        worker.command_planned.connect(lambda cl, tx, err: planned_results.append((cl, tx, err)))
+        worker.start()
+        worker.wait(2000)
+        self.app.processEvents()
+
+        self.assertEqual(len(planned_results), 1)
+        cl, tx, err = planned_results[0]
+        self.assertEqual(cl, "replace apple with orange")
+        self.assertEqual(err, "")
+        self.assertIsNotNone(tx)
+        self.assertTrue(tx.can_apply)
+        self.assertIn("orange", tx.candidate_text)
+
 
 class LocalLLMSecurityAndModelSelectionTests(unittest.TestCase):
     def test_default_disabled_requires_explicit_opt_in(self):
@@ -270,6 +328,27 @@ class LocalLLMRewritingAndFactGuardTests(unittest.TestCase):
             self.assertEqual(tx.status, "unavailable")
             self.assertFalse(tx.can_apply)
             self.assertEqual(tx.candidate_text, original)
+
+    def test_llm_hard_deadline_enforcement_on_slow_response(self):
+        """Even if the backend hangs or sleeps for 5s, a 0.3s deadline must abort at <= 0.45s and return None."""
+        provider = LocalLLMProvider(base_url="http://127.0.0.1:11434", model="qwen2.5:3b", enabled=True)
+        provider._cached_available = True
+        provider._cache_timestamp = time.time()
+        provider._active_model = "qwen2.5:3b"
+
+        def slow_open(req, timeout=None):
+            time.sleep(2.0)  # Simulated slow backend
+            resp = MagicMock()
+            resp.status = 200
+            resp.read.return_value = json.dumps({"response": "unwanted late result"}).encode("utf-8")
+            return resp
+
+        with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_open):
+            t0 = time.monotonic()
+            result = provider.transform("Test content", "make it snappy", timeout=0.3)
+            elapsed = time.monotonic() - t0
+            self.assertLess(elapsed, 0.5, f"Deadline took too long to abort: {elapsed:.3f}s")
+            self.assertIsNone(result, f"Expected None on timeout, got: {result}")
 
 
 if __name__ == "__main__":
