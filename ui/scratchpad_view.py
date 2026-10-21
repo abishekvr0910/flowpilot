@@ -10,9 +10,12 @@ A native drafting workspace with:
 - Persistent local auto-save
 """
 
+import logging
 from pathlib import Path
 import uuid
-from typing import Optional, Callable, Tuple
+from typing import Optional, Callable, Tuple, Any
+
+logger = logging.getLogger("FlowPilot.Scratchpad")
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLabel, QLineEdit,
@@ -37,10 +40,20 @@ def _python_selection(text, cursor):
 
 class ScratchpadView(QWidget):
     dictate_requested = Signal()
+    command_planned = Signal(object)  # Emits EditTransaction when planned via voice
 
-    def __init__(self, parent=None, on_dictate_toggle: Optional[Callable[[], None]] = None):
+    def __init__(
+        self,
+        parent=None,
+        on_dictate_toggle: Optional[Callable[[], None]] = None,
+        stt_engine: Optional[Any] = None,
+        audio_recorder: Optional[Any] = None
+    ):
         super().__init__(parent)
         self.on_dictate_toggle = on_dictate_toggle
+        self._stt_engine = stt_engine
+        self._audio_recorder = audio_recorder
+        self._is_recording_command = False
         self.voice_editor: VoiceEditor = get_voice_editor()
         self.active_transaction: Optional[EditTransaction] = None
         self._target_id = f"scratchpad:{uuid.uuid4().hex}"
@@ -194,6 +207,21 @@ class ScratchpadView(QWidget):
         """)
         self.input_edit_command.returnPressed.connect(self._on_preview_edit)
 
+        self.btn_speak_command = QPushButton("🎙️ Speak Command")
+        self.btn_speak_command.setToolTip("Record a spoken voice command (e.g., 'replace Friday with Monday', 'remove this part')")
+        self.btn_speak_command.setStyleSheet("""
+            QPushButton {
+                background-color: #7C3AED;
+                color: #FFFFFF;
+                font-weight: 600;
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #6D28D9; }
+        """)
+        self.btn_speak_command.clicked.connect(self._toggle_command_recording)
+
         self.btn_preview_edit = QPushButton("Preview Edit")
         self.btn_preview_edit.setStyleSheet("""
             QPushButton {
@@ -238,7 +266,8 @@ class ScratchpadView(QWidget):
         """)
         self.btn_cancel_edit.clicked.connect(self._cancel_edit)
 
-        panel_row1.addWidget(self.input_edit_command, 5)
+        panel_row1.addWidget(self.input_edit_command, 4)
+        panel_row1.addWidget(self.btn_speak_command, 1)
         panel_row1.addWidget(self.btn_preview_edit, 1)
         panel_row1.addWidget(self.btn_apply_edit, 1)
         panel_row1.addWidget(self.btn_cancel_edit)
@@ -462,7 +491,123 @@ class ScratchpadView(QWidget):
             self.btn_apply_edit.setEnabled(False)
             self.lbl_edit_diff.setText("Text, selection, or instruction changed. Preview again.")
 
+    def _get_stt_engine(self):
+        if self._stt_engine is None:
+            try:
+                from engine.stt_engine import STTEngine
+                from engine.config import load_config
+                self._stt_engine = STTEngine(load_config())
+            except Exception as e:
+                logger.warning(f"Could not load STTEngine for voice commands: {e}")
+        return self._stt_engine
+
+    def _get_audio_recorder(self):
+        if self._audio_recorder is None:
+            try:
+                from engine.audio_recorder import AudioRecorder
+                from engine.config import load_config
+                cfg = load_config()
+                mic_dev = cfg.get("audio_device_index", cfg.get("mic_device"))
+                self._audio_recorder = AudioRecorder(device=mic_dev)
+            except Exception as e:
+                logger.warning(f"Could not load AudioRecorder for voice commands: {e}")
+        return self._audio_recorder
+
+    def _toggle_command_recording(self):
+        if self._is_recording_command:
+            self._stop_command_recording()
+        else:
+            self._start_command_recording()
+
+    def _start_command_recording(self):
+        recorder = self._get_audio_recorder()
+        if not recorder:
+            self.lbl_edit_diff.setText("⚠ Microphone is not available.")
+            self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
+            return
+
+        self._is_recording_command = True
+        self.btn_speak_command.setText("⏹ Stop Listening")
+        self.btn_speak_command.setStyleSheet("""
+            QPushButton {
+                background-color: #DC2626;
+                color: #FFFFFF;
+                font-weight: bold;
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #B91C1C; }
+        """)
+        self.lbl_edit_diff.setText("🎙️ Listening for voice command... (Speak now, then click Stop)")
+        self.lbl_edit_diff.setStyleSheet("color: #C084FC; font-size: 12px; font-family: monospace; padding-left: 4px;")
+        recorder.start_recording()
+
+    def _stop_command_recording(self):
+        if not self._is_recording_command:
+            return
+        self._is_recording_command = False
+        self.btn_speak_command.setText("🎙️ Speak Command")
+        self.btn_speak_command.setStyleSheet("""
+            QPushButton {
+                background-color: #7C3AED;
+                color: #FFFFFF;
+                font-weight: 600;
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #6D28D9; }
+        """)
+        recorder = self._get_audio_recorder()
+        audio = recorder.stop_recording() if recorder else None
+        if audio is None or len(audio) == 0:
+            self.lbl_edit_diff.setText("⚠ No audio captured. Try speaking again.")
+            self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
+            return
+
+        self.lbl_edit_diff.setText("Transcribing voice command...")
+        self.lbl_edit_diff.setStyleSheet("color: #A5B4FC; font-size: 12px; font-family: monospace; padding-left: 4px;")
+        self.process_voice_command_audio(audio)
+
+    def process_voice_command_audio(self, audio) -> Optional[EditTransaction]:
+        """
+        Transcribes recorded audio and plans the voice edit transaction.
+        Visualizes the recognized command in the input box and diff in preview before Apply.
+        """
+        stt = self._get_stt_engine()
+        if not stt:
+            self.lbl_edit_diff.setText("⚠ STT engine is not available.")
+            self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
+            return None
+
+        try:
+            res = stt.transcribe(audio)
+            raw_instruction = res.get("text", "").strip() if isinstance(res, dict) else str(res).strip()
+        except Exception as e:
+            self.lbl_edit_diff.setText(f"⚠ Transcription failed: {e}")
+            self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
+            return None
+
+        if not raw_instruction:
+            self.lbl_edit_diff.setText("⚠ No clear speech recognized. Please repeat the command.")
+            self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
+            return None
+
+        cleaned_instruction = raw_instruction.rstrip(".!? ")
+        self.input_edit_command.setText(cleaned_instruction)
+        self._on_preview_edit()
+        if self.active_transaction:
+            self.command_planned.emit(self.active_transaction)
+        return self.active_transaction
+
     def _cancel_edit(self):
+        if self._is_recording_command:
+            self._is_recording_command = False
+            self.btn_speak_command.setText("🎙️ Speak Command")
+            recorder = self._get_audio_recorder()
+            if recorder:
+                recorder.stop_recording()
         self._invalidate_preview()
         self.edit_panel.setVisible(False)
 

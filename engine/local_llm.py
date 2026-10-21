@@ -14,8 +14,10 @@ import logging
 import time
 import urllib.request
 import urllib.error
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from urllib.parse import urlparse
+
+from engine.config import load_config
 
 logger = logging.getLogger("FlowPilot.LocalLLM")
 
@@ -44,12 +46,24 @@ class LocalLLMProvider:
     """
     Offline local LLM adapter for AI rewriting and Command Mode.
     Strictly restricted to localhost endpoints.
+    Requires explicit opt-in (enable_local_llm: True) and explicit model configuration.
     """
 
-    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None, timeout: float = 2.0):
-        self.base_url = (base_url or "http://127.0.0.1:11434").rstrip("/")
-        self.preferred_model = model
-        self.timeout = timeout
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+        timeout: Optional[float] = None,
+        enabled: Optional[bool] = None
+    ):
+        try:
+            cfg = load_config()
+        except Exception:
+            cfg = {}
+        self.enabled = enabled if enabled is not None else cfg.get("enable_local_llm", False)
+        self.base_url = (base_url or cfg.get("local_llm_endpoint", "http://127.0.0.1:11434")).rstrip("/")
+        self.preferred_model = model if model is not None else cfg.get("local_llm_model", "")
+        self.timeout = timeout if timeout is not None else float(cfg.get("local_llm_timeout", 3.0))
         self._cached_available: Optional[bool] = None
         self._cache_timestamp: float = 0.0
         self._active_model: Optional[str] = None
@@ -85,8 +99,13 @@ class LocalLLMProvider:
     def is_available(self, force_refresh: bool = False) -> bool:
         """
         Non-blocking health check against local LLM endpoint.
-        Returns True if a local model server is reachable.
+        Returns True if a local model server is reachable AND configured model is installed.
         """
+        if not self.enabled:
+            self._cached_available = False
+            self._active_model = None
+            return False
+
         now = time.time()
         if not force_refresh and self._cached_available is not None:
             if now - self._cache_timestamp < self._cache_ttl:
@@ -98,7 +117,14 @@ class LocalLLMProvider:
             self._cache_timestamp = now
             return False
 
-        # Attempt Ollama /api/tags or OpenAI /v1/models
+        if not self.preferred_model or not self.preferred_model.strip():
+            # Explicit model identity required per PR 5 specification; no silent guessing
+            logger.info("[LocalLLM] No explicit local_llm_model configured; local writing model inactive.")
+            self._cached_available = False
+            self._cache_timestamp = now
+            return False
+
+        target_model = self.preferred_model.strip()
         available = False
         detected_model = None
 
@@ -113,9 +139,12 @@ class LocalLLMProvider:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
                     models = [m.get("name") for m in data.get("models", []) if m.get("name")]
-                    if models:
+                    matching = [m for m in models if m == target_model or m.startswith(target_model + ":") or target_model.startswith(m + ":")]
+                    if matching:
                         available = True
-                        detected_model = self.preferred_model if self.preferred_model in models else models[0]
+                        detected_model = matching[0]
+                    else:
+                        logger.info(f"[LocalLLM] Requested model '{target_model}' not found in Ollama models: {models}")
         except Exception:
             pass
 
@@ -131,9 +160,12 @@ class LocalLLMProvider:
                     if resp.status == 200:
                         data = json.loads(resp.read().decode("utf-8"))
                         models = [m.get("id") for m in data.get("data", []) if m.get("id")]
-                        if models:
+                        matching = [m for m in models if m == target_model or m.startswith(target_model + ":") or target_model.startswith(m + ":")]
+                        if matching:
                             available = True
-                            detected_model = self.preferred_model if self.preferred_model in models else models[0]
+                            detected_model = matching[0]
+                        else:
+                            logger.info(f"[LocalLLM] Requested model '{target_model}' not found in /v1/models: {models}")
             except Exception:
                 pass
 
@@ -147,10 +179,11 @@ class LocalLLMProvider:
             self.is_available()
         return self._active_model
 
-    def transform(self, text: str, instruction: str, system_prompt: Optional[str] = None) -> Optional[str]:
+    def transform(self, text: str, instruction: str, system_prompt: Optional[str] = None, timeout: Optional[float] = None) -> Optional[str]:
         """
-        Executes a local prompt transformation on text.
-        Returns the transformed text, or None if unavailable or failed.
+        Executes a bounded local prompt transformation on text.
+        Returns the transformed text, or None if unavailable, timed out, or failed.
+        Enforces a strict total wall-clock deadline; leaves text unchanged on timeout.
         """
         if not text or not text.strip():
             return text
@@ -158,7 +191,19 @@ class LocalLLMProvider:
         if not self.is_available():
             return None
 
-        model = self._active_model or "llama3.2"
+        model = self._active_model
+        if not model:
+            return None
+
+        # Bounded wall-clock deadline across request
+        wall_start = time.monotonic()
+        max_duration = min(timeout or self.timeout, 5.0)
+        deadline = wall_start + max_duration
+
+        # Bounded input length to prevent resource lock
+        text_bounded = text[:4000]
+        instruction_bounded = instruction[:500]
+
         sys_msg = (
             system_prompt or
             "You are FlowPilot's local writing assistant. "
@@ -167,10 +212,13 @@ class LocalLLMProvider:
             "Output ONLY the final rewritten text, without conversational prefixes, quotes, or explanations."
         )
 
-        user_content = f"Instruction: {instruction}\n\nText:\n{text}"
+        user_content = f"Instruction: {instruction_bounded}\n\nText:\n{text_bounded}"
 
         # 1. Try Ollama native /api/generate
         try:
+            remaining = max(0.2, deadline - time.monotonic())
+            if remaining <= 0.2:
+                return None
             payload = json.dumps({
                 "model": model,
                 "prompt": f"{sys_msg}\n\n{user_content}\n\nRewritten text:",
@@ -178,7 +226,7 @@ class LocalLLMProvider:
                 "options": {
                     "temperature": 0.2,
                     "top_p": 0.9,
-                    "num_predict": max(128, len(text.split()) * 3)
+                    "num_predict": max(64, min(512, len(text_bounded.split()) * 3))
                 }
             }).encode("utf-8")
 
@@ -188,7 +236,7 @@ class LocalLLMProvider:
                 headers={"Content-Type": "application/json", "User-Agent": "FlowPilot/LocalLLM"},
                 method="POST"
             )
-            with _SECURE_LOCAL_OPENER.open(req, timeout=self.timeout) as resp:
+            with _SECURE_LOCAL_OPENER.open(req, timeout=remaining) as resp:
                 if resp.status == 200:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     out = res_data.get("response", "").strip()
@@ -200,6 +248,9 @@ class LocalLLMProvider:
 
         # 2. Try OpenAI-compatible /v1/chat/completions (LM Studio, llama.cpp, Ollama)
         try:
+            remaining = max(0.2, deadline - time.monotonic())
+            if remaining <= 0.2:
+                return None
             payload = json.dumps({
                 "model": model,
                 "messages": [
@@ -207,7 +258,7 @@ class LocalLLMProvider:
                     {"role": "user", "content": user_content}
                 ],
                 "temperature": 0.2,
-                "max_tokens": max(128, len(text.split()) * 3)
+                "max_tokens": max(64, min(512, len(text_bounded.split()) * 3))
             }).encode("utf-8")
 
             req = urllib.request.Request(
@@ -216,7 +267,7 @@ class LocalLLMProvider:
                 headers={"Content-Type": "application/json", "User-Agent": "FlowPilot/LocalLLM"},
                 method="POST"
             )
-            with _SECURE_LOCAL_OPENER.open(req, timeout=self.timeout) as resp:
+            with _SECURE_LOCAL_OPENER.open(req, timeout=remaining) as resp:
                 if resp.status == 200:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     choices = res_data.get("choices", [])
