@@ -54,6 +54,7 @@ TESTS = [
     ("User-Facing Fixes (Mic Device, Dynamic Personalization & Safe Targeting)", "tests/test_user_facing_fixes.py"),
     ("STTEngine Model Lifecycle & Orchestrator Ownership", "tests/test_model_lifecycle.py"),
     ("Honest Transforms & Enforced Apply Guardrails", "tests/test_honest_transforms.py"),
+    ("Multilingual Evaluation Metrics & Corpus Schema", "tests/test_evaluation_metrics.py"),
 ]
 
 
