@@ -201,6 +201,7 @@ class PixelCreatorWidget(QWidget):
         top_bar.addWidget(QLabel("Load Template:"))
         self.combo_template = QComboBox()
         self.combo_template.addItems([
+            "✉️ Kiki Courier",
             "🦊 Pixel Fox",
             "🦖 Pixel Dino",
             "👻 Pixel Ghost",
@@ -374,7 +375,37 @@ class PixelCreatorWidget(QWidget):
         self.canvas.clear()
         grid = [[None]*GRID_SIZE for _ in range(GRID_SIZE)]
 
-        if "Fox" in name or "Pikachu" in name:
+        if "Kiki" in name or "Courier" in name:
+            self.txt_name.setText("Kiki the Scarf Courier")
+            # Courier Cap
+            for c in range(5, 11):
+                grid[1][c] = "#14B8A6"
+            grid[1][11] = "#FACC15"  # Badge
+            # Dark Hair
+            for r in range(2, 5):
+                for c in range(4, 12):
+                    grid[r][c] = "#18181B"
+            # Face / Skin
+            for r in range(4, 7):
+                for c in range(5, 11):
+                    grid[r][c] = "#FDE68A"
+            # Eyes
+            grid[5][6] = "#18181B"; grid[5][9] = "#18181B"
+            # Orange Scarf
+            for c in range(4, 12):
+                grid[7][c] = "#FB923C"
+            grid[8][10] = "#FB923C"; grid[9][10] = "#FB923C"  # trailing scarf tail
+            # Courier Coat (Indigo)
+            for r in range(8, 13):
+                for c in range(5, 10):
+                    grid[r][c] = "#6366F1"
+            # Mailbag / parcel
+            grid[10][9] = "#B45309"; grid[10][10] = "#B45309"
+            grid[11][9] = "#FDE68A"; grid[11][10] = "#B45309"
+            # Boots
+            grid[13][6] = "#18181B"; grid[13][8] = "#18181B"
+
+        elif "Fox" in name or "Pikachu" in name:
             self.txt_name.setText("Pixel Fox")
             # Ears
             grid[1][3] = "#18181B"; grid[1][12] = "#18181B"
@@ -477,7 +508,9 @@ class PixelCreatorWidget(QWidget):
         comp_id = f"custom_pixel_{uuid.uuid4().hex[:8]}"
 
         # Render 3 frames to 48x48 PNGs
-        storage_dir = Path.home() / ".flowpilot" / "companions" / comp_id
+        from engine.companion_store import get_companion_store
+        store = get_companion_store()
+        storage_dir = store.storage_dir / "companions" / comp_id
         storage_dir.mkdir(parents=True, exist_ok=True)
 
         frame_files = []

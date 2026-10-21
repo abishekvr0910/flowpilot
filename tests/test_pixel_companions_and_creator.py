@@ -95,5 +95,11 @@ class TestPixelCompanionsAndCreator(unittest.TestCase):
         c_grid = creator.canvas.get_grid()
         self.assertEqual(c_grid[5][5], "#22C55E")
 
+        # Load Kiki Courier
+        creator._load_template("✉️ Kiki Courier")
+        self.assertIn("Kiki", creator.txt_name.text())
+        k_grid = creator.canvas.get_grid()
+        self.assertEqual(k_grid[7][6], "#FB923C")  # Scarf orange
+
 if __name__ == "__main__":
     unittest.main()
