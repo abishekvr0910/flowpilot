@@ -3,6 +3,7 @@ Unit tests for Retro Pixel Companions and Interactive Pixel Art Creator
 """
 
 import sys
+import json
 import unittest
 import tempfile
 from pathlib import Path
@@ -258,6 +259,97 @@ class TestPixelCompanionsAndCreator(unittest.TestCase):
                 # Only in confirmed / pasted state can frame 2 (celebration) be displayed
                 confirmed_idx = min(len(mock_comp["frames"]) - 1, 2)
                 self.assertEqual(confirmed_idx, 2)
+
+    def test_default_frame_mappings_for_various_frame_counts(self):
+        """Builds explicit state-to-frame index mappings for 1, 3, 6, and 12 frame animations."""
+        from engine.companion_assets import build_default_frame_mappings
+
+        # 1 frame
+        m1 = build_default_frame_mappings(1)
+        self.assertEqual(m1["idle"], [0])
+        self.assertEqual(m1["celebrate"], [0])
+
+        # 3 frames (canonical)
+        m3 = build_default_frame_mappings(3)
+        self.assertEqual(m3["idle"], [0])
+        self.assertEqual(m3["listening"], [1])
+        self.assertEqual(m3["celebrate"], [2])
+
+        # 6 frames
+        m6 = build_default_frame_mappings(6)
+        self.assertEqual(m6["idle"], [0])
+        self.assertEqual(m6["listening"], [1, 2, 3, 4])
+        self.assertEqual(m6["celebrate"], [5])
+
+        # 12 frames
+        m12 = build_default_frame_mappings(12)
+        self.assertEqual(m12["idle"], [0])
+        self.assertEqual(m12["listening"], list(range(1, 11)))
+        self.assertEqual(m12["celebrate"], [11])
+
+    def test_resolve_frame_for_state_with_12_frames(self):
+        """12-frame playback resolves Frame 11 for Celebrate and cycles Frames 1-10 for Listening."""
+        from engine.companion_assets import resolve_frame_for_state, build_default_frame_mappings
+
+        mappings = build_default_frame_mappings(12)
+
+        # 1. Celebrate / Confirmed insertion MUST select Frame 11, NOT Frame 2!
+        for cel_state in ("pasted", "success", "confirmed", "celebrate"):
+            frame_idx = resolve_frame_for_state(mappings, cel_state, tick=0, num_frames=12)
+            self.assertEqual(frame_idx, 11, f"Expected celebrate frame 11 for state {cel_state}, got {frame_idx}")
+
+        # 2. Listening state cycles frames 1 through 10
+        observed_frames = set()
+        for tick in range(0, 40 * 4, 4):
+            f = resolve_frame_for_state(mappings, "listening", tick=tick, num_frames=12)
+            observed_frames.add(f)
+            self.assertIn(f, range(1, 11))
+            self.assertNotEqual(f, 0, "Listening must not select rest frame 0")
+            self.assertNotEqual(f, 11, "Listening must not select celebrate frame 11")
+        self.assertGreaterEqual(len(observed_frames), 5, "Listening should cycle through multiple action frames")
+
+        # 3. Idle and error states stay on Frame 0
+        self.assertEqual(resolve_frame_for_state(mappings, "idle", tick=12, num_frames=12), 0)
+        self.assertEqual(resolve_frame_for_state(mappings, "error", tick=8, num_frames=12), 0)
+        self.assertEqual(resolve_frame_for_state(mappings, "uncertain", tick=4, num_frames=12), 0)
+
+        # 4. Reduced motion invariant: strictly lock to Frame 0 across all states
+        for st in ("idle", "listening", "pasted", "celebrate", "error"):
+            self.assertEqual(resolve_frame_for_state(mappings, st, tick=12, num_frames=12, reduced_motion=True), 0)
+
+    def test_creator_frame_button_labels_and_manifest_mappings(self):
+        """Creator labels Frame 12 as Celebrate and persists frame_mappings into manifest.json."""
+        creator = PixelCreatorWidget()
+        creator._frames = [[row[:] for row in creator._frames[0]] for _ in range(12)]
+        creator._rebuild_frame_buttons()
+
+        # Check button labels
+        self.assertEqual(creator.frame_btn_group.button(0).text(), "1: Idle")
+        self.assertEqual(creator.frame_btn_group.button(1).text(), "2: Action 1")
+        self.assertEqual(creator.frame_btn_group.button(10).text(), "11: Action 10")
+        self.assertEqual(creator.frame_btn_group.button(11).text(), "12: Celebrate")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from engine.companion_store import CompanionStore
+            mock_store = CompanionStore(storage_dir=Path(tmpdir))
+            with patch("engine.companion_store.get_companion_store", return_value=mock_store), \
+                 patch("ui.pixel_creator.QMessageBox.information"):
+                creator.txt_name.setText("TwelveFrameHero")
+                creator._save_companion()
+
+                # Verify manifest
+                subdirs = list((Path(tmpdir) / "companions").iterdir())
+                self.assertEqual(len(subdirs), 1)
+                comp_dir = subdirs[0]
+                manifest_file = comp_dir / "manifest.json"
+                self.assertTrue(manifest_file.exists())
+                with open(manifest_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self.assertIn("frame_mappings", data)
+                self.assertEqual(data["frame_mappings"]["celebrate"], [11])
+                self.assertEqual(data["frame_mappings"]["idle"], [0])
+                self.assertEqual(data["frame_mappings"]["listening"], list(range(1, 11)))
+
 
 if __name__ == "__main__":
     unittest.main()

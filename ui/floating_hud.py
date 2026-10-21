@@ -922,7 +922,7 @@ class FloatingHUD(QWidget):
                 p.translate(0, jump)
 
         try:
-            from engine.companion_assets import CompanionAssetManager
+            from engine.companion_assets import CompanionAssetManager, resolve_frame_for_state
             mgr = CompanionAssetManager()
             comp = mgr.get_companion_by_id(self._visual_style)
             if comp:
@@ -938,22 +938,13 @@ class FloatingHUD(QWidget):
                     comp_dir = comp.get("directory")
                     frames = comp.get("frames", [])
                     if frames and isinstance(frames, list) and len(frames) > 0:
-                        reduced = getattr(self, "_reduced_motion", False)
-                        if reduced:
-                            # Strict reduced-motion invariant: lock to static rest frame 0
-                            frame_idx = 0
-                        elif st in ("pasted", "success", "confirmed"):
-                            # Celebration frame strictly after confirmed insertion
-                            frame_idx = min(len(frames) - 1, 2)
-                        elif st in ("listening", "recording"):
-                            # Active listening frames (cycle between 0 and 1; never celebration)
-                            listen_frame_count = max(1, min(2, len(frames) - 1))
-                            frame_idx = (self._tick // 4) % (listen_frame_count + 1)
-                            if frame_idx >= 2 and len(frames) >= 3:
-                                frame_idx = 1
-                        else:
-                            # Idle / unverified / error / uncertain states: strictly stay on idle frame 0
-                            frame_idx = 0
+                        frame_idx = resolve_frame_for_state(
+                            comp,
+                            st,
+                            tick=self._tick,
+                            num_frames=len(frames),
+                            reduced_motion=getattr(self, "_reduced_motion", False)
+                        )
                         img_name = frames[frame_idx]
                     else:
                         img_name = comp.get("image_file", "sprite.png")

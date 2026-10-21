@@ -12,6 +12,8 @@ import socket
 import json
 import logging
 import time
+import threading
+import atexit
 import concurrent.futures
 import urllib.request
 import urllib.error
@@ -44,9 +46,26 @@ _SECURE_LOCAL_OPENER = urllib.request.build_opener(
 
 # Dedicated worker pool for bounded LLM transformations to guarantee hard timeout cancellation
 _TRANSFORM_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=2,
+    max_workers=4,
     thread_name_prefix="FlowPilot-LocalLLM"
 )
+
+_IN_FLIGHT_TRANSFORMS_LOCK = threading.Lock()
+_IN_FLIGHT_TRANSFORMS = 0
+MAX_CONCURRENT_TRANSFORMS = 1
+
+
+def shutdown_local_llm(wait: bool = False):
+    """Terminates pending/abandoned background workers without indefinite blocking."""
+    global _TRANSFORM_EXECUTOR
+    if _TRANSFORM_EXECUTOR is not None:
+        try:
+            _TRANSFORM_EXECUTOR.shutdown(wait=wait, cancel_futures=True)
+        except Exception:
+            _TRANSFORM_EXECUTOR.shutdown(wait=wait)
+
+
+atexit.register(lambda: shutdown_local_llm(wait=False))
 
 
 class LocalLLMProvider:
@@ -103,10 +122,11 @@ class LocalLLMProvider:
         except Exception:
             return False
 
-    def is_available(self, force_refresh: bool = False) -> bool:
+    def is_available(self, force_refresh: bool = False, timeout: Optional[float] = None) -> bool:
         """
         Non-blocking health check against local LLM endpoint.
         Returns True if a local model server is reachable AND configured model is installed.
+        Strictly contained within the specified timeout (e.g. 50ms).
         """
         if not self.enabled:
             self._cached_available = False
@@ -131,55 +151,75 @@ class LocalLLMProvider:
             self._cache_timestamp = now
             return False
 
-        target_model = self.preferred_model.strip()
-        available = False
-        detected_model = None
+        max_wait = min(timeout if timeout is not None else 0.6, 2.0)
+        if max_wait <= 0.0:
+            return False
+
+        cancel_event = threading.Event()
+        deadline = time.monotonic() + max_wait
+        try:
+            future = _TRANSFORM_EXECUTOR.submit(
+                self._probe_endpoints,
+                self.preferred_model.strip(),
+                deadline,
+                cancel_event
+            )
+            available, detected_model = future.result(timeout=max_wait)
+            self._cached_available = available
+            self._active_model = detected_model
+            self._cache_timestamp = time.time()
+            return available
+        except (concurrent.futures.TimeoutError, Exception) as e:
+            cancel_event.set()
+            logger.debug(f"[LocalLLM] Availability check timed out or failed: {e}")
+            return False
+
+    def _probe_endpoints(self, target_model: str, deadline: float, cancel_event: threading.Event) -> Tuple[bool, Optional[str]]:
+        if cancel_event.is_set() or time.monotonic() >= deadline:
+            return False, None
 
         # 1. Try Ollama tags endpoint
-        try:
-            req = urllib.request.Request(
-                f"{self.base_url}/api/tags",
-                headers={"User-Agent": "FlowPilot/LocalLLM"},
-                method="GET"
-            )
-            with _SECURE_LOCAL_OPENER.open(req, timeout=0.6) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    models = [m.get("name") for m in data.get("models", []) if m.get("name")]
-                    matching = [m for m in models if m == target_model or m.startswith(target_model + ":") or target_model.startswith(m + ":")]
-                    if matching:
-                        available = True
-                        detected_model = matching[0]
-                    else:
-                        logger.info(f"[LocalLLM] Requested model '{target_model}' not found in Ollama models: {models}")
-        except Exception:
-            pass
+        rem = deadline - time.monotonic()
+        if rem > 0.005 and not cancel_event.is_set():
+            try:
+                req = urllib.request.Request(
+                    f"{self.base_url}/api/tags",
+                    headers={"User-Agent": "FlowPilot/LocalLLM"},
+                    method="GET"
+                )
+                with _SECURE_LOCAL_OPENER.open(req, timeout=min(0.6, rem)) as resp:
+                    if not cancel_event.is_set() and time.monotonic() <= deadline and resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        models = [m.get("name") for m in data.get("models", []) if m.get("name")]
+                        matching = [m for m in models if m == target_model or m.startswith(target_model + ":") or target_model.startswith(m + ":")]
+                        if matching:
+                            return True, matching[0]
+            except Exception:
+                pass
+
+        if cancel_event.is_set() or time.monotonic() >= deadline:
+            return False, None
 
         # 2. Try standard OpenAI /v1/models endpoint (LM Studio / llama.cpp / Ollama)
-        if not available:
+        rem = deadline - time.monotonic()
+        if rem > 0.005 and not cancel_event.is_set():
             try:
                 req = urllib.request.Request(
                     f"{self.base_url}/v1/models",
                     headers={"User-Agent": "FlowPilot/LocalLLM"},
                     method="GET"
                 )
-                with _SECURE_LOCAL_OPENER.open(req, timeout=0.6) as resp:
-                    if resp.status == 200:
+                with _SECURE_LOCAL_OPENER.open(req, timeout=min(0.6, rem)) as resp:
+                    if not cancel_event.is_set() and time.monotonic() <= deadline and resp.status == 200:
                         data = json.loads(resp.read().decode("utf-8"))
                         models = [m.get("id") for m in data.get("data", []) if m.get("id")]
                         matching = [m for m in models if m == target_model or m.startswith(target_model + ":") or target_model.startswith(m + ":")]
                         if matching:
-                            available = True
-                            detected_model = matching[0]
-                        else:
-                            logger.info(f"[LocalLLM] Requested model '{target_model}' not found in /v1/models: {models}")
+                            return True, matching[0]
             except Exception:
                 pass
 
-        self._cached_available = available
-        self._active_model = detected_model
-        self._cache_timestamp = now
-        return available
+        return False, None
 
     def get_active_model(self) -> Optional[str]:
         if not self._cached_available:
@@ -191,16 +231,10 @@ class LocalLLMProvider:
         Executes a bounded local prompt transformation on text.
         Returns the transformed text, or None if unavailable, timed out, or failed.
         Enforces a strict total wall-clock deadline; leaves text unchanged on timeout.
+        Health check and execution are strictly contained inside the deadline budget.
         """
         if not text or not text.strip():
             return text
-
-        if not self.is_available():
-            return None
-
-        model = self._active_model
-        if not model:
-            return None
 
         # Bounded wall-clock deadline across request
         wall_start = time.monotonic()
@@ -208,6 +242,21 @@ class LocalLLMProvider:
         deadline = wall_start + max_duration
 
         if max_duration <= 0.0 or time.monotonic() >= deadline:
+            return None
+
+        # Health check MUST sit INSIDE the deadline budget!
+        rem_health = deadline - time.monotonic()
+        if rem_health <= 0.01:
+            return None
+
+        if not self.is_available(timeout=rem_health):
+            return None
+
+        if time.monotonic() >= deadline:
+            return None
+
+        model = self._active_model
+        if not model:
             return None
 
         # Bounded input length to prevent resource lock
@@ -222,28 +271,47 @@ class LocalLLMProvider:
             "Output ONLY the final rewritten text, without conversational prefixes, quotes, or explanations."
         )
 
-        # Enforce strict wall-clock deadline containment via worker executor
-        future = _TRANSFORM_EXECUTOR.submit(
-            self._execute_transform_call,
-            text_bounded,
-            instruction_bounded,
-            sys_msg,
-            model,
-            deadline
-        )
+        # Bound outstanding concurrent transform tasks
+        global _IN_FLIGHT_TRANSFORMS
+        with _IN_FLIGHT_TRANSFORMS_LOCK:
+            if _IN_FLIGHT_TRANSFORMS >= MAX_CONCURRENT_TRANSFORMS:
+                logger.warning("[LocalLLM] Concurrent transform dropped: outstanding request already active.")
+                return None
+            _IN_FLIGHT_TRANSFORMS += 1
+
+        cancel_event = threading.Event()
         try:
-            remaining = max(0.01, deadline - time.monotonic())
+            future = _TRANSFORM_EXECUTOR.submit(
+                self._execute_transform_call,
+                text_bounded,
+                instruction_bounded,
+                sys_msg,
+                model,
+                deadline,
+                cancel_event
+            )
+            remaining = max(0.005, deadline - time.monotonic())
             result = future.result(timeout=remaining)
             if time.monotonic() > deadline:
+                cancel_event.set()
                 logger.warning(f"[LocalLLM] Request exceeded deadline ({time.monotonic() - wall_start:.2f}s > {max_duration}s); dropping late result.")
                 return None
             return result
         except concurrent.futures.TimeoutError:
+            cancel_event.set()
+            try:
+                future.cancel()
+            except Exception:
+                pass
             logger.warning(f"[LocalLLM] Wall-clock deadline reached ({max_duration}s); transform timed out.")
             return None
         except Exception as e:
+            cancel_event.set()
             logger.debug(f"[LocalLLM] Transform execution failed: {e}")
             return None
+        finally:
+            with _IN_FLIGHT_TRANSFORMS_LOCK:
+                _IN_FLIGHT_TRANSFORMS = max(0, _IN_FLIGHT_TRANSFORMS - 1)
 
     def _execute_transform_call(
         self,
@@ -251,14 +319,20 @@ class LocalLLMProvider:
         instruction_bounded: str,
         sys_msg: str,
         model: str,
-        deadline: float
+        deadline: float,
+        cancel_event: Optional[threading.Event] = None
     ) -> Optional[str]:
+        if cancel_event and cancel_event.is_set():
+            return None
+        if time.monotonic() >= deadline:
+            return None
+
         user_content = f"Instruction: {instruction_bounded}\n\nText:\n{text_bounded}"
 
         # 1. Try Ollama native /api/generate
         try:
             remaining = deadline - time.monotonic()
-            if remaining <= 0.05:
+            if remaining <= 0.01 or (cancel_event and cancel_event.is_set()):
                 return None
 
             payload = json.dumps({
@@ -279,21 +353,24 @@ class LocalLLMProvider:
                 method="POST"
             )
             with _SECURE_LOCAL_OPENER.open(req, timeout=remaining) as resp:
-                if time.monotonic() > deadline:
+                if (cancel_event and cancel_event.is_set()) or time.monotonic() > deadline:
                     return None
                 if resp.status == 200:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     out = res_data.get("response", "").strip()
-                    if out and time.monotonic() <= deadline:
+                    if out and time.monotonic() <= deadline and not (cancel_event and cancel_event.is_set()):
                         logger.info(f"[LocalLLM] Generated transform via Ollama ({model})")
                         return self._clean_llm_output(out)
         except Exception:
             pass
 
+        if (cancel_event and cancel_event.is_set()) or time.monotonic() >= deadline:
+            return None
+
         # 2. Try OpenAI-compatible /v1/chat/completions (LM Studio, llama.cpp, Ollama)
         try:
             remaining = deadline - time.monotonic()
-            if remaining <= 0.05:
+            if remaining <= 0.01 or (cancel_event and cancel_event.is_set()):
                 return None
 
             payload = json.dumps({
@@ -313,20 +390,23 @@ class LocalLLMProvider:
                 method="POST"
             )
             with _SECURE_LOCAL_OPENER.open(req, timeout=remaining) as resp:
-                if time.monotonic() > deadline:
+                if (cancel_event and cancel_event.is_set()) or time.monotonic() > deadline:
                     return None
                 if resp.status == 200:
                     res_data = json.loads(resp.read().decode("utf-8"))
                     choices = res_data.get("choices", [])
                     if choices:
                         out = choices[0].get("message", {}).get("content", "").strip()
-                        if out and time.monotonic() <= deadline:
+                        if out and time.monotonic() <= deadline and not (cancel_event and cancel_event.is_set()):
                             logger.info(f"[LocalLLM] Generated transform via OpenAI endpoint ({model})")
                             return self._clean_llm_output(out)
         except Exception as e:
             logger.debug(f"[LocalLLM] Request failed: {e}")
 
         return None
+
+    def shutdown(self, wait: bool = False):
+        shutdown_local_llm(wait=wait)
 
     def _clean_llm_output(self, text: str) -> str:
         """Strips conversational intro phrases and markdown fences from LLM responses."""

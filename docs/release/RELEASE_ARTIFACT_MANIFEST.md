@@ -9,13 +9,13 @@ Built from master (`9ebee81` + async voice-command worker, microphone release li
 | Field | FlowPilot v3.1.0-RC1 Distribution Candidate |
 |---|---|
 | Release Version | `v3.1.0-RC1` (Release Candidate 1: Workstation, Animation Suite & Hardened Reliability) |
-| Base Commit | `9ebee81` + Reliability Hardening Patches |
+| Base Commit | `007553d` + Async Command Target Matching & Frame Mapping Fixes |
 | Distribution Archive | `dist/FlowPilot-v3.1.0-win64.zip` |
-| Archive Size | **388,364,445 bytes** (370.37 MB, including bundled Faster-Whisper base model weights and Silero VAD assets) |
-| Archive SHA-256 | `EEBF54ED29260F8A8811AD0703FB59057D93B2F7E59C8E9002B2CEE1672FFF97` |
+| Archive Size | **388,377,362 bytes** (370.39 MB, including bundled Faster-Whisper base model weights and Silero VAD assets) |
+| Archive SHA-256 | `35C9AA4163DDC8979C324EC7E85E45C78A565F6CAB83AC22AF952B37C91177D4` |
 | Executable File | `dist/FlowPilot/FlowPilot.exe` |
-| Executable Size | **32,343,257 bytes** (30.84 MB) |
-| Executable SHA-256 | `EABFC45BE5A54629828F2C3253B2FB35B0FA5F4523E79AE6854644F7FD8B04F4` |
+| Executable Size | **32,348,552 bytes** (30.85 MB) |
+| Executable SHA-256 | `5E5C89FB8620A6ADC372EEE2CB4B8CA0B75CECD9528B7676AB5444BA6F437DAD` |
 | Bundled Model Weights | Faster-Whisper `base` (`models/faster-whisper-base/model.bin`, 145.2 MB) + Silero VAD v5 ONNX assets |
 | Authenticode Status | `NotSigned` (Unsigned developer build. Standard or EV code signing establishes identity to build SmartScreen reputation over time, but does not provide immediate suppression.) |
 | Standalone Offline Smoke Test | **PASSED** (`FlowPilot.exe` smoke test launched with isolated test mutex, validated bundled Silero VAD v5 assets and Faster-Whisper base weights, enforced single-instance mutex, and cleanly terminated with 0 bytes network egress) |
@@ -23,12 +23,13 @@ Built from master (`9ebee81` + async voice-command worker, microphone release li
 
 ### Reliability & Verification Fixes in v3.1.0-RC1
 
-1. **Async Voice-Command Offloading:** Voice-command transcription and LLM edit planning offloaded from Qt main thread to background `VoiceCommandWorker(QThread)` in [`ui/scratchpad_view.py`](file:///S:/APPs/New%20folder/ui/scratchpad_view.py), eliminating UI freeze.
-2. **Command Microphone Lifecycle:** Command audio stream fully terminated (`keep_stream_alive=False`) when Scratchpad is hidden, closed, or edit is cancelled.
-3. **Strict LLM Wall-Clock Deadline Containment:** `LocalLLMProvider.transform()` enforces strict wall-clock deadline containment via persistent background thread pool (`_TRANSFORM_EXECUTOR`), aborting hanging or slow LLM requests within budget (e.g. 0.3s) and safely falling back without stalling the application.
-4. **Reduced Motion & State-Gated Spritesheet Framing:** Spritesheet animations lock strictly to static Frame 0 when `reduced_motion` is enabled, and celebration frames (Frame 2 / last frame) are strictly gated behind verified confirmed/pasted states.
+1. **Async Voice-Command Target Matching & Selection:** Pass the Scratchpad's exact unique target ID (`_target_id`) and selection range into [`VoiceCommandWorker`](file:///S:/APPs/New%20folder/ui/scratchpad_view.py#L41-L85), ensuring `VoiceEditor.apply_transaction()` verifies target document ownership without raising "The target document changed".
+2. **Worker Cancellation & Monotonic Request IDs:** Monotonically incrementing `_active_request_id` tracks active commands. Cancel, hide, and close operations mark workers cancelled (`worker.cancel()`); late-arriving or superseded results are rejected, preventing late preview restoration or unwanted Apply button enablement.
+3. **Comprehensive LLM Deadline Containment:** `LocalLLMProvider.is_available()` health checks and `transform()` requests are strictly bounded inside the requested wall-clock deadline (e.g. 50ms). Outstanding requests are bounded (`MAX_CONCURRENT_TRANSFORMS = 1`), cancel tokens abort background network operations upon timeout, and `shutdown_local_llm()` guarantees clean exit without waiting indefinitely on abandoned background work.
+4. **Explicit Animation State Frame Mappings:** Unified explicit state frame mappings (`build_default_frame_mappings`, `resolve_frame_for_state`) in [`engine/companion_assets.py`](file:///S:/APPs/New%20folder/engine/companion_assets.py#L415-L490). 12-frame spritesheets correctly map Frame 0 to Idle, Frames 1..10 to Action/Listening, and Frame 11 to Celebrate, applied consistently across Pixel Creator, Animation Preview, Companion Renderer, and Desktop Floating HUD.
 5. **Pixel Creator Import Hardening:** Enforced pre-decode security guards (`MAX_IMPORT_FILE_SIZE = 5MB`, `MAX_IMPORT_DIMENSION = 2048px`), added multi-frame slicing up to 12 frames, and dynamic frame selector button rebuilding.
-6. **Character Preset Clarification:** Oneko and Shimeji presets are categorized accurately as visual companion sprite themes, distinct from screen-level cursor chasing or desktop window-climbing behaviors.
+6. **Command Microphone Lifecycle:** Command audio stream fully terminated (`keep_stream_alive=False`) when Scratchpad is hidden, closed, or edit is cancelled.
+7. **Physical Desktop Harness Clarification:** The 4 physical desktop automation test suites (`test_text_injector.py`, `test_notepad_dictation_e2e.py`, `test_cross_app_injection.py`, `test_final_specification_e2e.py`) safely skip when executed from a non-interactive runner/sub-desktop session (`name_cur == exebox-...` vs `name_input == Default`) to prevent misdirected keystrokes. They execute and pass when launched directly on the active interactive desktop.
 
 ### Independent Integrity Verification
 
@@ -36,10 +37,10 @@ Verify your downloaded ZIP before extraction:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 .\FlowPilot-v3.1.0-win64.zip
-# Expected: EEBF54ED29260F8A8811AD0703FB59057D93B2F7E59C8E9002B2CEE1672FFF97
+# Expected: 35C9AA4163DDC8979C324EC7E85E45C78A565F6CAB83AC22AF952B37C91177D4
 
 Get-FileHash -Algorithm SHA256 .\FlowPilot\FlowPilot.exe
-# Expected: EABFC45BE5A54629828F2C3253B2FB35B0FA5F4523E79AE6854644F7FD8B04F4
+# Expected: 5E5C89FB8620A6ADC372EEE2CB4B8CA0B75CECD9528B7676AB5444BA6F437DAD
 ```
 
 ### System & Setup Requirements
