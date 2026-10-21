@@ -530,6 +530,263 @@ NIMBUS_PALETTES = {
     }
 }
 
+# ---------------------------------------------------------------------------
+# Kiki: The Little Scarf Courier (Original Anime-Inspired Companion, 24x24)
+# ---------------------------------------------------------------------------
+# Legend: . empty | K dark silhouette outline (#0F172A) | H chestnut hair (#78350F)
+#         S warm peach skin (#FED7AA) | E anime eye (#1E1B4B) | W eye shine white (#FFFFFF)
+#         R blush pink (#FB7185) | C postal navy beret (#1E3A8A) | G gold badge/star (#F59E0B)
+#         F crimson scarf (#DC2626) | f scarf shade (#991B1B) | B courier coat (#1E293B)
+#         P parchment envelope (#FEF3C7) | X red wax seal (#DC2626) | x emerald seal (#10B981)
+#         A amber question mark (#F59E0B) | L dark leather boots (#0F172A)
+
+KIKI_REST = [
+    ".........CCCC...........",
+    ".......CCCCCCCG.........",
+    "......CCCCCCCCCC........",
+    ".....KKHHHHHHHHHK.......",
+    "....KHHSSHHSSHHHH.......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KHSEWWSSSSWEESH......",
+    "...KHSSEESSSSEESSH......",
+    "...KHSRREESSREESSH......",
+    "....KSSSSSSSSSSSK.......",
+    "....KFFFFFFFFFFFFK......",
+    "...KFFffffffffffFFK.....",
+    "..KFFffffFFFFFffffFK....",
+    "..KBBBBBBBBBBBBBBBBK....",
+    "..KBBHBBBBBBBBBBHBBK....",
+    "..KBBHHBBBBBBBBHHBBK....",
+    "..KBBHHHHGGGGHHHHBBK....",
+    "..KBBHHHHHHHHHHHHBBK....",
+    "...KBBBBBBBBBBBBBBK.....",
+    "....KKKKKKKKKKKKKK......",
+    ".....KLLLK..KLLLK.......",
+    "....KLLLLK..KLLLLK......",
+    "....KLLLLK..KLLLLK......",
+    ".....KKKK....KKKK.......",
+]
+
+KIKI_SCARF = [
+    ".........CCCC...........",
+    ".......CCCCCCCG.........",
+    "......CCCCCCCCCC........",
+    ".....KKHHHHHHHHHK.......",
+    "....KHHSSHHSSHHHH.......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KHSEWWSSSSWEESH......",
+    "...KHSSEESSSSEESSH......",
+    "...KHSRREESSREESSH......",
+    "....KSSSSSSSSSSSK.......",
+    "....KFFFFFFFFFFKSS......",
+    "...KFFffffffffFKS.......",
+    "..KFFffffFFFFfFK........",
+    "..KBBBBBBBBBBBBBBBBK....",
+    "..KBBHBBBBBBBBBBHBBK....",
+    "..KBBHHBBBBBBBBHHBBK....",
+    "..KBBHHHHGGGGHHHHBBK....",
+    "..KBBHHHHHHHHHHHHBBK....",
+    "...KBBBBBBBBBBBBBBK.....",
+    "....KKKKKKKKKKKKKK......",
+    ".....KLLLK..KLLLK.......",
+    "....KLLLLK..KLLLLK......",
+    "....KLLLLK..KLLLLK......",
+    ".....KKKK....KKKK.......",
+]
+
+KIKI_BLINK = [
+    ".........CCCC...........",
+    ".......CCCCCCCG.........",
+    "......CCCCCCCCCC........",
+    ".....KKHHHHHHHHHK.......",
+    "....KHHSSHHSSHHHH.......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KHSSEESSSSEESSH......",
+    "...KHSRREESSREESSH......",
+    "....KSSSSSSSSSSSK.......",
+    "....KFFFFFFFFFFFFK......",
+    "...KFFffffffffffFFK.....",
+    "..KFFffffFFFFFffffFK....",
+    "..KBBBBBBBBBBBBBBBBK....",
+    "..KBBHBBBBBBBBBBHBBK....",
+    "..KBBHHBBBBBBBBHHBBK....",
+    "..KBBHHHHGGGGHHHHBBK....",
+    "..KBBHHHHHHHHHHHHBBK....",
+    "...KBBBBBBBBBBBBBBK.....",
+    "....KKKKKKKKKKKKKK......",
+    ".....KLLLK..KLLLK.......",
+    "....KLLLLK..KLLLLK......",
+    "....KLLLLK..KLLLLK......",
+    ".....KKKK....KKKK.......",
+]
+
+KIKI_LISTEN = [
+    ".........CCCC...G.......",
+    ".......CCCCCCCG.GG......",
+    "......CCCCCCCCCCG.......",
+    ".....KKHHHHHHHHHK.......",
+    "....KHHSSHHSSHHHH.......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KHSEWWSSSSWEESH......",
+    "...KHSSEESSSSEESSH......",
+    "...KHSRREESSREESSH......",
+    "....KSSSSSSSSSSSK.......",
+    "...KFFFFFFFFFFFFFK......",
+    "..KFFfffffffffffffFF....",
+    ".KFFffffFFFFFfffffffFK..",
+    "..KBBBBBBBBBBBBBBBBK....",
+    "..KBBHBBBBBBBBBBHBBK....",
+    "..KBBHHBBBBBBBBHHBBK....",
+    "..KBBHHHHGGGGHHHHBBK....",
+    "..KBBHHHHHHHHHHHHBBK....",
+    "...KBBBBBBBBBBBBBBK.....",
+    "....KKKKKKKKKKKKKK......",
+    ".....KLLLK..KLLLK.......",
+    "....KLLLLK..KLLLLK......",
+    "....KLLLLK..KLLLLK......",
+    ".....KKKK....KKKK.......",
+]
+
+KIKI_PROCESS = [
+    ".........CCCC...........",
+    ".......CCCCCCCG.........",
+    "......CCCCCCCCCC........",
+    ".....KKHHHHHHHHHK.......",
+    "....KHHSSHHSSHHHH.......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KHSE..SSSS..EESH.....",
+    "...KHSEEESSSSEEESSH.....",
+    "...KHSRREESSREESSH......",
+    "....KSSSSSSSSSSSK.......",
+    "....KFFFFFFFFFFFFK......",
+    "...KFFffffffffffFFK.....",
+    "..KFFffffFFFFFffffFK....",
+    "..KBBKPPPPPPPPPPKBBK....",
+    "..KBBKPPPPXXPPPPKBBK....",
+    "..KBBKPPPPXXPPPPKBBK....",
+    "..KBBKPPPPPPPPPPKBBK....",
+    "..KBBKKKKKKKKKKKKBBK....",
+    "...KBBBBBBBBBBBBBBK.....",
+    "....KKKKKKKKKKKKKK......",
+    ".....KLLLK..KLLLK.......",
+    "....KLLLLK..KLLLLK......",
+    "....KLLLLK..KLLLLK......",
+    ".....KKKK....KKKK.......",
+]
+
+KIKI_CONFIRMED = [
+    ".........CCCC..GG.......",
+    ".......CCCCCCCGGG.......",
+    "......CCCCCCCCCCG.......",
+    ".....KKHHHHHHHHHK.......",
+    "....KHHSSHHSSHHHH.......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KH..EESSSSEE..SH.....",
+    "...KHSSEESSSSEESSH......",
+    "...KHSRREESSREESSH......",
+    "....KSSSSSSSSSSSK.......",
+    "....KFFFFFFFFFFFFK......",
+    "...KFFffffffffffFFK.....",
+    "..KFFffffFFFFFffffFK....",
+    "..KBBKPPPPPPPPPPKBBK....",
+    "..KBBKPPPPxxPPPPKBBK....",
+    "..KBBKPPPPxxPPPPKBBK....",
+    "..KBBKPPPPPPPPPPKBBK....",
+    "..KBBKKKKKKKKKKKKBBK....",
+    "...KBBBBBBBBBBBBBBK.....",
+    "....KKKKKKKKKKKKKK......",
+    ".....KLLLK..KLLLK.......",
+    "....KLLLLK..KLLLLK......",
+    "....KLLLLK..KLLLLK......",
+    ".....KKKK....KKKK.......",
+]
+
+KIKI_UNVERIFIED = [
+    ".........CCCC...........",
+    ".......CCCCCCCG.........",
+    "......CCCCCCCCCC........",
+    ".....KKHHHHHHHHHK.......",
+    "....KHHSSHHSSHHHH.......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KHSEWWSSSSWEESH......",
+    "...KHSSEESSSSEESSH......",
+    "...KHHSSSSSSSSSHHK......",
+    "....KSSSSSSSSSSSK.......",
+    "....KFFFFFFFFFFFFK......",
+    "...KFFffffffffffFFK.....",
+    "..KFFffffFFFFFffffFK....",
+    "..KBBKPPPPPPPPPPKBBK....",
+    "..KBBKPPPP..PPPPKBBK....",
+    "..KBBKPPPP..PPPPKBBK....",
+    "..KBBKPPPPPPPPPPKBBK....",
+    "..KBBKKKKKKKKKKKKBBK....",
+    "...KBBBBBBBBBBBBBBK.....",
+    "....KKKKKKKKKKKKKK......",
+    ".....KLLLK..KLLLK.......",
+    "....KLLLLK..KLLLLK......",
+    "....KLLLLK..KLLLLK......",
+    ".....KKKK....KKKK.......",
+]
+
+KIKI_RECOVERY = [
+    "........ACCCC...........",
+    ".......AACCCCCCG........",
+    "........ACCCCCCC........",
+    ".....KKHHHHHHHHHK.......",
+    "....KHHSSHHSSHHHH.......",
+    "...KHHSSSSSSSSSHHK......",
+    "...KHSSEESSSSEESH.......",
+    "...KHSE..SSSSE..SH......",
+    "...KHSRREESSREESSH......",
+    "....KSSSSSSSSSSSK.......",
+    "....KFFFFFFFFFFFFK......",
+    "...KFFffffffffffFFK.....",
+    "..KFFffffFFFFFffffFK....",
+    "..KBBKPPPPPPPPPPKBBK....",
+    "..KBBKPPPPXXPPPPKBBK....",
+    "..KBBKPPPPXXPPPPKBBK....",
+    "..KBBKPPPPPPPPPPKBBK....",
+    "..KBBKKKKKKKKKKKKBBK....",
+    "...KBBBBBBBBBBBBBBK.....",
+    "....KKKKKKKKKKKKKK......",
+    ".....KLLLK..KLLLK.......",
+    "....KLLLLK..KLLLLK......",
+    "....KLLLLK..KLLLLK......",
+    ".....KKKK....KKKK.......",
+]
+
+KIKI_PALETTES = {
+    "default": {
+        "K": "#0F172A", "H": "#78350F", "S": "#FED7AA",
+        "E": "#1E1B4B", "W": "#FFFFFF", "R": "#FB7185",
+        "C": "#1E3A8A", "G": "#F59E0B", "F": "#DC2626",
+        "f": "#991B1B", "B": "#1E293B", "P": "#FEF3C7",
+        "X": "#DC2626", "x": "#10B981", "A": "#F59E0B", "L": "#0F172A"
+    },
+    "autumn": {
+        "K": "#0F172A", "H": "#78350F", "S": "#FED7AA",
+        "E": "#1E1B4B", "W": "#FFFFFF", "R": "#FB7185",
+        "C": "#1E3A8A", "G": "#F59E0B", "F": "#DC2626",
+        "f": "#991B1B", "B": "#1E293B", "P": "#FEF3C7",
+        "X": "#DC2626", "x": "#10B981", "A": "#F59E0B", "L": "#0F172A"
+    },
+    "frost": {
+        "K": "#020617", "H": "#475569", "S": "#FFEDD5",
+        "E": "#0F172A", "W": "#FFFFFF", "R": "#FDA4AF",
+        "C": "#0F172A", "G": "#38BDF8", "F": "#0284C7",
+        "f": "#0369A1", "B": "#1E293B", "P": "#F8FAFC",
+        "X": "#0284C7", "x": "#10B981", "A": "#F59E0B", "L": "#020617"
+    },
+    "matcha": {
+        "K": "#064E3B", "H": "#78350F", "S": "#FEF3C7",
+        "E": "#022C22", "W": "#FFFFFF", "R": "#F472B6",
+        "C": "#064E3B", "G": "#FBBF24", "F": "#15803D",
+        "f": "#166534", "B": "#064E3B", "P": "#FEF3C7",
+        "X": "#15803D", "x": "#10B981", "A": "#F59E0B", "L": "#022C22"
+    }
+}
+
 class CompanionRenderer:
     """
     Centralized rendering engine providing authoritative rendering for:
@@ -569,7 +826,7 @@ class CompanionRenderer:
             return (68, 28)
         if st in ("edge_line", "signal_edge"):
             return (14, 68)
-        if st in ("mascot", "pilot", "seedling", "nimbus"):
+        if st in ("mascot", "pilot", "seedling", "nimbus", "kiki", "courier"):
             return (72, 72)
         if st in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
             return (78, 84)
@@ -621,6 +878,10 @@ class CompanionRenderer:
         # 3c. Nimbus (Vapor Cloud Sprite - Concept 3)
         elif style_key == "nimbus":
             cls._draw_nimbus(painter, cx, cy, canonical_state, elapsed_ms, audio_level, palette, reduced_motion, device_pixel_ratio)
+
+        # 3d. Kiki (The Little Scarf Courier - Original Anime Companion)
+        elif style_key in ("kiki", "courier"):
+            cls._draw_kiki(painter, cx, cy, canonical_state, elapsed_ms, audio_level, palette, reduced_motion, device_pixel_ratio)
 
         # 4. SondeR-Cat Pixel Kitty
         elif style_key == "kitty":
@@ -955,6 +1216,78 @@ class CompanionRenderer:
                 if ch in ("C", "P") and state == "listening" and not reduced_motion:
                     pulse = 0.5 + 0.5 * math.sin(elapsed_ms * 0.01)
                     col = QColor(col.red(), col.green(), col.blue(), int(160 + 95 * pulse))
+                painter.fillRect(start_x + (gx * scale), start_y + (gy * scale), scale, scale, col)
+
+    # -----------------------------------------------------------------------
+    # 3d. Kiki: The Little Scarf Courier (Original Anime-Inspired Companion)
+    # -----------------------------------------------------------------------
+    @classmethod
+    def _draw_kiki(
+        cls,
+        painter: QPainter,
+        cx: float,
+        cy: float,
+        state: str,
+        elapsed_ms: float,
+        audio_level: float,
+        palette_name: str,
+        reduced_motion: bool,
+        device_pixel_ratio: float
+    ) -> None:
+        """
+        Renders Kiki the Little Scarf Courier with integer pixel snapping.
+        - Idle: Restrained, quiet pose; occasional scarf adjust or blink (never endless bouncing).
+        - Listening: Attentive pose with reactive scarf flutter.
+        - Processing: Cradles letter envelope close, inspecting seal.
+        - Confirmed: Single-shot delivery bow with emerald wax seal.
+        - Unverified: Neutral forward peer (honest pause).
+        - Recovery: Sympathetic address check with amber question mark.
+        """
+        if state == "listening":
+            grid = KIKI_LISTEN
+        elif state == "processing":
+            grid = KIKI_PROCESS
+        elif state == "confirmed":
+            grid = KIKI_CONFIRMED
+        elif state == "unverified":
+            grid = KIKI_UNVERIFIED
+        elif state == "recovery":
+            grid = KIKI_RECOVERY
+        else:  # idle
+            if not reduced_motion:
+                cycle = int(elapsed_ms) % 3500
+                if cycle < 180:
+                    grid = KIKI_BLINK
+                elif 2600 <= cycle < 3100:
+                    grid = KIKI_SCARF
+                else:
+                    grid = KIKI_REST
+            else:
+                grid = KIKI_REST
+
+        pal = KIKI_PALETTES.get(palette_name, KIKI_PALETTES["default"])
+        grid_w = len(grid[0])
+        grid_h = len(grid)
+        scale = 2  # 2x scale = 48x48 px
+
+        total_w = grid_w * scale
+        total_h = grid_h * scale
+        start_x = int(math.floor(cx - (total_w / 2.0)))
+        start_y = int(math.floor(cy - (total_h / 2.0)))
+
+        painter.setPen(Qt.NoPen)
+        for gy, row in enumerate(grid):
+            for gx, ch in enumerate(row):
+                if ch == ".":
+                    continue
+                color_hex = pal.get(ch)
+                if not color_hex:
+                    continue
+                col = QColor(color_hex)
+                # Dynamic audio-reactive glow on gold badge / scarf tip during listening
+                if ch == "G" and state == "listening" and not reduced_motion:
+                    pulse = 0.5 + 0.5 * math.sin(elapsed_ms * 0.015)
+                    col = QColor(col.red(), col.green(), col.blue(), int(170 + 85 * pulse))
                 painter.fillRect(start_x + (gx * scale), start_y + (gy * scale), scale, scale, col)
 
     # -----------------------------------------------------------------------

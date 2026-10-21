@@ -57,6 +57,7 @@ TESTS = [
     ("Multilingual Evaluation Metrics & Corpus Schema", "tests/test_evaluation_metrics.py"),
     ("Personalization & Bounded Prompt Budgeting (PR 3)", "tests/test_personalization_pr3.py"),
     ("Bounded Voice Editing & Atomic Transactions (PR 4)", "tests/test_voice_editor_pr4.py"),
+    ("Kiki Anime Companion Prototype & States (Gemini B)", "tests/test_kiki_companion.py"),
 ]
 
 
