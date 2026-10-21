@@ -53,9 +53,55 @@ def test_language_registry():
     print(f"French punctuation spacing:\n  Original: '{fr_text}'\n  Spaced:   '{fr_spaced}'")
     assert " ?" in fr_spaced and " !" in fr_spaced
 
+    # 7. Test Tamil ('ta') and Malayalam ('ml') registration, native names, and experimental status
+    ta = LanguageRegistry.get_language("ta")
+    ml = LanguageRegistry.get_language("ml")
+
+    assert ta is not None, "Tamil (ta) must be registered in LanguageRegistry"
+    assert ta.name == "Tamil"
+    assert ta.native_name == "தமிழ்"
+    assert ta.script == "Tamil"
+    assert ta.direction == "ltr"
+    assert ta.quality_status == "experimental"
+    assert ta.recommended_model == "small"
+    assert "\u200b" not in ta.native_name, "Accidental zero-width spaces must not be in Tamil label"
+
+    assert ml is not None, "Malayalam (ml) must be registered in LanguageRegistry"
+    assert ml.name == "Malayalam"
+    assert ml.native_name == "മലയാളം"
+    assert ml.script == "Malayalam"
+    assert ml.direction == "ltr"
+    assert ml.quality_status == "experimental"
+    assert ml.recommended_model == "small"
+    assert "\u200b" not in ml.native_name, "Accidental zero-width spaces must not be in Malayalam label"
+
+    # 8. Test serialization and picker listing
+    ta_dict = ta.to_dict()
+    assert ta_dict["code"] == "ta"
+    assert ta_dict["quality_status"] == "experimental"
+
+    ml_dict = ml.to_dict()
+    assert ml_dict["code"] == "ml"
+    assert ml_dict["quality_status"] == "experimental"
+
+    # Verify list_supported_languages propagates quality_status and includes ta/ml
+    supported = LanguageRegistry.list_supported_languages()
+    codes = [item["code"] for item in supported]
+    assert "ta" in codes and "ml" in codes
+    assert codes[0] == "auto", "Auto must be the first language entry"
+    assert codes.count("auto") == 1, "Auto must not appear multiple times in list"
+
+    # 9. Test native bias prompt generation for ta and ml
+    bias_ta = LanguageRegistry.get_bias_prompt("ta", ["React", "FastAPI"])
+    assert "தமிழ்" in bias_ta or len(bias_ta) > 0
+    assert "React" in bias_ta and "FastAPI" in bias_ta
+
+    bias_ml = LanguageRegistry.get_bias_prompt("ml", ["Docker", "Kubernetes"])
+    assert "മലയാളം" in bias_ml or len(bias_ml) > 0
+    assert "Docker" in bias_ml and "Kubernetes" in bias_ml
+
     print("\n[RESULT] LanguageRegistry tests PASSED.")
-    return True
 
 if __name__ == "__main__":
-    success = test_language_registry()
-    sys.exit(0 if success else 1)
+    test_language_registry()
+    sys.exit(0)

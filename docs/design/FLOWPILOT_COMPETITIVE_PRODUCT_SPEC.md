@@ -51,6 +51,8 @@ Acceptance: a new user can install offline, complete setup, dictate into Notepad
 
 ### P2 — Accuracy and app-aware writing
 
+Implementation detail for the English/Hindi/Tamil/Malayalam pilot, model evaluation and bounded voice editing is in [Speech quality and voice editing](SPEECH_QUALITY_AND_VOICE_EDITING_PLAN.md) (2026-10-21). It distinguishes existing functionality from proposed work and does not certify language parity.
+
 1. Benchmark actual spoken English plus a deliberately small set of pilot languages; publish per-language WER/CER, identifier/fact error and stop-to-visible-text latency. Expand support labels only after evidence.
 2. Add opt-in, bounded focused-field context only after a separate privacy/security design. Exclude password, secure, finance and URL fields; impose a 500 ms worker timeout; do not log or persist field text. Process title/category alone is not equivalent.
 3. Make writing profiles easy to understand with before/after examples and a per-dictation raw fallback. Preserve numbers, negation, dates and identifiers in all profiles. Keep optional localhost LLM transformation clearly separate from guaranteed local deterministic dictation.

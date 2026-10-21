@@ -52,6 +52,8 @@ TESTS = [
     ("Selected-Text Transforms & Dictation History Vault", "tests/test_transforms_and_history.py"),
     ("Multilingual Workstation & Real-Time Translation", "tests/test_multilingual_workstation.py"),
     ("User-Facing Fixes (Mic Device, Dynamic Personalization & Safe Targeting)", "tests/test_user_facing_fixes.py"),
+    ("STTEngine Model Lifecycle & Orchestrator Ownership", "tests/test_model_lifecycle.py"),
+    ("Honest Transforms & Enforced Apply Guardrails", "tests/test_honest_transforms.py"),
 ]
 
 

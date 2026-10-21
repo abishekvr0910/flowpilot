@@ -205,7 +205,8 @@ class SettingsDialog(QDialog):
         cur_lang = self.config.get("language", "auto")
         selected_lang_idx = 0
         for idx, lang in enumerate(languages):
-            display_str = f"{lang['name']} ({lang['native_name']}) [{lang['code']}]"
+            status_suffix = " (Experimental)" if lang.get("quality_status") == "experimental" else ""
+            display_str = f"{lang['name']} ({lang['native_name']}) [{lang['code']}]{status_suffix}"
             self.combo_lang.addItem(display_str, lang["code"])
             if lang["code"] == cur_lang:
                 selected_lang_idx = idx

@@ -370,9 +370,9 @@ class SetupWizardDialog(QDialog):
 
         layout.addWidget(QLabel("Primary Spoken Language:"))
         self.combo_lang = QComboBox()
-        self.combo_lang.addItem("Auto-Detect Language", "auto")
         for lang in LanguageRegistry.list_supported_languages():
-            self.combo_lang.addItem(f"{lang['name']} ({lang['native_name']})", lang['code'])
+            status_suffix = " (Experimental)" if lang.get("quality_status") == "experimental" else ""
+            self.combo_lang.addItem(f"{lang['name']} ({lang['native_name']}){status_suffix}", lang['code'])
 
         current_lang = self.config.get("language", "auto")
         idx = self.combo_lang.findData(current_lang)

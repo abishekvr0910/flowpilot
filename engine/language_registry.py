@@ -21,7 +21,8 @@ class LanguageInfo:
         direction: str = "ltr",
         recommended_model: str = "base",
         accents: Optional[List[str]] = None,
-        default_bias_prompt: str = ""
+        default_bias_prompt: str = "",
+        quality_status: str = "standard"
     ):
         self.code = code
         self.name = name
@@ -31,6 +32,7 @@ class LanguageInfo:
         self.recommended_model = recommended_model
         self.accents = accents or []
         self.default_bias_prompt = default_bias_prompt
+        self.quality_status = quality_status
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -42,6 +44,7 @@ class LanguageInfo:
             "recommended_model": self.recommended_model,
             "accents": self.accents,
             "default_bias_prompt": self.default_bias_prompt,
+            "quality_status": self.quality_status,
         }
 
 class LanguageRegistry:
@@ -226,6 +229,28 @@ class LanguageRegistry:
             recommended_model="base",
             accents=["Ukraine"],
             default_bias_prompt="Грамотна українська мова з правильними апострофами, розділовими знаками та термінологією."
+        ),
+        "ta": LanguageInfo(
+            code="ta",
+            name="Tamil",
+            native_name="தமிழ்",
+            script="Tamil",
+            direction="ltr",
+            recommended_model="small",
+            accents=["India (Tamil Nadu)", "Sri Lanka", "Singapore", "Malaysia"],
+            default_bias_prompt="தெளிவான தமிழ் உரை, சரியான நிறுத்தற்குறிகள் மற்றும் தொழில்நுட்ப சொற்கள்.",
+            quality_status="experimental"
+        ),
+        "ml": LanguageInfo(
+            code="ml",
+            name="Malayalam",
+            native_name="മലയാളം",
+            script="Malayalam",
+            direction="ltr",
+            recommended_model="small",
+            accents=["India (Kerala)", "Gulf"],
+            default_bias_prompt="വ്യക്തമായ മലയാളം വാചകം, ശരിയായ വിരാമചിഹ്നങ്ങൾ, സാങ്കേതിക പദങ്ങൾ.",
+            quality_status="experimental"
         )
     }
 
@@ -267,7 +292,8 @@ class LanguageRegistry:
                 "script": info.script,
                 "direction": info.direction,
                 "recommended_model": info.recommended_model,
-                "accents": info.accents
+                "accents": info.accents,
+                "quality_status": info.quality_status
             })
         return result
 

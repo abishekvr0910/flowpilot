@@ -19,10 +19,54 @@ import re
 import time
 import logging
 import threading
+from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, Tuple
 import pyperclip
 
 logger = logging.getLogger("FlowPilot.Transforms")
+
+@dataclass
+class TransformResult:
+    original_text: str
+    candidate_text: str
+    status: str  # "success" | "unchanged" | "unsupported" | "unavailable" | "blocked" | "error"
+    execution_route: str  # "deterministic" | "local_llm" | "none"
+    guard_status: str  # "passed" | "failed" | "not_run"
+    reason_code: str
+    can_apply: bool
+    error_message: Optional[str] = None
+
+    def __iter__(self):
+        """
+        Backwards-compatible tuple unpacking for legacy callers:
+        transformed_text, factguard_passed = result
+        """
+        return iter((self.candidate_text, self.can_apply))
+
+    def __getitem__(self, index):
+        return (self.candidate_text, self.can_apply)[index]
+
+# Anchored regexes for deterministic custom natural-language aliases
+RE_CUSTOM_BULLETS = re.compile(
+    r"^\s*(?:format|convert|make|turn)?\s*(?:this|it)?\s*(?:in\s*to|as)?\s*(?:a\s+)?(?:bullet\s+points?|bulleted\s+list|bullet\s+list|bullets)\s*$",
+    re.IGNORECASE
+)
+RE_CUSTOM_CONCISE = re.compile(
+    r"^\s*(?:make\s+(?:this|it)?\s*)?(?:concise|shorter|brief|summarize(?:\s+(?:this|it))?)\s*$",
+    re.IGNORECASE
+)
+RE_CUSTOM_PROFESSIONAL = re.compile(
+    r"^\s*(?:make\s+(?:this|it)?\s*)?(?:professional|formal|executive)(?:\s+tone)?\s*$",
+    re.IGNORECASE
+)
+RE_CUSTOM_CASUAL = re.compile(
+    r"^\s*(?:make\s+(?:this|it)?\s*)?(?:casual|friendly|relaxed)(?:\s+tone)?\s*$",
+    re.IGNORECASE
+)
+RE_CUSTOM_GRAMMAR = re.compile(
+    r"^\s*(?:fix|correct|clean(?:\s+up)?)\s*(?:the\s+)?(?:grammar|typos?|spelling)\s*$",
+    re.IGNORECASE
+)
 
 try:
     import win32gui
@@ -83,10 +127,11 @@ class TransformsEngine:
         self._last_transformed_text: str = ""
         self._last_target_hwnd: Optional[int] = None
         self._history: List[Dict[str, Any]] = []
-        self._last_execution_route: str = "factguard_rules"
+        self._last_execution_route: str = "none"
+        self._last_can_apply: bool = False
 
     def get_last_execution_route(self) -> str:
-        """Returns whether the last transform executed via 'local_llm' or 'factguard_rules'."""
+        """Returns whether the last transform executed via 'local_llm', 'deterministic', or 'none'."""
         with self._lock:
             return self._last_execution_route
 
@@ -158,55 +203,229 @@ class TransformsEngine:
         text: str,
         transform_id: str,
         custom_instruction: Optional[str] = None
-    ) -> Tuple[str, bool]:
+    ) -> TransformResult:
         """
-        Applies deterministic transformation rules or custom prompt.
-        Returns: (transformed_text, factguard_passed)
+        Applies deterministic transformation rules or optional local LLM.
+        Returns a structured TransformResult guaranteeing truthful status reporting,
+        original text preservation on failure, and enforced apply boundaries.
         """
         if not text or not text.strip():
-            return "", True
+            return TransformResult(
+                original_text=text or "",
+                candidate_text=text or "",
+                status="unchanged",
+                execution_route="none",
+                guard_status="not_run",
+                reason_code="EMPTY_INPUT",
+                can_apply=False,
+                error_message="Input text was empty."
+            )
 
         raw = text.strip()
-        result = raw
+        candidate = raw
+        route = "deterministic"
 
         if transform_id == "make_concise":
-            result = self._apply_concise(raw)
+            candidate = self._apply_concise(raw)
         elif transform_id == "fix_grammar":
-            result = self._apply_grammar_fix(raw)
+            candidate = self._apply_grammar_fix(raw)
         elif transform_id == "bullet_points":
-            result = self._apply_bullet_points(raw)
+            candidate = self._apply_bullet_points(raw)
         elif transform_id == "professional":
-            result = self._apply_professional_tone(raw)
+            candidate = self._apply_professional_tone(raw)
         elif transform_id == "casual":
-            result = self._apply_casual_tone(raw)
+            candidate = self._apply_casual_tone(raw)
         elif transform_id == "translate_en":
-            result = self._apply_translate_en(raw)
-        elif transform_id == "custom" and custom_instruction:
-            result = self._apply_custom(raw, custom_instruction)
+            # Text translation requires a capable local language model
+            llm_ok = False
+            try:
+                from engine.local_llm import get_local_llm
+                llm = get_local_llm()
+                if llm.is_available():
+                    out = llm.transform(raw, "Translate this text into clear, fluent English.")
+                    if out and out.strip():
+                        candidate = out.strip()
+                        route = "local_llm"
+                        llm_ok = True
+            except Exception as e:
+                logger.debug(f"[Transforms] Translation LLM error: {e}")
+
+            if not llm_ok:
+                with self._lock:
+                    self._last_can_apply = False
+                    self._last_execution_route = "none"
+                return TransformResult(
+                    original_text=text,
+                    candidate_text=text,
+                    status="unavailable",
+                    execution_route="none",
+                    guard_status="not_run",
+                    reason_code="TRANSLATION_MODEL_UNAVAILABLE",
+                    can_apply=False,
+                    error_message="Text translation requires an optional local LLM. Your text was not changed."
+                )
+
+        elif transform_id == "custom":
+            if not custom_instruction or not custom_instruction.strip():
+                return TransformResult(
+                    original_text=text,
+                    candidate_text=text,
+                    status="unchanged",
+                    execution_route="none",
+                    guard_status="not_run",
+                    reason_code="EMPTY_INSTRUCTION",
+                    can_apply=False,
+                    error_message="Custom instruction was empty."
+                )
+
+            # 1. Try local offline LLM first for generative prompt execution
+            llm_attempted = False
+            try:
+                from engine.local_llm import get_local_llm
+                llm = get_local_llm()
+                if llm.is_available():
+                    llm_attempted = True
+                    out = llm.transform(raw, custom_instruction)
+                    if out and out.strip():
+                        candidate = out.strip()
+                        route = "local_llm"
+                    else:
+                        with self._lock:
+                            self._last_can_apply = False
+                            self._last_execution_route = "none"
+                        return TransformResult(
+                            original_text=text,
+                            candidate_text=text,
+                            status="unavailable",
+                            execution_route="local_llm",
+                            guard_status="not_run",
+                            reason_code="LOCAL_LLM_EMPTY_OUTPUT",
+                            can_apply=False,
+                            error_message="Local LLM returned empty output. Your text was not changed."
+                        )
+            except Exception as e:
+                logger.debug(f"[Transforms] Local LLM custom transform error: {e}")
+                if llm_attempted:
+                    with self._lock:
+                        self._last_can_apply = False
+                        self._last_execution_route = "none"
+                    return TransformResult(
+                        original_text=text,
+                        candidate_text=text,
+                        status="unavailable",
+                        execution_route="local_llm",
+                        guard_status="not_run",
+                        reason_code="LOCAL_LLM_ERROR",
+                        can_apply=False,
+                        error_message=f"Local LLM failed ({e}). Your text was not changed."
+                    )
+
+            if not llm_attempted:
+                # 2. Narrow anchored allowlist for deterministic presets
+                inst = custom_instruction.strip()
+                if RE_CUSTOM_BULLETS.match(inst):
+                    candidate = self._apply_bullet_points(raw)
+                    route = "deterministic"
+                elif RE_CUSTOM_CONCISE.match(inst):
+                    candidate = self._apply_concise(raw)
+                    route = "deterministic"
+                elif RE_CUSTOM_PROFESSIONAL.match(inst):
+                    candidate = self._apply_professional_tone(raw)
+                    route = "deterministic"
+                elif RE_CUSTOM_CASUAL.match(inst):
+                    candidate = self._apply_casual_tone(raw)
+                    route = "deterministic"
+                elif RE_CUSTOM_GRAMMAR.match(inst):
+                    candidate = self._apply_grammar_fix(raw)
+                    route = "deterministic"
+                else:
+                    # Unsupported natural language instruction without LLM (e.g. 'replace Friday with Monday')
+                    # Must preserve exact original input text and report unsupported
+                    with self._lock:
+                        self._last_can_apply = False
+                        self._last_execution_route = "none"
+                    return TransformResult(
+                        original_text=text,
+                        candidate_text=text,
+                        status="unsupported",
+                        execution_route="none",
+                        guard_status="not_run",
+                        reason_code="LOCAL_LLM_REQUIRED",
+                        can_apply=False,
+                        error_message="This instruction needs the optional local writing model. Your text was not changed."
+                    )
         else:
-            result = self._apply_concise(raw)
+            # Unknown preset ID
+            with self._lock:
+                self._last_can_apply = False
+                self._last_execution_route = "none"
+            return TransformResult(
+                original_text=text,
+                candidate_text=text,
+                status="unsupported",
+                execution_route="none",
+                guard_status="not_run",
+                reason_code="UNKNOWN_PRESET",
+                can_apply=False,
+                error_message=f"Unknown transform preset '{transform_id}'. Your text was not changed."
+            )
 
         # FactGuard invariant verification: Numbers, currencies, negations
-        fg = FactGuard.verify_invariants(raw, result)
+        fg = FactGuard.verify_invariants(raw, candidate)
         factguard_passed = fg.get("passed", True)
+        if not factguard_passed:
+            with self._lock:
+                self._last_can_apply = False
+                self._last_execution_route = route
+            return TransformResult(
+                original_text=text,
+                candidate_text=candidate,
+                status="blocked",
+                execution_route=route,
+                guard_status="failed",
+                reason_code="FACTGUARD_INVARIANT_VIOLATION",
+                can_apply=False,
+                error_message="Transform blocked: FactGuard invariant violation (numbers, dates, or negations altered)."
+            )
 
         with self._lock:
-            self._last_original_text = raw
-            self._last_transformed_text = result
+            self._last_original_text = text
+            self._last_transformed_text = candidate
+            self._last_can_apply = True
+            self._last_execution_route = route
             self._history.append({
                 "timestamp": time.time(),
                 "transform_id": transform_id,
-                "original": raw,
-                "transformed": result,
-                "factguard_passed": factguard_passed
+                "original": text,
+                "transformed": candidate,
+                "factguard_passed": True,
+                "route": route
             })
 
-        return result, factguard_passed
+        return TransformResult(
+            original_text=text,
+            candidate_text=candidate,
+            status="success",
+            execution_route=route,
+            guard_status="passed",
+            reason_code="SUCCESS",
+            can_apply=True
+        )
 
-    def replace_selection(self, replacement_text: str, target_hwnd: Optional[int] = None) -> bool:
+    def replace_selection(self, replacement_text: str, target_hwnd: Optional[int] = None, result: Optional[TransformResult] = None) -> bool:
         """
         Atomically replaces the active selection with transformed text.
+        Guarded: cannot inject if result or last transform is not eligible to apply.
         """
+        if result is not None and not result.can_apply:
+            logger.warning("[Transforms] Injection blocked: TransformResult has can_apply=False.")
+            return False
+
+        with self._lock:
+            if result is None and not getattr(self, "_last_can_apply", False):
+                logger.warning("[Transforms] Injection blocked: Last transform has can_apply=False.")
+                return False
+
         if not replacement_text:
             return False
 
@@ -228,7 +447,13 @@ class TransformsEngine:
 
         if not orig:
             return False
-        return self.replace_selection(orig, hwnd)
+        if not hwnd and HAS_WIN32:
+            hwnd = win32gui.GetForegroundWindow()
+        res = TextInjector.inject_with_status(orig, hwnd)
+        if not res:
+            res_bool = TextInjector.inject_unicode_sendinput(orig, hwnd)
+            return bool(res_bool)
+        return True
 
     # -----------------------------------------------------------------
     # Deterministic Local Transformation Primitives
@@ -342,56 +567,6 @@ class TransformsEngine:
         for pat, rep in phrases:
             out = re.sub(pat, rep, out, flags=re.IGNORECASE)
         return out
-
-    def _apply_translate_en(self, text: str) -> str:
-        # Check if local offline LLM (Ollama / llama.cpp) is available
-        try:
-            from engine.local_llm import get_local_llm
-            llm = get_local_llm()
-            if llm.is_available():
-                out = llm.transform(text, "Translate this text into clear, fluent English.")
-                if out:
-                    self._last_execution_route = "local_llm"
-                    logger.info(f"[Transforms] Executed via Local LLM (model='{llm.get_active_model() or 'local'}')")
-                    return out
-        except Exception as e:
-            logger.debug(f"[Transforms] Local LLM translate error: {e}")
-
-        # Deterministic fallback
-        self._last_execution_route = "factguard_rules"
-        logger.info("[Transforms] Executed via Deterministic FactGuard Rules (Local LLM unavailable or offline)")
-        return self._apply_concise(text)
-
-    def _apply_custom(self, text: str, instruction: str) -> str:
-        # 1. Try local offline LLM first for rich generative Command Mode
-        try:
-            from engine.local_llm import get_local_llm
-            llm = get_local_llm()
-            if llm.is_available():
-                out = llm.transform(text, instruction)
-                if out:
-                    self._last_execution_route = "local_llm"
-                    logger.info(f"[Transforms] Executed via Local LLM (model='{llm.get_active_model() or 'local'}')")
-                    return out
-        except Exception as e:
-            logger.debug(f"[Transforms] Local LLM custom transform error: {e}")
-
-        # 2. Fast deterministic rule-based fallback
-        self._last_execution_route = "factguard_rules"
-        logger.info("[Transforms] Executed via Deterministic FactGuard Rules (Local LLM unavailable or offline)")
-        inst = instruction.lower()
-        if "bullet" in inst or "list" in inst:
-            return self._apply_bullet_points(text)
-        if "concise" in inst or "short" in inst or "brief" in inst or "summarize" in inst:
-            return self._apply_concise(text)
-        if "pro" in inst or "formal" in inst or "executive" in inst or "work" in inst:
-            return self._apply_professional_tone(text)
-        if "casual" in inst or "friendly" in inst or "relaxed" in inst:
-            return self._apply_casual_tone(text)
-        if "grammar" in inst or "typo" in inst or "clean" in inst or "fix" in inst:
-            return self._apply_grammar_fix(text)
-        return self._apply_concise(text)
-
 
 _transforms_instance: Optional[TransformsEngine] = None
 
