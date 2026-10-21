@@ -45,24 +45,49 @@ _SECURE_LOCAL_OPENER = urllib.request.build_opener(
 )
 
 # Dedicated worker pool for bounded LLM transformations to guarantee hard timeout cancellation
-_TRANSFORM_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=4,
-    thread_name_prefix="FlowPilot-LocalLLM"
-)
+_TRANSFORM_EXECUTOR: Optional[concurrent.futures.ThreadPoolExecutor] = None
 
 _IN_FLIGHT_TRANSFORMS_LOCK = threading.Lock()
 _IN_FLIGHT_TRANSFORMS = 0
 MAX_CONCURRENT_TRANSFORMS = 1
 
 
+def _get_transform_executor() -> concurrent.futures.ThreadPoolExecutor:
+    global _TRANSFORM_EXECUTOR
+    if _TRANSFORM_EXECUTOR is None or getattr(_TRANSFORM_EXECUTOR, '_shutdown', False):
+        _TRANSFORM_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+            max_workers=4,
+            thread_name_prefix="FlowPilot-LocalLLM"
+        )
+    return _TRANSFORM_EXECUTOR
+
+
+def _release_concurrency_slot(executor_instance=None):
+    """Releases the transform concurrency slot ONLY when the underlying worker actually finishes."""
+    global _IN_FLIGHT_TRANSFORMS, _TRANSFORM_EXECUTOR
+    with _IN_FLIGHT_TRANSFORMS_LOCK:
+        if executor_instance is not None and _TRANSFORM_EXECUTOR is not None and executor_instance is not _TRANSFORM_EXECUTOR:
+            return
+        _IN_FLIGHT_TRANSFORMS = max(0, _IN_FLIGHT_TRANSFORMS - 1)
+
+
+def get_in_flight_transforms() -> int:
+    """Returns the current number of actively executing background transform workers."""
+    with _IN_FLIGHT_TRANSFORMS_LOCK:
+        return _IN_FLIGHT_TRANSFORMS
+
+
 def shutdown_local_llm(wait: bool = False):
     """Terminates pending/abandoned background workers without indefinite blocking."""
-    global _TRANSFORM_EXECUTOR
+    global _TRANSFORM_EXECUTOR, _IN_FLIGHT_TRANSFORMS
     if _TRANSFORM_EXECUTOR is not None:
         try:
             _TRANSFORM_EXECUTOR.shutdown(wait=wait, cancel_futures=True)
         except Exception:
             _TRANSFORM_EXECUTOR.shutdown(wait=wait)
+        _TRANSFORM_EXECUTOR = None
+    with _IN_FLIGHT_TRANSFORMS_LOCK:
+        _IN_FLIGHT_TRANSFORMS = 0
 
 
 atexit.register(lambda: shutdown_local_llm(wait=False))
@@ -158,7 +183,7 @@ class LocalLLMProvider:
         cancel_event = threading.Event()
         deadline = time.monotonic() + max_wait
         try:
-            future = _TRANSFORM_EXECUTOR.submit(
+            future = _get_transform_executor().submit(
                 self._probe_endpoints,
                 self.preferred_model.strip(),
                 deadline,
@@ -279,9 +304,11 @@ class LocalLLMProvider:
                 return None
             _IN_FLIGHT_TRANSFORMS += 1
 
+        slot_submitted = False
         cancel_event = threading.Event()
+        executor = _get_transform_executor()
         try:
-            future = _TRANSFORM_EXECUTOR.submit(
+            future = executor.submit(
                 self._execute_transform_call,
                 text_bounded,
                 instruction_bounded,
@@ -290,6 +317,8 @@ class LocalLLMProvider:
                 deadline,
                 cancel_event
             )
+            slot_submitted = True
+            future.add_done_callback(lambda f, ex=executor: _release_concurrency_slot(ex))
             remaining = max(0.005, deadline - time.monotonic())
             result = future.result(timeout=remaining)
             if time.monotonic() > deadline:
@@ -310,8 +339,8 @@ class LocalLLMProvider:
             logger.debug(f"[LocalLLM] Transform execution failed: {e}")
             return None
         finally:
-            with _IN_FLIGHT_TRANSFORMS_LOCK:
-                _IN_FLIGHT_TRANSFORMS = max(0, _IN_FLIGHT_TRANSFORMS - 1)
+            if not slot_submitted:
+                _release_concurrency_slot()
 
     def _execute_transform_call(
         self,
@@ -439,6 +468,10 @@ class LocalLLMProvider:
             cleaned = cleaned[1:-1].strip()
 
         return cleaned
+
+    def shutdown(self, wait: bool = False):
+        """Terminates pending or abandoned background transforms for this provider."""
+        shutdown_local_llm(wait=wait)
 
 
 # Global singleton instance

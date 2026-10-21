@@ -35,9 +35,6 @@ from tests.notepad_harness import (
 )
 
 def test_cross_app_injection():
-    if not is_interactive_desktop():
-        print("[RESULT] SKIPPED: Physical cross-application insertion requires an interactive Windows desktop.")
-        return True
     print("=" * 70)
     print("FLOWPILOT CROSS-APPLICATION INJECTION & FOCUS STABILITY TEST")
     print("=" * 70)

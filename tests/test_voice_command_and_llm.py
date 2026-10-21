@@ -264,6 +264,18 @@ class LocalLLMSecurityAndModelSelectionTests(unittest.TestCase):
 
 
 class LocalLLMRewritingAndFactGuardTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def setUp(self):
+        from engine.local_llm import shutdown_local_llm
+        shutdown_local_llm(wait=False)
+
+    def tearDown(self):
+        from engine.local_llm import shutdown_local_llm
+        shutdown_local_llm(wait=False)
+
     def test_voice_editor_unsupported_when_llm_inactive(self):
         """Open-ended natural language prompt returns typed 'unsupported' when LLM is inactive."""
         editor = VoiceEditor()
@@ -337,7 +349,7 @@ class LocalLLMRewritingAndFactGuardTests(unittest.TestCase):
         provider._active_model = "qwen2.5:3b"
 
         def slow_open(req, timeout=None):
-            time.sleep(2.0)  # Simulated slow backend
+            time.sleep(0.5)  # Simulated slow backend
             resp = MagicMock()
             resp.status = 200
             resp.read.return_value = json.dumps({"response": "unwanted late result"}).encode("utf-8")
@@ -487,6 +499,117 @@ class LocalLLMRewritingAndFactGuardTests(unittest.TestCase):
             elapsed = time.monotonic() - t0
             self.assertLess(elapsed, 0.10, f"Transform took too long to abort: {elapsed:.3f}s")
             self.assertIsNone(res)
+
+    def test_voice_command_worker_preserves_collapsed_cursor_selection(self):
+        """Collapsed cursor (e.g. at pos 6 with length 0) must NOT be rewritten to (0, 0)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pad_file = Path(tmpdir) / "pad.txt"
+            with patch("ui.scratchpad_view.AUTOSAVE_FILE", pad_file):
+                sp = ScratchpadView()
+                try:
+                    doc = "Friday afternoon meeting."
+                    sp.editor.setPlainText(doc)
+
+                    # Position cursor right after 'Friday' (pos 6) with no selection -> (6, 6)
+                    cursor = sp.editor.textCursor()
+                    cursor.setPosition(6)
+                    sp.editor.setTextCursor(cursor)
+
+                    from ui.scratchpad_view import _python_selection
+                    current_sel = _python_selection(doc, sp.editor.textCursor())
+                    self.assertEqual(current_sel, (6, 6))
+
+                    mock_stt = MagicMock()
+                    mock_stt.transcribe.return_value = {"text": "replace Friday with Monday"}
+
+                    # Instantiate worker with exact collapsed cursor position (6, 6)
+                    worker = VoiceCommandWorker(
+                        stt=mock_stt,
+                        editor=sp.voice_editor,
+                        doc_text=doc,
+                        sel_range=(6, 6),
+                        audio=[0.0] * 100,
+                        target_id=sp._target_id,
+                        request_id=sp._active_request_id,
+                        parent=sp
+                    )
+                    self.assertEqual(worker.sel_range, (6, 6))
+
+                    planned_results = []
+                    worker.command_planned.connect(lambda req_id, cl, tx, err: planned_results.append((req_id, cl, tx, err)))
+                    worker.run()
+
+                    self.assertEqual(len(planned_results), 1)
+                    req_id, cl, tx, err = planned_results[0]
+                    self.assertEqual(err, "")
+                    self.assertIsNotNone(tx)
+                    # Crucial assertion: source_selection must remain (6, 6), NEVER changed to (0, 0)!
+                    self.assertEqual(tx.source_selection, (6, 6))
+
+                    # Apply must match current selection (6, 6) and succeed without 'Selection changed' error
+                    sp.edit_panel.setVisible(True)
+                    sp._on_command_worker_result(req_id, cl, tx, "")
+                    self.assertTrue(sp.btn_apply_edit.isEnabled())
+
+                    sp._on_apply_edit()
+                    self.assertEqual(sp.editor.toPlainText(), "Monday afternoon meeting.")
+                    self.assertIn("Applied", sp.lbl_edit_diff.text())
+                finally:
+                    sp._autosave_timer.stop()
+                    sp.close()
+
+    def test_timed_out_llm_requests_do_not_exceed_concurrency_limit(self):
+        """Sequentially timed-out requests must release the concurrency slot only when underlying work finishes."""
+        import threading
+        from engine.local_llm import get_in_flight_transforms
+
+        provider = LocalLLMProvider(base_url="http://127.0.0.1:11434", model="qwen2.5:3b", enabled=True)
+        provider._cached_available = True
+        provider._cache_timestamp = time.time()
+        provider._active_model = "qwen2.5:3b"
+
+        unblock_event = threading.Event()
+
+        def blocking_open(req, timeout=None):
+            # Blocks until explicitly allowed to finish
+            unblock_event.wait(timeout=2.0)
+            resp = MagicMock()
+            resp.status = 200
+            resp.read.return_value = json.dumps({"response": "done"}).encode("utf-8")
+            return resp
+
+        try:
+            with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=blocking_open):
+                # 1. Request 1 times out after 0.05s
+                res1 = provider.transform("First text", "summarize", timeout=0.05)
+                self.assertIsNone(res1)
+
+                # The underlying worker for Request 1 is still blocked on I/O: slot MUST remain 1!
+                in_flight_after_1 = get_in_flight_transforms()
+                self.assertEqual(in_flight_after_1, 1, "Concurrency slot must not be released while background work runs")
+
+                # 2. Sequential Request 2 comes in while Request 1 is still running: MUST be dropped!
+                res2 = provider.transform("Second text", "summarize", timeout=0.05)
+                self.assertIsNone(res2)
+                # Still exactly 1 in-flight (Request 2 was dropped, not added)
+                self.assertEqual(get_in_flight_transforms(), 1)
+
+                # 3. Sequential Request 3 comes in while Request 1 is still running: MUST be dropped!
+                res3 = provider.transform("Third text", "summarize", timeout=0.05)
+                self.assertIsNone(res3)
+                self.assertEqual(get_in_flight_transforms(), 1)
+
+                # Unblock Request 1's backend call
+                unblock_event.set()
+                # Wait for worker future callback to release the slot
+                for _ in range(40):
+                    if get_in_flight_transforms() == 0:
+                        break
+                    time.sleep(0.05)
+                self.assertEqual(get_in_flight_transforms(), 0, "Slot must be cleanly released after worker finishes")
+        finally:
+            unblock_event.set()
+            provider.shutdown(wait=False)
 
 
 if __name__ == "__main__":
