@@ -202,7 +202,7 @@ class VoiceCommandModeTests(unittest.TestCase):
         )
 
         planned_results = []
-        worker.command_planned.connect(lambda cl, tx, err: planned_results.append((cl, tx, err)))
+        worker.command_planned.connect(lambda req_id, cl, tx, err: planned_results.append((cl, tx, err)))
         worker.start()
         worker.wait(2000)
         self.app.processEvents()
@@ -349,6 +349,144 @@ class LocalLLMRewritingAndFactGuardTests(unittest.TestCase):
             elapsed = time.monotonic() - t0
             self.assertLess(elapsed, 0.5, f"Deadline took too long to abort: {elapsed:.3f}s")
             self.assertIsNone(result, f"Expected None on timeout, got: {result}")
+
+    def test_voice_command_worker_target_id_matches_scratchpad_and_applies_cleanly(self):
+        """Worker uses the Scratchpad instance's target_id so apply succeeds without 'target document changed'."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pad_file = Path(tmpdir) / "pad.txt"
+            with patch("ui.scratchpad_view.AUTOSAVE_FILE", pad_file):
+                sp = ScratchpadView()
+                try:
+                    sp.editor.setPlainText("We meet on Friday afternoon.")
+                    mock_stt = MagicMock()
+                    mock_stt.transcribe.return_value = {"text": "replace Friday with Monday"}
+
+                    # Create worker with exact scratchpad target ID
+                    worker = VoiceCommandWorker(
+                        stt=mock_stt,
+                        editor=sp.voice_editor,
+                        doc_text=sp.editor.toPlainText(),
+                        sel_range=(0, 0),
+                        audio=[0.0] * 100,
+                        target_id=sp._target_id,
+                        request_id=sp._active_request_id,
+                        parent=sp
+                    )
+                    self.assertEqual(worker.target_id, sp._target_id)
+                    worker.run()  # Run synchronously for verification
+
+                    # Directly invoke the result handler with matching request_id
+                    tx = sp.voice_editor.plan_edit(
+                        document_text=sp.editor.toPlainText(),
+                        instruction="replace Friday with Monday",
+                        target_id=sp._target_id,
+                        target_type="scratchpad"
+                    )
+                    self.assertEqual(tx.target_id, sp._target_id)
+                    sp.edit_panel.setVisible(True)
+                    sp._on_command_worker_result(sp._active_request_id, "replace Friday with Monday", tx, "")
+
+                    self.assertTrue(sp.btn_apply_edit.isEnabled())
+                    self.assertIn("Friday", sp.lbl_edit_diff.text())
+
+                    # Apply must succeed and NOT fail with 'The target document changed'
+                    sp._on_apply_edit()
+                    self.assertEqual(sp.editor.toPlainText(), "We meet on Monday afternoon.")
+                    self.assertIn("Applied", sp.lbl_edit_diff.text())
+                finally:
+                    sp._autosave_timer.stop()
+                    sp.close()
+
+    def test_voice_command_cancel_and_superseded_request_safely_ignored(self):
+        """When user cancels or supersedes, worker is marked cancelled and late results do not restore preview."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pad_file = Path(tmpdir) / "pad.txt"
+            with patch("ui.scratchpad_view.AUTOSAVE_FILE", pad_file):
+                sp = ScratchpadView()
+                try:
+                    sp.editor.setPlainText("Task list for today.")
+                    sp.edit_panel.setVisible(True)
+
+                    mock_stt = MagicMock()
+                    mock_stt.transcribe.return_value = {"text": "add finish review at the end"}
+
+                    # Start worker with request id 1
+                    sp._active_request_id = 1
+                    worker = VoiceCommandWorker(
+                        stt=mock_stt,
+                        editor=sp.voice_editor,
+                        doc_text=sp.editor.toPlainText(),
+                        sel_range=(0, 0),
+                        audio=[0.0] * 100,
+                        target_id=sp._target_id,
+                        request_id=1,
+                        parent=sp
+                    )
+                    sp._command_worker = worker
+
+                    # User clicks Cancel
+                    sp._cancel_edit()
+                    self.assertTrue(worker.is_cancelled())
+                    self.assertEqual(sp._active_request_id, 2)
+                    self.assertFalse(sp.edit_panel.isVisible())
+                    self.assertIsNone(sp.active_transaction)
+
+                    # Simulated late result arrives with old request id 1
+                    late_tx = sp.voice_editor.plan_edit(
+                        document_text=sp.editor.toPlainText(),
+                        instruction="add finish review at the end",
+                        target_id=sp._target_id,
+                        target_type="scratchpad"
+                    )
+                    sp._on_command_worker_result(1, "add finish review at the end", late_tx, "")
+
+                    # Must remain completely untouched! No preview restored, apply stays disabled
+                    self.assertIsNone(sp.active_transaction)
+                    self.assertFalse(sp.btn_apply_edit.isEnabled())
+                    self.assertFalse(sp.edit_panel.isVisible())
+                finally:
+                    sp._autosave_timer.stop()
+                    sp.close()
+
+    def test_llm_health_check_contained_within_tight_budget(self):
+        """A simulated 250ms probe against a 50ms budget must abort at <= 0.08s and return False."""
+        provider = LocalLLMProvider(base_url="http://127.0.0.1:11434", model="qwen2.5:3b", enabled=True)
+        provider._cached_available = None
+        provider._cache_timestamp = 0
+
+        def slow_probe(req, timeout=None):
+            time.sleep(0.25)  # 250ms simulated hang
+            resp = MagicMock()
+            resp.status = 200
+            resp.read.return_value = json.dumps({"models": [{"name": "qwen2.5:3b"}]}).encode("utf-8")
+            return resp
+
+        with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_probe):
+            t0 = time.monotonic()
+            available = provider.is_available(force_refresh=True, timeout=0.05)
+            elapsed = time.monotonic() - t0
+            self.assertLess(elapsed, 0.10, f"Health check took too long to abort: {elapsed:.3f}s")
+            self.assertFalse(available)
+
+    def test_llm_transform_contains_health_check_within_budget(self):
+        """Calling transform with 50ms budget must abort within 0.10s even if health check is slow."""
+        provider = LocalLLMProvider(base_url="http://127.0.0.1:11434", model="qwen2.5:3b", enabled=True)
+        provider._cached_available = None
+        provider._cache_timestamp = 0
+
+        def slow_probe(req, timeout=None):
+            time.sleep(0.25)
+            resp = MagicMock()
+            resp.status = 200
+            resp.read.return_value = json.dumps({"models": [{"name": "qwen2.5:3b"}]}).encode("utf-8")
+            return resp
+
+        with patch("engine.local_llm._SECURE_LOCAL_OPENER.open", side_effect=slow_probe):
+            t0 = time.monotonic()
+            res = provider.transform("Some text to transform", "make concise", timeout=0.05)
+            elapsed = time.monotonic() - t0
+            self.assertLess(elapsed, 0.10, f"Transform took too long to abort: {elapsed:.3f}s")
+            self.assertIsNone(res)
 
 
 if __name__ == "__main__":

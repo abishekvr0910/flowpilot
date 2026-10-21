@@ -1426,18 +1426,14 @@ class CompanionRenderer:
             comp_dir = custom_data.get("directory")
             frames = custom_data.get("frames", [])
             if frames and isinstance(frames, list) and len(frames) > 0:
-                if reduced_motion:
-                    # Strict reduced motion invariant: freeze on rest frame 0
-                    frame_idx = 0
-                elif state in ("pasted", "success", "confirmed"):
-                    frame_idx = min(len(frames) - 1, 2)
-                elif state in ("listening", "recording"):
-                    listen_count = max(1, min(2, len(frames) - 1))
-                    frame_idx = int((elapsed_ms / 250.0)) % (listen_count + 1)
-                    if frame_idx >= 2 and len(frames) >= 3:
-                        frame_idx = 1
-                else:
-                    frame_idx = 0
+                from engine.companion_assets import resolve_frame_for_state
+                frame_idx = resolve_frame_for_state(
+                    custom_data,
+                    state,
+                    tick=int((elapsed_ms / 250.0) * 4),
+                    num_frames=len(frames),
+                    reduced_motion=reduced_motion
+                )
                 img_name = frames[frame_idx]
             else:
                 img_name = custom_data.get("image_file", "sprite.png")

@@ -31,6 +31,10 @@ except ImportError:
     PILImage = None
     ImageSequence = None
 
+from engine.companion_assets import (
+    build_default_frame_mappings, resolve_frame_for_state
+)
+
 PALETTE_COLORS = [
     ("#18181B", "Black"),
     ("#FFFFFF", "White"),
@@ -182,6 +186,8 @@ class PixelAnimationPreview(QWidget):
             _create_empty_grid() for _ in range(3)
         ]
         self._current_frame_idx = 0
+        self._tick = 0
+        self._preview_state = "all"  # "all", "idle", "listening", "celebrate"
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._next_frame)
         self._timer.start(250)  # 4 FPS default
@@ -190,6 +196,15 @@ class PixelAnimationPreview(QWidget):
         interval = max(50, int(1000 / max(1, fps)))
         self._timer.setInterval(interval)
 
+    def set_preview_state(self, state: str):
+        self._preview_state = state
+        self._tick = 0
+        if self._preview_state != "all" and self._frames:
+            self._current_frame_idx = resolve_frame_for_state(
+                None, self._preview_state, tick=0, num_frames=len(self._frames)
+            )
+        self.update()
+
     def update_frame_data(self, frame_idx: int, grid: List[List[Optional[str]]]):
         if 0 <= frame_idx < len(self._frames):
             self._frames[frame_idx] = _clone_grid(grid)
@@ -197,12 +212,24 @@ class PixelAnimationPreview(QWidget):
 
     def set_all_frames(self, frames: List[List[List[Optional[str]]]]):
         self._frames = [_clone_grid(f) for f in frames]
+        if self._preview_state != "all" and self._frames:
+            self._current_frame_idx = resolve_frame_for_state(
+                None, self._preview_state, tick=0, num_frames=len(self._frames)
+            )
         self.update()
 
     def _next_frame(self):
-        if self._frames:
-            self._current_frame_idx = (self._current_frame_idx + 1) % len(self._frames)
-            self.update()
+        if not self._frames:
+            return
+        self._tick += 1
+        n = len(self._frames)
+        if self._preview_state == "all":
+            self._current_frame_idx = (self._current_frame_idx + 1) % n
+        else:
+            self._current_frame_idx = resolve_frame_for_state(
+                None, self._preview_state, tick=self._tick * 4, num_frames=n
+            )
+        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -381,6 +408,15 @@ class PixelCreatorWidget(QWidget):
         speed_row.addWidget(self.combo_speed)
         right_col.addLayout(speed_row)
 
+        # Preview State Selector (Consistent with HUD Playback)
+        prev_state_row = QHBoxLayout()
+        prev_state_row.addWidget(QLabel("Preview State:"))
+        self.combo_preview_state = QComboBox()
+        self.combo_preview_state.addItems(["All Frames (Loop)", "Idle (Rest)", "Action (Listening)", "Celebrate (Delivered)"])
+        self.combo_preview_state.currentIndexChanged.connect(self._on_preview_state_changed)
+        prev_state_row.addWidget(self.combo_preview_state)
+        right_col.addLayout(prev_state_row)
+
         # Import & Export Actions
         io_row = QHBoxLayout()
         btn_exp_gif = QPushButton("💾 Export GIF")
@@ -464,8 +500,13 @@ class PixelCreatorWidget(QWidget):
         fps = [2, 4, 6, 8][idx]
         self.anim_preview.set_fps(fps)
 
+    def _on_preview_state_changed(self, idx: int):
+        states = ["all", "idle", "listening", "celebrate"]
+        st = states[idx] if 0 <= idx < len(states) else "all"
+        self.anim_preview.set_preview_state(st)
+
     def _rebuild_frame_buttons(self):
-        """Dynamically builds frame buttons based on the current number of frames (3 to 12)."""
+        """Dynamically builds frame buttons based on explicit animation state mappings."""
         while self.frame_btn_row.count():
             item = self.frame_btn_row.takeAt(0)
             w = item.widget()
@@ -474,13 +515,19 @@ class PixelCreatorWidget(QWidget):
 
         self.frame_btn_group = QButtonGroup(self)
         n = len(self._frames)
+        mappings = build_default_frame_mappings(n)
         for idx in range(n):
-            if idx == 0:
-                name = "1: Idle"
-            elif idx == n - 1 and n >= 3:
+            if idx in mappings.get("celebrate", []):
                 name = f"{idx+1}: Celebrate"
-            elif idx == 1:
-                name = "2: Action"
+            elif idx == 0:
+                name = "1: Idle"
+            elif idx in mappings.get("listening", []):
+                listen_list = mappings.get("listening", [])
+                if len(listen_list) > 1:
+                    action_num = listen_list.index(idx) + 1
+                    name = f"{idx+1}: Action {action_num}"
+                else:
+                    name = f"{idx+1}: Action"
             else:
                 name = f"{idx+1}: Frame"
 
@@ -956,6 +1003,7 @@ class PixelCreatorWidget(QWidget):
             frame_files.append(fn)
 
         motion = self.combo_motion.currentText().lower().replace(" ", "_")
+        mappings = build_default_frame_mappings(len(self._frames))
         manifest = {
             "schema_version": 1,
             "id": comp_id,
@@ -963,6 +1011,7 @@ class PixelCreatorWidget(QWidget):
             "name": name,
             "image_file": frame_files[0],
             "frames": frame_files,
+            "frame_mappings": mappings,
             "motion_preset": motion,
             "created_at": 0
         }

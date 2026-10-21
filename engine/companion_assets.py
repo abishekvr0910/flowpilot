@@ -415,3 +415,84 @@ class CompanionAssetManager:
 
         return True
 
+
+def build_default_frame_mappings(num_frames: int) -> Dict[str, List[int]]:
+    """Builds explicit state-to-frame index mappings for animation packs with 1 to 12 frames."""
+    n = max(1, min(MAX_SPRITE_FRAMES, num_frames))
+    if n <= 1:
+        return {
+            "idle": [0],
+            "listening": [0],
+            "processing": [0],
+            "celebrate": [0],
+            "error": [0]
+        }
+    elif n == 2:
+        return {
+            "idle": [0],
+            "listening": [1],
+            "processing": [1],
+            "celebrate": [1],
+            "error": [0]
+        }
+    else:
+        # n >= 3:
+        # Frame 0: Idle rest
+        # Frame n - 1: Celebrate
+        # Frames 1 .. n - 2: Action / Listening / Processing
+        actions = list(range(1, n - 1))
+        return {
+            "idle": [0],
+            "listening": actions,
+            "processing": actions,
+            "celebrate": [n - 1],
+            "error": [0]
+        }
+
+
+def resolve_frame_for_state(
+    manifest_or_mappings: Any,
+    state: str,
+    tick: int = 0,
+    num_frames: Optional[int] = None,
+    reduced_motion: bool = False
+) -> int:
+    """
+    Deterministically resolves the active frame index for a given state.
+    Respects explicit frame_mappings if present, falling back to canonical defaults.
+    Strictly locks to Frame 0 when reduced_motion is True.
+    """
+    if reduced_motion:
+        return 0
+
+    mappings = None
+    if isinstance(manifest_or_mappings, dict):
+        if "frame_mappings" in manifest_or_mappings and isinstance(manifest_or_mappings["frame_mappings"], dict):
+            mappings = manifest_or_mappings["frame_mappings"]
+        elif any(k in manifest_or_mappings for k in ("idle", "listening", "celebrate")):
+            mappings = manifest_or_mappings
+
+    if not mappings:
+        n = num_frames if num_frames is not None else 3
+        mappings = build_default_frame_mappings(n)
+
+    st = (state or "").lower().strip()
+    if st in ("pasted", "success", "confirmed", "celebrate"):
+        candidates = mappings.get("celebrate", [0])
+    elif st in ("listening", "recording", "action"):
+        candidates = mappings.get("listening", [0])
+    elif st in ("processing", "thinking"):
+        candidates = mappings.get("processing", mappings.get("listening", [0]))
+    elif st in ("error", "uncertain"):
+        candidates = mappings.get("error", mappings.get("idle", [0]))
+    else:  # idle / default
+        candidates = mappings.get("idle", [0])
+
+    if not candidates:
+        candidates = [0]
+
+    max_idx = (num_frames - 1) if num_frames is not None else (max(candidates) if candidates else 0)
+    idx = candidates[(tick // 4) % len(candidates)]
+    return max(0, min(idx, max_idx))
+
+

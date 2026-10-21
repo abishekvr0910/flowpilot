@@ -40,38 +40,65 @@ def _python_selection(text, cursor):
 
 class VoiceCommandWorker(QThread):
     """Background worker executing ASR decode and LLM transform off the UI thread."""
-    command_planned = Signal(str, object, str)  # (cleaned_instruction, tx, error_msg)
-    status_updated = Signal(str)
+    command_planned = Signal(int, str, object, str)  # (request_id, cleaned_instruction, tx, error_msg)
+    status_updated = Signal(int, str)                # (request_id, status_msg)
 
-    def __init__(self, stt, editor, doc_text, sel_range, audio, parent=None):
+    def __init__(self, stt, editor, doc_text, sel_range, audio, target_id: str = "scratchpad:editor", request_id: int = 0, parent=None):
         super().__init__(parent)
         self.stt = stt
         self.editor = editor
         self.doc_text = doc_text
         self.sel_range = sel_range
         self.audio = audio
+        self.target_id = target_id
+        self.request_id = request_id
+        self._cancelled = False
+        import threading
+        self._lock = threading.Lock()
+
+    def cancel(self):
+        with self._lock:
+            self._cancelled = True
+
+    def is_cancelled(self) -> bool:
+        with self._lock:
+            return self._cancelled
 
     def run(self):
+        if self.is_cancelled():
+            return
         try:
-            self.status_updated.emit("Transcribing voice command...")
+            self.status_updated.emit(self.request_id, "Transcribing voice command...")
             res = self.stt.transcribe(self.audio)
+            if self.is_cancelled():
+                return
+
             raw = res.get("text", "").strip() if isinstance(res, dict) else str(res).strip()
             if not raw:
-                self.command_planned.emit("", None, "No clear speech recognized. Please repeat the command.")
+                if not self.is_cancelled():
+                    self.command_planned.emit(self.request_id, "", None, "No clear speech recognized. Please repeat the command.")
                 return
 
             cleaned = raw.rstrip(".!? ")
-            self.status_updated.emit("Planning voice edit...")
+            if self.is_cancelled():
+                return
+
+            self.status_updated.emit(self.request_id, "Planning voice edit...")
             start, end = self.sel_range if self.sel_range else (0, 0)
             has_sel = (start != end and 0 <= start < end <= len(self.doc_text))
             tx = self.editor.plan_edit(
-                self.doc_text,
+                document_text=self.doc_text,
                 instruction=cleaned,
-                selected_range=(start, end) if has_sel else (0, 0)
+                selected_range=(start, end) if has_sel else (0, 0),
+                target_id=self.target_id,
+                target_type="scratchpad"
             )
-            self.command_planned.emit(cleaned, tx, "")
+            if self.is_cancelled():
+                return
+            self.command_planned.emit(self.request_id, cleaned, tx, "")
         except Exception as e:
-            self.command_planned.emit("", None, f"Command execution failed: {e}")
+            if not self.is_cancelled():
+                self.command_planned.emit(self.request_id, "", None, f"Command execution failed: {e}")
 
 
 class ScratchpadView(QWidget):
@@ -91,6 +118,7 @@ class ScratchpadView(QWidget):
         self._audio_recorder = audio_recorder
         self._is_recording_command = False
         self._command_worker: Optional[VoiceCommandWorker] = None
+        self._active_request_id = 0
         self.voice_editor: VoiceEditor = get_voice_editor()
         self.active_transaction: Optional[EditTransaction] = None
         self._target_id = f"scratchpad:{uuid.uuid4().hex}"
@@ -583,11 +611,13 @@ class ScratchpadView(QWidget):
                     pass
 
     def _start_command_recording(self):
-        # Abort any prior in-flight background worker
+        # Invalidate any prior in-flight background worker and cancel pending results
+        self._active_request_id += 1
         if self._command_worker and self._command_worker.isRunning():
             try:
+                self._command_worker.cancel()
                 self._command_worker.quit()
-                self._command_worker.wait(200)
+                self._command_worker.wait(100)
             except Exception:
                 pass
 
@@ -643,6 +673,9 @@ class ScratchpadView(QWidget):
         self.lbl_edit_diff.setText("Transcribing voice command...")
         self.lbl_edit_diff.setStyleSheet("color: #A5B4FC; font-size: 12px; font-family: monospace; padding-left: 4px;")
 
+        self._active_request_id += 1
+        req_id = self._active_request_id
+
         doc_text = self.editor.toPlainText()
         cursor = self.editor.textCursor()
         sel_range = _python_selection(doc_text, cursor)
@@ -653,23 +686,34 @@ class ScratchpadView(QWidget):
             doc_text=doc_text,
             sel_range=sel_range,
             audio=audio,
+            target_id=self._target_id,
+            request_id=req_id,
             parent=self
         )
         self._command_worker.status_updated.connect(self._on_command_worker_status)
         self._command_worker.command_planned.connect(self._on_command_worker_result)
         self._command_worker.start()
 
-    def _on_command_worker_status(self, msg: str):
+    def _on_command_worker_status(self, request_id: int, msg: str):
+        if request_id != self._active_request_id or self.edit_panel.isHidden():
+            return
         self.lbl_edit_diff.setText(msg)
         self.lbl_edit_diff.setStyleSheet("color: #A5B4FC; font-size: 12px; font-family: monospace; padding-left: 4px;")
 
-    def _on_command_worker_result(self, cleaned: str, tx: Optional[EditTransaction], err: str):
+    def _on_command_worker_result(self, request_id: int, cleaned: str, tx: Optional[EditTransaction], err: str):
+        # Ignore cancelled or superseded results; never revive preview or enable apply
+        if request_id != self._active_request_id or self.edit_panel.isHidden():
+            return
+
         if err or not tx:
             self.lbl_edit_diff.setText(f"⚠ {err or 'Command planning failed.'}")
             self.lbl_edit_diff.setStyleSheet("color: #EF4444; font-size: 12px; font-family: monospace;")
             return
 
+        self.input_edit_command.blockSignals(True)
         self.input_edit_command.setText(cleaned)
+        self.input_edit_command.blockSignals(False)
+
         self.active_transaction = tx
         if tx.can_apply:
             self.lbl_edit_diff.setText(f"✓ Planned: {tx.diff_preview}")
@@ -714,11 +758,14 @@ class ScratchpadView(QWidget):
         return self.active_transaction
 
     def _cancel_edit(self):
+        self._active_request_id += 1
         self._cancel_command_recording()
-        if self._command_worker and self._command_worker.isRunning():
+        if self._command_worker:
             try:
-                self._command_worker.quit()
-                self._command_worker.wait(100)
+                self._command_worker.cancel()
+                if self._command_worker.isRunning():
+                    self._command_worker.quit()
+                    self._command_worker.wait(100)
             except Exception:
                 pass
         self._invalidate_preview()
@@ -771,24 +818,32 @@ class ScratchpadView(QWidget):
         self._save_autosave()
 
     def hideEvent(self, event):
+        self._active_request_id += 1
         self._cancel_command_recording()
-        if self._command_worker and self._command_worker.isRunning():
+        if self._command_worker:
             try:
-                self._command_worker.quit()
-                self._command_worker.wait(100)
+                self._command_worker.cancel()
+                if self._command_worker.isRunning():
+                    self._command_worker.quit()
+                    self._command_worker.wait(100)
             except Exception:
                 pass
+        self._invalidate_preview()
         self.save_now()
         super().hideEvent(event)
 
     def closeEvent(self, event):
+        self._active_request_id += 1
         self._cancel_command_recording()
-        if self._command_worker and self._command_worker.isRunning():
+        if self._command_worker:
             try:
-                self._command_worker.quit()
-                self._command_worker.wait(100)
+                self._command_worker.cancel()
+                if self._command_worker.isRunning():
+                    self._command_worker.quit()
+                    self._command_worker.wait(100)
             except Exception:
                 pass
+        self._invalidate_preview()
         self.save_now()
         super().closeEvent(event)
 
