@@ -3,8 +3,11 @@ FlowPilot Interactive Pixel Art Companion Creator & Animation Studio
 Allows users to:
 - Draw custom pixel characters on a 16x16 grid with a retro color palette.
 - Animate multiple frames (Frame 1: Idle, Frame 2: Action/Move, Frame 3: Celebrate).
-- Load pre-built Retro Companion (Fox, Dino, Ghost, Bunny) and Pet (Pup, Kitty) templates.
-- Preview animations in real-time.
+- Onion skinning to trace previous frames effortlessly.
+- Load pre-built expressive multi-frame animations (Kiki Courier, Oneko Cat, Shimeji Walker, Fox, Dino, Ghost, Bunny, Pup, Kitty).
+- Preview animations in real-time with variable playback speed.
+- Export to Animated GIF and Horizontal Spritesheet PNG.
+- Import from existing Spritesheet PNG or Animated GIF.
 - One-click save directly into FlowPilot's Companion Library and apply to desktop!
 """
 
@@ -12,14 +15,21 @@ import os
 import json
 import uuid
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QComboBox, QLineEdit, QFrame, QButtonGroup, QMessageBox, QGridLayout
+    QComboBox, QLineEdit, QFrame, QButtonGroup, QMessageBox, QGridLayout,
+    QCheckBox, QFileDialog
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QRect
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QImage, QPixmap
+
+try:
+    from PIL import Image as PILImage, ImageSequence
+except ImportError:
+    PILImage = None
+    ImageSequence = None
 
 PALETTE_COLORS = [
     ("#18181B", "Black"),
@@ -42,6 +52,15 @@ PALETTE_COLORS = [
 
 GRID_SIZE = 16
 
+
+def _create_empty_grid() -> List[List[Optional[str]]]:
+    return [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+
+
+def _clone_grid(grid: List[List[Optional[str]]]) -> List[List[Optional[str]]]:
+    return [row[:] for row in grid]
+
+
 class PixelCanvasWidget(QWidget):
     pixel_changed = Signal()
 
@@ -50,27 +69,49 @@ class PixelCanvasWidget(QWidget):
         self.setFixedSize(288, 288)  # 16 cells * 18px = 288px
         self.cell_size = 18
         self._current_color: Optional[str] = "#FACC15"
-        self._grid: List[List[Optional[str]]] = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+        self._grid: List[List[Optional[str]]] = _create_empty_grid()
+        self._onion_grid: Optional[List[List[Optional[str]]]] = None
+        self._onion_enabled: bool = False
         self._is_drawing = False
 
     def set_color(self, hex_color: Optional[str]):
         self._current_color = hex_color
 
     def get_grid(self) -> List[List[Optional[str]]]:
-        return [row[:] for row in self._grid]
+        return _clone_grid(self._grid)
 
     def set_grid(self, grid: List[List[Optional[str]]]):
-        self._grid = [row[:] for row in grid]
+        self._grid = _clone_grid(grid)
         self.update()
         self.pixel_changed.emit()
 
+    def set_onion_grid(self, grid: Optional[List[List[Optional[str]]]], enabled: bool = False):
+        self._onion_grid = _clone_grid(grid) if grid else None
+        self._onion_enabled = enabled
+        self.update()
+
+    def set_onion_enabled(self, enabled: bool):
+        self._onion_enabled = enabled
+        self.update()
+
     def clear(self):
-        self._grid = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+        self._grid = _create_empty_grid()
         self.update()
         self.pixel_changed.emit()
 
     def flip_horizontal(self):
         self._grid = [row[::-1] for row in self._grid]
+        self.update()
+        self.pixel_changed.emit()
+
+    def shift(self, dx: int, dy: int):
+        new_grid = _create_empty_grid()
+        for r in range(GRID_SIZE):
+            for c in range(GRID_SIZE):
+                nr, nc = r + dy, c + dx
+                if 0 <= nr < GRID_SIZE and 0 <= nc < GRID_SIZE:
+                    new_grid[nr][nc] = self._grid[r][c]
+        self._grid = new_grid
         self.update()
         self.pixel_changed.emit()
 
@@ -107,8 +148,16 @@ class PixelCanvasWidget(QWidget):
                 bg = "#0F172A" if (r + c) % 2 == 0 else "#1E293B"
                 painter.fillRect(x, y, self.cell_size, self.cell_size, QColor(bg))
 
-                # Painted cell
+                # Onion skin underneath if cell is empty
                 cell_val = self._grid[r][c]
+                if cell_val is None and self._onion_enabled and self._onion_grid:
+                    onion_val = self._onion_grid[r][c]
+                    if onion_val:
+                        o_col = QColor(onion_val)
+                        o_col.setAlpha(80)
+                        painter.fillRect(x, y, self.cell_size, self.cell_size, o_col)
+
+                # Painted cell
                 if cell_val:
                     painter.fillRect(x, y, self.cell_size, self.cell_size, QColor(cell_val))
 
@@ -127,7 +176,7 @@ class PixelAnimationPreview(QWidget):
         super().__init__(parent)
         self.setFixedSize(96, 96)
         self._frames: List[List[List[Optional[str]]]] = [
-            [[None]*GRID_SIZE for _ in range(GRID_SIZE)] for _ in range(3)
+            _create_empty_grid() for _ in range(3)
         ]
         self._current_frame_idx = 0
         self._timer = QTimer(self)
@@ -140,24 +189,30 @@ class PixelAnimationPreview(QWidget):
 
     def update_frame_data(self, frame_idx: int, grid: List[List[Optional[str]]]):
         if 0 <= frame_idx < len(self._frames):
-            self._frames[frame_idx] = [row[:] for row in grid]
+            self._frames[frame_idx] = _clone_grid(grid)
             self.update()
 
-    def _next_frame(self):
-        self._current_frame_idx = (self._current_frame_idx + 1) % len(self._frames)
+    def set_all_frames(self, frames: List[List[List[Optional[str]]]]):
+        self._frames = [_clone_grid(f) for f in frames]
         self.update()
+
+    def _next_frame(self):
+        if self._frames:
+            self._current_frame_idx = (self._current_frame_idx + 1) % len(self._frames)
+            self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(0, 0, self.width(), self.height(), QColor("#0B0F19"))
 
-        grid = self._frames[self._current_frame_idx]
-        px_scale = self.width() // GRID_SIZE
-        for r in range(GRID_SIZE):
-            for c in range(GRID_SIZE):
-                col = grid[r][c]
-                if col:
-                    painter.fillRect(c * px_scale, r * px_scale, px_scale, px_scale, QColor(col))
+        if self._frames and 0 <= self._current_frame_idx < len(self._frames):
+            grid = self._frames[self._current_frame_idx]
+            px_scale = self.width() // GRID_SIZE
+            for r in range(GRID_SIZE):
+                for c in range(GRID_SIZE):
+                    col = grid[r][c]
+                    if col:
+                        painter.fillRect(c * px_scale, r * px_scale, px_scale, px_scale, QColor(col))
 
         painter.setPen(QPen(QColor("#38BDF8"), 1))
         painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
@@ -180,28 +235,30 @@ class PixelCreatorWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._frames: List[List[List[Optional[str]]]] = [
-            [[None]*GRID_SIZE for _ in range(GRID_SIZE)] for _ in range(3)
+            _create_empty_grid() for _ in range(3)
         ]
         self._active_frame = 0
         self._init_ui()
-        self._load_template("🦊 Pixel Fox")
+        self._load_template("✉️ Kiki Courier")
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
         # Header with Template Picker
         top_bar = QHBoxLayout()
-        lbl_title = QLabel("🎨 Pixel Art & Companion Creator")
-        lbl_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #38BDF8;")
+        lbl_title = QLabel("🎨 Pixel Art & Screen Animation Creator")
+        lbl_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #38BDF8;")
         top_bar.addWidget(lbl_title)
         top_bar.addStretch()
 
-        top_bar.addWidget(QLabel("Load Template:"))
+        top_bar.addWidget(QLabel("Template:"))
         self.combo_template = QComboBox()
         self.combo_template.addItems([
             "✉️ Kiki Courier",
+            "🐈 Oneko Screen Cat",
+            "⭐ Shimeji Desktop Walker",
             "🦊 Pixel Fox",
             "🦖 Pixel Dino",
             "👻 Pixel Ghost",
@@ -217,10 +274,10 @@ class PixelCreatorWidget(QWidget):
         top_bar.addWidget(btn_load)
         layout.addLayout(top_bar)
 
-        # Main Editor Split
+        # Main Split
         split_box = QHBoxLayout()
 
-        # Left Column: Canvas and Palette
+        # Left Column: Canvas, Palette & Drawing Tools
         left_col = QVBoxLayout()
         self.canvas = PixelCanvasWidget(self)
         self.canvas.pixel_changed.connect(self._on_pixel_changed)
@@ -246,32 +303,52 @@ class PixelCreatorWidget(QWidget):
             self.color_group.addButton(btn, i)
             palette_grid.addWidget(btn, i // 8, i % 8)
 
-        # Select first color by default
         if self.color_group.button(0):
             self.color_group.button(0).setChecked(True)
-
         left_col.addLayout(palette_grid)
 
-        # Frame Canvas Tools
-        tools_row = QHBoxLayout()
-        btn_copy = QPushButton("📋 Copy to Next Frame")
+        # Frame Canvas Tools Row
+        tools_row1 = QHBoxLayout()
+        btn_copy = QPushButton("📋 Copy to Next")
+        btn_copy.setToolTip("Copy current frame to the next frame")
         btn_copy.clicked.connect(self._copy_to_next_frame)
-        tools_row.addWidget(btn_copy)
+        tools_row1.addWidget(btn_copy)
 
         btn_flip = QPushButton("↔ Flip")
+        btn_flip.setToolTip("Flip current frame horizontally")
         btn_flip.clicked.connect(self.canvas.flip_horizontal)
-        tools_row.addWidget(btn_flip)
+        tools_row1.addWidget(btn_flip)
 
         btn_clear = QPushButton("🗑 Clear")
+        btn_clear.setToolTip("Clear current frame canvas")
         btn_clear.clicked.connect(self.canvas.clear)
-        tools_row.addWidget(btn_clear)
-        left_col.addLayout(tools_row)
+        tools_row1.addWidget(btn_clear)
+        left_col.addLayout(tools_row1)
 
+        # Shift Tools & Onion Skinning Row
+        tools_row2 = QHBoxLayout()
+        self.chk_onion = QCheckBox("🧅 Onion Skin")
+        self.chk_onion.setToolTip("Show faint outline of previous frame for smooth animation")
+        self.chk_onion.stateChanged.connect(self._on_onion_toggle)
+        tools_row2.addWidget(self.chk_onion)
+
+        tools_row2.addStretch()
+        lbl_shift = QLabel("Shift:")
+        lbl_shift.setStyleSheet("color: #64748B; font-size: 11px;")
+        tools_row2.addWidget(lbl_shift)
+
+        for arrow, dx, dy in [("↑", 0, -1), ("↓", 0, 1), ("←", -1, 0), ("→", 1, 0)]:
+            sbtn = QPushButton(arrow)
+            sbtn.setFixedSize(24, 24)
+            sbtn.clicked.connect(lambda _, x=dx, y=dy: self.canvas.shift(x, y))
+            tools_row2.addWidget(sbtn)
+
+        left_col.addLayout(tools_row2)
         split_box.addLayout(left_col)
 
-        # Right Column: Animation Frames & Live Preview
+        # Right Column: Animation Frames, Preview, Export & Save
         right_col = QVBoxLayout()
-        right_col.setSpacing(10)
+        right_col.setSpacing(8)
 
         lbl_frames = QLabel("Animation Frames:")
         lbl_frames.setStyleSheet("font-weight: bold; color: #94A3B8;")
@@ -292,7 +369,7 @@ class PixelCreatorWidget(QWidget):
 
         # Live Animation Preview
         lbl_prev = QLabel("Live Animation Loop:")
-        lbl_prev.setStyleSheet("font-weight: bold; color: #94A3B8; margin-top: 6px;")
+        lbl_prev.setStyleSheet("font-weight: bold; color: #94A3B8; margin-top: 4px;")
         right_col.addWidget(lbl_prev)
 
         prev_box = QHBoxLayout()
@@ -304,16 +381,34 @@ class PixelCreatorWidget(QWidget):
         speed_row = QHBoxLayout()
         speed_row.addWidget(QLabel("Speed:"))
         self.combo_speed = QComboBox()
-        self.combo_speed.addItems(["Slow (2 FPS)", "Normal (4 FPS)", "Fast (6 FPS)"])
+        self.combo_speed.addItems(["Slow (2 FPS)", "Normal (4 FPS)", "Fast (6 FPS)", "Expressive (8 FPS)"])
         self.combo_speed.setCurrentIndex(1)
         self.combo_speed.currentIndexChanged.connect(self._on_speed_changed)
         speed_row.addWidget(self.combo_speed)
         right_col.addLayout(speed_row)
 
+        # Import & Export Actions
+        io_row = QHBoxLayout()
+        btn_exp_gif = QPushButton("💾 Export GIF")
+        btn_exp_gif.setToolTip("Export animation loop as an animated GIF")
+        btn_exp_gif.clicked.connect(self._export_gif_dialog)
+        io_row.addWidget(btn_exp_gif)
+
+        btn_exp_sheet = QPushButton("🖼️ Export Sheet")
+        btn_exp_sheet.setToolTip("Export all frames as a horizontal spritesheet PNG")
+        btn_exp_sheet.clicked.connect(self._export_spritesheet_dialog)
+        io_row.addWidget(btn_exp_sheet)
+
+        btn_imp = QPushButton("📂 Import")
+        btn_imp.setToolTip("Import frames from GIF or spritesheet PNG")
+        btn_imp.clicked.connect(self._import_file_dialog)
+        io_row.addWidget(btn_imp)
+        right_col.addLayout(io_row)
+
         # Metadata & Save
         meta_row = QHBoxLayout()
         meta_row.addWidget(QLabel("Name:"))
-        self.txt_name = QLineEdit("My Custom Companion")
+        self.txt_name = QLineEdit("Kiki the Scarf Courier")
         meta_row.addWidget(self.txt_name)
         right_col.addLayout(meta_row)
 
@@ -324,14 +419,14 @@ class PixelCreatorWidget(QWidget):
         motion_row.addWidget(self.combo_motion)
         right_col.addLayout(motion_row)
 
-        btn_save = QPushButton("✨ Save & Use as Active Companion")
+        btn_save = QPushButton("✨ Save & Use as Active Desktop Companion")
         btn_save.setStyleSheet("""
             QPushButton {
                 background-color: #0284C7;
                 color: #FFFFFF;
                 font-weight: bold;
-                font-size: 13px;
-                padding: 10px;
+                font-size: 12px;
+                padding: 8px;
                 border-radius: 6px;
             }
             QPushButton:hover {
@@ -343,7 +438,6 @@ class PixelCreatorWidget(QWidget):
 
         right_col.addStretch()
         split_box.addLayout(right_col)
-
         layout.addLayout(split_box)
 
     def _on_pixel_changed(self):
@@ -351,163 +445,453 @@ class PixelCreatorWidget(QWidget):
         self._frames[self._active_frame] = curr
         self.anim_preview.update_frame_data(self._active_frame, curr)
 
+    def _on_onion_toggle(self, state: int):
+        prev_idx = (self._active_frame - 1) % len(self._frames)
+        self.canvas.set_onion_grid(self._frames[prev_idx], enabled=self.chk_onion.isChecked())
+
     def _select_frame(self, frame_idx: int):
         self._frames[self._active_frame] = self.canvas.get_grid()
         self._active_frame = frame_idx
         self.canvas.set_grid(self._frames[self._active_frame])
+        prev_idx = (self._active_frame - 1) % len(self._frames)
+        self.canvas.set_onion_grid(self._frames[prev_idx], enabled=self.chk_onion.isChecked())
 
     def _copy_to_next_frame(self):
         curr = self.canvas.get_grid()
-        next_idx = (self._active_frame + 1) % 3
+        next_idx = (self._active_frame + 1) % len(self._frames)
         self._frames[next_idx] = [row[:] for row in curr]
         self.anim_preview.update_frame_data(next_idx, curr)
-        # Switch to next frame button
         btn = self.frame_btn_group.button(next_idx)
         if btn:
             btn.setChecked(True)
         self._select_frame(next_idx)
 
     def _on_speed_changed(self, idx: int):
-        fps = [2, 4, 6][idx]
+        fps = [2, 4, 6, 8][idx]
         self.anim_preview.set_fps(fps)
 
+    # -----------------------------------------------------------------------
+    # Template Generation (Lively Multi-Frame Animations)
+    # -----------------------------------------------------------------------
     def _load_template(self, name: str):
-        self.canvas.clear()
-        grid = [[None]*GRID_SIZE for _ in range(GRID_SIZE)]
+        frames: List[List[List[Optional[str]]]] = [_create_empty_grid() for _ in range(3)]
+        title = "Custom Pixel Companion"
 
         if "Kiki" in name or "Courier" in name:
-            self.txt_name.setText("Kiki the Scarf Courier")
-            # Courier Cap
-            for c in range(5, 11):
-                grid[1][c] = "#14B8A6"
-            grid[1][11] = "#FACC15"  # Badge
-            # Dark Hair
-            for r in range(2, 5):
-                for c in range(4, 12):
-                    grid[r][c] = "#18181B"
-            # Face / Skin
-            for r in range(4, 7):
+            title = "Kiki the Scarf Courier"
+            for f in range(3):
+                g = frames[f]
+                # Cap
                 for c in range(5, 11):
-                    grid[r][c] = "#FDE68A"
-            # Eyes
-            grid[5][6] = "#18181B"; grid[5][9] = "#18181B"
-            # Orange Scarf
+                    g[1][c] = "#14B8A6"
+                g[1][11] = "#FACC15"  # Badge
+                # Hair
+                for r in range(2, 5):
+                    for c in range(4, 12):
+                        g[r][c] = "#18181B"
+                # Face
+                for r in range(4, 7):
+                    for c in range(5, 11):
+                        g[r][c] = "#FDE68A"
+                # Coat
+                for r in range(8, 13):
+                    for c in range(5, 10):
+                        g[r][c] = "#6366F1"
+                # Mailbag
+                g[10][9] = "#B45309"; g[10][10] = "#B45309"
+                g[11][9] = "#FDE68A"; g[11][10] = "#B45309"
+                # Boots
+                g[13][6] = "#18181B"; g[13][8] = "#18181B"
+
+            # Frame 0: Idle
+            frames[0][5][6] = "#18181B"; frames[0][5][9] = "#18181B"
             for c in range(4, 12):
-                grid[7][c] = "#FB923C"
-            grid[8][10] = "#FB923C"; grid[9][10] = "#FB923C"  # trailing scarf tail
-            # Courier Coat (Indigo)
-            for r in range(8, 13):
-                for c in range(5, 10):
-                    grid[r][c] = "#6366F1"
-            # Mailbag / parcel
-            grid[10][9] = "#B45309"; grid[10][10] = "#B45309"
-            grid[11][9] = "#FDE68A"; grid[11][10] = "#B45309"
-            # Boots
-            grid[13][6] = "#18181B"; grid[13][8] = "#18181B"
+                frames[0][7][c] = "#FB923C"
+            frames[0][8][10] = "#FB923C"; frames[0][9][10] = "#FB923C"
 
-        elif "Fox" in name or "Pikachu" in name:
-            self.txt_name.setText("Pixel Fox")
-            # Ears
-            grid[1][3] = "#18181B"; grid[1][12] = "#18181B"
-            grid[2][4] = "#FB923C"; grid[2][11] = "#FB923C"
-            grid[3][4] = "#FB923C"; grid[3][11] = "#FB923C"
-            # Head
-            for r in range(4, 9):
-                for c in range(4, 12):
-                    grid[r][c] = "#FB923C"
-            # Eyes & White Cheeks
-            grid[6][5] = "#18181B"; grid[6][10] = "#18181B"
-            grid[7][4] = "#FFFFFF"; grid[7][11] = "#FFFFFF"
-            grid[7][7] = "#18181B"; grid[7][8] = "#18181B"  # nose
-            # Body
-            for r in range(9, 14):
-                for c in range(5, 11):
-                    grid[r][c] = "#FB923C"
-            # Tail
-            grid[9][12] = "#FB923C"; grid[8][13] = "#FB923C"; grid[7][13] = "#FFFFFF"
-            # Feet
-            grid[14][5] = "#18181B"; grid[14][10] = "#18181B"
+            # Frame 1: Attentive listening / Scarf flutter
+            frames[1][5][6] = "#38BDF8"; frames[1][5][9] = "#38BDF8"  # Attentive eyes
+            for c in range(4, 11):
+                frames[1][7][c] = "#FB923C"
+            frames[1][7][11] = "#FB923C"; frames[1][7][12] = "#FB923C"  # Flying scarf
+            frames[1][8][12] = "#FB923C"; frames[1][8][13] = "#FB923C"
 
-        elif "Dino" in name or "Charmander" in name:
-            self.txt_name.setText("Pixel Dino")
-            for r in range(4, 9):
-                for c in range(5, 11):
-                    grid[r][c] = "#22C55E"
-            # Cute eyes
-            grid[5][6] = "#18181B"; grid[5][9] = "#18181B"
-            # Body
-            for r in range(9, 14):
-                for c in range(5, 11):
-                    grid[r][c] = "#22C55E"
-            # Lime belly
-            for r in range(10, 13):
-                grid[r][7] = "#84CC16"; grid[r][8] = "#84CC16"
-            # Tail
-            grid[11][12] = "#22C55E"; grid[10][13] = "#22C55E"; grid[9][13] = "#84CC16"
-            grid[14][5] = "#22C55E"; grid[14][10] = "#22C55E"
+            # Frame 2: Celebrate / Delivery
+            frames[2][5][6] = "#18181B"; frames[2][5][7] = "#18181B"  # Happy closed crescents
+            frames[2][5][9] = "#18181B"; frames[2][5][10] = "#18181B"
+            for c in range(4, 12):
+                frames[2][7][c] = "#FB923C"
+            # Holding white letter high
+            for r in range(4, 7):
+                for c in range(11, 14):
+                    frames[2][r][c] = "#FFFFFF"
+            frames[2][5][12] = "#EF4444"  # Red heart seal
+            frames[2][13][6] = None; frames[2][13][8] = None
+            frames[2][12][6] = "#18181B"; frames[2][12][8] = "#18181B"  # Hop up
 
-        elif "Ghost" in name or "Gengar" in name:
-            self.txt_name.setText("Pixel Ghost")
-            # Floating crown/spikes
-            grid[2][4] = "#A855F7"; grid[2][11] = "#A855F7"
-            for r in range(4, 13):
-                for c in range(3, 13):
-                    grid[r][c] = "#6366F1"
-            # Glowing friendly eyes
-            grid[6][5] = "#FACC15"; grid[6][10] = "#FACC15"
-            # Cheerful mouth
-            for c in range(6, 10):
-                grid[9][c] = "#FFFFFF"
-            grid[13][4] = "#6366F1"; grid[13][11] = "#6366F1"
+        elif "Oneko" in name or "Neko" in name:
+            title = "Oneko Screen Cat"
+            for f in range(3):
+                g = frames[f]
+                # Calico ears
+                g[2][4] = "#FB923C"; g[2][11] = "#FB923C"
+                g[3][5] = "#F472B6"; g[3][10] = "#F472B6"
+                # Head
+                for r in range(3, 8):
+                    for c in range(5, 11):
+                        g[r][c] = "#FFFFFF"
+                # Eyes
+                g[5][6] = "#22C55E"; g[5][9] = "#22C55E"
+                # Nose
+                g[6][7] = "#F472B6"; g[6][8] = "#F472B6"
+                # Body
+                for r in range(8, 13):
+                    for c in range(5, 11):
+                        g[r][c] = "#FFFFFF"
+                g[9][6] = "#FB923C"; g[10][7] = "#FB923C"  # Calico patch
 
-        elif "Bunny" in name or "Eevee" in name:
-            self.txt_name.setText("Pixel Bunny")
-            # Long floppy ears
-            grid[1][3] = "#B45309"; grid[1][12] = "#B45309"
-            grid[2][3] = "#F472B6"; grid[2][12] = "#F472B6"
-            grid[3][3] = "#F472B6"; grid[3][12] = "#F472B6"
-            for r in range(4, 8):
-                for c in range(5, 11):
-                    grid[r][c] = "#B45309"
-            grid[5][6] = "#18181B"; grid[5][9] = "#18181B"
-            # Fluffy collar
-            for r in range(8, 10):
-                for c in range(4, 12):
-                    grid[r][c] = "#FDE68A"
-            for r in range(10, 14):
-                for c in range(5, 11):
-                    grid[r][c] = "#B45309"
+            # Frame 0: Sitting Alert
+            frames[0][13][5] = "#FFFFFF"; frames[0][13][9] = "#FFFFFF"
+            frames[0][10][12] = "#FB923C"; frames[0][11][12] = "#FB923C"; frames[0][12][12] = "#FB923C"
 
-        elif "Pixel Pup" in name:
-            self.txt_name.setText("Shiba Pixel Pup")
-            # Floppy ears
-            grid[3][3] = "#B45309"; grid[3][12] = "#B45309"
-            grid[4][4] = "#B45309"; grid[4][11] = "#B45309"
-            for r in range(5, 9):
-                for c in range(4, 12):
-                    grid[r][c] = "#FB923C"
-            # White muzzle & nose
-            grid[6][5] = "#18181B"; grid[6][10] = "#18181B"
-            grid[7][7] = "#FFFFFF"; grid[7][8] = "#FFFFFF"
-            grid[7][7] = "#18181B"  # nose
-            for r in range(9, 14):
-                for c in range(5, 11):
-                    grid[r][c] = "#FB923C"
-            grid[10][12] = "#FB923C"  # wagging tail
-            grid[14][5] = "#FFFFFF"; grid[14][10] = "#FFFFFF"
+            # Frame 1: Prowl / Step
+            frames[1][13][4] = "#FFFFFF"; frames[1][12][9] = "#FFFFFF"
+            frames[1][8][13] = "#FB923C"; frames[1][9][12] = "#FB923C"  # High tail
 
-        # Populate all 3 frames from this base
-        for f in range(3):
-            self._frames[f] = [row[:] for row in grid]
-            self.anim_preview.update_frame_data(f, grid)
+            # Frame 2: Purr / Heart Cheer
+            frames[2][5][6] = "#18181B"; frames[2][5][9] = "#18181B"
+            frames[2][10][4] = "#F472B6"; frames[2][10][11] = "#F472B6"  # Raised pink paws
+            frames[2][2][12] = "#F472B6"; frames[2][2][13] = "#F472B6"  # Floating heart
+            frames[2][3][12] = "#F472B6"
 
-        self.canvas.set_grid(grid)
+        elif "Shimeji" in name or "Walker" in name:
+            title = "Shimeji Desktop Walker"
+            for f in range(3):
+                g = frames[f]
+                # Teal hair
+                for r in range(2, 5):
+                    for c in range(4, 12):
+                        g[r][c] = "#14B8A6"
+                # Skin
+                for r in range(4, 7):
+                    for c in range(5, 11):
+                        g[r][c] = "#FDE68A"
+                # Eyes
+                g[5][5] = "#38BDF8"; g[5][9] = "#38BDF8"
+                # Smile
+                g[7][7] = "#EF4444"
+                # Blue coat
+                for r in range(8, 13):
+                    for c in range(5, 11):
+                        g[r][c] = "#6366F1"
+                g[8][7] = "#FFFFFF"; g[9][7] = "#FFFFFF"  # White collar/tie
 
+            # Frame 0: Idle
+            frames[0][13][6] = "#18181B"; frames[0][13][9] = "#18181B"
+
+            # Frame 1: Walk Step
+            frames[1][12][4] = "#18181B"; frames[1][13][9] = "#18181B"
+            frames[1][9][4] = "#FDE68A"  # Reaching hand
+
+            # Frame 2: Cheer
+            frames[2][5][3] = "#FDE68A"; frames[2][5][12] = "#FDE68A"  # Hands raised high!
+            frames[2][6][4] = "#6366F1"; frames[2][6][11] = "#6366F1"
+            frames[2][12][6] = "#18181B"; frames[2][12][9] = "#18181B"  # Hop
+
+        elif "Fox" in name:
+            title = "Pixel Fox"
+            for f in range(3):
+                g = frames[f]
+                # Ears
+                g[1][3] = "#18181B"; g[1][12] = "#18181B"
+                g[2][4] = "#FB923C"; g[2][11] = "#FB923C"
+                g[3][4] = "#FB923C"; g[3][11] = "#FB923C"
+                # Head
+                for r in range(4, 9):
+                    for c in range(4, 12):
+                        g[r][c] = "#FB923C"
+                g[6][5] = "#18181B"; g[6][10] = "#18181B"  # Eyes
+                g[7][4] = "#FFFFFF"; g[7][11] = "#FFFFFF"  # Cheeks
+                g[7][7] = "#18181B"; g[7][8] = "#18181B"    # Nose
+                for r in range(9, 14):
+                    for c in range(5, 11):
+                        g[r][c] = "#FB923C"
+
+            # Frame 0: Idle
+            frames[0][9][12] = "#FB923C"; frames[0][8][13] = "#FB923C"; frames[0][7][13] = "#FFFFFF"
+            frames[0][14][5] = "#18181B"; frames[0][14][10] = "#18181B"
+
+            # Frame 1: Wag
+            frames[1][6][12] = "#FB923C"; frames[1][5][13] = "#FFFFFF"
+            frames[1][14][5] = "#18181B"; frames[1][14][10] = "#18181B"
+
+            # Frame 2: Joy Wink & Hop
+            frames[2][6][5] = "#FB923C"
+            frames[2][6][4] = "#18181B"; frames[2][5][5] = "#18181B"  # Wink ^
+            frames[2][13][5] = "#18181B"; frames[2][13][10] = "#18181B"
+
+        elif "Dino" in name:
+            title = "Pixel Dino"
+            for f in range(3):
+                g = frames[f]
+                for r in range(4, 9):
+                    for c in range(5, 11):
+                        g[r][c] = "#22C55E"
+                g[5][6] = "#18181B"; g[5][9] = "#18181B"
+                for r in range(9, 14):
+                    for c in range(5, 11):
+                        g[r][c] = "#22C55E"
+                for r in range(10, 13):
+                    g[r][7] = "#84CC16"; g[r][8] = "#84CC16"
+
+            # Frame 0: Idle
+            frames[0][11][12] = "#22C55E"; frames[0][10][13] = "#22C55E"; frames[0][9][13] = "#84CC16"
+            frames[0][14][5] = "#22C55E"; frames[0][14][10] = "#22C55E"
+
+            # Frame 1: Step
+            frames[1][12][12] = "#22C55E"; frames[1][11][13] = "#84CC16"
+            frames[1][13][5] = "#22C55E"; frames[1][14][10] = "#22C55E"
+
+            # Frame 2: Roar / Celebrate
+            frames[2][8][4] = "#84CC16"; frames[2][8][11] = "#84CC16"  # Arms up!
+            frames[2][7][8] = "#FFFFFF"  # Tooth smile!
+            frames[2][13][5] = "#22C55E"; frames[2][13][10] = "#22C55E"
+
+        elif "Ghost" in name:
+            title = "Pixel Ghost"
+            for f in range(3):
+                g = frames[f]
+                g[2][4] = "#A855F7"; g[2][11] = "#A855F7"
+                for r in range(4, 13):
+                    for c in range(3, 13):
+                        g[r][c] = "#6366F1"
+                g[6][5] = "#FACC15"; g[6][10] = "#FACC15"
+                for c in range(6, 10):
+                    g[9][c] = "#FFFFFF"
+
+            frames[0][13][4] = "#6366F1"; frames[0][13][11] = "#6366F1"
+            # Frame 1: Hover up
+            frames[1] = _clone_grid(frames[0])
+            frames[1] = [[frames[0][min(15, r+1)][c] for c in range(GRID_SIZE)] for r in range(GRID_SIZE)]
+            # Frame 2: Boo sparkle
+            frames[2][8][7] = "#FFFFFF"; frames[2][8][8] = "#FFFFFF"  # Big round mouth
+            frames[2][3][2] = "#FACC15"; frames[2][3][13] = "#FACC15"  # Sparkles!
+
+        elif "Bunny" in name:
+            title = "Pixel Bunny"
+            for f in range(3):
+                g = frames[f]
+                g[1][3] = "#B45309"; g[1][12] = "#B45309"
+                g[2][3] = "#F472B6"; g[2][12] = "#F472B6"
+                g[3][3] = "#F472B6"; g[3][12] = "#F472B6"
+                for r in range(4, 8):
+                    for c in range(5, 11):
+                        g[r][c] = "#B45309"
+                g[5][6] = "#18181B"; g[5][9] = "#18181B"
+                for r in range(8, 10):
+                    for c in range(4, 12):
+                        g[r][c] = "#FDE68A"
+                for r in range(10, 14):
+                    for c in range(5, 11):
+                        g[r][c] = "#B45309"
+
+            # Frame 1: Ear twitch
+            frames[1][2][2] = "#F472B6"; frames[1][3][2] = "#F472B6"
+            # Frame 2: Hop
+            frames[2][9][4] = "#FDE68A"; frames[2][9][11] = "#FDE68A"
+
+        elif "Pup" in name:
+            title = "Shiba Pixel Pup"
+            for f in range(3):
+                g = frames[f]
+                g[3][3] = "#B45309"; g[3][12] = "#B45309"
+                g[4][4] = "#B45309"; g[4][11] = "#B45309"
+                for r in range(5, 9):
+                    for c in range(4, 12):
+                        g[r][c] = "#FB923C"
+                g[6][5] = "#18181B"; g[6][10] = "#18181B"
+                g[7][7] = "#18181B"; g[7][8] = "#FFFFFF"
+                for r in range(9, 14):
+                    for c in range(5, 11):
+                        g[r][c] = "#FB923C"
+
+            frames[0][10][12] = "#FB923C"
+            frames[0][14][5] = "#FFFFFF"; frames[0][14][10] = "#FFFFFF"
+
+            # Frame 1: Tail wag left & tongue
+            frames[1][10][3] = "#FB923C"
+            frames[1][8][7] = "#F472B6"  # Tongue
+            frames[1][14][5] = "#FFFFFF"; frames[1][14][10] = "#FFFFFF"
+
+            # Frame 2: Paws raised
+            frames[2][11][4] = "#FFFFFF"; frames[2][11][11] = "#FFFFFF"
+
+        elif "Kitty" in name:
+            title = "Pixel Kitty"
+            for f in range(3):
+                g = frames[f]
+                g[2][4] = "#18181B"; g[2][11] = "#18181B"
+                for r in range(3, 8):
+                    for c in range(4, 12):
+                        g[r][c] = "#334155"
+                g[5][5] = "#FACC15"; g[5][10] = "#FACC15"
+                for r in range(8, 13):
+                    for c in range(5, 11):
+                        g[r][c] = "#334155"
+
+            frames[0][13][5] = "#FFFFFF"; frames[0][13][10] = "#FFFFFF"
+            frames[1][12][5] = "#FFFFFF"; frames[1][13][10] = "#FFFFFF"  # Knead
+            frames[2][3][12] = "#F472B6"; frames[2][3][13] = "#F472B6"  # Hearts!
+
+        # Blank Grid falls through to empty frames
+        self.txt_name.setText(title)
+        self._frames = frames
+        self.anim_preview.set_all_frames(self._frames)
+        self.canvas.set_grid(self._frames[self._active_frame])
+        prev_idx = (self._active_frame - 1) % len(self._frames)
+        self.canvas.set_onion_grid(self._frames[prev_idx], enabled=self.chk_onion.isChecked())
+
+    # -----------------------------------------------------------------------
+    # Export & Import Capabilities (GIF / Spritesheet)
+    # -----------------------------------------------------------------------
+    def export_spritesheet(self, filepath: Path) -> bool:
+        """Exports all frames side-by-side into a crisp 3x-scaled PNG spritesheet."""
+        filepath = Path(filepath)
+        n = len(self._frames)
+        w, h = n * GRID_SIZE * 3, GRID_SIZE * 3
+        img = QImage(w, h, QImage.Format_ARGB32)
+        img.fill(0)
+        painter = QPainter(img)
+
+        for f_idx, grid in enumerate(self._frames):
+            ox = f_idx * GRID_SIZE * 3
+            for r in range(GRID_SIZE):
+                for c in range(GRID_SIZE):
+                    col = grid[r][c]
+                    if col:
+                        painter.fillRect(ox + c * 3, r * 3, 3, 3, QColor(col))
+        painter.end()
+        return img.save(str(filepath), "PNG")
+
+    def export_gif(self, filepath: Path, fps: int = 4) -> bool:
+        """Exports all frames into an animated GIF using PIL."""
+        if not PILImage:
+            return False
+        filepath = Path(filepath)
+        pil_frames = []
+        for grid in self._frames:
+            img = PILImage.new("RGBA", (GRID_SIZE * 3, GRID_SIZE * 3), (0, 0, 0, 0))
+            for r in range(GRID_SIZE):
+                for c in range(GRID_SIZE):
+                    col = grid[r][c]
+                    if col:
+                        # Parse hex
+                        qcol = QColor(col)
+                        for dr in range(3):
+                            for dc in range(3):
+                                img.putpixel((c * 3 + dc, r * 3 + dr), (qcol.red(), qcol.green(), qcol.blue(), 255))
+            pil_frames.append(img)
+
+        duration = max(50, int(1000 / max(1, fps)))
+        pil_frames[0].save(
+            filepath,
+            save_all=True,
+            append_images=pil_frames[1:],
+            duration=duration,
+            loop=0,
+            disposal=2
+        )
+        return filepath.exists()
+
+    def import_file(self, filepath: Path) -> bool:
+        """Imports frames from an animated GIF or horizontal spritesheet PNG."""
+        if not PILImage:
+            return False
+        filepath = Path(filepath)
+        if not filepath.exists():
+            return False
+
+        try:
+            with PILImage.open(filepath) as img:
+                loaded_grids: List[List[List[Optional[str]]]] = []
+
+                # Animated GIF
+                if getattr(img, "is_animated", False):
+                    for frame in ImageSequence.Iterator(img):
+                        f_rgba = frame.convert("RGBA").resize((GRID_SIZE, GRID_SIZE), PILImage.Resampling.NEAREST)
+                        grid = _create_empty_grid()
+                        for r in range(GRID_SIZE):
+                            for c in range(GRID_SIZE):
+                                p = f_rgba.getpixel((c, r))
+                                if p[3] >= 50:
+                                    grid[r][c] = "#{:02X}{:02X}{:02X}".format(p[0], p[1], p[2])
+                        loaded_grids.append(grid)
+                        if len(loaded_grids) >= 3:
+                            break
+                else:
+                    # Spritesheet
+                    w, h = img.size
+                    n_frames = max(1, min(3, w // h))
+                    for i in range(n_frames):
+                        crop = img.crop((i * h, 0, (i + 1) * h, h)).convert("RGBA").resize((GRID_SIZE, GRID_SIZE), PILImage.Resampling.NEAREST)
+                        grid = _create_empty_grid()
+                        for r in range(GRID_SIZE):
+                            for c in range(GRID_SIZE):
+                                p = crop.getpixel((c, r))
+                                if p[3] >= 50:
+                                    grid[r][c] = "#{:02X}{:02X}{:02X}".format(p[0], p[1], p[2])
+                        loaded_grids.append(grid)
+
+                # Ensure at least 3 frames
+                while len(loaded_grids) < 3:
+                    loaded_grids.append(_clone_grid(loaded_grids[-1] if loaded_grids else _create_empty_grid()))
+
+                self._frames = loaded_grids[:3]
+                self.anim_preview.set_all_frames(self._frames)
+                self.canvas.set_grid(self._frames[self._active_frame])
+                prev_idx = (self._active_frame - 1) % len(self._frames)
+                self.canvas.set_onion_grid(self._frames[prev_idx], enabled=self.chk_onion.isChecked())
+                return True
+        except Exception as e:
+            print(f"[PixelCreator] Import failed: {e}")
+            return False
+
+    def _export_gif_dialog(self):
+        fps_opts = [2, 4, 6, 8]
+        fps = fps_opts[self.combo_speed.currentIndex()]
+        fn, _ = QFileDialog.getSaveFileName(self, "Export Animated GIF", "companion_animation.gif", "GIF Files (*.gif)")
+        if fn:
+            ok = self.export_gif(Path(fn), fps=fps)
+            if ok:
+                QMessageBox.information(self, "Export Successful", f"Animated GIF saved:\n{fn}")
+            else:
+                QMessageBox.warning(self, "Export Failed", "Failed to export animated GIF.")
+
+    def _export_spritesheet_dialog(self):
+        fn, _ = QFileDialog.getSaveFileName(self, "Export Spritesheet", "companion_spritesheet.png", "PNG Files (*.png)")
+        if fn:
+            ok = self.export_spritesheet(Path(fn))
+            if ok:
+                QMessageBox.information(self, "Export Successful", f"Spritesheet saved:\n{fn}")
+            else:
+                QMessageBox.warning(self, "Export Failed", "Failed to export spritesheet.")
+
+    def _import_file_dialog(self):
+        fn, _ = QFileDialog.getOpenFileName(self, "Import Animation / Spritesheet", "", "Image Files (*.gif *.png *.webp)")
+        if fn:
+            ok = self.import_file(Path(fn))
+            if ok:
+                QMessageBox.information(self, "Import Successful", f"Loaded frames from:\n{fn}")
+            else:
+                QMessageBox.warning(self, "Import Failed", "Failed to parse animation frames from file.")
+
+    # -----------------------------------------------------------------------
+    # Library Persistence & Activation
+    # -----------------------------------------------------------------------
     def _save_companion(self):
         name = self.txt_name.text().strip() or "Custom Pixel Companion"
         comp_id = f"custom_pixel_{uuid.uuid4().hex[:8]}"
 
-        # Render 3 frames to 48x48 PNGs
         from engine.companion_store import get_companion_store
         store = get_companion_store()
         storage_dir = store.storage_dir / "companions" / comp_id
@@ -543,9 +927,6 @@ class PixelCreatorWidget(QWidget):
         with open(storage_dir / "manifest.json", "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
 
-        # Update companion store
-        from engine.companion_store import get_companion_store
-        store = get_companion_store()
         store.update({
             "selected_asset_id": comp_id,
             "motion_preset": motion
@@ -567,4 +948,3 @@ class PixelCreatorWidget(QWidget):
         if hasattr(self, 'anim_preview') and self.anim_preview:
             self.anim_preview.hide()
         super().hideEvent(event)
-
