@@ -52,9 +52,6 @@ from tests.notepad_harness import (
 )
 
 def run_18_scenarios():
-    if not is_interactive_desktop():
-        print("[RESULT] SKIPPED: Physical focus, microphone, and Notepad scenarios require an interactive Windows desktop.")
-        return True
     print("=" * 75)
     print("       FLOWPILOT 18-SCENARIO COMPREHENSIVE VERIFICATION SUITE")
     print("=" * 75)

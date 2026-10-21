@@ -296,9 +296,6 @@ def test_text_injection():
     test_clipboard_change_during_hold_prevents_overwrite()
     test_find_edit_control_when_editor_is_not_first_child()
     test_find_edit_control_resolves_leaf_editor_when_wrapped_by_container()
-    if not is_interactive_desktop():
-        print("[RESULT] SKIPPED: Physical Notepad insertion requires an interactive Windows desktop; focus, copy failure fallback, focus-loss abort, slow-app timing, and clipboard-confirmation unit checks passed.")
-        return True
     print("=" * 60)
     print("AUDIT TEST 3: TEXT INSERTION & CLIPBOARD PRESERVATION")
     print("=" * 60)

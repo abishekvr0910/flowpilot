@@ -85,11 +85,10 @@ class VoiceCommandWorker(QThread):
 
             self.status_updated.emit(self.request_id, "Planning voice edit...")
             start, end = self.sel_range if self.sel_range else (0, 0)
-            has_sel = (start != end and 0 <= start < end <= len(self.doc_text))
             tx = self.editor.plan_edit(
                 document_text=self.doc_text,
                 instruction=cleaned,
-                selected_range=(start, end) if has_sel else (0, 0),
+                selected_range=(start, end),
                 target_id=self.target_id,
                 target_type="scratchpad"
             )

@@ -30,9 +30,6 @@ def ensure_notepad() -> Tuple[int, subprocess.Popen, Path]:
     return open_test_notepad()
 
 def run_5_consecutive_injections():
-    if not is_interactive_desktop():
-        print("[RESULT] SKIPPED: Five physical Notepad insertion cycles require an interactive Windows desktop.")
-        return True
     print("=" * 65)
     print("FLOWPILOT AUDIT: 5 CONSECUTIVE NOTEPAD DICTATION CYCLES")
     print("=" * 65)
