@@ -1,12 +1,13 @@
 """
-FlowPilot Custom Dictionary & Technical Vocabulary Hub View
+FlowPilot Custom Dictionary & Technical Vocabulary Hub View (PR 3)
 Provides a dedicated, discoverable surface to manage custom terms, technical identifiers,
-proper names, and phonetic pronunciations for speech recognition biasing.
+proper names, and multi-alias phonetic pronunciations for speech recognition biasing.
+Supports language scoping (English, Hindi, Tamil, Malayalam) and application profile scoping.
 """
 
-from typing import Optional
+from typing import Optional, List
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
     QFrame, QFileDialog, QMessageBox
 )
@@ -33,7 +34,7 @@ class DictionaryView(QWidget):
         header_box.setSpacing(4)
         lbl_title = QLabel("📖 Custom Dictionary & Technical Glossary")
         lbl_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #F8FAFC;")
-        lbl_subtitle = QLabel("Train the local engine on proprietary identifiers, code symbols, and proper nouns without cloud egress.")
+        lbl_subtitle = QLabel("Teach the local engine proprietary identifiers, code symbols, and phonetic aliases without cloud egress.")
         lbl_subtitle.setStyleSheet("font-size: 13px; color: #94A3B8;")
         header_box.addWidget(lbl_title)
         header_box.addWidget(lbl_subtitle)
@@ -49,12 +50,15 @@ class DictionaryView(QWidget):
                 padding: 14px;
             }
         """)
-        add_layout = QHBoxLayout(card_add)
-        add_layout.setContentsMargins(12, 10, 12, 10)
-        add_layout.setSpacing(12)
+        add_vbox = QVBoxLayout(card_add)
+        add_vbox.setContentsMargins(12, 10, 12, 10)
+        add_vbox.setSpacing(10)
+
+        row1_layout = QHBoxLayout()
+        row1_layout.setSpacing(12)
 
         self.input_term = QLineEdit()
-        self.input_term.setPlaceholderText("Exact written term (e.g. Kubernetes, FastAPI, SHA-256)")
+        self.input_term.setPlaceholderText("Exact written term (e.g. Kubernetes, FastAPI, SHA-256, வணக்கம்)")
         self.input_term.setStyleSheet("""
             QLineEdit {
                 background-color: #1E293B;
@@ -67,7 +71,7 @@ class DictionaryView(QWidget):
         """)
 
         self.input_alias = QLineEdit()
-        self.input_alias.setPlaceholderText("Spoken phonetic hint (e.g. koober nettees, fast api)")
+        self.input_alias.setPlaceholderText("Spoken phonetic hints (comma-separated, e.g. koober nettees, k8s)")
         self.input_alias.setStyleSheet("""
             QLineEdit {
                 background-color: #1E293B;
@@ -79,6 +83,43 @@ class DictionaryView(QWidget):
             }
         """)
 
+        row1_layout.addWidget(self.input_term, 3)
+        row1_layout.addWidget(self.input_alias, 3)
+        add_vbox.addLayout(row1_layout)
+
+        row2_layout = QHBoxLayout()
+        row2_layout.setSpacing(12)
+
+        lbl_lang = QLabel("Language:")
+        lbl_lang.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        self.combo_lang = QComboBox()
+        self.combo_lang.addItems(["Global (All Languages)", "English (en)", "Hindi (hi)", "Tamil (ta)", "Malayalam (ml)"])
+        self.combo_lang.setStyleSheet("""
+            QComboBox {
+                background-color: #1E293B;
+                color: #F8FAFC;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+        """)
+
+        lbl_profile = QLabel("Scope:")
+        lbl_profile.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        self.combo_profile = QComboBox()
+        self.combo_profile.addItems(["Global (All Apps)", "Developer", "Terminal", "Email", "Chat"])
+        self.combo_profile.setStyleSheet("""
+            QComboBox {
+                background-color: #1E293B;
+                color: #F8FAFC;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+        """)
+
         btn_add = QPushButton("+ Add to Dictionary")
         btn_add.setStyleSheet("""
             QPushButton {
@@ -86,7 +127,7 @@ class DictionaryView(QWidget):
                 color: #FFFFFF;
                 font-weight: 600;
                 font-size: 13px;
-                padding: 9px 18px;
+                padding: 8px 18px;
                 border-radius: 6px;
                 border: none;
             }
@@ -95,9 +136,14 @@ class DictionaryView(QWidget):
         """)
         btn_add.clicked.connect(self._on_add_term)
 
-        add_layout.addWidget(self.input_term, 2)
-        add_layout.addWidget(self.input_alias, 2)
-        add_layout.addWidget(btn_add, 1)
+        row2_layout.addWidget(lbl_lang)
+        row2_layout.addWidget(self.combo_lang, 2)
+        row2_layout.addWidget(lbl_profile)
+        row2_layout.addWidget(self.combo_profile, 2)
+        row2_layout.addStretch(1)
+        row2_layout.addWidget(btn_add, 2)
+        add_vbox.addLayout(row2_layout)
+
         layout.addWidget(card_add)
 
         # Search Bar & Count
@@ -124,12 +170,14 @@ class DictionaryView(QWidget):
 
         # Dictionary Table
         self.table = QTableWidget()
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Target Term / Code Symbol", "Spoken Phonetic Alias", "Action"])
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["Target Term / Code Symbol", "Spoken Phonetic Aliases", "Language", "Scope", "Action"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table.setColumnWidth(2, 90)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
+        self.table.setColumnWidth(4, 90)
         self.table.setStyleSheet("""
             QTableWidget {
                 background-color: #0F172A;
@@ -174,16 +222,23 @@ class DictionaryView(QWidget):
         filtered = []
         for item in terms:
             t = item.get("term", "")
-            a = item.get("alias", "")
-            if not query or query in t.lower() or query in a.lower():
-                filtered.append((t, a))
+            aliases = item.get("aliases") or ([item["alias"]] if item.get("alias") else [])
+            alias_str = ", ".join(aliases)
+            lang = item.get("language") or "Global"
+            prof = item.get("profile") or "Global"
+            if not query or query in t.lower() or query in alias_str.lower() or query in lang.lower() or query in prof.lower():
+                filtered.append((t, alias_str, lang, prof))
         self.table.setRowCount(len(filtered))
 
-        for row, (term, alias) in enumerate(filtered):
+        for row, (term, alias_str, lang, prof) in enumerate(filtered):
             item_term = QTableWidgetItem(term)
             item_term.setForeground(QColor("#38BDF8"))
-            item_alias = QTableWidgetItem(alias)
+            item_alias = QTableWidgetItem(alias_str)
             item_alias.setForeground(QColor("#CBD5E1"))
+            item_lang = QTableWidgetItem(lang.upper() if lang != "Global" else "Global")
+            item_lang.setForeground(QColor("#A78BFA"))
+            item_prof = QTableWidgetItem(prof.capitalize() if prof != "Global" else "Global")
+            item_prof.setForeground(QColor("#34D399"))
 
             btn_del = QPushButton("Delete")
             btn_del.setStyleSheet("background-color: #7F1D1D; color: #FCA5A5; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;")
@@ -191,7 +246,9 @@ class DictionaryView(QWidget):
 
             self.table.setItem(row, 0, item_term)
             self.table.setItem(row, 1, item_alias)
-            self.table.setCellWidget(row, 2, btn_del)
+            self.table.setItem(row, 2, item_lang)
+            self.table.setItem(row, 3, item_prof)
+            self.table.setCellWidget(row, 4, btn_del)
 
         self.lbl_count.setText(f"{len(filtered)} custom term{'s' if len(filtered) != 1 else ''}")
 
@@ -200,11 +257,28 @@ class DictionaryView(QWidget):
 
     def _on_add_term(self):
         term = self.input_term.text().strip()
-        alias = self.input_alias.text().strip()
+        alias_raw = self.input_alias.text().strip()
         if not term:
             QMessageBox.warning(self, "Invalid Term", "Please provide a valid term or symbol name.")
             return
-        self.personalization.add_term(term, alias)
+
+        aliases: List[str] = [a.strip() for a in alias_raw.split(",") if a.strip()] if alias_raw else []
+
+        lang_idx = self.combo_lang.currentIndex()
+        lang_map = {0: None, 1: "en", 2: "hi", 3: "ta", 4: "ml"}
+        language = lang_map.get(lang_idx)
+
+        prof_idx = self.combo_profile.currentIndex()
+        prof_map = {0: None, 1: "developer", 2: "terminal", 3: "email", 4: "chat"}
+        profile = prof_map.get(prof_idx)
+
+        self.personalization.add_term(
+            term=term,
+            alias=aliases[0] if aliases else "",
+            language=language,
+            profile=profile,
+            aliases=aliases
+        )
         self.personalization.save()
         self.input_term.clear()
         self.input_alias.clear()

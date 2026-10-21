@@ -434,7 +434,8 @@ class SettingsDialog(QDialog):
         self.table_dict.setRowCount(len(dict_items))
         for r, item in enumerate(dict_items):
             self.table_dict.setItem(r, 0, QTableWidgetItem(item.get("term", "")))
-            self.table_dict.setItem(r, 1, QTableWidgetItem(item.get("alias", "")))
+            aliases = item.get("aliases") or ([item["alias"]] if item.get("alias") else [])
+            self.table_dict.setItem(r, 1, QTableWidgetItem(", ".join(aliases)))
 
         # Snippets
         snippets = self.personalization.snippets
@@ -449,7 +450,8 @@ class SettingsDialog(QDialog):
         if not term:
             QMessageBox.warning(self, "Invalid Term", "Please provide a valid term.")
             return
-        self.personalization.add_term(term, alias)
+        aliases = [a.strip() for a in alias.split(",") if a.strip()] if alias else []
+        self.personalization.add_term(term, alias=aliases[0] if aliases else "", aliases=aliases)
         self.edit_term.clear()
         self.edit_alias.clear()
         self._populate_personalization()
