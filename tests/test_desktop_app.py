@@ -44,15 +44,23 @@ def test_desktop_app_startup_and_lifecycle():
     assert app_instance.hud.level_bar.value() == 65
     print("[6] Propagated audio level 65% to HUD successfully.")
 
+    # Test unverified injection state: sets HUD state to 'unverified' without firing warning notifications
+    notifications = []
+    app_instance.tray.show_notification = lambda *args, **kwargs: notifications.append((args, kwargs))
+    app_instance._handle_state_update({"state": "success", "injection_confirmed": False})
+    assert app_instance.hud._current_state == "unverified"
+    assert len(notifications) == 0, "Unverified injection should not pop up intrusive OS warning notifications"
+    print("[7] Propagated 'unverified' state to HUD without intrusive OS toast successfully.")
+
     app_instance._handle_state_update({"state": "idle"})
     assert app_instance.hud._current_state == "idle"
-    print("[7] Returned HUD to 'idle' state successfully.")
+    print("[8] Returned HUD to 'idle' state successfully.")
 
     # Schedule clean shutdown via event loop
     QTimer.singleShot(200, app_instance.quit)
     app_instance.run()
 
-    print("[8] Clean shutdown executed successfully.")
+    print("[9] Clean shutdown executed successfully.")
     print("\n[RESULT] Native Desktop App test PASSED 100%.")
     return True
 

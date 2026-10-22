@@ -206,11 +206,10 @@ class FlowPilotApp:
         notice = payload.get("notice")
 
         # When injection into destination window could not be physically verified
+        # Truthful status is updated on HUD and tray tooltip; do not fire intrusive OS warning toast
         if state in ("pasted", "success") and not confirmed:
             state = "unverified"
             payload["state"] = "unverified"
-            notice_text = notice or "Sent — unverified target (please check)"
-            self.tray.show_notification("FlowPilot: Unverified Target", notice_text, is_warning=True)
 
         self.hud.update_state(state, payload)
         self.tray.set_state(state)
