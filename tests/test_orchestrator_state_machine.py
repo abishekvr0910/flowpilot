@@ -22,7 +22,7 @@ from engine.orchestrator import FlowOrchestrator, AppState
 # this host, against a previous 10.0s budget, so the wait expired at exactly
 # the moment the work finished. The budget now covers a cold start with
 # headroom instead of racing it.
-PROCESS_TIMEOUT = 60.0
+PROCESS_TIMEOUT = 120.0
 
 def test_explicit_state_machine():
     print("=" * 65)

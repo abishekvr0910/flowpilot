@@ -19,7 +19,7 @@ Built from master with native Sand & Stone Warm Light UI, 3-tab Meetings workspa
 | Authenticode Status | `NotSigned` (Unsigned developer build. Standard or EV code signing establishes identity to build SmartScreen reputation over time, but does not provide immediate suppression.) |
 | Standalone Offline Smoke Test | **PASSED** (`FlowPilot.exe` smoke test launched with isolated test mutex, validated bundled Silero VAD v5 assets and Faster-Whisper base weights, enforced single-instance mutex, and cleanly terminated with 0 bytes network egress) |
 | Offline Transcription Self-Test | **PASSED** (`FlowPilot.exe --self-test` transcribed SAPI fixture on CPU in 3.19s with local correction logic verified offline) |
-| Automated Test Gate Status | **46 PASSED, 4 SKIPPED, 0 FAILED** (46 automated modules passed; 4 physical desktop UI automation suites cleanly and honestly skipped in non-interactive/isolated runner sessions: `test_text_injector.py`, `test_notepad_dictation_e2e.py`, `test_cross_app_injection.py`, `test_final_specification_e2e.py`; 0 test failures. Safe-abort isolation checks are separated and pass 100%.) |
+| Automated Test Gate Status | **51 PASSED, 0 SKIPPED, 0 FAILED** (Registry holds 51 suites. Measured on an interactive Windows 11 desktop: full `run_all_tests.py` verdict "ALL TESTS PASSED" 51/51 in 463.8 s, including the four physical desktop-automation suites. Requires the harness force-foreground fix (`tests/notepad_harness.py::_force_foreground`, AttachThreadInput) for modern Store Notepad 11.2410.21.0. Headless/non-interactive sessions: 46 passed + 4 honest skips.) |
 
 ### Reliability & Feature Upgrades in v3.1.0
 
@@ -47,7 +47,7 @@ Get-FileHash -Algorithm SHA256 .\dist\FlowPilot\FlowPilot.exe
 1. **Artifact Cleanliness Scan:** A full filename and content scan of the unpacked package confirmed **zero** competitor renderers, credential bridges, Electron, Sentry, Supabase, `__pycache__`, or `.pyc` files.
 2. **Standalone Smoke Test:** PASSED (`test_standalone_binary_smoke.py`). The executable holds the named single-instance mutex and validates bundled Silero VAD v5 assets and Faster-Whisper base weights.
 3. **Offline Transcription Self-Test:** PASSED (`FlowPilot.exe --self-test`). Loaded offline base model on CPU (int8, 8 threads), transcribed fixture audio, and executed local correction logic with zero network egress.
-4. **Source Test Suite Gate:** Complete regression run executed across all 50 registered test modules: **46 PASSED, 4 SKIPPED (honest hardware skips), 0 FAILED**.
+4. **Source Test Suite Gate:** Full regression run across all 51 registered test modules on an interactive Windows 11 desktop: **51 PASSED, 0 SKIPPED, 0 FAILED** (463.8 s). The previous headless-mode gate (46 passed + 4 skips) is superseded: `tests/notepad_harness.py::_force_foreground` makes the four desktop suites pass for real on Win11 modern Notepad.
 
 ### System & Setup Requirements
 

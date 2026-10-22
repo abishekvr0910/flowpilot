@@ -133,6 +133,51 @@ class _GuiThreadInfo(ctypes.Structure):
     ]
 
 
+def _force_foreground(hwnd: int) -> bool:
+    """Forcefully foreground a window, tolerating the background-window
+    SetForegroundWindow restriction. On Windows 11 the modern (Store) Notepad
+    runs each window in its own process; a sibling instance's shell window can
+    own the foreground and silently defeat a plain SetForegroundWindow call.
+    Uses the canonical AttachThreadInput recipe (attach caller + foreground
+    thread + target thread, raise the target, detach)."""
+    try:
+        if win32gui.GetForegroundWindow() == hwnd and win32gui.IsWindowVisible(hwnd):
+            return True
+        fg = win32gui.GetForegroundWindow()
+        fg_tid = win32process.GetWindowThreadProcessId(fg)[0] if fg else 0
+        target_tid = win32process.GetWindowThreadProcessId(hwnd)[0]
+        cur_tid = ctypes.windll.kernel32.GetCurrentThreadId()
+        pairs = []
+        if fg_tid and fg_tid != cur_tid:
+            pairs.append((cur_tid, fg_tid))
+        if target_tid and target_tid != cur_tid:
+            pairs.append((cur_tid, target_tid))
+        if fg_tid and target_tid and fg_tid != target_tid and fg_tid != cur_tid:
+            pairs.append((fg_tid, target_tid))
+        attached = []
+        for a, b in pairs:
+            try:
+                if win32process.AttachThreadInput(a, b, True):
+                    attached.append((a, b))
+            except Exception:
+                pass
+        try:
+            win32gui.BringWindowToTop(hwnd)
+            win32gui.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
+        finally:
+            for a, b in reversed(attached):
+                try:
+                    win32process.AttachThreadInput(a, b, False)
+                except Exception:
+                    pass
+        time.sleep(0.1)
+        return win32gui.GetForegroundWindow() == hwnd
+    except Exception:
+        return False
+
+
 def focus_notepad_document(hwnd: int, timeout: float = 6.0) -> bool:
     """Focus this test window's RichEdit document, not a WinUI input bridge."""
     from engine.text_injector import TextInjector
@@ -141,7 +186,8 @@ def focus_notepad_document(hwnd: int, timeout: float = 6.0) -> bool:
     while time.monotonic() < deadline:
         if not win32gui.IsWindow(hwnd):
             return False
-        TextInjector._safe_set_foreground(hwnd)
+        if not _force_foreground(hwnd):
+            TextInjector._safe_set_foreground(hwnd)
         fg = win32gui.GetForegroundWindow()
         if fg != 0 and not TextInjector._is_same_window_hierarchy(hwnd, fg):
             time.sleep(0.05)
