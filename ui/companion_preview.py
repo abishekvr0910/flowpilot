@@ -49,13 +49,14 @@ class CompanionPreviewWidget(QWidget):
         # Animation timer (30 FPS)
         self._anim_timer = QTimer(self)
         self._anim_timer.timeout.connect(self._on_tick)
-        self._anim_timer.start(33)
+        # Only visible previews need animation work.
 
     def set_companion(self, companion_data: Dict[str, Any], palette: str = "orange tabby", motion_preset: str = "gentle_bob", reduced_motion: bool = False):
         self._companion_data = dict(companion_data)
         self._palette = palette
         self._motion_preset = motion_preset
         self._reduced_motion = reduced_motion
+        self._sync_animation_timer()
         self.update()
 
     def set_preview_state(self, state: str):
@@ -67,6 +68,7 @@ class CompanionPreviewWidget(QWidget):
     def set_motion_preset(self, preset: str, reduced_motion: bool = False):
         self._motion_preset = preset
         self._reduced_motion = reduced_motion
+        self._sync_animation_timer()
         self.update()
 
     def set_palette(self, palette: str):
@@ -81,6 +83,20 @@ class CompanionPreviewWidget(QWidget):
         else:
             self._audio_sim = 0.0
         self.update()
+
+    def _sync_animation_timer(self):
+        if self.isVisible() and not self._reduced_motion:
+            self._anim_timer.start(33)
+        else:
+            self._anim_timer.stop()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._sync_animation_timer()
+
+    def hideEvent(self, event):
+        self._anim_timer.stop()
+        super().hideEvent(event)
 
     def paintEvent(self, event):
         painter = QPainter(self)

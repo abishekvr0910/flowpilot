@@ -2,6 +2,8 @@
 FlowPilot Real-Voice Multilingual Evaluation Corpus & Schema
 Implements PR 2 evaluation schema for:
 - English (en), Hindi (hi), Tamil (ta), Malayalam (ml)
+- German (de), Spanish (es), French (fr) — added 2026-10-22 for the
+  real-voice re-baseline of the languages that carry customer-facing claims
 - Consented evaluation audio manifest verification
 - Separate raw spoken reference vs. desired formatted writing reference
 - Developer identifiers, mixed-script, numbers, dates, negations, and noise groups
@@ -62,7 +64,7 @@ class RealVoiceCorpus:
     def validate_integrity(self) -> Tuple[bool, List[str]]:
         """Verifies schema conformance, consent, and non-empty reference strings."""
         errors = []
-        valid_languages = {"en", "hi", "ta", "ml"}
+        valid_languages = {"en", "hi", "ta", "ml", "de", "es", "fr"}
         seen_ids = set()
 
         for item in self.items:

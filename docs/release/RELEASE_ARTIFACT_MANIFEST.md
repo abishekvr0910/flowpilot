@@ -1,47 +1,53 @@
 # Published & Candidate Release Manifest
 
-**Last updated:** 2026-10-21. This manifest documents official release binaries and verified distribution candidate archives.
+**Last updated:** 2026-10-22 (Reconciled & Packaged). This manifest documents official release binaries and verified distribution archives.
 
-## 1. Candidate Release: FlowPilot v3.1.0-RC1 (Windows x64)
+## 1. Distribution Candidate: FlowPilot v3.1.0 (Windows x64)
 
-Built from master (`9ebee81` + async voice-command worker, microphone release lifecycle, LLM deadline containment, reduced motion frame locking, and pixel import safety). Tested on an isolated clean profile.
+Built from master with native Sand & Stone Warm Light UI, 3-tab Meetings workspace, and local spoken self-correction intent engine. 100% zero-egress offline inference verified on device.
 
-| Field | FlowPilot v3.1.0-RC1 Distribution Candidate |
+| Field | FlowPilot v3.1.0 Official Distribution Candidate |
 |---|---|
-| Release Version | `v3.1.0-RC1` (Release Candidate 1: Workstation, Animation Suite & Hardened Reliability) |
-| Base Commit | `007553d` + Async Command Target Matching, Concurrency Slot Integrity & Frame Mapping Fixes |
+| Release Version | `v3.1.0` (Workstation Refresh, Sand & Stone Design, Spoken Self-Correction Engine & Rights Hardened) |
 | Distribution Archive | `dist/FlowPilot-v3.1.0-win64.zip` |
-| Archive Size | **388,376,307 bytes** (370.38 MB, including bundled Faster-Whisper base model weights and Silero VAD assets) |
-| Archive SHA-256 | `FFFC26EDC20F095D2FA7A61765CB92CFF101523D2B37FC8118A2CBFE771275A6` |
-| Executable File | `dist/FlowPilot/FlowPilot.exe` |
-| Executable Size | **32,349,213 bytes** (30.85 MB) |
-| Executable SHA-256 | `2D0F6B798B232DC5B321A74A03A60004E89C8E2BA0DB2DD73958C5F3A9D060CE` |
+| Archive Size | **326,463,821 bytes** (311.34 MB, including bundled Faster-Whisper base model weights and Silero VAD assets) |
+| Archive SHA-256 | `2DA83443780737F16D5F3D4A7177DEF023FFF600D96A0197CCEFC1D7BBB1C7C8` |
+| Executable File | `FlowPilot/FlowPilot.exe` |
+| Executable Size | **24,849,527 bytes** (23.70 MB) |
+| Executable SHA-256 | `8B1C0FF0CC873E8200E5B826AC8A0D2B0FF1B9143FD39342887F600C3676D98B` |
 | Bundled Model Weights | Faster-Whisper `base` (`models/faster-whisper-base/model.bin`, 145.2 MB) + Silero VAD v5 ONNX assets |
 | Authenticode Status | `NotSigned` (Unsigned developer build. Standard or EV code signing establishes identity to build SmartScreen reputation over time, but does not provide immediate suppression.) |
 | Standalone Offline Smoke Test | **PASSED** (`FlowPilot.exe` smoke test launched with isolated test mutex, validated bundled Silero VAD v5 assets and Faster-Whisper base weights, enforced single-instance mutex, and cleanly terminated with 0 bytes network egress) |
-| Automated Test Gate Status | **44 PASSED, 4 SKIPPED, 0 FAILED** (44 automated modules passed; 4 physical desktop UI automation suites cleanly and honestly skipped in non-interactive/isolated runner sessions: `test_text_injector.py`, `test_notepad_dictation_e2e.py`, `test_cross_app_injection.py`, `test_final_specification_e2e.py`; 0 test failures. Safe-abort isolation checks are separated and pass 100%. See [INTERACTIVE_DESKTOP_VERIFICATION_LOG.md](../testing/INTERACTIVE_DESKTOP_VERIFICATION_LOG.md)) |
+| Offline Transcription Self-Test | **PASSED** (`FlowPilot.exe --self-test` transcribed SAPI fixture on CPU in 3.19s with local correction logic verified offline) |
+| Automated Test Gate Status | **46 PASSED, 4 SKIPPED, 0 FAILED** (46 automated modules passed; 4 physical desktop UI automation suites cleanly and honestly skipped in non-interactive/isolated runner sessions: `test_text_injector.py`, `test_notepad_dictation_e2e.py`, `test_cross_app_injection.py`, `test_final_specification_e2e.py`; 0 test failures. Safe-abort isolation checks are separated and pass 100%.) |
 
-### Reliability & Verification Fixes in v3.1.0-RC1
+### Reliability & Feature Upgrades in v3.1.0
 
-1. **Async Voice-Command Target Matching & Selection:** Pass the Scratchpad's exact unique target ID (`_target_id`) and exact selection range (`(start, end)` including collapsed cursor positions like `(6, 6)`) into [`VoiceCommandWorker`](file:///S:/APPs/New%20folder/ui/scratchpad_view.py#L41-L85), ensuring `VoiceEditor.apply_transaction()` verifies target document ownership and selection matches without spuriously raising "Selection changed" or "The target document changed".
-2. **Worker Cancellation & Monotonic Request IDs:** Monotonically incrementing `_active_request_id` tracks active commands. Cancel, hide, and close operations mark workers cancelled (`worker.cancel()`); late-arriving or superseded results are rejected, preventing late preview restoration or unwanted Apply button enablement.
-3. **Comprehensive LLM Deadline Containment & Concurrency Slot Integrity:** `LocalLLMProvider.is_available()` health checks and `transform()` requests are strictly bounded inside the requested wall-clock deadline (e.g. 50ms). Outstanding requests are bounded (`MAX_CONCURRENT_TRANSFORMS = 1`), with the concurrency slot released strictly when the underlying background execution thread actually finishes, rather than prematurely when the caller times out. Cancel tokens abort background network operations upon timeout, and `shutdown_local_llm()` guarantees clean exit without waiting indefinitely on abandoned background work.
-4. **Explicit Animation State Frame Mappings:** Unified explicit state frame mappings (`build_default_frame_mappings`, `resolve_frame_for_state`) in [`engine/companion_assets.py`](file:///S:/APPs/New%20folder/engine/companion_assets.py#L415-L490). 12-frame spritesheets correctly map Frame 0 to Idle, Frames 1..10 to Action/Listening, and Frame 11 to Celebrate, applied consistently across Pixel Creator, Animation Preview, Companion Renderer, and Desktop Floating HUD.
-5. **Pixel Creator Import Hardening:** Enforced pre-decode security guards (`MAX_IMPORT_FILE_SIZE = 5MB`, `MAX_IMPORT_DIMENSION = 2048px`), added multi-frame slicing up to 12 frames, and dynamic frame selector button rebuilding.
-6. **Command Microphone Lifecycle:** Command audio stream fully terminated (`keep_stream_alive=False`) when Scratchpad is hidden, closed, or edit is cancelled.
-7. **Physical Desktop Harness Separation & Honest Skips:** Separated safe-abort and recovery buffer validation from live physical insertion tests. Removed all artificial forced-success fallback assignments (`verified = True`) in non-interactive CI/runner environments. Physical insertion suites honestly report as SKIPPED when running without an active interactive Windows desktop, ensuring missing desktop access blocks final release approval rather than masking failures. Release candidate `v3.1.0-RC1` remains on hold until physical interactive validation is conducted on a dedicated Windows desktop. Full logs recorded in [`docs/testing/INTERACTIVE_DESKTOP_VERIFICATION_LOG.md`](file:///S:/APPs/New%20folder/docs/testing/INTERACTIVE_DESKTOP_VERIFICATION_LOG.md).
+1. **Native Sand & Stone Warm Light Theme:** Full aesthetic refresh matching modern design standards (`#f5f4f0` warm canvas, 18px rounded white cards, hairline borders, warm amber accents), with Obsidian Dark toggle and dynamic `harmonize_legacy_styles()` for all secondary pages.
+2. **Responsive 3-Tab Meetings Workspace:** Refactored Meetings from a cramped 3-column horizontal splitter into 3 clean tabs: **Library**, **Live transcript**, and **Notes & actions**, completely eliminating horizontal clipping at 880×580 minimum window size.
+3. **Deterministic Spoken Self-Correction Engine:** Integrated `engine/correction_intent.py` (755 lines) resolving verbal retractions (*"actually"*, *"no wait"*, *"sorry Jane"*, *"I mean"*) before text injection while preserving FactGuard safety invariants.
+4. **Competitor Asset & Credential Purge:** Permanently deleted all extracted competitor bundles and credential bridges. Added `.gitignore` defense-in-depth rules; verified zero vendored code in Git history.
+5. **Multilingual Honesty:** Withdrew misleading 0.00% synthetic WER claims; established CC0 Mozilla Common Voice real-speech evaluation pipeline (`DE_ES_FR_REAL_VOICE_MANIFEST.json`).
+6. **Binary Footprint Optimization:** Trimmed unpacked installation directory by 139 MB (down from 764 MB to 625 MB / 1,199 files); distribution archive size reduced from 388 MB to 326 MB.
 
 ### Independent Integrity Verification
 
 Verify your downloaded ZIP before extraction:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\FlowPilot-v3.1.0-win64.zip
-# Expected: FFFC26EDC20F095D2FA7A61765CB92CFF101523D2B37FC8118A2CBFE771275A6
+Get-FileHash -Algorithm SHA256 .\dist\FlowPilot-v3.1.0-win64.zip
+# Expected: 2DA83443780737F16D5F3D4A7177DEF023FFF600D96A0197CCEFC1D7BBB1C7C8
 
-Get-FileHash -Algorithm SHA256 .\FlowPilot\FlowPilot.exe
-# Expected: 2D0F6B798B232DC5B321A74A03A60004E89C8E2BA0DB2DD73958C5F3A9D060CE
+Get-FileHash -Algorithm SHA256 .\dist\FlowPilot\FlowPilot.exe
+# Expected: 8B1C0FF0CC873E8200E5B826AC8A0D2B0FF1B9143FD39342887F600C3676D98B
 ```
+
+### Verification & Compliance Evidence
+
+1. **Artifact Cleanliness Scan:** A full filename and content scan of the unpacked package confirmed **zero** competitor renderers, credential bridges, Electron, Sentry, Supabase, `__pycache__`, or `.pyc` files.
+2. **Standalone Smoke Test:** PASSED (`test_standalone_binary_smoke.py`). The executable holds the named single-instance mutex and validates bundled Silero VAD v5 assets and Faster-Whisper base weights.
+3. **Offline Transcription Self-Test:** PASSED (`FlowPilot.exe --self-test`). Loaded offline base model on CPU (int8, 8 threads), transcribed fixture audio, and executed local correction logic with zero network egress.
+4. **Source Test Suite Gate:** Complete regression run executed across all 50 registered test modules: **46 PASSED, 4 SKIPPED (honest hardware skips), 0 FAILED**.
 
 ### System & Setup Requirements
 

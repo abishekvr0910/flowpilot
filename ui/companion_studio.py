@@ -16,24 +16,29 @@ from typing import Dict, Any, Optional
 from PySide6.QtWidgets import (
     QDialog, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QRadioButton, QButtonGroup, QCheckBox, QComboBox,
-    QLineEdit, QFileDialog, QMessageBox, QScrollArea, QFrame, QSizePolicy
+    QLineEdit, QFileDialog, QMessageBox, QScrollArea, QFrame, QSizePolicy, QToolButton
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QIcon, QColor
+from PySide6.QtCore import Qt, Signal, QSize, QRectF
+from PySide6.QtGui import QFont, QIcon, QColor, QPixmap, QPainter
 
 from engine.companion_store import get_companion_store, CompanionStore
 from engine.companion_assets import CompanionAssetManager, BUILTIN_COMPANIONS
 from engine.preference_learning import get_learning_engine, PreferenceLearningEngine
 from engine.personalization import PersonalizationEngine
 from ui.companion_preview import CompanionPreviewWidget
+from ui.companion_renderer import CompanionRenderer
+from ui.workspace_style import workspace_style, label, surface, harmonize_legacy_styles
 
 class CompanionStudioDialog(QDialog):
     applied = Signal(dict)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, embedded: bool = False):
         super().__init__(parent)
+        self.embedded = embedded
+        if embedded:
+            self.setWindowFlags(Qt.Widget)
         self.setWindowTitle("FlowPilot Companion Studio")
-        self.resize(760, 560)
+        self.resize(1000, 740)
         self.setMinimumSize(680, 500)
 
         self.store: CompanionStore = get_companion_store()
@@ -43,105 +48,27 @@ class CompanionStudioDialog(QDialog):
 
         # Working draft configuration
         self._draft: Dict[str, Any] = self.store.get_all()
+        from engine.config import load_config
+        parent_config = getattr(parent, "config", None)
+        self._theme = (parent_config if isinstance(parent_config, dict) else load_config()).get("ui_theme", "sand")
 
         self._init_styles()
         self._init_ui()
         self._load_draft_into_ui()
+        harmonize_legacy_styles(self, self._theme, include_root=False)
 
     def _init_styles(self):
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #0F172A;
-                color: #F8FAFC;
-                font-family: 'Segoe UI', -apple-system, sans-serif;
-            }
-            QTabWidget::pane {
-                border: 1px solid #334155;
-                background-color: #1E293B;
-                border-radius: 8px;
-                padding: 12px;
-            }
-            QTabBar::tab {
-                background-color: #1E293B;
-                color: #94A3B8;
-                padding: 8px 18px;
-                margin-right: 4px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                font-weight: 600;
-                font-size: 13px;
-            }
-            QTabBar::tab:selected {
-                background-color: #38BDF8;
-                color: #0F172A;
-            }
-            QLabel {
-                color: #F8FAFC;
-                font-size: 13px;
-            }
-            QLineEdit, QComboBox {
-                background-color: #0F172A;
-                color: #F8FAFC;
-                border: 1px solid #475569;
-                border-radius: 6px;
-                padding: 6px 10px;
-                font-size: 13px;
-            }
-            QLineEdit:focus, QComboBox:focus {
-                border: 1px solid #38BDF8;
-            }
-            QPushButton {
-                background-color: #334155;
-                color: #F8FAFC;
-                border: 1px solid #475569;
-                border-radius: 6px;
-                padding: 6px 14px;
-                font-weight: 600;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #475569;
-            }
-            QPushButton#primaryBtn {
-                background-color: #0284C7;
-                border: 1px solid #38BDF8;
-                color: #FFFFFF;
-            }
-            QPushButton#primaryBtn:hover {
-                background-color: #0369A1;
-            }
-            QCheckBox, QRadioButton {
-                color: #F8FAFC;
-                font-size: 13px;
-                spacing: 8px;
-            }
-            QCheckBox::indicator, QRadioButton::indicator {
-                width: 16px;
-                height: 16px;
-            }
-            QScrollArea {
-                border: none;
-                background-color: transparent;
-            }
-        """)
+        self.setObjectName("WorkspacePage")
+        self.setStyleSheet(workspace_style(self._theme))
 
     def _init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(28, 26, 28, 22)
+        main_layout.setSpacing(16)
 
         # Header
-        header_layout = QHBoxLayout()
-        title_label = QLabel("Companion Studio")
-        title_font = QFont("Segoe UI", 16, QFont.Bold)
-        title_label.setFont(title_font)
-        header_layout.addWidget(title_label)
-
-        sub_label = QLabel("Select, customize, or create your desktop voice companion")
-        sub_label.setStyleSheet("color: #94A3B8; font-size: 13px;")
-        header_layout.addWidget(sub_label)
-        header_layout.addStretch()
-        main_layout.addLayout(header_layout)
+        main_layout.addWidget(label("Companion Studio", "title"))
+        main_layout.addWidget(label("A little personality for your workspace. Entirely yours."))
 
         # Tabs
         self.tabs = QTabWidget(self)
@@ -161,18 +88,19 @@ class CompanionStudioDialog(QDialog):
 
         self.tabs.addTab(self.tab_library, "Library")
         if self.tab_pixel_creator:
-            self.tabs.addTab(self.tab_pixel_creator, "🎨 Pixel Creator")
-        self.tabs.addTab(self.tab_create, "Import Image/Emoji")
-        self.tabs.addTab(self.tab_behavior, "Behavior & Motion")
-        self.tabs.addTab(self.tab_memory, "Memory & Learning")
+            self.tabs.addTab(self.tab_pixel_creator, "Pixel editor")
+        self.tabs.addTab(self.tab_create, "Import")
+        self.tabs.addTab(self.tab_behavior, "Motion")
+        self.tabs.addTab(self.tab_memory, "Learning")
         main_layout.addWidget(self.tabs, stretch=1)
 
         # Footer Actions
         footer = QHBoxLayout()
-        self.btn_show_live = QPushButton("Show Live Companion")
+        self.btn_show_live = QPushButton("Show on desktop")
         self.btn_show_live.clicked.connect(self._on_show_live_clicked)
         footer.addWidget(self.btn_show_live)
-
+        self.apply_status = label("Preview only")
+        footer.addWidget(self.apply_status)
         footer.addStretch()
 
         self.btn_cancel = QPushButton("Cancel")
@@ -191,97 +119,130 @@ class CompanionStudioDialog(QDialog):
     # -------------------------------------------------------------
     def _build_library_tab(self) -> QWidget:
         widget = QWidget()
+        widget.setObjectName("WorkspacePage")
+        widget.setMinimumHeight(500)
         layout = QHBoxLayout(widget)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(16)
+        layout.setContentsMargins(0, 16, 0, 0)
+        layout.setSpacing(22)
 
-        # Left Column: Selection List
         left_box = QVBoxLayout()
-        left_label = QLabel("Choose Your Companion:")
-        left_label.setStyleSheet("font-weight: bold; color: #38BDF8;")
-        left_box.addWidget(left_label)
-
+        left_box.addWidget(label("Find your desk companion", "section"))
+        left_box.addWidget(label("Choose a character. Preview it before applying."))
+        self.search_companions = QLineEdit()
+        self.search_companions.setPlaceholderText("Search your companions")
+        self.search_companions.setAccessibleName("Search companions")
+        self.search_companions.textChanged.connect(self._filter_companions)
+        left_box.addWidget(self.search_companions)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.comp_list_container = QWidget()
-        self.comp_list_layout = QVBoxLayout(self.comp_list_container)
-        self.comp_list_layout.setSpacing(6)
+        self.comp_list_container.setObjectName("WorkspacePage")
+        self.comp_list_layout = QGridLayout(self.comp_list_container)
+        self.comp_list_layout.setSpacing(10)
+        self.comp_list_layout.setContentsMargins(0, 4, 8, 4)
         self.comp_btn_group = QButtonGroup(self)
         self.comp_btn_group.buttonClicked.connect(self._on_companion_selected)
         scroll.setWidget(self.comp_list_container)
-        left_box.addWidget(scroll, stretch=1)
-
-        # Appearance Lock Checkbox
-        self.chk_lock = QCheckBox("Lock Appearance (Prevents accidental double-click cycling)")
+        left_box.addWidget(scroll, 1)
+        self.no_results = label("No companions match your search.")
+        self.no_results.hide()
+        left_box.addWidget(self.no_results)
+        self.chk_lock = QCheckBox("Lock appearance")
+        self.chk_lock.setToolTip("Prevent accidental appearance changes from desktop gestures.")
         self.chk_lock.setChecked(True)
         self.chk_lock.toggled.connect(self._on_lock_toggled)
         left_box.addWidget(self.chk_lock)
+        layout.addLayout(left_box, 3)
 
-        layout.addLayout(left_box, stretch=3)
-
-        # Right Column: Live Interactive Preview
-        right_box = QVBoxLayout()
-        preview_label = QLabel("Interactive Live Preview:")
-        preview_label.setStyleSheet("font-weight: bold; color: #38BDF8;")
-        right_box.addWidget(preview_label)
-
+        stage, right_box = surface()
+        stage.setMinimumWidth(260)
+        right_box.addWidget(label("PREVIEW ONLY · NO MICROPHONE", "eyebrow"))
         self.preview_widget = CompanionPreviewWidget()
+        self.preview_widget.setFixedSize(200, 200)
+        self.preview_widget.setAccessibleName("Selected companion animation preview")
         right_box.addWidget(self.preview_widget, alignment=Qt.AlignCenter)
-
-        # State Preview Controls
-        state_label = QLabel("Simulate Dictation State:")
-        state_label.setStyleSheet("font-size: 11px; color: #94A3B8;")
-        right_box.addWidget(state_label)
-
-        btn_row = QHBoxLayout()
-        for st_name in ["Idle", "Listening", "Processing", "Success", "Error"]:
-            btn = QPushButton(st_name)
-            btn.setStyleSheet("font-size: 11px; padding: 4px 8px;")
-            btn.clicked.connect(lambda _, s=st_name: self.preview_widget.set_preview_state(s))
-            btn_row.addWidget(btn)
-        right_box.addLayout(btn_row)
-
-        self.lbl_comp_desc = QLabel("")
-        self.lbl_comp_desc.setWordWrap(True)
-        self.lbl_comp_desc.setStyleSheet("color: #94A3B8; font-size: 12px; margin-top: 8px;")
+        self.lbl_comp_name = label("", "section")
+        right_box.addWidget(self.lbl_comp_name)
+        self.lbl_comp_desc = label("")
         right_box.addWidget(self.lbl_comp_desc)
-
-        # Custom Delete Button
-        self.btn_delete_custom = QPushButton("Delete Custom Creation")
-        self.btn_delete_custom.setStyleSheet("color: #F87171; border-color: #7F1D1D;")
-        self.btn_delete_custom.hide()
+        right_box.addWidget(label("Try a dictation state", "eyebrow"))
+        self.preview_state = QComboBox()
+        for title, state in (("Resting", "idle"), ("Listening", "listening"),
+                             ("Processing", "processing"), ("Confirmed delivery", "success"),
+                             ("Sent — unverified", "unverified"), ("Recovery needed", "recovery")):
+            self.preview_state.addItem(title, state)
+        self.preview_state.currentIndexChanged.connect(
+            lambda _: self.preview_widget.set_preview_state(self.preview_state.currentData()))
+        right_box.addWidget(self.preview_state)
+        right_box.addWidget(label("These animations are simulated. Nothing is recorded or pasted."))
+        self.btn_delete_custom = QPushButton("Delete custom creation")
+        self.btn_delete_custom.setStyleSheet("color: #F87171;")
         self.btn_delete_custom.clicked.connect(self._on_delete_custom_clicked)
+        self.btn_delete_custom.hide()
         right_box.addWidget(self.btn_delete_custom)
-
         right_box.addStretch()
-        layout.addLayout(right_box, stretch=2)
-
-        return widget
+        layout.addWidget(stage, 2)
+        outer = QScrollArea()
+        outer.setWidgetResizable(True)
+        outer.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        outer.setWidget(widget)
+        return outer
 
     def _refresh_companion_list(self):
-        # Clear existing buttons
         for btn in self.comp_btn_group.buttons():
             self.comp_btn_group.removeButton(btn)
-            btn.setParent(None)
-
-        all_comps = self.assets.list_all_companions()
+        while self.comp_list_layout.count():
+            item = self.comp_list_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
         selected_id = self._draft.get("selected_asset_id", "kitty")
-
-        for idx, comp in enumerate(all_comps):
-            icon = comp.get("icon", "🌟")
-            name = comp.get("name", comp.get("id"))
-            c_type = comp.get("type", "builtin")
-            type_tag = "[Custom]" if c_type != "builtin" else ""
-
-            rb = QRadioButton(f"{icon}  {name} {type_tag}")
-            rb.setProperty("comp_id", comp["id"])
-            if comp["id"] == selected_id:
-                rb.setChecked(True)
-            self.comp_btn_group.addButton(rb, idx)
-            self.comp_list_layout.addWidget(rb)
-
-        self.comp_list_layout.addStretch()
+        for idx, comp in enumerate(self.assets.list_all_companions()):
+            name = comp.get("name", comp["id"]).replace(" (Prototype)", "")
+            button = QToolButton()
+            button.setProperty("role", "companionTile")
+            button.setProperty("comp_id", comp["id"])
+            button.setProperty("search_text", name.casefold())
+            short_names = {"kiki": "Kiki", "kitty": "Pixel Kitty", "dog": "Pixel Pup",
+                           "mascot": "Pilot", "seedling": "Seedling", "nimbus": "Nimbus",
+                           "signal": "Signal", "wave_bar": "Sound waves", "edge_line": "Docked line"}
+            title = short_names.get(comp["id"], name)
+            button.setText(title if len(title) <= 19 else title[:17] + "…")
+            button.setAccessibleName(name)
+            button.setToolTip(comp.get("description", name))
+            button.setCheckable(True)
+            button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+            button.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+            button.setMinimumHeight(144)
+            pixmap = QPixmap(88, 88)
+            pixmap.fill(Qt.transparent)
+            painter = QPainter(pixmap)
+            try:
+                CompanionRenderer.render(
+                    painter, QRectF(8, 8, 72, 72), comp["id"], "idle", 0, 0,
+                    palette=self._draft.get("cat_palette", "orange tabby"),
+                    reduced_motion=True, is_preview=True,
+                    custom_data=comp if comp.get("type") != "builtin" else None)
+            finally:
+                painter.end()
+            button.setIcon(QIcon(pixmap))
+            button.setIconSize(QSize(88, 88))
+            button.setChecked(comp["id"] == selected_id)
+            self.comp_btn_group.addButton(button, idx)
+            self.comp_list_layout.addWidget(button, idx // 2, idx % 2)
+        self._filter_companions(self.search_companions.text())
         self._update_preview_from_draft()
+
+    def _filter_companions(self, query):
+        visible = 0
+        for button in self.comp_btn_group.buttons():
+            self.comp_list_layout.removeWidget(button)
+            matches = query.casefold().strip() in button.property("search_text")
+            button.setVisible(matches)
+            if matches:
+                self.comp_list_layout.addWidget(button, visible // 2, visible % 2)
+                visible += 1
+        self.no_results.setVisible(visible == 0)
 
     # -------------------------------------------------------------
     # Tab 2: Create Custom Companion
@@ -615,6 +576,7 @@ class CompanionStudioDialog(QDialog):
         reduced = self._draft.get("reduced_motion", False)
 
         self.preview_widget.set_companion(comp, palette=palette, motion_preset=preset, reduced_motion=reduced)
+        self.lbl_comp_name.setText(comp.get("name", comp_id).replace(" (Prototype)", ""))
         self.lbl_comp_desc.setText(comp.get("description", comp.get("name", "")))
 
         # Show delete button only for custom creations
@@ -791,7 +753,10 @@ class CompanionStudioDialog(QDialog):
         # Atomically commit draft to CompanionStore
         updated = self.store.update(self._draft)
         self.applied.emit(updated)
-        self.accept()
+        if self.embedded:
+            self.apply_status.setText("Companion changes applied.")
+        else:
+            self.accept()
 
     def _on_pixel_companion_created(self, manifest: dict):
         self._refresh_companion_list()
@@ -802,18 +767,19 @@ class CompanionStudioDialog(QDialog):
         # Discard unapplied draft and reload state from store
         self._draft = self.store.get_all()
         self._load_draft_into_ui()
-        super().reject()
+        if self.embedded:
+            self.rejected.emit()
+        else:
+            super().reject()
 
     def showEvent(self, event):
         super().showEvent(event)
         self._draft = self.store.get_all()
         self._load_draft_into_ui()
-        self._refresh_companion_list()
         self._refresh_memory_tab()
 
     def closeEvent(self, event):
-        if hasattr(self, "preview") and hasattr(self.preview, "_anim_timer"):
-            self.preview._anim_timer.stop()
+        self.preview_widget._anim_timer.stop()
         if hasattr(self, "tab_pixel_creator") and self.tab_pixel_creator:
             try:
                 self.tab_pixel_creator.close()

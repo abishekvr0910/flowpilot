@@ -2,7 +2,7 @@
 
 **Status:** Implementation Specification & Initial Development Manifest  
 **Inspected Baseline:** `115d2c1` (Post-PR 1)  
-**Target Languages:** English (`en`), Hindi (`hi`), Tamil (`ta`), Malayalam (`ml`)  
+**Target Languages:** English (`en`), Hindi (`hi`), Tamil (`ta`), Malayalam (`ml`), plus German (`de`), Spanish (`es`) and French (`fr`) — the last three added 2026-10-22 for the real-voice baseline in [`DE_ES_FR_REAL_VOICE_BASELINE.md`](DE_ES_FR_REAL_VOICE_BASELINE.md).
 
 **Review correction (2026-10-21):** These 40 entries are text-only recording
 prompts, not an acoustic dataset. The original evaluation runner substituted
@@ -51,7 +51,7 @@ Each evaluation trial is defined by the following typed JSON schema:
     },
     "language": {
       "type": "string",
-      "enum": ["en", "hi", "ta", "ml"],
+      "enum": ["en", "hi", "ta", "ml", "de", "es", "fr"],
       "description": "ISO 639-1 language code"
     },
     "group": {

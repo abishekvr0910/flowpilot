@@ -81,10 +81,14 @@ def run_evaluation(manifest_path: Optional[Path] = None, model_size="base",
                 session_mode="developer", language=item.language)
             format_sec = time.perf_counter() - start
             facts = verify_critical_facts(item.spoken_reference, hypothesis, item.language)
+            missing_critical = (facts["missing_numbers"] + facts["missing_negations"]
+                                + facts["missing_identifiers"])
+            added_critical = [value for values in facts["added_entities"].values() for value in values]
             row.update(status="evaluated",
                 wer=calculate_wer(item.spoken_reference, hypothesis, item.language),
                 cer=calculate_cer(item.spoken_reference, hypothesis, item.language),
                 fact_accuracy=facts["accuracy"], facts_preserved=facts["preserved"],
+                missing_critical=missing_critical, added_critical=added_critical,
                 quality_score=calculate_formatted_quality_score(item.formatted_reference, formatted, item.language),
                 decode_sec=round(decode_sec, 4), format_sec=round(format_sec, 4))
             if include_text:

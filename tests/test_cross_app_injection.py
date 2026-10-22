@@ -30,6 +30,7 @@ except Exception:
 import win32gui
 import win32con
 import win32process
+import win32api
 from engine.text_injector import TextInjector, InjectionStatus
 from engine.window_inspector import WindowInspector
 from tests.notepad_harness import (
@@ -168,14 +169,27 @@ def test_cross_app_injection():
             cmd_verify_file = Path(tf.name)
         cmd_verify_file.unlink(missing_ok=True)
 
-        payload_cmd = f"echo FlowPilot_Console_Confirmed > \"{cmd_verify_file}\"\n"
+        # Paste command text only. Voice dictation must not implicitly execute a
+        # terminal command; the test supplies an explicit, focus-checked Enter.
+        payload_cmd = f"echo FlowPilot_Console_Confirmed > \"{cmd_verify_file}\""
         win32gui.ShowWindow(cmd_hwnd, win32con.SW_RESTORE)
         win32gui.SetForegroundWindow(cmd_hwnd)
         time.sleep(0.1)
         res_cmd = TextInjector.inject_with_status(payload_cmd, target_hwnd=cmd_hwnd)
         print(f"Console Injection Result: status={res_cmd.status}, error={res_cmd.error_message}")
 
-        # Verify actual delivery: wait for cmd.exe to execute delivered keystrokes and confirm file contents
+        assert res_cmd.status == InjectionStatus.SENT_UNVERIFIED, (
+            f"Console paste was not dispatched safely: {res_cmd.status}, {res_cmd.error_message}"
+        )
+        assert not cmd_verify_file.exists(), "Dictation unexpectedly executed a terminal command without confirmation"
+        focus_ok, _, focus_error = TextInjector._resolve_verified_foreground(cmd_hwnd)
+        assert focus_ok and win32gui.IsWindow(cmd_hwnd), (
+            f"Test console lost focus before explicit Enter: {focus_error}"
+        )
+        win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)
+        win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+        # Verify pasted text by executing it only after the test's explicit Enter.
         executed = False
         for _ in range(30):
             time.sleep(0.1)
@@ -209,12 +223,23 @@ def test_cross_app_injection():
         payload_editor = "// FlowPilot injected code snippet: async function test() { return true; }\n"
         win32gui.ShowWindow(editor_hwnd, win32con.SW_RESTORE)
         win32gui.SetForegroundWindow(editor_hwnd)
-        time.sleep(0.1)
-        res_editor = TextInjector.inject_with_status(payload_editor, target_hwnd=editor_hwnd)
+        editor.activateWindow()
+        editor.setFocus()
         app.processEvents()
-        time.sleep(0.3)
+        time.sleep(0.1)
+        app.processEvents()
+        focus_ok, _, focus_error = TextInjector._resolve_verified_foreground(editor_hwnd)
+        assert focus_ok and editor.hasFocus(), (
+            f"Qt editor did not acquire keyboard focus before injection: {focus_error}"
+        )
+        res_editor = TextInjector.inject_with_status(payload_editor, target_hwnd=editor_hwnd)
         print(f"Editor Surface Injection Result: status={res_editor.status}, error={res_editor.error_message}")
+        deadline = time.monotonic() + 2.0
         editor_doc_text = editor.toPlainText()
+        while "// FlowPilot injected code snippet" not in editor_doc_text and time.monotonic() < deadline:
+            app.processEvents()
+            time.sleep(0.02)
+            editor_doc_text = editor.toPlainText()
         assert "// FlowPilot injected code snippet" in editor_doc_text, (
             f"Editor delivery unconfirmed: text missing from editor document! Content: {repr(editor_doc_text)}"
         )

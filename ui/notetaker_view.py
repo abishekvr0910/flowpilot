@@ -1,5 +1,5 @@
 """
-FlowPilot Meeting Notetaker Studio View (Complete Wispr Flow Clone & Leapfrog)
+FlowPilot native meeting notetaker workspace.
 Native PySide6 interface for offline meeting transcription, structured notes, and library management:
 - Left Sidebar: Past Meetings Library with real-time search, metadata badges, rename & delete
 - Center Console: Live streaming transcript with [HH:MM:SS] timestamps, audio VU meter, live timer, pause/resume
@@ -65,7 +65,7 @@ class NotetakerView(QWidget):
         self._reload_meeting_list()
 
     def _init_ui(self):
-        main_layout = QHBoxLayout(self)
+        main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(10)
 
@@ -73,7 +73,7 @@ class NotetakerView(QWidget):
         # Left Column: Meeting Library Sidebar
         # -------------------------------------------------------------
         sidebar = QFrame()
-        sidebar.setFixedWidth(270)
+        sidebar.setMinimumWidth(0)
         sidebar.setStyleSheet("""
             QFrame {
                 background-color: #0F172A;
@@ -153,13 +153,10 @@ class NotetakerView(QWidget):
         self.meeting_list.customContextMenuRequested.connect(self._show_meeting_context_menu)
         s_layout.addWidget(self.meeting_list, stretch=1)
 
-        main_layout.addWidget(sidebar)
-
-        # -------------------------------------------------------------
-        # Center & Right Splitter
-        # -------------------------------------------------------------
-        splitter = QSplitter(Qt.Horizontal, self)
-        splitter.setStyleSheet("QSplitter::handle { background-color: #1E293B; width: 2px; }")
+        # Three focused tabs keep controls legible inside the dashboard's
+        # persistent navigation rail, including at the minimum window size.
+        self.workspace_tabs = QTabWidget(self)
+        self.workspace_tabs.setObjectName("MeetingWorkspaceTabs")
 
         # -------------------------------------------------------------
         # Center Console: Live Transcript & Recording
@@ -323,7 +320,6 @@ class NotetakerView(QWidget):
         t_search_row.addWidget(self.txt_search_transcript)
         c_layout.addLayout(t_search_row)
 
-        splitter.addWidget(center_box)
 
         # -------------------------------------------------------------
         # Right Studio: Smart Summary, Action Items & Minutes
@@ -474,10 +470,11 @@ class NotetakerView(QWidget):
         btn_bar.addWidget(btn_export)
 
         r_layout.addLayout(btn_bar)
-        splitter.addWidget(right_box)
-
-        splitter.setSizes([480, 420])
-        main_layout.addWidget(splitter)
+        self.workspace_tabs.addTab(sidebar, "Library")
+        self.workspace_tabs.addTab(center_box, "Live transcript")
+        self.workspace_tabs.addTab(right_box, "Notes & actions")
+        self.workspace_tabs.setCurrentIndex(1)
+        main_layout.addWidget(self.workspace_tabs)
 
     # -------------------------------------------------------------
     # Styles
@@ -718,6 +715,7 @@ class NotetakerView(QWidget):
         if data:
             self._current_meeting_id = meeting_id
             self._render_meeting_data(data)
+            self.workspace_tabs.setCurrentIndex(2)
 
     def _on_new_meeting_clicked(self):
         if self.engine.is_recording:
@@ -732,6 +730,7 @@ class NotetakerView(QWidget):
         self.notes_edit.clear()
         self.deliberation_edit.clear()
         self._last_deliberation_data = None
+        self.workspace_tabs.setCurrentIndex(1)
 
     def _show_meeting_context_menu(self, pos):
         item = self.meeting_list.itemAt(pos)

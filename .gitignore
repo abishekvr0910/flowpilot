@@ -32,6 +32,12 @@ pytest-cache-files-*/
 *.log
 flowpilot_diagnostic_report.txt
 scratch/
+# Defense in depth: never stage extracted competitor code or assets.
+scratch/wispr-unpacked/
+scratch/quarantine-wispr-clone-20261022/
+ui/wispr_renderer/
+ui/wispr_bridge.py
+ui/assets/
 .flowpilot-*-test-*.json
 personalization.json
 

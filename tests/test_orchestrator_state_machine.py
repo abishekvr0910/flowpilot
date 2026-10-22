@@ -14,6 +14,16 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from engine.orchestrator import FlowOrchestrator, AppState
 
+# Budget for waiting on the orchestrator to finish a dictation.
+#
+# The first transcription in a process pays the lazy model load, which the
+# runner itself documents as part of the measured time ("first decode
+# includes lazy model load"). On a cold model that load alone was 10.00s on
+# this host, against a previous 10.0s budget, so the wait expired at exactly
+# the moment the work finished. The budget now covers a cold start with
+# headroom instead of racing it.
+PROCESS_TIMEOUT = 60.0
+
 def test_explicit_state_machine():
     print("=" * 65)
     print("TEST: FLOWPILOT EXPLICIT 9-STATE MACHINE & TRANSITIONS")
@@ -55,7 +65,7 @@ def test_explicit_state_machine():
 
     # Wait for processing to complete and return to IDLE
     t0 = time.time()
-    while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < 10.0:
+    while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < PROCESS_TIMEOUT:
         time.sleep(0.1)
     print(f"  -> Processing completed in {time.time() - t0:.2f}s, current state: {orch.state}")
 
@@ -75,7 +85,7 @@ def test_explicit_state_machine():
 
     # Wait for it to settle back to IDLE
     t0 = time.time()
-    while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < 8.0:
+    while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < PROCESS_TIMEOUT:
         time.sleep(0.1)
     if orch.state == AppState.SUCCESS:
         time.sleep(1.0)
@@ -103,7 +113,7 @@ def test_explicit_state_machine():
         time.sleep(0.4)
         orch.stop_dictation_and_process()
         t0 = time.time()
-        while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < 6.0:
+        while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < PROCESS_TIMEOUT:
             time.sleep(0.05)
         # Verify user can immediately start next cycle from SUCCESS
         if orch.state == AppState.SUCCESS:
@@ -114,11 +124,11 @@ def test_explicit_state_machine():
             time.sleep(0.3)
             orch.stop_dictation_and_process()
             t0 = time.time()
-            while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < 6.0:
+            while orch.state not in (AppState.IDLE, AppState.SUCCESS) and time.time() - t0 < PROCESS_TIMEOUT:
                 time.sleep(0.05)
         # Ensure settled to IDLE
         t0 = time.time()
-        while orch.state != AppState.IDLE and time.time() - t0 < 2.0:
+        while orch.state != AppState.IDLE and time.time() - t0 < PROCESS_TIMEOUT:
             time.sleep(0.05)
         print(f"  -> Cycle {cycle}/5 completed successfully.")
 

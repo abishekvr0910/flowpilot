@@ -1,0 +1,1567 @@
+[
+  {
+    "item_id": "de-cv-002",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Er fuhr so langsam, dass ihn grundsätzlich selbst Greise ohne Bedenken nutzen konnten.",
+    "formatted_reference": "Er fuhr so langsam, dass ihn grundsätzlich selbst Greise ohne Bedenken nutzen konnten.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-002.wav",
+    "duration_sec": 7.178,
+    "critical_entities": [
+      "ohne"
+    ]
+  },
+  {
+    "item_id": "de-cv-022",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Wenn die Turbinen nicht arbeiten, wird das Wasser in einem Stausee aufgestaut.",
+    "formatted_reference": "Wenn die Turbinen nicht arbeiten, wird das Wasser in einem Stausee aufgestaut.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-022.wav",
+    "duration_sec": 4.802,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-023",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Forschung ohne Nutzung der Ergebnisse und damit ohne Follow-up in der Anwendung ist sinnlos.",
+    "formatted_reference": "Forschung ohne Nutzung der Ergebnisse und damit ohne Follow-up in der Anwendung ist sinnlos.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-023.wav",
+    "duration_sec": 6.014,
+    "critical_entities": [
+      "ohne"
+    ]
+  },
+  {
+    "item_id": "de-cv-024",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Warum sehen wir dies nicht selbst, und warum fürchten wir uns, dies zuzugeben?",
+    "formatted_reference": "Warum sehen wir dies nicht selbst, und warum fürchten wir uns, dies zuzugeben?",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-024.wav",
+    "duration_sec": 9.026,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-025",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Du hast es doch nicht etwa verschlampt?, hakte Adam nach.",
+    "formatted_reference": "Du hast es doch nicht etwa verschlampt?, hakte Adam nach.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-025.wav",
+    "duration_sec": 4.826,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-026",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Ich kann nicht erkennen, was es ist.",
+    "formatted_reference": "Ich kann nicht erkennen, was es ist.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-026.wav",
+    "duration_sec": 2.666,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-027",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Noch hat der Senat nicht zugestimmt.",
+    "formatted_reference": "Noch hat der Senat nicht zugestimmt.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-027.wav",
+    "duration_sec": 7.61,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-028",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Erfahrungen aus Langzeitbehandlung liegen noch nicht vor.",
+    "formatted_reference": "Erfahrungen aus Langzeitbehandlung liegen noch nicht vor.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-028.wav",
+    "duration_sec": 6.458,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-029",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Andere wurden nie fertig gestellt, da bessere Routen gefunden wurden.",
+    "formatted_reference": "Andere wurden nie fertig gestellt, da bessere Routen gefunden wurden.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-029.wav",
+    "duration_sec": 5.798,
+    "critical_entities": [
+      "nie"
+    ]
+  },
+  {
+    "item_id": "de-cv-030",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Viele der in jüngerer Zeit erschienen Spielsysteme verwenden keine Charakterklassen mehr.",
+    "formatted_reference": "Viele der in jüngerer Zeit erschienen Spielsysteme verwenden keine Charakterklassen mehr.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-030.wav",
+    "duration_sec": 9.722,
+    "critical_entities": [
+      "keine"
+    ]
+  },
+  {
+    "item_id": "de-cv-031",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Diese Erfolge von Manfred Graus hielten nicht sehr lange an.",
+    "formatted_reference": "Diese Erfolge von Manfred Graus hielten nicht sehr lange an.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-031.wav",
+    "duration_sec": 4.994,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-032",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Ich traue mich nicht!",
+    "formatted_reference": "Ich traue mich nicht!",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-032.wav",
+    "duration_sec": 2.786,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-033",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Nicht schon wieder!",
+    "formatted_reference": "Nicht schon wieder!",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-033.wav",
+    "duration_sec": 3.098,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-034",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Wenn wir nichts sagen, wird dies ebenfalls wahrgenommen.",
+    "formatted_reference": "Wenn wir nichts sagen, wird dies ebenfalls wahrgenommen.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-034.wav",
+    "duration_sec": 4.61,
+    "critical_entities": [
+      "nichts"
+    ]
+  },
+  {
+    "item_id": "de-cv-035",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Keine der beiden Loks ist erhalten geblieben.",
+    "formatted_reference": "Keine der beiden Loks ist erhalten geblieben.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-035.wav",
+    "duration_sec": 4.682,
+    "critical_entities": [
+      "keine"
+    ]
+  },
+  {
+    "item_id": "de-cv-036",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Da kriegst du kein Gehalt, bloß eine Aufwandsentschädigung.",
+    "formatted_reference": "Da kriegst du kein Gehalt, bloß eine Aufwandsentschädigung.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-036.wav",
+    "duration_sec": 6.626,
+    "critical_entities": [
+      "kein"
+    ]
+  },
+  {
+    "item_id": "de-cv-037",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Basti ist vieles, aber bestimmt kein Geizhals.",
+    "formatted_reference": "Basti ist vieles, aber bestimmt kein Geizhals.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-037.wav",
+    "duration_sec": 4.61,
+    "critical_entities": [
+      "kein"
+    ]
+  },
+  {
+    "item_id": "de-cv-038",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Ich verlange nicht mehr, aber auch nicht weniger.",
+    "formatted_reference": "Ich verlange nicht mehr, aber auch nicht weniger.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-038.wav",
+    "duration_sec": 4.97,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-039",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Damit sei dieser nicht beim Namen genannte Führer „in den Blutstrom der Vergangenheit“ eingetaucht.",
+    "formatted_reference": "Damit sei dieser nicht beim Namen genannte Führer „in den Blutstrom der Vergangenheit“ eingetaucht.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-039.wav",
+    "duration_sec": 8.258,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-040",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Ich weiß nicht, ob es im Gazastreifen noch Einflussmöglichkeiten gibt.",
+    "formatted_reference": "Ich weiß nicht, ob es im Gazastreifen noch Einflussmöglichkeiten gibt.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-040.wav",
+    "duration_sec": 5.786,
+    "critical_entities": [
+      "nicht"
+    ]
+  },
+  {
+    "item_id": "de-cv-001",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Von dir geht positive Energie aus.",
+    "formatted_reference": "Von dir geht positive Energie aus.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-001.wav",
+    "duration_sec": 4.226,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-003",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Wir alle sind uns einig, dass mehr in die Forschung investiert werden muss.",
+    "formatted_reference": "Wir alle sind uns einig, dass mehr in die Forschung investiert werden muss.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-003.wav",
+    "duration_sec": 5.858,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-004",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Sein Debüt hatte er am Salzburger Landestheater.",
+    "formatted_reference": "Sein Debüt hatte er am Salzburger Landestheater.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-004.wav",
+    "duration_sec": 6.362,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-005",
+    "language": "de",
+    "group": "developer_code",
+    "spoken_reference": "Die unzureichende Schmerztherapie könne demnach zur Herstellung der nötigen emotionalen Distanz dienen.",
+    "formatted_reference": "Die unzureichende Schmerztherapie könne demnach zur Herstellung der nötigen emotionalen Distanz dienen.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-005.wav",
+    "duration_sec": 9.146,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-006",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Wir haben regionale Beiräte gebildet.",
+    "formatted_reference": "Wir haben regionale Beiräte gebildet.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-006.wav",
+    "duration_sec": 4.586,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-007",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Ihr wünscht euch Gerechtigkeit?",
+    "formatted_reference": "Ihr wünscht euch Gerechtigkeit?",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-007.wav",
+    "duration_sec": 3.098,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-008",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Die Danziger Privat-Actien-Bank war an der Börse in Berlin und Danzig notiert.",
+    "formatted_reference": "Die Danziger Privat-Actien-Bank war an der Börse in Berlin und Danzig notiert.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-008.wav",
+    "duration_sec": 7.898,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-009",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Am nächsten Morgen bringen ihn Polizisten zurück.",
+    "formatted_reference": "Am nächsten Morgen bringen ihn Polizisten zurück.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-009.wav",
+    "duration_sec": 4.61,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-010",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Er tritt auf nationaler Ebene für das Aichi Steel Athletics Team an.",
+    "formatted_reference": "Er tritt auf nationaler Ebene für das Aichi Steel Athletics Team an.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-010.wav",
+    "duration_sec": 6.662,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-011",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Die Zellen treten meist in Paaren auf und sind stäbchenförmig.",
+    "formatted_reference": "Die Zellen treten meist in Paaren auf und sind stäbchenförmig.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-011.wav",
+    "duration_sec": 5.294,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-012",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Wir sind uns darin einig, und deswegen müssen wir auch vernünftig und gut zusammenarbeiten.",
+    "formatted_reference": "Wir sind uns darin einig, und deswegen müssen wir auch vernünftig und gut zusammenarbeiten.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-012.wav",
+    "duration_sec": 9.818,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-013",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Nach dem Großen juristischen Staatsexamen erhielt er eine Anstellung als Regierungsassessor.",
+    "formatted_reference": "Nach dem Großen juristischen Staatsexamen erhielt er eine Anstellung als Regierungsassessor.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-013.wav",
+    "duration_sec": 9.434,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-014",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Platz in Lenzerheide ihr bestes Karriereergebnis im Riesenslalom-Weltcup.",
+    "formatted_reference": "Platz in Lenzerheide ihr bestes Karriereergebnis im Riesenslalom-Weltcup.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-014.wav",
+    "duration_sec": 7.058,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-015",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Wie wir dies regulieren sollten, ist eine Angelegenheit, die wir immer noch diskutieren können.",
+    "formatted_reference": "Wie wir dies regulieren sollten, ist eine Angelegenheit, die wir immer noch diskutieren können.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-015.wav",
+    "duration_sec": 6.698,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-016",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Sie hört den Song rauf und runter.",
+    "formatted_reference": "Sie hört den Song rauf und runter.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-016.wav",
+    "duration_sec": 3.458,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-017",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Damit beantworte ich auch eine Anmerkung von Herrn Pronk.",
+    "formatted_reference": "Damit beantworte ich auch eine Anmerkung von Herrn Pronk.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-017.wav",
+    "duration_sec": 4.862,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-018",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Berlin liegt im Osten des Washington Countys.",
+    "formatted_reference": "Berlin liegt im Osten des Washington Countys.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-018.wav",
+    "duration_sec": 4.13,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-019",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Higgins spielte auch in der Nickelodeon-Serie \"Big Time Rush\" den Hotelmanager \"Mr.",
+    "formatted_reference": "Higgins spielte auch in der Nickelodeon-Serie \"Big Time Rush\" den Hotelmanager \"Mr.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-019.wav",
+    "duration_sec": 10.058,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-020",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Trotz seiner Treffer stieg Crystal Palace ab.",
+    "formatted_reference": "Trotz seiner Treffer stieg Crystal Palace ab.",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-020.wav",
+    "duration_sec": 4.202,
+    "critical_entities": []
+  },
+  {
+    "item_id": "de-cv-021",
+    "language": "de",
+    "group": "clean",
+    "spoken_reference": "Primetime Emmy Award",
+    "formatted_reference": "Primetime Emmy Award",
+    "speaker_id": "cv-anon-de",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/de/de-cv-021.wav",
+    "duration_sec": 3.098,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-021",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "En cambio, con la comunicación masiva, no hay tal inmediatez.",
+    "formatted_reference": "En cambio, con la comunicación masiva, no hay tal inmediatez.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-021.wav",
+    "duration_sec": 6.386,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-022",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Sin embargo, hay más versiones sobre las raíces del bollo de verde.",
+    "formatted_reference": "Sin embargo, hay más versiones sobre las raíces del bollo de verde.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-022.wav",
+    "duration_sec": 7.202,
+    "critical_entities": [
+      "sin"
+    ]
+  },
+  {
+    "item_id": "es-cv-023",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Sin abandonar sus interpretaciones en teatro y en doblaje.",
+    "formatted_reference": "Sin abandonar sus interpretaciones en teatro y en doblaje.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-023.wav",
+    "duration_sec": 5.786,
+    "critical_entities": [
+      "sin"
+    ]
+  },
+  {
+    "item_id": "es-cv-024",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "algo no va bien.",
+    "formatted_reference": "algo no va bien.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-024.wav",
+    "duration_sec": 2.834,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-025",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Anne se molesta con Tom y le pide que no crea que está loca.",
+    "formatted_reference": "Anne se molesta con Tom y le pide que no crea que está loca.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-025.wav",
+    "duration_sec": 6.17,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-026",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "No está claro con cuántas de las esposas Smith tuvo relaciones sexuales.",
+    "formatted_reference": "No está claro con cuántas de las esposas Smith tuvo relaciones sexuales.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-026.wav",
+    "duration_sec": 6.746,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-027",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "El presidente estadounidense por su parte le espetó, \"¡Nunca!",
+    "formatted_reference": "El presidente estadounidense por su parte le espetó, \"¡Nunca!",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-027.wav",
+    "duration_sec": 6.818,
+    "critical_entities": [
+      "nunca"
+    ]
+  },
+  {
+    "item_id": "es-cv-028",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Sin embargo, estas son varios milenios más jóvenes.",
+    "formatted_reference": "Sin embargo, estas son varios milenios más jóvenes.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-028.wav",
+    "duration_sec": 5.138,
+    "critical_entities": [
+      "sin"
+    ]
+  },
+  {
+    "item_id": "es-cv-029",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "ramiro, si no lo anillamos con un chip , lo perderemos.",
+    "formatted_reference": "ramiro, si no lo anillamos con un chip , lo perderemos.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-029.wav",
+    "duration_sec": 3.938,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-030",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "no entra dentro del protocolo.",
+    "formatted_reference": "no entra dentro del protocolo.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-030.wav",
+    "duration_sec": 3.578,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-031",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Estudia Leyes, pero no termina.",
+    "formatted_reference": "Estudia Leyes, pero no termina.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-031.wav",
+    "duration_sec": 4.394,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-032",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "¿ no va a contestar a su novia?",
+    "formatted_reference": "¿ no va a contestar a su novia?",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-032.wav",
+    "duration_sec": 3.626,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-033",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "La canción es una adaptación de No Angels \"\"Someday\"\".",
+    "formatted_reference": "La canción es una adaptación de No Angels \"\"Someday\"\".",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-033.wav",
+    "duration_sec": 5.666,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-034",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Es importante señalar que no termina el bachillerato.",
+    "formatted_reference": "Es importante señalar que no termina el bachillerato.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-034.wav",
+    "duration_sec": 4.778,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-035",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "El beneficio empresarial no debe eclipsar el beneficio colectivo de la sociedad.",
+    "formatted_reference": "El beneficio empresarial no debe eclipsar el beneficio colectivo de la sociedad.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-035.wav",
+    "duration_sec": 8.378,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-036",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "sin embargo, continué ganando.",
+    "formatted_reference": "sin embargo, continué ganando.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-036.wav",
+    "duration_sec": 5.546,
+    "critical_entities": [
+      "sin"
+    ]
+  },
+  {
+    "item_id": "es-cv-037",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "pero ya no puedo estar con un hombre que me ha mentido",
+    "formatted_reference": "pero ya no puedo estar con un hombre que me ha mentido",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-037.wav",
+    "duration_sec": 4.226,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-038",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "¡ no le conozco!...",
+    "formatted_reference": "¡ no le conozco!...",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-038.wav",
+    "duration_sec": 2.378,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-039",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Sin embargo, en dicho Tour, los ojos estaban puestos en \"el Diablo\".",
+    "formatted_reference": "Sin embargo, en dicho Tour, los ojos estaban puestos en \"el Diablo\".",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-039.wav",
+    "duration_sec": 6.53,
+    "critical_entities": [
+      "sin"
+    ]
+  },
+  {
+    "item_id": "es-cv-040",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Las atribuciones del Areópago no estaban muy definidas.",
+    "formatted_reference": "Las atribuciones del Areópago no estaban muy definidas.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-040.wav",
+    "duration_sec": 5.114,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "es-cv-001",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Pueden diferenciarse dos tipos de haces vasculares.",
+    "formatted_reference": "Pueden diferenciarse dos tipos de haces vasculares.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-001.wav",
+    "duration_sec": 4.586,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-002",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "En años posteriores se le pudo ver como invitado en la serie \"Good Times\".",
+    "formatted_reference": "En años posteriores se le pudo ver como invitado en la serie \"Good Times\".",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-002.wav",
+    "duration_sec": 7.97,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-003",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Veintidós son los pisos, al igual que las estrofas de los versos.",
+    "formatted_reference": "Veintidós son los pisos, al igual que las estrofas de los versos.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-003.wav",
+    "duration_sec": 7.058,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-004",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "En ocasiones se vincula peligrosamente este tipo de música con el crimen organizado.",
+    "formatted_reference": "En ocasiones se vincula peligrosamente este tipo de música con el crimen organizado.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-004.wav",
+    "duration_sec": 7.178,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-005",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "¡ válgame Dios!",
+    "formatted_reference": "¡ válgame Dios!",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-005.wav",
+    "duration_sec": 2.666,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-006",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Cada manzana de la red urbana tenía, por lo menos, dos casas.",
+    "formatted_reference": "Cada manzana de la red urbana tenía, por lo menos, dos casas.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-006.wav",
+    "duration_sec": 6.77,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-007",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Allí diseñó el Plan de reforma educativa para la ciudad.",
+    "formatted_reference": "Allí diseñó el Plan de reforma educativa para la ciudad.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-007.wav",
+    "duration_sec": 5.438,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-008",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Para la realización del nuevo museo se convocaron diversos concursos.",
+    "formatted_reference": "Para la realización del nuevo museo se convocaron diversos concursos.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-008.wav",
+    "duration_sec": 5.618,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-009",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "La compañía es mundialmente conocida por ser la creadora de la llave de combinación.",
+    "formatted_reference": "La compañía es mundialmente conocida por ser la creadora de la llave de combinación.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-009.wav",
+    "duration_sec": 6.026,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-010",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Esta viña, que tiene su base de operaciones actualmente en el valle Curicó.",
+    "formatted_reference": "Esta viña, que tiene su base de operaciones actualmente en el valle Curicó.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-010.wav",
+    "duration_sec": 6.17,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-011",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Reaccionan de forma diferente al frío, pudiendo las más resistentes vivir en condiciones adversas.",
+    "formatted_reference": "Reaccionan de forma diferente al frío, pudiendo las más resistentes vivir en condiciones adversas.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-011.wav",
+    "duration_sec": 8.33,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-012",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Regresando posteriormente a su ciudad de origen en Canarias.",
+    "formatted_reference": "Regresando posteriormente a su ciudad de origen en Canarias.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-012.wav",
+    "duration_sec": 6.77,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-013",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "El logotipo del periódico desde su fundación utiliza la fuente Clarendon.",
+    "formatted_reference": "El logotipo del periódico desde su fundación utiliza la fuente Clarendon.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-013.wav",
+    "duration_sec": 6.434,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-014",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Ubicado en el extremo norte del territorio estatal.",
+    "formatted_reference": "Ubicado en el extremo norte del territorio estatal.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-014.wav",
+    "duration_sec": 5.546,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-015",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Posee una voz de tenor, tiene conocimientos de música y de danza.",
+    "formatted_reference": "Posee una voz de tenor, tiene conocimientos de música y de danza.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-015.wav",
+    "duration_sec": 6.29,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-016",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Es una producción de Woo Films.",
+    "formatted_reference": "Es una producción de Woo Films.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-016.wav",
+    "duration_sec": 3.77,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-017",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Los japoneses desarrollaron la ciudad, especialmente el puerto.",
+    "formatted_reference": "Los japoneses desarrollaron la ciudad, especialmente el puerto.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-017.wav",
+    "duration_sec": 6.65,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-018",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "Los machos se pelean y gritan, recorren largas distancias hasta encontrar una hembra.",
+    "formatted_reference": "Los machos se pelean y gritan, recorren largas distancias hasta encontrar una hembra.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-018.wav",
+    "duration_sec": 7.562,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-019",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "El lugar fue destruido y contaminado por la radiactividad.",
+    "formatted_reference": "El lugar fue destruido y contaminado por la radiactividad.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-019.wav",
+    "duration_sec": 4.514,
+    "critical_entities": []
+  },
+  {
+    "item_id": "es-cv-020",
+    "language": "es",
+    "group": "clean",
+    "spoken_reference": "La policía reportó que fue torturado, su lengua cortada y baleado hasta morir.",
+    "formatted_reference": "La policía reportó que fue torturado, su lengua cortada y baleado hasta morir.",
+    "speaker_id": "cv-anon-es",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/es/es-cv-020.wav",
+    "duration_sec": 4.862,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-007",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "La consommation doit être au plus près des animaux.",
+    "formatted_reference": "La consommation doit être au plus près des animaux.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-007.wav",
+    "duration_sec": 4.502,
+    "critical_entities": [
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-011",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Enfin, la Marine de Vincendo est une des plages les plus originales de l’île.",
+    "formatted_reference": "Enfin, la Marine de Vincendo est une des plages les plus originales de l’île.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-011.wav",
+    "duration_sec": 6.866,
+    "critical_entities": [
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-013",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Quatre ans plus tard, Rhoda sort de prison.",
+    "formatted_reference": "Quatre ans plus tard, Rhoda sort de prison.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-013.wav",
+    "duration_sec": 4.034,
+    "critical_entities": [
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-024",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Il était le plus vieux clown du monde en exercice.",
+    "formatted_reference": "Il était le plus vieux clown du monde en exercice.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-024.wav",
+    "duration_sec": 4.226,
+    "critical_entities": [
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-025",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Ne sont donc pas compris les hôtes célèbres.",
+    "formatted_reference": "Ne sont donc pas compris les hôtes célèbres.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-025.wav",
+    "duration_sec": 5.33,
+    "critical_entities": [
+      "ne",
+      "pas"
+    ]
+  },
+  {
+    "item_id": "fr-cv-026",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "À cette époque, les téléfilms n'étaient pas toujours produits par Disney.",
+    "formatted_reference": "À cette époque, les téléfilms n'étaient pas toujours produits par Disney.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-026.wav",
+    "duration_sec": 5.186,
+    "critical_entities": [
+      "pas"
+    ]
+  },
+  {
+    "item_id": "fr-cv-027",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Elle ne dîne donc pas, cette femme-là ?",
+    "formatted_reference": "Elle ne dîne donc pas, cette femme-là ?",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-027.wav",
+    "duration_sec": 3.986,
+    "critical_entities": [
+      "ne",
+      "pas"
+    ]
+  },
+  {
+    "item_id": "fr-cv-028",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Plus tard, Lisa et lui pleurèrent ensemble.",
+    "formatted_reference": "Plus tard, Lisa et lui pleurèrent ensemble.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-028.wav",
+    "duration_sec": 4.85,
+    "critical_entities": [
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-029",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Le bassiste Rico quitte le groupe, qui doit jouer sans bassiste.",
+    "formatted_reference": "Le bassiste Rico quitte le groupe, qui doit jouer sans bassiste.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-029.wav",
+    "duration_sec": 5.258,
+    "critical_entities": [
+      "sans"
+    ]
+  },
+  {
+    "item_id": "fr-cv-030",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Comme il ne venait pas, nous n’étions pas restés attendre.",
+    "formatted_reference": "Comme il ne venait pas, nous n’étions pas restés attendre.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-030.wav",
+    "duration_sec": 4.706,
+    "critical_entities": [
+      "ne",
+      "pas"
+    ]
+  },
+  {
+    "item_id": "fr-cv-031",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Les livres les plus célèbres de cette production sont principalement des évangéliaires.",
+    "formatted_reference": "Les livres les plus célèbres de cette production sont principalement des évangéliaires.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-031.wav",
+    "duration_sec": 8.426,
+    "critical_entities": [
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-032",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "De celui de Reventlou et Beseger ne subsiste que l'obélisque.",
+    "formatted_reference": "De celui de Reventlou et Beseger ne subsiste que l'obélisque.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-032.wav",
+    "duration_sec": 7.202,
+    "critical_entities": [
+      "ne"
+    ]
+  },
+  {
+    "item_id": "fr-cv-033",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Il ne reste plus que les vestiges d'.",
+    "formatted_reference": "Il ne reste plus que les vestiges d'.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-033.wav",
+    "duration_sec": 7.238,
+    "critical_entities": [
+      "ne",
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-034",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "C’est l’un des plus anciens textes du genre biographique connu pour l’Ancien Empire.",
+    "formatted_reference": "C’est l’un des plus anciens textes du genre biographique connu pour l’Ancien Empire.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-034.wav",
+    "duration_sec": 7.562,
+    "critical_entities": [
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-035",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Ou si tu ne veux pas trop attirer l’attention.",
+    "formatted_reference": "Ou si tu ne veux pas trop attirer l’attention.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-035.wav",
+    "duration_sec": 3.002,
+    "critical_entities": [
+      "ne",
+      "pas"
+    ]
+  },
+  {
+    "item_id": "fr-cv-036",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "S’il n’y a pas le temps ce n’est pas bien.",
+    "formatted_reference": "S’il n’y a pas le temps ce n’est pas bien.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-036.wav",
+    "duration_sec": 4.346,
+    "critical_entities": [
+      "pas"
+    ]
+  },
+  {
+    "item_id": "fr-cv-037",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Il n'a pas été donné suite alors à ce projet.",
+    "formatted_reference": "Il n'a pas été donné suite alors à ce projet.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-037.wav",
+    "duration_sec": 5.834,
+    "critical_entities": [
+      "pas"
+    ]
+  },
+  {
+    "item_id": "fr-cv-038",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Une démarche de catcheur slave n'est pas adoucie par de jolis talons vernis.",
+    "formatted_reference": "Une démarche de catcheur slave n'est pas adoucie par de jolis talons vernis.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-038.wav",
+    "duration_sec": 8.138,
+    "critical_entities": [
+      "pas"
+    ]
+  },
+  {
+    "item_id": "fr-cv-039",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "On l'utilise plus généralement pour l'espace consacré à la divinité principale d'un temple.",
+    "formatted_reference": "On l'utilise plus généralement pour l'espace consacré à la divinité principale d'un temple.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-039.wav",
+    "duration_sec": 6.086,
+    "critical_entities": [
+      "plus"
+    ]
+  },
+  {
+    "item_id": "fr-cv-040",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Elle assure que la provenance de cet argent n'a rien d'illégal.",
+    "formatted_reference": "Elle assure que la provenance de cet argent n'a rien d'illégal.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-040.wav",
+    "duration_sec": 5.546,
+    "critical_entities": [
+      "rien"
+    ]
+  },
+  {
+    "item_id": "fr-cv-001",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Elle représente deux chevaux, l'un gras, l'autre maigre.",
+    "formatted_reference": "Elle représente deux chevaux, l'un gras, l'autre maigre.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-001.wav",
+    "duration_sec": 5.282,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-002",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Il a classifié les singularités d'applications différentiables, poursuivant ainsi les travaux de René Thom.",
+    "formatted_reference": "Il a classifié les singularités d'applications différentiables, poursuivant ainsi les travaux de René Thom.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-002.wav",
+    "duration_sec": 9.11,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-003",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Elle est aujourd'hui exposée dans le hall de la salle de réception des délégués.",
+    "formatted_reference": "Elle est aujourd'hui exposée dans le hall de la salle de réception des délégués.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-003.wav",
+    "duration_sec": 5.714,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-004",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Autrefois elles pêchèrent.",
+    "formatted_reference": "Autrefois elles pêchèrent.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-004.wav",
+    "duration_sec": 3.026,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-005",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Après Toulouse, il finit sa carrière comme entraîneur-joueur à l'Avignon Rugby Club.",
+    "formatted_reference": "Après Toulouse, il finit sa carrière comme entraîneur-joueur à l'Avignon Rugby Club.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-005.wav",
+    "duration_sec": 7.658,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-006",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Diana avoue alors à son frère l'amour qu'elle porte à l'américain...",
+    "formatted_reference": "Diana avoue alors à son frère l'amour qu'elle porte à l'américain...",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-006.wav",
+    "duration_sec": 5.33,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-008",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Elle occupe la côte Est du pays, du à la Floride.",
+    "formatted_reference": "Elle occupe la côte Est du pays, du à la Floride.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-008.wav",
+    "duration_sec": 5.81,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-009",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Aujourd'hui, la collection ichtyologique est l'une des meilleures du monde.",
+    "formatted_reference": "Aujourd'hui, la collection ichtyologique est l'une des meilleures du monde.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-009.wav",
+    "duration_sec": 7.958,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-010",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Il éprouva toute la peine de l'amante.",
+    "formatted_reference": "Il éprouva toute la peine de l'amante.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-010.wav",
+    "duration_sec": 4.538,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-012",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Il vit actuellement à Caen, en France.",
+    "formatted_reference": "Il vit actuellement à Caen, en France.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-012.wav",
+    "duration_sec": 4.802,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-014",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Cette espèce est présente dans l'Atlantique et en Méditerranée.",
+    "formatted_reference": "Cette espèce est présente dans l'Atlantique et en Méditerranée.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-014.wav",
+    "duration_sec": 4.61,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-015",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "C'est une nouvelle main tendue de Rome à ces derniers.",
+    "formatted_reference": "C'est une nouvelle main tendue de Rome à ces derniers.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-015.wav",
+    "duration_sec": 4.586,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-016",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Il évolue en Extraliga, le premier échelon slovaque.",
+    "formatted_reference": "Il évolue en Extraliga, le premier échelon slovaque.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-016.wav",
+    "duration_sec": 8.378,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-017",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "C'est un sel incolore qui est utilisé comme poison métabolique.",
+    "formatted_reference": "C'est un sel incolore qui est utilisé comme poison métabolique.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-017.wav",
+    "duration_sec": 6.002,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-018",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Pujaudran fait partie de l'académie de Toulouse.",
+    "formatted_reference": "Pujaudran fait partie de l'académie de Toulouse.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-018.wav",
+    "duration_sec": 4.322,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-019",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Sally Clark souffre un temps de dépression, mais son état s'arrange lorsqu'elle retombe enceinte.",
+    "formatted_reference": "Sally Clark souffre un temps de dépression, mais son état s'arrange lorsqu'elle retombe enceinte.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-019.wav",
+    "duration_sec": 8.258,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-020",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Les deux premiers de chaque groupe sont qualifiés pour le second tour de qualification.",
+    "formatted_reference": "Les deux premiers de chaque groupe sont qualifiés pour le second tour de qualification.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-020.wav",
+    "duration_sec": 6.002,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-021",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Vous étiez arrivé à temps ?",
+    "formatted_reference": "Vous étiez arrivé à temps ?",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-021.wav",
+    "duration_sec": 3.05,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-022",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Il est nommé d'après la locustelle luscinioïde.",
+    "formatted_reference": "Il est nommé d'après la locustelle luscinioïde.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-022.wav",
+    "duration_sec": 5.882,
+    "critical_entities": []
+  },
+  {
+    "item_id": "fr-cv-023",
+    "language": "fr",
+    "group": "clean",
+    "spoken_reference": "Sévère a apporté deux contributions majeures en l'astronomie.",
+    "formatted_reference": "Sévère a apporté deux contributions majeures en l'astronomie.",
+    "speaker_id": "cv-anon-fr",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/fr/fr-cv-023.wav",
+    "duration_sec": 5.69,
+    "critical_entities": []
+  }
+]
