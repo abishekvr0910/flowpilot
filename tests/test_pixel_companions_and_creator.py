@@ -174,7 +174,10 @@ class TestPixelCompanionsAndCreator(unittest.TestCase):
 
     def test_multi_frame_import_and_dynamic_buttons(self):
         """Verifies importing a 6-frame community animation preserves all 6 frames without silent truncation."""
-        from PIL import Image as PILImage
+        try:
+            from PIL import Image as PILImage
+        except ImportError:
+            self.skipTest("PIL / Pillow not installed")
         creator = PixelCreatorWidget()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -198,7 +201,10 @@ class TestPixelCompanionsAndCreator(unittest.TestCase):
 
     def test_import_file_size_and_dimension_safety_limits(self):
         """Files exceeding 5MB or 2048x2048 dimensions are safely rejected before memory exhaustion."""
-        from PIL import Image as PILImage
+        try:
+            from PIL import Image as PILImage
+        except ImportError:
+            self.skipTest("PIL / Pillow not installed")
         from ui.pixel_creator import MAX_IMPORT_FILE_SIZE, MAX_IMPORT_DIMENSION
         creator = PixelCreatorWidget()
 

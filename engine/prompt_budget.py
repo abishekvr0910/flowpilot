@@ -16,6 +16,7 @@ Whisper Architecture Constraints:
 
 import os
 import re
+import sys
 from pathlib import Path
 from typing import List, Optional, Tuple, Any
 
@@ -25,7 +26,7 @@ _CACHED_TOKENIZER_PATH: Optional[str] = None
 
 
 def resolve_local_tokenizer_path() -> Optional[Path]:
-    """Finds the local tokenizer.json in configured model directories."""
+    """Finds the local tokenizer.json in configured model directories without cloud egress."""
     project_root = Path(__file__).resolve().parent.parent
     candidate_dirs = [
         project_root / "models" / "faster-whisper-base",
@@ -33,10 +34,57 @@ def resolve_local_tokenizer_path() -> Optional[Path]:
         project_root / "models" / "base",
         project_root / "models" / "small",
     ]
+
+    # Check FLOWPILOT_MODEL_DIR environment variable
+    env_dir = os.environ.get("FLOWPILOT_MODEL_DIR")
+    if env_dir:
+        cand_env = Path(env_dir)
+        candidate_dirs.extend([
+            cand_env,
+            cand_env / "faster-whisper-base",
+            cand_env / "faster-whisper-small",
+            cand_env / "base",
+            cand_env / "small",
+        ])
+
+    # Check frozen binary directories (PyInstaller _MEIPASS and executable dir)
+    if hasattr(sys, "_MEIPASS"):
+        meipass = Path(sys._MEIPASS)
+        candidate_dirs.extend([
+            meipass / "models" / "faster-whisper-base",
+            meipass / "models" / "faster-whisper-small",
+            meipass / "models" / "base",
+            meipass / "models",
+        ])
+    exe_dir = Path(sys.executable).parent
+    candidate_dirs.extend([
+        exe_dir / "_internal" / "models" / "faster-whisper-base",
+        exe_dir / "_internal" / "models" / "faster-whisper-small",
+        exe_dir / "_internal" / "models" / "base",
+        exe_dir / "models" / "faster-whisper-base",
+        exe_dir / "models" / "base",
+    ])
+
     for c in candidate_dirs:
         p = c / "tokenizer.json"
         if p.is_file():
             return p
+
+    # Fallback: check local Hugging Face offline cache without network calls
+    try:
+        import faster_whisper
+        for size in ("base", "tiny", "small"):
+            try:
+                cached_dir = faster_whisper.download_model(size, local_files_only=True)
+                if cached_dir:
+                    p = Path(cached_dir) / "tokenizer.json"
+                    if p.is_file():
+                        return p
+            except Exception:
+                continue
+    except Exception:
+        pass
+
     return None
 
 
