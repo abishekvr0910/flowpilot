@@ -67,6 +67,14 @@ def cleanup_test_fixture(fixture: Optional[Path], hwnd: int = 0, process: Option
                 time.sleep(0.2)
     still_open = bool(hwnd and win32gui.IsWindow(hwnd) and
                       fixture.name.casefold() in win32gui.GetWindowText(hwnd).casefold())
+    if still_open and hwnd and win32gui.IsWindow(hwnd):
+        try:
+            win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+            time.sleep(0.3)
+            still_open = bool(win32gui.IsWindow(hwnd) and
+                              fixture.name.casefold() in win32gui.GetWindowText(hwnd).casefold())
+        except Exception:
+            pass
     if not still_open:
         try:
             fixture.unlink(missing_ok=True)

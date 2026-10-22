@@ -40,6 +40,7 @@ class AudioRecorder:
         self._preroll_buffer: collections.deque = collections.deque()
         self._pending_device: Optional[int] = None
         self._device_change_pending: bool = False
+        self.is_synthetic_mode: bool = False
 
     def get_state(self) -> dict:
         """Returns the current state dictionary of the audio recorder."""
@@ -122,6 +123,7 @@ class AudioRecorder:
                 else:
                     self.audio_frames = []
                 self.last_audio_array = None
+                self.is_synthetic_mode = False
                 self.is_recording = True
                 print(f"[Audio] Recording started with hot stream (pre-roll: {len(self.audio_frames)} chunks)...")
                 return
@@ -184,6 +186,7 @@ class AudioRecorder:
                     if not is_explicit_bad_device and (is_ci or is_hw_missing or self.device == -1):
                         print(f"[Audio Headless Mode] Physical microphone unavailable in headless environment ({e}). Operating in synthetic audio mode.")
                         self.is_recording = True
+                        self.is_synthetic_mode = True
                         self.stream = None
                         threading.Thread(target=self._synthetic_audio_loop, daemon=True).start()
                         return
