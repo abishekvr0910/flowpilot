@@ -384,7 +384,7 @@ class FlowOrchestrator:
                 target_hwnd = active_session.target_window_info.get("hwnd")
                 injection_method = "clipboard_paste"
                 from engine.text_injector import InjectionStatus, InjectionResult
-                inj_res = TextInjector.inject_with_status(formatted_text, target_hwnd)
+                inj_res = TextInjector.inject_with_status(formatted_text, target_hwnd, verify_confirmation=True)
                 success = bool(inj_res)
                 if not success and inj_res.status != InjectionStatus.FAILED_RECOVERY_AVAILABLE:
                     print("[Orchestrator] Standard clipboard paste failed. Falling back to direct SendInput Unicode typing...")

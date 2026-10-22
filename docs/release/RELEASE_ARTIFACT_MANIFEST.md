@@ -13,8 +13,8 @@ Built from master with native Sand & Stone Warm Light UI, 3-tab Meetings workspa
 | Archive Size | **772,898,922 bytes** (737.09 MB, includes offline Faster-Whisper `base` + `small` model weights and Silero VAD assets) |
 | Archive SHA-256 | `E29D57E2AD1D42FD2B642D60425F37F54346F366D5DD0C0107840684795925EC` |
 | Executable File | `FlowPilot/FlowPilot.exe` |
-| Executable Size | **24,852,349 bytes** (23.70 MB) |
-| Executable SHA-256 | `B3B6E9CEA2403F115AE935A6E776A2BBFBC1F4F5CBCBCE21668858CC9FCC3C94` |
+| Executable Size | **24,854,581 bytes** (23.70 MB) |
+| Executable SHA-256 | `71685D4BC829BBE6A8E3ECEAF658E874F048BE9F4E7F6023BF196828DAF64D1B` |
 | Bundled Model Weights | Faster-Whisper `base` + `small` (`_internal/models/`) + Silero VAD v5 ONNX assets |
 | Authenticode Status | `NotSigned` (Unsigned developer build. Standard or EV code signing establishes identity to build SmartScreen reputation over time, but does not provide immediate suppression.) |
 | Standalone Offline Smoke Test | **PASSED** (`FlowPilot.exe` smoke test launched with isolated test mutex, validated bundled Silero VAD v5 assets and Faster-Whisper base weights, enforced single-instance mutex, and cleanly terminated with 0 bytes network egress) |
@@ -36,10 +36,10 @@ Verify your downloaded ZIP before extraction:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot-v3.1.0-win64.zip
-# Expected: 0BC8DD54E20453D56666229482FE0C0DA6258CD2438618B4F6382116D4B9028D
+# Expected: 9DB50A8B63AACB62A81546904521CDAA44217992F638B24F970614B427CBC572
 
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot\FlowPilot.exe
-# Expected: B3B6E9CEA2403F115AE935A6E776A2BBFBC1F4F5CBCBCE21668858CC9FCC3C94
+# Expected: 71685D4BC829BBE6A8E3ECEAF658E874F048BE9F4E7F6023BF196828DAF64D1B
 ```
 
 ### Verification & Compliance Evidence

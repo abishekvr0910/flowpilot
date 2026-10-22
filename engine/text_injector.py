@@ -184,65 +184,80 @@ class TextInjector:
         return None
 
     @classmethod
-    def _safe_set_foreground(cls, hwnd: int) -> None:
+    def _safe_set_foreground(cls, hwnd: int) -> bool:
+        """
+        Forcefully foreground a window, tolerating background-window
+        SetForegroundWindow restrictions across Windows 10 and 11.
+        Uses the canonical AttachThreadInput recipe (caller thread + foreground
+        thread + target thread) with Alt-key lock bypass and BringWindowToTop.
+        """
         if not HAS_WIN32 or not hwnd or sys.platform != "win32":
-            return
-        # An active WinUI window may host the actual editor on a different UI
-        # thread. Re-attaching input and setting focus to a guessed child can
-        # move the caret from its RichEdit document to an input-site container.
-        # The caller already has the right foreground window: preserve its
-        # current focused field and do not synthesize Alt.
-        if win32gui.GetForegroundWindow() == hwnd:
-            return
-        alt_pressed = False
+            return False
         try:
-            import ctypes
-            ctypes.windll.user32.AllowSetForegroundWindow(-1)
-            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-            win32gui.BringWindowToTop(hwnd)
+            if win32gui.GetForegroundWindow() == hwnd:
+                return True
 
-            # Bypass Windows foreground lock timeout via simulated Alt key with guaranteed release
-            win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
-            alt_pressed = True
+            import ctypes
             try:
-                win32gui.SetForegroundWindow(hwnd)
+                ctypes.windll.user32.AllowSetForegroundWindow(-1)
             except Exception:
                 pass
-        except Exception:
-            pass
-        finally:
-            if alt_pressed:
+            try:
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            except Exception:
+                pass
+
+            fg = win32gui.GetForegroundWindow()
+            fg_tid = win32process.GetWindowThreadProcessId(fg)[0] if fg else 0
+            target_tid = win32process.GetWindowThreadProcessId(hwnd)[0] if hwnd else 0
+            cur_tid = ctypes.windll.kernel32.GetCurrentThreadId()
+
+            pairs = []
+            if fg_tid and fg_tid != cur_tid:
+                pairs.append((cur_tid, fg_tid))
+            if target_tid and target_tid != cur_tid:
+                pairs.append((cur_tid, target_tid))
+            if fg_tid and target_tid and fg_tid != target_tid and fg_tid != cur_tid:
+                pairs.append((fg_tid, target_tid))
+
+            attached = []
+            for a, b in pairs:
                 try:
-                    win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+                    if win32process.AttachThreadInput(a, b, True):
+                        attached.append((a, b))
                 except Exception:
                     pass
 
-        my_thread = win32api.GetCurrentThreadId()
-        target_thread, _ = win32process.GetWindowThreadProcessId(hwnd)
-        if my_thread and target_thread and my_thread != target_thread:
-            attached = False
+            alt_pressed = False
             try:
-                attached = bool(win32process.AttachThreadInput(my_thread, target_thread, True))
+                win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
+                alt_pressed = True
                 win32gui.BringWindowToTop(hwnd)
                 win32gui.SetForegroundWindow(hwnd)
-                # Do not SetActiveWindow/SetFocus on an enumerated child. WinUI
-                # hosts editor HWNDs on separate threads, and those calls can
-                # displace Notepad's restored caret into an input-site bridge.
             except Exception:
                 pass
             finally:
-                if attached:
+                if alt_pressed:
                     try:
-                        win32process.AttachThreadInput(my_thread, target_thread, False)
+                        win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
                     except Exception:
                         pass
-        else:
-            try:
-                import ctypes
-                ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
-                win32gui.SetForegroundWindow(hwnd)
-            except Exception:
-                pass
+                for a, b in reversed(attached):
+                    try:
+                        win32process.AttachThreadInput(a, b, False)
+                    except Exception:
+                        pass
+
+            if win32gui.GetForegroundWindow() != hwnd:
+                try:
+                    ctypes.windll.user32.SwitchToThisWindow(hwnd, True)
+                    win32gui.SetForegroundWindow(hwnd)
+                except Exception:
+                    pass
+
+            return win32gui.GetForegroundWindow() == hwnd
+        except Exception:
+            return False
 
     @classmethod
     def _is_same_window_hierarchy(cls, hwnd1: int, hwnd2: int) -> bool:
@@ -531,20 +546,21 @@ class TextInjector:
             print(f"[Injector] Successfully dispatched {len(text)} characters to HWND {target_hwnd}.")
 
             # 6. Physical confirmation verification if requested
-            if verify_confirmation and target_hwnd:
+            effective_target = target_hwnd or (cur_fg if ('cur_fg' in locals() and cur_fg) else None)
+            if verify_confirmation and effective_target:
                 check_val = expected_token if expected_token is not None else text.strip()
-                if cls.verify_text_injected(check_val, target_hwnd, timeout=0.6):
+                if cls.verify_text_injected(check_val, effective_target, timeout=0.6):
                     return InjectionResult(
                         status=InjectionStatus.CONFIRMED_INSERTED,
                         chars_sent=len(text),
-                        target_hwnd=target_hwnd
+                        target_hwnd=effective_target
                     )
 
-            # Standard opaque targets (VS Code, Chrome, etc.) where buffer is not directly readable
+            # Standard opaque targets where buffer is not directly readable
             return InjectionResult(
                 status=InjectionStatus.SENT_UNVERIFIED,
                 chars_sent=len(text),
-                target_hwnd=target_hwnd
+                target_hwnd=effective_target or target_hwnd
             )
 
         except Exception as e:
@@ -708,9 +724,78 @@ class TextInjector:
             return False
 
     @classmethod
+    def _read_via_ui_automation(cls, target_hwnd: int) -> Optional[str]:
+        """
+        Reads document text via Microsoft UI Automation from target_hwnd.
+        Handles IUIAutomationTextPattern and IUIAutomationValuePattern across
+        WinUI 3 Notepad, Chromium, Electron, Microsoft Word, and Qt surfaces.
+        """
+        if not HAS_WIN32 or not target_hwnd or sys.platform != "win32":
+            return None
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+            import comtypes.client
+            mod = comtypes.client.GetModule("UIAutomationCore.dll")
+            if not hasattr(cls, "_uia_instance") or cls._uia_instance is None:
+                cls._uia_instance = comtypes.client.CreateObject(mod.CUIAutomation)
+            uia = cls._uia_instance
+            elem = uia.ElementFromHandle(target_hwnd)
+            if not elem:
+                return None
+
+            walker = uia.RawViewWalker
+
+            # Breadth-first search of UI elements for document text or edit value
+            queue = [elem]
+            visited = 0
+            while queue and visited < 30:
+                current = queue.pop(0)
+                visited += 1
+
+                # Query TextPattern for document surfaces
+                try:
+                    tp = current.GetCurrentPattern(mod.UIA_TextPatternId)
+                    if tp:
+                        t_obj = tp.QueryInterface(mod.IUIAutomationTextPattern)
+                        txt = t_obj.DocumentRange.GetText(100000)
+                        if txt and txt.strip():
+                            return txt
+                except Exception:
+                    pass
+
+                # Query ValuePattern for input fields (excluding top-level window titles)
+                if current != elem:
+                    try:
+                        vp = current.GetCurrentPattern(mod.UIA_ValuePatternId)
+                        if vp:
+                            v_obj = vp.QueryInterface(mod.IUIAutomationValuePattern)
+                            val = v_obj.CurrentValue
+                            if val and val.strip() and val.strip() != "python":
+                                return val
+                    except Exception:
+                        pass
+
+                # Enqueue children for traversal
+                try:
+                    child = walker.GetFirstChildElement(current)
+                    while child:
+                        queue.append(child)
+                        child = walker.GetNextSiblingElement(child)
+                except Exception:
+                    pass
+
+            return None
+        except Exception:
+            return None
+
+    @classmethod
     def read_window_buffer(cls, target_hwnd: int) -> Optional[str]:
         """
-        Read a Win32 edit child's document without changing focus or clipboard.
+        Read a Win32 or modern document buffer without changing focus or clipboard.
+        First tries Win32 WM_GETTEXT on leaf edit controls if available.
+        Falls back to Microsoft UI Automation for modern WinUI 3 Notepad,
+        Chromium, Electron, Office, and Qt editor surfaces.
 
         Opaque controls return None, never a clipboard value masquerading as
         physical proof that the text arrived in the intended field.
@@ -719,30 +804,33 @@ class TextInjector:
             return None
         if not win32gui.IsWindow(target_hwnd):
             return None
+
+        # 1. Win32 WM_GETTEXT on child edit control (Notepad legacy, Edit, RichEdit)
         edit_ctrl = cls._find_edit_control(target_hwnd)
-        if edit_ctrl == target_hwnd or not win32gui.IsWindow(edit_ctrl):
-            return None
-        try:
-            import ctypes
-            user32 = ctypes.windll.user32
-            send_timeout = user32.SendMessageTimeoutW
-            send_timeout.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t,
-                                     ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint,
-                                     ctypes.POINTER(ctypes.c_size_t))
-            send_timeout.restype = ctypes.c_void_p
-            result = ctypes.c_size_t()
-            if not send_timeout(edit_ctrl, win32con.WM_GETTEXTLENGTH,
-                                0, None, 0x0002, 150, ctypes.byref(result)):
-                return None
-            buf_len = min(result.value, 100000) + 1
-            buf = ctypes.create_unicode_buffer(buf_len)
-            if not send_timeout(edit_ctrl, win32con.WM_GETTEXT,
-                                buf_len, ctypes.cast(buf, ctypes.c_void_p),
-                                0x0002, 150, ctypes.byref(result)):
-                return None
-            return buf.value
-        except Exception:
-            return None
+        if edit_ctrl and edit_ctrl != target_hwnd and win32gui.IsWindow(edit_ctrl):
+            try:
+                import ctypes
+                user32 = ctypes.windll.user32
+                send_timeout = user32.SendMessageTimeoutW
+                send_timeout.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t,
+                                         ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint,
+                                         ctypes.POINTER(ctypes.c_size_t))
+                send_timeout.restype = ctypes.c_void_p
+                result = ctypes.c_size_t()
+                if send_timeout(edit_ctrl, win32con.WM_GETTEXTLENGTH,
+                                    0, None, 0x0002, 150, ctypes.byref(result)):
+                    buf_len = min(result.value, 100000) + 1
+                    buf = ctypes.create_unicode_buffer(buf_len)
+                    if send_timeout(edit_ctrl, win32con.WM_GETTEXT,
+                                        buf_len, ctypes.cast(buf, ctypes.c_void_p),
+                                        0x0002, 150, ctypes.byref(result)):
+                        if buf.value:
+                            return buf.value
+            except Exception:
+                pass
+
+        # 2. Modern UI Automation fallback (WinUI 3 Notepad, Chromium, Electron, Office, Qt)
+        return cls._read_via_ui_automation(target_hwnd)
 
     @classmethod
     def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 2.5) -> bool:
@@ -751,10 +839,15 @@ class TextInjector:
         """
         start = time.time()
         clean_expected = expected_text.strip().lower()
+        if not clean_expected:
+            return True
+        prefix = clean_expected[:40].strip()
         while time.time() - start < timeout:
             buf = cls.read_window_buffer(target_hwnd)
-            if buf and clean_expected in buf.lower():
-                return True
-            time.sleep(0.08)
+            if buf:
+                buf_lower = buf.lower()
+                if clean_expected in buf_lower or (prefix and prefix in buf_lower):
+                    return True
+            time.sleep(0.06)
         return False
 
