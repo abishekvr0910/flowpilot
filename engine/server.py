@@ -250,7 +250,14 @@ async def openai_compatible_transcribe(
         print(f"[Server Error] /v1/audio/transcriptions failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Mount UI static files
+# Mount UI static files safely (disallow raw Python source and sensitive config disclosure)
+class SafeStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        lower_path = path.lower()
+        if lower_path.endswith((".py", ".pyc", ".pyd", ".json", ".lock", ".toml", ".spec")):
+            raise HTTPException(status_code=403, detail="Access to source files is prohibited.")
+        return await super().get_response(path, scope)
+
 ui_dir = Path(__file__).parent.parent / "ui"
 if ui_dir.exists():
-    app.mount("/", StaticFiles(directory=str(ui_dir), html=True), name="ui")
+    app.mount("/", SafeStaticFiles(directory=str(ui_dir), html=True), name="ui")
