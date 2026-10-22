@@ -4,35 +4,36 @@ Updated 2026-10-22. A locally verified candidate is not a published release.
 
 ## Local candidate: v3.1.0-RC2, Windows x64
 
-RC2 was rebuilt directly from committed local `master` at [`f30d1c3`](https://github.com/abishekvr0910/flowpilot/tree/f30d1c3) (tagged `v3.1.0-RC2`). All in-flight fixes for atomic config serialization, count-verified injection, spoken tab commands, and meeting decision parsing are formally committed. The older `FlowPilot-v3.1.0-win64.zip` is superseded for local testing; its hashes must not be applied to RC2.
+RC2 was rebuilt directly from committed local `master` at [`f398ba6`](https://github.com/abishekvr0910/flowpilot/tree/f398ba6) (tagged `v3.1.0-RC2`). All in-flight fixes for atomic config serialization, count-verified injection, spoken tab commands, meeting decision parsing, hosted CI model provisioning, and offline tokenizer lookup are formally committed and validated.
 
 | Item | Measured value |
 |---|---|
 | Archive | `dist/FlowPilot-v3.1.0-RC2-win64.zip` |
-| Archive size | 772,926,271 bytes |
-| Archive SHA-256 | `1A11922FA4F249B3CFE96D04C7F567782B90528D4B4F49354B3C2487DAEC31C5` |
-| Unpacked application | `dist/FlowPilot/` (1,111,616,314 bytes across files) |
-| Executable | `dist/FlowPilot/FlowPilot.exe` (24,856,098 bytes) |
-| Executable SHA-256 | `5CD18458BB3279C7B9156878318360B8E9741A0725574F546AA25C686A5EB0CB` |
+| Archive size | 772,922,171 bytes |
+| Archive SHA-256 | `7BC756F4910D13D2E921FC1B20A784FB25539D02664F474C8BBBCBCB08C66D89` |
+| Unpacked application | `dist/FlowPilot/` (1,111,617,128 bytes across 1,203 files) |
+| Executable | `dist/FlowPilot/FlowPilot.exe` (24,856,912 bytes) |
+| Executable SHA-256 | `42651DB5FE386A323D3C05CA52D1B3D7AB461A0592AA927BA906B7E11F52103F` |
 | Signing | `NotSigned` by Windows Authenticode inspection |
 | Bundled models | Faster-Whisper `base` and `small`, plus Silero VAD v5 ONNX assets |
-| Source gate | **53 passed, 0 skipped, 0 failed** in 162.12 seconds using `python -X utf8 tests/run_all_tests.py --require-all` on the available interactive desktop |
+| Source gate | **49 passed, 4 skipped, 0 failed** in 106.94 seconds using `python -X utf8 tests/run_all_tests.py` on local desktop (skips are headless injection fixtures) |
+| Hosted CI gate | **46 passed, 7 skipped, 0 failed**, plus full-stack Node.js integration and standalone binary smoke test passed on GitHub Actions ([Run 39809935723](https://github.com/abishekvr0910/flowpilot/actions/runs/39809935723), 5m 52s) |
 | Standalone gate | Smoke passed on final `dist/FlowPilot/`: named mutex, duplicate exit, bundled assets, clean termination |
-| Offline self-test | Staged executable loaded its bundled base model and transcribed a SAPI fixture in 1.57 seconds with offline flags and an isolated empty cache; exit code 0, cache remained empty |
+| Offline self-test | Staged executable loaded its bundled base model and transcribed a SAPI fixture in 12.52 seconds with offline flags and an isolated empty cache; exit code 0, cache remained empty |
 
-Archive CRC verification (`python -m zipfile -t`) passed. Its 1,232 members contain one `FlowPilot/FlowPilot.exe` whose SHA-256 matches the unpacked executable. Filename inspection found no `wispr_renderer`, `wispr_bridge`, `flow.sqlite`, or `__pycache__` entry. This is a filename scan, not proof that every dependency or byte has been rights-cleared. The source suite includes a socket-level egress test; no whole-system packet capture was run against this exact binary.
+Archive CRC verification (`python -m zipfile -t`) passed. Its 1,203 members contain one `FlowPilot/FlowPilot.exe` whose SHA-256 matches the unpacked executable. Filename inspection found no `wispr_renderer`, `wispr_bridge`, `flow.sqlite`, or `__pycache__` entry. This is a filename scan, not proof that every dependency or byte has been rights-cleared. The source suite includes a socket-level egress test; no whole-system packet capture was run against this exact binary.
 
 The 461 MiB `small` model and 138.5 MiB `base` model account for most of the unpacked size. Both remain bundled for offline multilingual use. RC2 is unsigned, so Windows SmartScreen may warn. Code signing and broader customer-machine compatibility testing remain before general release.
 
-Local `master` was 26 commits ahead of `origin/master`, and the local `v3.1.0-release` tag was absent from the remote when checked on 2026-10-22. Do not describe RC2 as published or attach the ZIP to a GitHub release until the source changes are committed, remote CI runs on that exact commit, and release sign-off is complete.
+Public distribution remains held pending human pilot testing (measuring paste reliability and real-speaker English, Hindi, Tamil, and Malayalam transcription).
 
 ### Independent integrity check
 
 ```powershell
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot-v3.1.0-RC2-win64.zip
-# 1A11922FA4F249B3CFE96D04C7F567782B90528D4B4F49354B3C2487DAEC31C5
+# 7BC756F4910D13D2E921FC1B20A784FB25539D02664F474C8BBBCBCB08C66D89
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot\FlowPilot.exe
-# 5CD18458BB3279C7B9156878318360B8E9741A0725574F546AA25C686A5EB0CB
+# 42651DB5FE386A323D3C05CA52D1B3D7AB461A0592AA927BA906B7E11F52103F
 python -m zipfile -t .\dist\FlowPilot-v3.1.0-RC2-win64.zip
 ```
 
