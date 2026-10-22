@@ -45,7 +45,9 @@ class FlowPilotApp:
                 try:
                     import win32gui
                     import win32con
-                    hwnd = win32gui.FindWindowW(None, "FlowPilot - Voice Intelligence Dashboard")
+                    hwnd = win32gui.FindWindowW(None, "FlowPilot")
+                    if not hwnd:
+                        hwnd = win32gui.FindWindowW(None, "FlowPilot - Voice Intelligence Dashboard")
                     if hwnd:
                         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
                         win32gui.SetForegroundWindow(hwnd)
@@ -242,6 +244,7 @@ class FlowPilotApp:
 
     def show_dashboard(self):
         if hasattr(self, 'dashboard') and self.dashboard:
+            self.dashboard.showNormal()
             self.dashboard.show()
             self.dashboard.raise_()
             self.dashboard.activateWindow()

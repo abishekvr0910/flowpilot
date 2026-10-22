@@ -36,8 +36,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     ],
     "telemetry_enabled": False,  # Default disabled; opt-in required for pilot diagnostics
     "save_history_text": False,  # Never-store by default: no dictation vault, insights, or pilot metrics writes
-    "auto_stop_on_silence": True,  # Wispr Flow behavior: auto-finalize after pause in speech
-    "silence_timeout_sec": 0.85,  # Optimized conversational pause (down from 1.4s, saving ~550ms)
+    "auto_stop_on_silence": False,  # Manual toggle control by default; opt-in auto-stop prevents premature cutoffs
+    "silence_timeout_sec": 2.5,  # Generous conversational pause (prevents cutting off natural speech)
     "hud_style": "mascot",  # "mascot" (Cartoon companion Pilot) or "wave" (Wispr dynamic bars)
     "meeting_retention_days": 0,  # 0 = keep indefinitely, or 7, 30, 90, 365 days
     "enable_local_llm": False,  # Optional local writing model for open-ended voice edits/rewrites
