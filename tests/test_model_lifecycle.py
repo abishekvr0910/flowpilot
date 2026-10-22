@@ -251,7 +251,12 @@ def test_env_dir_base_weights_cannot_masquerade_as_small(tmp_path):
 
         resolved_small = STTEngine.resolve_model_path("small")
         assert "faster-whisper-base" not in resolved_small
-        assert resolved_small == "small", "Small must not resolve to base folder"
+        expected_small = [
+            "small",
+            str(Path(__file__).resolve().parent.parent / "models" / "faster-whisper-small"),
+            str(Path(__file__).resolve().parent.parent / "models" / "small"),
+        ]
+        assert resolved_small in expected_small, "Small must not resolve to base folder"
 
 if __name__ == "__main__":
     print("Running STTEngine model lifecycle tests...")

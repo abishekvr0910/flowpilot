@@ -53,6 +53,12 @@ try:
 except ImportError:
     HAS_PERSONALIZATION = False
 
+try:
+    from engine.correction_intent import CorrectionIntentResolver
+    HAS_CORRECTION_INTENT = True
+except ImportError:
+    HAS_CORRECTION_INTENT = False
+
 class TransformationClass:
     SAFE_FORMATTING = "SAFE_FORMATTING"
     REVIEWABLE_REWRITE = "REVIEWABLE_REWRITE"
@@ -341,7 +347,9 @@ class WritingIntelligence:
         text = raw
 
         # 1. Resolve spoken self-corrections
-        corrected_text, had_self_correction, retracted_nums, retracted_negs = self._resolve_self_corrections(text)
+        corrected_text, had_self_correction, retracted_nums, retracted_negs = self._resolve_self_corrections(
+            text, language=effective_lang
+        )
         if had_self_correction:
             changes.append("Resolved spoken self-correction")
             text = corrected_text
@@ -431,77 +439,37 @@ class WritingIntelligence:
             text = text[0].upper() + text[1:]
         return text
 
-    def _resolve_self_corrections(self, text: str) -> Tuple[str, bool, List[str], List[str]]:
+    def _resolve_self_corrections(
+        self,
+        text: str,
+        language: str = ""
+    ) -> Tuple[str, bool, List[str], List[str]]:
         """
         Resolves spoken self-corrections like:
-        - 'schedule it for Tuesday — actually, Wednesday' -> 'schedule it for Wednesday'
-        - 'budget is 5000 -- actually 6000 dollars' -> 'budget is 6000 dollars'
+        - 'schedule it for Tuesday - actually, Wednesday' -> 'schedule it for Wednesday'
+        - 'budget is 5000 - actually 6000 dollars' -> 'budget is 6000 dollars'
         - 'send 5 copies, no wait, 10 copies' -> 'send 10 copies'
         - 'meet at 2:00, or rather, 3:00' -> 'meet at 3:00'
         - 'do not deploy, actually, do deploy' -> 'do deploy'
+        - 'send this to John sorry Jane' -> 'send this to Jane'
+        - 'we have five wait six members' -> 'we have six members'
+        - 'meet at 2 never mind 3' -> 'meet at 3'
+
+        The heavy lifting lives in ``engine.correction_intent.CorrectionIntentResolver``,
+        which resolves every correction in an utterance and refuses to
+        supersede a function word (so "I actually enjoyed the movie" survives
+        intact).
+
         Returns: (corrected_text, had_self_correction, retracted_nums, retracted_negs)
         """
-        original = text
-        retracted_nums: List[str] = []
-        retracted_negs: List[str] = []
+        if not HAS_CORRECTION_INTENT:
+            return text, False, [], []
 
-        def record_retractions(superseded_text: str):
-            for n in re.findall(r"\$?\d+(?:,\d+)*(?:\.\d+)?", superseded_text):
-                clean_n = re.sub(r"[^\d]", "", n)
-                if clean_n:
-                    retracted_nums.append(clean_n)
-            for neg in FactGuard.CRITICAL_NEGATIONS:
-                if re.search(r"\b" + re.escape(neg) + r"\b", superseded_text.lower()):
-                    retracted_negs.append(neg)
-
-        # 1. Specific targeted Tuesday -> actually, Wednesday / for/on/at/by/in X -> actually, Y
-        specific_pattern = r"(?i)(.*?)\b(for|on|at|by|in)\s+(\$?\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)actually,?\s+(\$?\w+)(.*)"
-        match = re.search(specific_pattern, text)
-        if match:
-            prefix, prep, old_val, new_val, suffix = match.groups()
-            record_retractions(old_val)
-            text = f"{prefix}{prep} {new_val}{suffix}"
-            return text.strip(), True, retracted_nums, retracted_negs
-
-        # 2. Spoken Negation Retraction / Inversion ("do not proceed -- actually, proceed")
-        match_neg_retract = re.search(
-            r"(?i)(.*?)\b(do not|don\'t|never|cannot|can\'t)\s+(\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)actually,?\s+(?:do\s+)?(\3)(.*)",
-            text
-        )
-        if match_neg_retract:
-            pre, neg_phrase, old_v, new_v, post = match_neg_retract.groups()
-            record_retractions(f"{neg_phrase} {old_v}")
-            text = f"{pre} {new_v}{post}"
-            return re.sub(r"\s+", " ", text).strip(), True, retracted_nums, retracted_negs
-
-        # 3. Generic "actually" correction: "X -- actually Y"
-        match_gen = re.search(r"(?i)(.*?)\b(\$?\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)actually,?\s+(\$?\w+)(.*)", text)
-        if match_gen:
-            pre, old_word, new_word, post = match_gen.groups()
-            record_retractions(old_word)
-            text = f"{pre} {new_word}{post}"
-            return re.sub(r"\s+", " ", text).strip(), True, retracted_nums, retracted_negs
-
-        # 3. "or rather, Y" correction: "meet at 2:00, or rather, 3:00"
-        match_rather = re.search(r"(?i)(.*?)\b(\$?\w+)\s*(?:,\s*|\s*[\—\-\–]{1,2}\s*|\s+)or rather,?\s+(\$?\w+)(.*)", text)
-        if match_rather:
-            pre, old_word, new_word, post = match_rather.groups()
-            record_retractions(old_word)
-            text = f"{pre} {new_word}{post}"
-            return re.sub(r"\s+", " ", text).strip(), True, retracted_nums, retracted_negs
-
-        # 4. "no wait, Y" / "wait no, Y"
-        match_wait = re.search(r"(?i)(.*?)\s*(?:,\s*|\s+)(?:no wait|wait no),?\s+(.*)", text)
-        if match_wait:
-            pre, post = match_wait.groups()
-            pre_words = pre.split()
-            if pre_words:
-                retracted_last = pre_words.pop()
-                record_retractions(retracted_last)
-            text = " ".join(pre_words) + " " + post
-            return re.sub(r"\s+", " ", text).strip(), True, retracted_nums, retracted_negs
-
-        return text, False, [], []
+        resolver = CorrectionIntentResolver(language=language)
+        corrected, nums, negs, applied = resolver.resolve(text)
+        if not applied:
+            return text, False, [], []
+        return corrected, True, nums, negs
 
     def _apply_spoken_commands(self, text: str, style: str = "professional", language: str = "en") -> Tuple[str, List[str]]:
         """

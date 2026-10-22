@@ -176,6 +176,8 @@ def test_slow_app_timing_and_dwell():
     with patch.object(TextInjector, '_get_target_process_name', return_value="slack.exe"), \
          patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 100, None)), \
          patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
+         patch.object(TextInjector, '_safe_clipboard_paste', return_value="Existing clipboard fixture"), \
+         patch.object(TextInjector, '_original_clipboard', None), \
          patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
          patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=100), \
          patch('engine.text_injector.win32api.keybd_event') as mock_keybd1, \
@@ -194,6 +196,8 @@ def test_slow_app_timing_and_dwell():
     with patch.object(TextInjector, '_get_target_process_name', return_value="mstsc.exe"), \
          patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 200, None)), \
          patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
+         patch.object(TextInjector, '_safe_clipboard_paste', return_value="Existing clipboard fixture"), \
+         patch.object(TextInjector, '_original_clipboard', None), \
          patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
          patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=200), \
          patch('engine.text_injector.win32api.keybd_event') as mock_keybd2, \
@@ -320,7 +324,7 @@ def test_text_injection():
 
     # 5. Bring Notepad to foreground safely and focus document
     win32gui.ShowWindow(notepad_hwnd, win32con.SW_RESTORE)
-    focus_notepad_document(notepad_hwnd)
+    assert focus_notepad_document(notepad_hwnd), "Notepad document did not acquire focus"
     time.sleep(0.3)
 
     target_hwnd = notepad_hwnd
@@ -357,18 +361,22 @@ def test_text_injection():
         print("  -> First-attempt injection PASSED without retry.")
         injection_ok = True
     else:
-        # First attempt not confirmed. Check legitimate recovery path without test backdoors.
+        # A sent status is not proof of delivery. Retry only after the actual
+        # document buffer proves the payload absent; never risk a duplicate.
         print(f"  -> First-attempt not verified in buffer (Status: {res.status}).")
-        if res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE or res.recovery_available:
-            recovery_held = (TextInjector.last_injected_text == test_payload + "\n")
-            print(f"  -> Recovery buffer holds exact text: {recovery_held}")
-            rec_ok = TextInjector.re_copy_last()
-            rec_clip = TextInjector._safe_clipboard_paste()
-            rec_copied = (rec_clip == test_payload + "\n")
-            print(f"  -> re_copy_last() placed text on clipboard: {rec_copied}")
-            injection_ok = (first_attempt_verified or (recovery_held and rec_copied and TextInjector.verify_text_injected("FlowPilot", target_hwnd, timeout=2.0)))
+        document = TextInjector.read_window_buffer(target_hwnd)
+        recovery_held = TextInjector.last_injected_text == test_payload + "\n"
+        injection_ok = False
+        if document is not None and "FlowPilot Verification:" not in document and recovery_held:
+            if focus_notepad_document(target_hwnd):
+                retry = TextInjector.inject_with_status(test_payload + "\n", target_hwnd=target_hwnd)
+                injection_ok = TextInjector.verify_text_injected("FlowPilot Verification:", target_hwnd, timeout=2.5)
+                print(f"  -> Proven-absent retry: status={retry.status}, verified={injection_ok}")
+                time.sleep(2.0)
+                if clip_ready:
+                    preserved = preserved and TextInjector._safe_clipboard_paste() == sentinel
         else:
-            injection_ok = False
+            print("  -> Retry withheld: document unreadable, payload already present, or recovery text missing.")
 
     # 9. Cleanup Notepad
     cleanup_test_fixture(fixture, notepad_hwnd, proc)

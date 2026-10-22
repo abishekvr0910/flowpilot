@@ -84,10 +84,10 @@ class TestFlowPilotDashboard(unittest.TestCase):
             if "Customize Appearance" in button.text()
         ]
         self.assertEqual(len(buttons), 1)
-        with patch("ui.flowpilot_dashboard.CompanionStudioDialog.exec", return_value=0) as open_studio:
-            buttons[0].click()
-        open_studio.assert_called_once_with()
-        self.assertEqual(self.dash.stack.currentIndex(), 0)
+        buttons[0].click()
+        self.assertEqual(self.dash.stack.currentIndex(), 8)
+        self.assertTrue(self.dash.stack.currentWidget().embedded)
+        self.assertFalse(self.dash.stack.currentWidget().isWindow())
 
 if __name__ == "__main__":
     unittest.main()

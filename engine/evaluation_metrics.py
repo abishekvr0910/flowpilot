@@ -20,13 +20,115 @@ INDIC_RANGES = {
     "ml": r"[\u0D00-\u0D7F]",  # Malayalam
 }
 
-# Negation terms across prioritized languages
+# Punctuation stripped from the edges of a token during tokenization.
+# Includes the typographic set so that Spanish inverted marks and curly
+# quotes do not stay glued to a word.
+EDGE_PUNCTUATION = r"[.,!?;:()\[\]{}\"\'«»„“”‘’‚‛¡¿…‹›]"
+
+# Number words that a recogniser may legitimately render as digits.
+# Without this normalisation, a reference that spells out "Veintidos" and a
+# hypothesis that returns "22" looked like a dropped number plus a
+# hallucinated one, which is the same fact expressed twice.
+NUMBER_WORDS = {
+    "en": {
+        "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+        "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+        "ten": "10", "eleven": "11", "twelve": "12", "thirteen": "13",
+        "fourteen": "14", "fifteen": "15", "sixteen": "16",
+        "seventeen": "17", "eighteen": "18", "nineteen": "19",
+        "twenty": "20", "thirty": "30", "forty": "40", "fifty": "50",
+        "sixty": "60", "seventy": "70", "eighty": "80", "ninety": "90",
+    },
+    "de": {
+        "null": "0", "eins": "1", "zwei": "2", "drei": "3", "vier": "4",
+        "fünf": "5", "sechs": "6", "sieben": "7", "acht": "8", "neun": "9",
+        "zehn": "10", "elf": "11", "zwölf": "12", "dreizehn": "13",
+        "vierzehn": "14", "fünfzehn": "15", "sechzehn": "16",
+        "siebzehn": "17", "achtzehn": "18", "neunzehn": "19",
+        "zwanzig": "20", "dreißig": "30", "vierzig": "40", "fünfzig": "50",
+        "sechzig": "60", "siebzig": "70", "achtzig": "80", "neunzig": "90",
+    },
+    "es": {
+        "cero": "0", "uno": "1", "una": "1", "dos": "2", "tres": "3",
+        "cuatro": "4", "cinco": "5", "seis": "6", "siete": "7", "ocho": "8",
+        "nueve": "9", "diez": "10", "once": "11", "doce": "12",
+        "trece": "13", "catorce": "14", "quince": "15", "dieciséis": "16",
+        "diecisiete": "17", "dieciocho": "18", "diecinueve": "19",
+        "veinte": "20", "veintiuno": "21", "veintidós": "22",
+        "veintitrés": "23", "veinticuatro": "24", "veinticinco": "25",
+        "veintiséis": "26", "veintisiete": "27", "veintiocho": "28",
+        "veintinueve": "29",
+        "treinta": "30", "cuarenta": "40", "cincuenta": "50",
+        "sesenta": "60", "setenta": "70", "ochenta": "80", "noventa": "90",
+    },
+    "fr": {
+        "zéro": "0", "un": "1", "une": "1", "deux": "2", "trois": "3",
+        "quatre": "4", "cinq": "5", "six": "6", "sept": "7", "huit": "8",
+        "neuf": "9", "dix": "10", "onze": "11", "douze": "12",
+        "treize": "13", "quatorze": "14", "quinze": "15", "seize": "16",
+        "dix-sept": "17", "dix-huit": "18", "dix-neuf": "19",
+        "vingt": "20", "trente": "30", "quarante": "40", "cinquante": "50",
+        "soixante": "60", "septante": "70", "quatre-vingt": "80",
+    },
+}
+
+# Negation terms across prioritized languages.
+#
+# de / es / fr were added 2026-10-22. Without them the critical-entity gate
+# silently measured nothing for German and French: `extract_critical_entities`
+# fell back to the English list only, so a dropped German "nicht" or French
+# "pas" was never detected and the fact-retention gate reported a false pass.
+#
+# French "plus" is deliberately excluded: it is overwhelmingly "more" in
+# modern French ("c'est plus grand"), so including it would flag every
+# ordinary sentence as carrying a negation.
 NEGATION_DICTIONARY = {
     "en": ["not", "no", "never", "none", "neither", "nor", "don't", "doesn't", "didn't", "won't", "cannot", "can't", "without"],
     "hi": ["नहीं", "न", "ना", "मत", "बगैर", "बिना"],
     "ta": ["இல்லை", "அல்ல", "கூடாது", "வேண்டாம்", "இல்லாமல்"],
     "ml": ["ഇല്ല", "അല്ല", "പാടില്ല", "വേണ്ട", "ഇല്ലാതെ"],
+    "de": [
+        "nicht", "kein", "keine", "keinen", "keinem", "keiner", "keines",
+        "nie", "niemals", "nichts", "niemand", "nirgends", "nirgendwo",
+        "ohne", "weder",
+    ],
+    "es": [
+        "no", "nunca", "jamás", "jamas", "nadie", "nada",
+        "ninguno", "ninguna", "ningún", "ningun", "sin", "tampoco", "ni",
+    ],
+    "fr": [
+        "ne", "pas", "jamais", "rien", "personne", "aucun", "aucune",
+        "sans", "ni", "nul", "nulle",
+    ],
 }
+
+
+def _number_word_map(language: str) -> Dict[str, str]:
+    """Number-word to digit map for a language, tolerating locale codes."""
+    lang = (language or "en").lower().replace("_", "-")
+    table = NUMBER_WORDS.get(lang)
+    if table is None:
+        table = NUMBER_WORDS.get(lang.split("-")[0], {})
+    return table or {}
+
+
+def _negation_terms(language: str) -> List[str]:
+    """Negation terms for a language, tolerating locale codes like ``de-DE``."""
+    lang = (language or "en").lower().replace("_", "-")
+    terms = list(NEGATION_DICTIONARY.get(lang, []))
+    base = lang.split("-")[0]
+    if base != lang:
+        terms.extend(NEGATION_DICTIONARY.get(base, []))
+    # Preserve order, drop duplicates.
+    seen = set()
+    ordered = []
+    for term in terms:
+        key = term.lower()
+        if key not in seen:
+            seen.add(key)
+            ordered.append(term)
+    return ordered
+
 
 def normalize_unicode(text: str, form: str = "NFC") -> str:
     """Normalizes Unicode encoding without stripping native combining diacritics."""
@@ -56,8 +158,12 @@ def tokenize_multilingual(text: str, language: str = "en") -> List[str]:
 
     for t in raw_tokens:
         # Strip outer sentence punctuation like .,!?;:()[]{}""''
-        cleaned = re.sub(r"^[.,!?;:()[\]{}\"\'«»]+", "", t)
-        cleaned = re.sub(r"[.,!?;:()[\]{}\"\'«»]+$", "", cleaned)
+        # Includes typographic punctuation: Spanish inverted marks (¡ ¿) and
+        # curly quotes („ “ ” ‘ ’) were previously left attached, which
+        # silently suppressed critical-entity detection for any sentence
+        # starting with an inverted mark or wrapped in curly quotes.
+        cleaned = re.sub(r"^" + EDGE_PUNCTUATION + r"+", "", t)
+        cleaned = re.sub(EDGE_PUNCTUATION + r"+$", "", cleaned)
         if cleaned:
             # Lowercase Latin characters while preserving Indic codepoints untouched
             tokens.append(cleaned.lower())
@@ -125,10 +231,20 @@ def extract_critical_entities(text: str, language: str = "en") -> Dict[str, List
     # 1. Numbers, percentages, currency
     number_pattern = r"(?<!\w)[-+]?[$€£₹]?\d+(?:,\d+)*(?:\.\d+)?(?:%|[kKmMbB](?!\w))?(?!\w)"
     numbers = [m.strip().lower() for m in re.findall(number_pattern, norm) if m.strip() and any(c.isdigit() for c in m)]
+    # Spell out a number word the reference may have used so that "Veintidos"
+    # and "22" compare equal instead of counting as a loss plus a hallucination.
+    number_words = _number_word_map(language)
+    if number_words:
+        spelled = []
+        for token in re.findall(r"\b[\w'’-]+\b", norm.lower()):
+            digit = number_words.get(token)
+            if digit is not None:
+                spelled.append(digit)
+        numbers.extend(spelled)
 
     # 2. Negations across priority languages
     tokens_lower = [t.lower() for t in tokenize_multilingual(norm, language=language)]
-    all_negations = NEGATION_DICTIONARY.get(language, []) + NEGATION_DICTIONARY["en"]
+    all_negations = _negation_terms(language) + NEGATION_DICTIONARY["en"]
     negations = [t for t in tokens_lower if t in all_negations]
 
     # 3. Developer tokens (camelCase, snake_case, CLI flags, URLs)

@@ -14,7 +14,8 @@ import psutil
 import ctypes
 
 def main():
-    exe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dist", "FlowPilot", "FlowPilot.exe"))
+    default_exe = os.path.join(os.path.dirname(__file__), "..", "dist", "FlowPilot", "FlowPilot.exe")
+    exe_path = os.path.abspath(os.environ.get("FLOWPILOT_TEST_EXE") or default_exe)
     print(f"Testing packaged executable: {exe_path}")
     
     if not os.path.isfile(exe_path):
@@ -27,6 +28,14 @@ def main():
     
     # Phase 0: Verify bundled Faster-Whisper & Silero VAD assets
     exe_dir = os.path.dirname(exe_path)
+    packaged_ui = os.path.join(exe_dir, "_internal", "ui")
+    if os.path.isdir(packaged_ui):
+        static_files = set(os.listdir(packaged_ui))
+        assert static_files == {"index.html", "app.js", "styles.css"}, (
+            f"Unexpected files in packaged UI data: {sorted(static_files)}"
+        )
+    for forbidden in ("wispr_renderer", "wispr_bridge.py", "wispr_bridge.pyc"):
+        assert not os.path.exists(os.path.join(packaged_ui, forbidden)), forbidden
     cand_enc = [
         os.path.join(exe_dir, "_internal", "faster_whisper", "assets", "silero_encoder_v5.onnx"),
         os.path.join(exe_dir, "_internal", "assets", "silero_encoder_v5.onnx"),

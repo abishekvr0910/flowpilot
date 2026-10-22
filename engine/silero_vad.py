@@ -41,6 +41,13 @@ def get_silero_vad_assets_path() -> Path:
 
     # 4. faster-whisper package assets
     try:
+        import faster_whisper.utils
+        fw_path = Path(faster_whisper.utils.get_assets_path())
+        if (fw_path / "silero_encoder_v5.onnx").is_file():
+            return fw_path
+    except Exception:
+        pass
+    try:
         import faster_whisper.vad
         fw_path = Path(faster_whisper.vad.get_assets_path())
         if (fw_path / "silero_encoder_v5.onnx").is_file():

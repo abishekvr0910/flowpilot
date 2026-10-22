@@ -115,6 +115,9 @@ class FlowPilotApp:
         self.hud.dashboard_requested.connect(self.show_dashboard)
         self.tray.dashboard_requested.connect(self.show_dashboard)
         self.dashboard.companion_changed.connect(self._on_companion_switched_from_dashboard)
+        self.dashboard.companion_settings_applied.connect(self._on_companion_applied)
+        self.dashboard.show_companion_requested.connect(self.hud.show)
+        self.dashboard.show_companion_requested.connect(self.hud.raise_)
         self.dashboard.dictate_requested.connect(self.orchestrator.toggle_dictation)
 
         # Unified dictation triggers: Floating HUD button & Tray click & Hotkeys
@@ -288,6 +291,9 @@ class FlowPilotApp:
         if not self.orchestrator.update_config(new_config):
             return False
         self.config = new_config
+        if hasattr(self, "dashboard"):
+            self.dashboard.config = dict(new_config)
+            self.dashboard.home_page.refresh()
         hk_str = self.orchestrator.config.get("hotkey", "Ctrl+Shift+Space")
         hk_mode = self.orchestrator.config.get("hotkey_mode", "toggle")
         self.hud.set_hotkey_info(hk_str, hk_mode)
@@ -445,7 +451,12 @@ def run_self_test() -> int:
         text = res.get("text", "") if isinstance(res, dict) else str(res)
         print(f"[Self-Test] Transcription output: '{text}' (in {t_trans:.2f}s)")
         assert any(k in text.lower() for k in ("offline", "flowpilot", "dictation", "verified")), f"Unexpected transcription: {text}"
-        print("[Self-Test] PASSED: Standalone binary successfully transcribed offline speech without network egress.")
+        from engine.writing_intelligence import WritingIntelligence
+        corrected = WritingIntelligence().polish(
+            "schedule it for Tuesday actually Wednesday", mode="polished", style="professional"
+        )["text"]
+        assert "Wednesday" in corrected and "Tuesday" not in corrected, corrected
+        print("[Self-Test] PASSED: Bundled model transcribed speech and local correction logic passed.")
         return 0
     except Exception as e:
         print(f"[Self-Test] FAILED: {e}")

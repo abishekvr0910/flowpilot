@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QWidget,
     QLabel, QComboBox, QCheckBox, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QLineEdit,
-    QTextEdit, QFileDialog, QSplitter, QRadioButton, QButtonGroup
+    QTextEdit, QFileDialog, QSplitter, QRadioButton, QButtonGroup, QScrollArea,
+    QSizePolicy
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -22,6 +23,7 @@ import json
 from engine.language_registry import LanguageRegistry
 from engine.personalization import PersonalizationEngine
 from engine.hotkey_service import Win32HotkeyService
+from ui.workspace_style import workspace_style, label, harmonize_legacy_styles
 
 class SettingsDialog(QDialog):
     def __init__(
@@ -29,141 +31,95 @@ class SettingsDialog(QDialog):
         config: Dict[str, Any],
         on_save: Callable[[Dict[str, Any]], None],
         personalization: Optional[PersonalizationEngine] = None,
-        parent=None
+        parent=None,
+        embedded: bool = False,
     ):
         super().__init__(parent)
+        self.embedded = embedded
+        if embedded:
+            self.setWindowFlags(Qt.Widget)
         self.config = dict(config)
         self.on_save = on_save
         self.personalization = personalization or PersonalizationEngine()
         self.setWindowTitle("FlowPilot - Settings & Personalization")
-        self.resize(760, 640)
+        self.resize(900, 720)
+        self.setMinimumSize(640, 480)
         self._init_ui()
 
     def _init_ui(self):
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #0F172A;
-                color: #F8FAFC;
-            }
-            QTabWidget::pane {
-                border: 1px solid #334155;
-                background: #1E293B;
-                border-radius: 8px;
-            }
-            QTabBar::tab {
-                background: #0F172A;
-                color: #94A3B8;
-                padding: 10px 18px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QTabBar::tab:selected {
-                background: #1E293B;
-                color: #38BDF8;
-                border-bottom: 2px solid #38BDF8;
-            }
-            QLabel {
-                color: #F8FAFC;
-                font-size: 13px;
-            }
-            QLineEdit, QTextEdit {
-                background-color: #0F172A;
-                color: #F8FAFC;
-                border: 1px solid #334155;
-                border-radius: 6px;
-                padding: 6px 10px;
-                font-size: 13px;
-            }
-            QComboBox {
-                background-color: #334155;
-                color: #F8FAFC;
-                border: 1px solid #475569;
-                border-radius: 6px;
-                padding: 6px 12px;
-                font-size: 13px;
-            }
-            QCheckBox, QRadioButton {
-                color: #F8FAFC;
-                font-size: 13px;
-            }
-            QRadioButton::indicator {
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-                border: 1px solid #475569;
-                background: #0F172A;
-            }
-            QRadioButton::indicator:checked {
-                background-color: #38BDF8;
-                border: 2px solid #0F172A;
-            }
-            QPushButton {
-                background-color: #0284C7;
-                color: white;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #0369A1;
-            }
-            QTableWidget {
-                background-color: #0F172A;
-                color: #F8FAFC;
-                gridline-color: #334155;
-                border: 1px solid #334155;
-                border-radius: 6px;
-                font-size: 12px;
-            }
-            QHeaderView::section {
-                background-color: #1E293B;
-                color: #94A3B8;
-                padding: 6px;
-                border: 1px solid #334155;
-                font-weight: bold;
-            }
-        """)
-
+        self.setObjectName("WorkspacePage")
+        theme = self.config.get("ui_theme", "sand")
+        self.setStyleSheet(workspace_style(theme))
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(28, 26, 28, 22)
+        layout.setSpacing(16)
+        layout.addWidget(label("Settings", "title"))
+        layout.addWidget(label("Your microphone, language and shortcuts. Tuned to the way you work."))
 
-        tabs = QTabWidget(self)
-        tabs.addTab(self._build_general_tab(), "General")
-        tabs.addTab(self._build_personalization_tab(), "Personalization")
-        tabs.addTab(self._build_history_tab(), "Dictation History")
-        layout.addWidget(tabs)
+        self.tabs = QTabWidget(self)
+        self.tabs.setMinimumWidth(0)
+        self.tabs.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+        general_scroll = QScrollArea()
+        general_scroll.setWidgetResizable(True)
+        general_scroll.setMinimumWidth(0)
+        general_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        general_scroll.setWidget(self._build_general_tab())
+        self.tabs.addTab(general_scroll, "Dictation")
+        self.tabs.addTab(self._build_personalization_tab(), "Words and snippets")
+        self.tabs.addTab(self._build_history_tab(), "Legacy history")
+        layout.addWidget(self.tabs, 1)
 
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        
-        btn_save = QPushButton("Save & Apply", self)
+        footer = QVBoxLayout()
+        footer.setSpacing(8)
+        self.save_status = label("Dictation changes take effect when you save.")
+        self.save_status.setWordWrap(True)
+        self.save_status.setMinimumWidth(0)
+        self.save_status.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        footer.addWidget(self.save_status)
+        actions = QHBoxLayout()
+        actions.addStretch()
+        btn_close = QPushButton("Cancel" if self.embedded else "Close", self)
+        btn_close.clicked.connect(self.reject)
+        actions.addWidget(btn_close)
+        btn_save = QPushButton("Save changes", self)
+        btn_save.setObjectName("primaryBtn")
         btn_save.clicked.connect(self._save_settings)
-        btn_layout.addWidget(btn_save)
+        actions.addWidget(btn_save)
+        footer.addLayout(actions)
+        layout.addLayout(footer)
+        harmonize_legacy_styles(self, theme, include_root=False)
 
-        btn_close = QPushButton("Close", self)
-        btn_close.setStyleSheet("background-color: #475569;")
-        btn_close.clicked.connect(self.close)
-        btn_layout.addWidget(btn_close)
-
-        layout.addLayout(btn_layout)
+    def reject(self):
+        if self.embedded:
+            self.rejected.emit()
+        else:
+            super().reject()
 
     def _build_general_tab(self) -> QWidget:
         widget = QWidget()
+        widget.setObjectName("WorkspacePage")
         vbox = QVBoxLayout(widget)
         vbox.setContentsMargins(20, 20, 20, 20)
         vbox.setSpacing(14)
+        vbox.addWidget(label("Workspace appearance", "section"))
+        self.combo_ui_theme = QComboBox()
+        self.combo_ui_theme.addItem("Sand & Stone · warm light", "sand")
+        self.combo_ui_theme.addItem("Obsidian · quiet dark", "obsidian")
+        current_theme = self.config.get("ui_theme", "sand")
+        self.combo_ui_theme.setCurrentIndex(max(0, self.combo_ui_theme.findData(current_theme)))
+        vbox.addWidget(self.combo_ui_theme)
+        vbox.addWidget(label("The interface changes when you save. Your speech stays on this device."))
+        vbox.addWidget(label("Speech & language", "section"))
 
         # STT Model
-        lbl_model = QLabel("Local Speech Recognition Model (Faster-Whisper):")
+        lbl_model = QLabel("Speech model")
         vbox.addWidget(lbl_model)
         self.combo_model = QComboBox()
         self.combo_model.addItems([
-            "tiny (Fastest, ~75MB)",
-            "base (Balanced ultra-fast, ~140MB - Recommended)",
-            "small (High accuracy, ~460MB)",
-            "medium (Maximum precision, ~1.4GB)"
+            "tiny — smallest model",
+            "base — bundled model",
+            "small — larger model, more CPU and memory",
+            "medium — largest option, more CPU and memory"
         ])
         current_model = self.config.get("local_model_size", "base")
         for i in range(self.combo_model.count()):
@@ -171,9 +127,10 @@ class SettingsDialog(QDialog):
                 self.combo_model.setCurrentIndex(i)
                 break
         vbox.addWidget(self.combo_model)
+        vbox.addWidget(label("Larger models require local weights. Speed and accuracy depend on your language and hardware."))
 
         # Input Audio Microphone
-        lbl_mic = QLabel("Input Audio Microphone:")
+        lbl_mic = QLabel("Microphone")
         vbox.addWidget(lbl_mic)
         self.combo_mic = QComboBox()
         self.combo_mic.addItem("Windows System Default Recording Device", None)
@@ -198,7 +155,7 @@ class SettingsDialog(QDialog):
         vbox.addWidget(self.combo_mic)
 
         # Primary Language Selector (from LanguageRegistry)
-        lbl_lang = QLabel("Speech Language & Script:")
+        lbl_lang = QLabel("Dictation language")
         vbox.addWidget(lbl_lang)
         self.combo_lang = QComboBox()
         languages = LanguageRegistry.list_supported_languages()
@@ -225,8 +182,8 @@ class SettingsDialog(QDialog):
             ("concise", "Polished: Concise & Direct Phrasing"),
             ("verbatim", "Verbatim: 100% Unmodified Faithful Speech")
         ]
-        for key, label in self.tone_options:
-            self.combo_tone.addItem(label, key)
+        for key, title in self.tone_options:
+            self.combo_tone.addItem(title, key)
         cur_mode = self.config.get("active_tone_mode", "developer")
         for i, (key, _) in enumerate(self.tone_options):
             if key == cur_mode:
@@ -235,10 +192,12 @@ class SettingsDialog(QDialog):
         vbox.addWidget(self.combo_tone)
 
         # Dictation Mode (Toggle vs Push-to-Talk)
-        lbl_mode = QLabel("Dictation Trigger Mode:")
+        vbox.addSpacing(12)
+        vbox.addWidget(label("Shortcut & recording", "section"))
+        lbl_mode = QLabel("How you start and stop")
         vbox.addWidget(lbl_mode)
         
-        mode_layout = QHBoxLayout()
+        mode_layout = QVBoxLayout()
         self.btn_group_mode = QButtonGroup(self)
         self.radio_toggle = QRadioButton("Toggle Mode (Press to start, press again to stop)")
         self.radio_ptt = QRadioButton("Push-to-Talk (Hold to speak, release to stop)")
@@ -302,6 +261,7 @@ class SettingsDialog(QDialog):
             "Test Availability checks whether Windows or another app already owns a shortcut."
         )
         lbl_hotkeys.setStyleSheet("color: #94A3B8; background: #0F172A; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.4;")
+        lbl_hotkeys.setWordWrap(True)
         vbox.addWidget(lbl_hotkeys)
 
         vbox.addStretch()
@@ -312,6 +272,7 @@ class SettingsDialog(QDialog):
         vbox = QVBoxLayout(widget)
         vbox.setContentsMargins(16, 16, 16, 16)
         vbox.setSpacing(12)
+        vbox.addWidget(label("Dictionary and snippet edits are saved immediately. Use their dedicated workspace pages for advanced options."))
 
         # --- SECTION 1: PERSONAL DICTIONARY ---
         lbl_dict = QLabel("Custom Vocabulary & Phonetic Aliases (Biases Whisper & Enforces Casing):")
@@ -404,6 +365,7 @@ class SettingsDialog(QDialog):
         widget = QWidget()
         vbox = QVBoxLayout(widget)
         vbox.setContentsMargins(12, 12, 12, 12)
+        vbox.addWidget(label("Older profile history only. For the current dictation vault, use History & audio in the workspace."))
 
         self.table = QTableWidget()
         self.table.setColumnCount(4)
@@ -560,6 +522,7 @@ class SettingsDialog(QDialog):
             return
         # STT model size
         self.config["audio_device_index"] = self.combo_mic.currentData()
+        self.config["ui_theme"] = self.combo_ui_theme.currentData()
         model_text = self.combo_model.currentText()
         if "tiny" in model_text:
             self.config["local_model_size"] = "tiny"
@@ -592,5 +555,8 @@ class SettingsDialog(QDialog):
         if self.on_save(self.config) is False:
             QMessageBox.warning(self, "Settings Not Applied", "FlowPilot could not apply the selected shortcut. Please choose another key.")
             return
-        QMessageBox.information(self, "Saved", "FlowPilot settings and personalization updated successfully!")
-        self.close()
+        if self.embedded:
+            self.save_status.setText("Settings saved and applied.")
+        else:
+            QMessageBox.information(self, "Saved", "FlowPilot settings and personalization updated successfully!")
+            self.close()

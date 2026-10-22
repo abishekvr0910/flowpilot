@@ -7,9 +7,19 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 block_cipher = None
 
+# Never allow a future copied competitor renderer or credential bridge into a
+# frozen build, even if an ignored local file reappears under ui/.
+for forbidden in ('ui/wispr_renderer', 'ui/wispr_bridge.py', 'ui/assets'):
+    if Path(forbidden).exists():
+        raise RuntimeError(f'Forbidden third-party UI material in build input: {forbidden}')
+
 added_files = [
-    ('engine', 'engine'),
-    ('ui', 'ui'),
+    # Python modules are bundled by Analysis/PYZ. Only the integration server's
+    # own static files belong in the on-disk ui/ data directory; copying the
+    # whole source tree would also ship stale __pycache__ files.
+    ('ui/index.html', 'ui'),
+    ('ui/app.js', 'ui'),
+    ('ui/styles.css', 'ui'),
     ('assets', 'assets'),
     ('assets', 'faster_whisper/assets'),
 ]
@@ -55,10 +65,11 @@ hidden_imports = [
     'engine.history_vault',
     'engine.local_llm',
     'engine.writing_intelligence',
+    'engine.correction_intent',
     'engine.stt_engine',
     'engine.context_processor',
-    'engine.audio_capture',
-    'engine.hotkey_listener',
+    'engine.audio_recorder',
+    'engine.hotkey_service',
     'engine.orchestrator',
     'engine.session',
     'engine.config',
@@ -82,6 +93,8 @@ hidden_imports = [
     'ui.floating_hud',
     'ui.tray_manager',
     'ui.settings_dialog',
+    'ui.workspace_home',
+    'ui.workspace_style',
     'PySide6.QtCore',
     'PySide6.QtWidgets',
     'PySide6.QtGui',
@@ -96,7 +109,13 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'scipy.spatial.cKDTree'],
+    # These optional stacks are not imported by FlowPilot. Keeping them out of
+    # the frozen app removes hundreds of MB pulled in by broad dependency hooks.
+    excludes=[
+        'tkinter', 'matplotlib', 'scipy.spatial.cKDTree',
+        'pyarrow', 'pandas', 'boto3', 'botocore', 'lxml',
+        'psycopg', 'psycopg2', 'sqlalchemy',
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

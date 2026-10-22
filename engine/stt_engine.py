@@ -55,6 +55,13 @@ try:
         return _orig_get_assets()
 
     faster_whisper.utils.get_assets_path = _robust_get_assets_path
+    try:
+        import faster_whisper.vad
+        faster_whisper.vad.get_assets_path = _robust_get_assets_path
+        if hasattr(faster_whisper.vad.get_vad_model, "cache_clear"):
+            faster_whisper.vad.get_vad_model.cache_clear()
+    except Exception:
+        pass
 except ImportError:
     HAS_FASTER_WHISPER = False
 

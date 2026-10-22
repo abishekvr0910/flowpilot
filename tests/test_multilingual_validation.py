@@ -1,6 +1,6 @@
 """
 FlowPilot Honest Multilingual Validation Suite
-Tests genuine multilingual speech samples, language identification,
+Tests controlled SAPI-synthesized multilingual speech samples, language identification,
 script direction (LTR/RTL), regional dialect transformations,
 and code-switching across prioritized languages.
 """
