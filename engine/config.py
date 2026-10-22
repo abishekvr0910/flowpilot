@@ -1,5 +1,7 @@
 import json
 import os
+import tempfile
+import threading
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -13,6 +15,7 @@ def get_config_file() -> Path:
     return Path.home() / ".flowpilot" / "config.json"
 
 CONFIG_FILE = get_config_file()
+_CONFIG_WRITE_LOCK = threading.RLock()
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "engine_mode": "local",  # Local Faster-Whisper; cloud mode is rejected by STTEngine
@@ -71,11 +74,26 @@ def load_config() -> Dict[str, Any]:
 
 def save_config(config: Dict[str, Any]) -> bool:
     cfg_file = get_config_file()
+    temp_path = None
     try:
-        cfg_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(cfg_file, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
+        with _CONFIG_WRITE_LOCK:
+            cfg_file.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=cfg_file.parent,
+                prefix=f".{cfg_file.name}.", suffix=".tmp", delete=False
+            ) as f:
+                temp_path = Path(f.name)
+                json.dump(config, f, indent=2, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, cfg_file)
         return True
     except Exception as e:
         print(f"[Config] Error saving config: {e}")
         return False
+    finally:
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass

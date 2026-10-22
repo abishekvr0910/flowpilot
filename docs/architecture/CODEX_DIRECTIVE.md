@@ -15,6 +15,6 @@
 
 ## Verification gate
 
-The current [runner](../../tests/run_all_tests.py) defines 38 suites. Run it for code changes and inspect [live CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) before publishing a build. Hardware checks skipped in headless CI remain unverified; they need explicit Windows hardware validation. A failed gate blocks release promotion. Do not relabel skipped or failed suites as passes, and do not reuse older release results for newer source.
+The current [runner](../../tests/run_all_tests.py) defines 53 suites (2026-10-22). Run `python -X utf8 tests/run_all_tests.py --require-all` for release candidates and inspect [live CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) before publishing a build. Hardware checks skipped in headless CI remain unverified; they need explicit Windows hardware validation. A failed or skipped strict gate blocks release promotion. Do not relabel skipped or failed suites as passes, and do not reuse older release results for newer source.
 
 Published artifacts are listed in [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases). The dated [v3.0.2 report](../release/FLOWPILOT_V302_RELEASE_REPORT.md) applies only to that release. The [benchmark protocol](../testing/FLOWPILOT_BENCHMARK_PROTOCOL.md) describes how new measurements should be reported.

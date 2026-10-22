@@ -27,6 +27,12 @@ import pyperclip
 
 from engine.meeting_notetaker import MeetingNotetakerEngine, MeetingSession, TEMPLATES
 
+
+def _parse_decision_lines(summary_text: str) -> List[str]:
+    """Extract decision text without leaking Markdown markers into exports."""
+    prefix = "- **Decision:** "
+    return [line[len(prefix):] for line in summary_text.splitlines() if line.startswith(prefix)]
+
 class NotetakerSignalBridge(QObject):
     segment_received = Signal(dict)
     audio_level_received = Signal(float)
@@ -855,7 +861,7 @@ class NotetakerView(QWidget):
             "date": self.lbl_clock.text(),
             "duration": self.lbl_clock.text(),
             "transcript": self.transcript_edit.toPlainText(),
-            "decisions": [line[13:] for line in self.summary_edit.toPlainText().split("\n") if line.startswith("- **Decision:** ")],
+            "decisions": _parse_decision_lines(self.summary_edit.toPlainText()),
             "key_points": [line[2:] for line in self.summary_edit.toPlainText().split("\n") if line.startswith("- ") and not line.startswith("- **Decision:")],
             "action_items": [{"text": line[6:], "done": line.startswith("- [x]")} for line in self.action_scroll.toPlainText().split("\n") if line.startswith("- [")],
             "notes": self.notes_edit.toPlainText()
@@ -878,7 +884,7 @@ class NotetakerView(QWidget):
             "date": self.lbl_clock.text(),
             "duration": self.lbl_clock.text(),
             "transcript": self.transcript_edit.toPlainText(),
-            "decisions": [line[13:] for line in self.summary_edit.toPlainText().split("\n") if line.startswith("- **Decision:** ")],
+            "decisions": _parse_decision_lines(self.summary_edit.toPlainText()),
             "key_points": [line[2:] for line in self.summary_edit.toPlainText().split("\n") if line.startswith("- ") and not line.startswith("- **Decision:")],
             "action_items": [{"text": line[6:], "done": line.startswith("- [x]")} for line in self.action_scroll.toPlainText().split("\n") if line.startswith("- [")],
             "notes": self.notes_edit.toPlainText()
@@ -991,7 +997,7 @@ class NotetakerView(QWidget):
                 "title": self.txt_title.text().strip(),
                 "duration": self.lbl_clock.text(),
                 "transcript": self.transcript_edit.toPlainText(),
-                "decisions": [line[13:] for line in self.summary_edit.toPlainText().split("\n") if line.startswith("- **Decision:** ")],
+                "decisions": _parse_decision_lines(self.summary_edit.toPlainText()),
                 "action_items": [{"text": line[6:], "done": line.startswith("- [x]")} for line in self.action_scroll.toPlainText().split("\n") if line.startswith("- [")],
             }
         draft = self.engine.deliberation.draft_followup_email(data)

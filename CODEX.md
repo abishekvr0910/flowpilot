@@ -2,6 +2,7 @@
 
 **Document Version:** 3.2.1<br/>
 **Date:** 2026-10-19<br/>
+**Current verification note (2026-10-22):** The historical benchmark and feature descriptions below are not a release sign-off. The current working tree has 53 registered suites; `python -X utf8 tests/run_all_tests.py --require-all` passed 53/53 with no skips in 162.12 seconds on the available interactive desktop. A fresh build and remote CI verification remain separate gates. See [the release reassessment](docs/reviews/2026-10-22-release-reassessment.md).
 **Primary References:**
 - Architectural Handoff: [docs/architecture/CODEX_HANDOFF_DIRECTIVE.md](docs/architecture/CODEX_HANDOFF_DIRECTIVE.md)
 - Core Engineering Policy: [docs/architecture/CODEX_DIRECTIVE.md](docs/architecture/CODEX_DIRECTIVE.md)
@@ -68,15 +69,15 @@ FlowPilot is an air-gapped, local-first dictation and meeting intelligence works
 
 ## 3. Verification Protocol & Test Results
 
-The full automated audit suite defines **38 test suites**, verified with UTF-8 safe encoding:
+The current automated audit suite defines **53 test suites**, verified with UTF-8 safe encoding:
 
 ```powershell
 # Run the complete test suite
-python tests/run_all_tests.py
+python -X utf8 tests/run_all_tests.py --require-all
 ```
 
 **Verification Status:**
-- Total Test Time: **~110s**
-- Overall Verdict: **ALL TESTS PASSED (38 / 38 suites green)**
+- Total Test Time: **162.12s** in the 2026-10-22 interactive run
+- Overall Verdict: **53 passed, 0 skipped, 0 failed** for the current source tree; this does not validate older packaged binaries
 - Egress Verification: **Zero network sockets opened during dictation/deliberation**
 - Acoustic Loopback: **15-trial FlowPilot synthetic loopback verified over WASAPI VB-Cable 48 kHz** (Results preserved in [docs/testing/vbcable_benchmark_results.json](docs/testing/vbcable_benchmark_results.json)).

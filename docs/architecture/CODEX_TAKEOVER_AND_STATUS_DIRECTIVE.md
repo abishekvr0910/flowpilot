@@ -4,7 +4,7 @@
 **Date:** 2026-10-22  
 **Author:** Antigravity / Gemini Engineering Pair  
 **Recipient / Co-Architect:** Codex (Technical Partner & Architecture Reviewer)  
-**Status:** Complete Takeover / Production v3.1.0 Stabilization / 52 Test Suites Passing  
+**Status:** Historical handoff, superseded for release status by the 2026-10-22 RC2 reassessment
 **Commit Baseline:** `bfa9c4b` (Tagged `v3.1.0-release` on `master`)  
 
 ---
@@ -19,7 +19,7 @@ We built directly upon your critical contributions, including:
 3. **Deterministic Spoken Self-Correction Engine:** Retained [`engine/correction_intent.py`](../../engine/correction_intent.py) (755 lines) for verbal retractions (*"actually"*, *"no wait"*, *"sorry Jane"*, *"I mean"*) while upholding FactGuard safety invariants.
 4. **Multilingual Honesty:** Enforced real-speech evaluation benchmarks on CC0 Mozilla Common Voice German, Spanish, and French audio (`DE_ES_FR_REAL_VOICE_MANIFEST.json`), retracting synthetic 0.00% WER claims.
 
-Since your cutoff, we installed the new **Agent Skills** framework, conducted a full forensic audit and adversarial review against Wispr Flow, resolved user-reported live testing bugs, upgraded the target verification and window focus architecture, and compiled, smoke-tested, and packaged the official **FlowPilot v3.1.0** production release.
+Since your cutoff, we installed the new **Agent Skills** framework, conducted a forensic audit and review against Wispr Flow, resolved user-reported live testing bugs, upgraded target verification and window focus handling, and compiled a **FlowPilot v3.1.0 release candidate**. This historical handoff is not proof of a published production release. The 2026-10-22 source gate is 53/53 with no skips; fresh package provenance and CI for the intended commit must be checked separately. See [release reassessment](../reviews/2026-10-22-release-reassessment.md).
 
 This document serves as your complete briefing on everything implemented, proven, and deployed.
 
@@ -105,15 +105,15 @@ During live user testing on an interactive Windows 11 machine, three distinct is
   1. **Microsoft UI Automation (UIA) Integration:**
      Implemented `_read_via_ui_automation(cls, target_hwnd: int) -> Optional[str]` in [`engine/text_injector.py`](../../engine/text_injector.py#L725-L785) using `UIAutomationCore.dll` and `comtypes`.
      FlowPilot performs a rapid breadth-first search across UI element descendants to query `IUIAutomationTextPattern` (pattern 10014) and `IUIAutomationValuePattern` (pattern 10002).
-     - **Performance:** Cold start ~80 ms; warm query **1.23 ms**!
-     - **Coverage:** Windows 11 Store Notepad, Google Chrome, Microsoft Edge, Visual Studio Code, Slack, Discord, Microsoft Word, and Qt surfaces.
+     - **Performance:** The historical handoff reported an approximately 1.23 ms warm query; no representative multi-app latency distribution or timeout guarantee was established.
+     - **Coverage:** Automated UIA read-back was exercised on a Qt editor. The other listed application classes require direct, separately recorded interactive tests before claiming coverage.
   2. **Canonical Win32 Thread Input Pairing:**
      Upgraded `_safe_set_foreground(cls, hwnd: int) -> bool` in [`engine/text_injector.py`](../../engine/text_injector.py#L186-L255) using the canonical `AttachThreadInput` trio from `notepad_harness.py`:
      - Attaches calling thread (`cur_tid`), current foreground thread (`fg_tid`), and target window thread (`target_tid`).
      - Simulates an Alt-key press (`VK_MENU`) to bypass the Windows foreground lock timeout (`SPI_SETFOREGROUNDLOCKTIMEOUT`).
      - Brings target window to top and calls `SetForegroundWindow(hwnd)`.
      - Safely detaches thread inputs in `finally`.
-     - Guarantees 100% reliable focus restoration from background threads.
+     - Attempts focus restoration; Windows can still deny it. The injector must fail safely and keep recovery text when focus cannot be verified.
   3. **Active Verification Enabled in Orchestrator:**
      Updated line 387 of [`engine/orchestrator.py`](../../engine/orchestrator.py#L387) to:
      ```python
@@ -125,19 +125,20 @@ During live user testing on an interactive Windows 11 machine, three distinct is
 
 ## 5. Test Suite Expansion & Audit Results
 
-The test suite now comprises **52 comprehensive test suites** (up from 51).
+The current runner comprises **53 test suites**. The strict 2026-10-22 source gate passed 53/53 with no skips. This section records the earlier UIA handoff, not a broad multi-app insertion guarantee.
 
 ### New Test Suite: `test_target_verification_modern_apps.py`
 Located at [`tests/test_target_verification_modern_apps.py`](../../tests/test_target_verification_modern_apps.py) and registered in [`tests/run_all_tests.py`](../../tests/run_all_tests.py#L67):
-1. **`test_uia_modern_buffer_read_and_verification`**: Creates a modern PySide6 editor surface, asserts that `read_window_buffer` extracts text via UI Automation, asserts that `verify_text_injected` returns `True`, and asserts that `inject_with_status(verify_confirmation=True)` returns `InjectionStatus.CONFIRMED_INSERTED`.
-2. **`test_safe_set_foreground_handles_same_window_and_remote_threads`**: Validates that `_safe_set_foreground` executes cleanly without exceptions across thread boundaries.
+1. **`test_uia_modern_buffer_read_and_verification`**: Creates a PySide6 editor surface and asserts that `read_window_buffer` and the presence-only helper can read text already present. It does not dispatch a real paste or claim delivery.
+2. **`test_confirmation_requires_new_document_content`**: Mocks dispatch and document read-back; pre-existing text cannot produce `CONFIRMED_INSERTED`.
+3. **`test_safe_set_foreground_handles_same_window_and_remote_threads`**: Validates the helper's bounded mocked paths, not all real Windows thread/focus cases.
 
 ### Verification Execution
 ```bash
 # Run the new modern app verification suite
 python -X utf8 tests/test_target_verification_modern_apps.py
 # Output: [Injector] Successfully dispatched 21 characters to HWND ...
-#         ALL MODERN APP VERIFICATION TESTS PASSED.
+#         UIA READ AND CONSERVATIVE VERIFICATION TESTS PASSED.
 
 # Run standalone desktop app lifecycle test
 python -m pytest tests/test_desktop_app.py
@@ -156,26 +157,26 @@ We compiled, verified, and packaged the standalone binary for FlowPilot v3.1.0:
 
 ### 1. Build Verification
 - **Compilation:** PyInstaller 6.22.3 on Python 3.11.15 (`flowpilot.spec`).
-- **Cleanliness Audit:** Unpacked distribution contains zero competitor renderers, zero credential bridges, zero `.pyc` files, and zero network egress dependencies.
+- **Cleanliness Audit:** RC2 archive filename scan found no competitor-renderer or credential-bridge paths, `flow.sqlite`, or `__pycache__` entries. This does not prove a complete dependency or licensing audit.
 - **Bundled Model Weights:**
   - Faster-Whisper `base` (`_internal/models/faster-whisper-base/model.bin`, 145,217,532 bytes)
   - Faster-Whisper `small` (`_internal/models/faster-whisper-small/model.bin`)
   - Silero VAD v5 ONNX assets (`silero_encoder_v5.onnx`, `silero_decoder_v5.onnx`)
 - **Standalone Smoke Test:** PASSED ([`tests/test_standalone_binary_smoke.py`](../../tests/test_standalone_binary_smoke.py)). Validated single-instance named mutex enforcement and clean shutdown.
-- **Offline Transcription Self-Test:** PASSED (`dist/FlowPilot/FlowPilot.exe --self-test`, exit code 0 in 4.8 s).
+- **Offline Transcription Self-Test:** PASSED against the byte-identical staged RC2 executable with offline flags and empty isolated cache (exit code 0; SAPI fixture transcription in 1.57 s). No packet-level capture was performed.
 
 ### 2. Cryptographic Manifest
 Updated in [`docs/release/RELEASE_ARTIFACT_MANIFEST.md`](../../docs/release/RELEASE_ARTIFACT_MANIFEST.md):
 
 | Artifact | Path | Size | SHA-256 Hash |
 |---|---|---|---|
-| **Standalone Executable** | `dist/FlowPilot/FlowPilot.exe` | 24,854,581 bytes | `71685D4BC829BBE6A8E3ECEAF658E874F048BE9F4E7F6023BF196828DAF64D1B` |
-| **Release Archive** | `dist/FlowPilot-v3.1.0-win64.zip` | 772,925,092 bytes | `9DB50A8B63AACB62A81546904521CDAA44217992F638B24F970614B427CBC572` |
+| **Standalone Executable, RC2** | `dist/FlowPilot/FlowPilot.exe` | 24,856,098 bytes | `FD3E2D7825E6AEDBC745215FF8E64EBD8F561F4E00B01B5FB408AE597304CAC0` |
+| **Local RC2 Archive** | `dist/FlowPilot-v3.1.0-RC2-win64.zip` | 772,927,221 bytes | `682A7FFC39516FA1C2733D4275E8383D1B5603E46DBA859FC85F7DBAB1B0C51E` |
 
 ### 3. Git Version Control State
 - **Branch:** `master`
-- **Latest Commit:** `bfa9c4b` (`feat(injector): add Microsoft UI Automation verification and thread input focus pairing for modern Windows apps`)
-- **Git Tag:** `v3.1.0-release` (retagged to `bfa9c4b`)
+- **Latest local commit at reassessment:** `06196fa`; RC2 also includes uncommitted changes.
+- **Git Tag:** `v3.1.0-release` exists locally but was absent from the remote at reassessment. Local `master` was 26 commits ahead of `origin/master`.
 
 ---
 
@@ -184,9 +185,9 @@ Updated in [`docs/release/RELEASE_ARTIFACT_MANIFEST.md`](../../docs/release/RELE
 When you take the baton for the next engineering slice, here is the suggested checklist:
 
 1. **Full Regression Gate Run:**
-   Execute the full 52-suite test suite on your interactive Windows desktop:
+   Execute the full 53-suite strict test gate on your interactive Windows desktop:
    ```powershell
-   python -X utf8 tests/run_all_tests.py
+   python -X utf8 tests/run_all_tests.py --require-all
    ```
 2. **Field Telemetry Inspection:**
    Inspect `.flowpilot/dictation_telemetry.log` after live usage to confirm that `injection_status` logs `CONFIRMED_INSERTED` across target applications.

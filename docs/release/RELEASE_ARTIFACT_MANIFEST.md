@@ -1,71 +1,41 @@
-# Published & Candidate Release Manifest
+# FlowPilot release artifact manifest
 
-**Last updated:** 2026-10-22 (Reconciled & Packaged). This manifest documents official release binaries and verified distribution archives.
+Updated 2026-10-22. A locally verified candidate is not a published release.
 
-## 1. Distribution Candidate: FlowPilot v3.1.0 (Windows x64)
+## Local candidate: v3.1.0-RC2, Windows x64
 
-Built from master with native Sand & Stone Warm Light UI, 3-tab Meetings workspace, and local spoken self-correction intent engine. 100% zero-egress offline inference verified on device.
+RC2 was built from local `master` at `06196fa` **plus uncommitted source changes** documented in the [release reassessment](../reviews/2026-10-22-release-reassessment.md). It is not yet a reproducible commit-based release. The older `FlowPilot-v3.1.0-win64.zip` is superseded for local testing; its hashes must not be applied to RC2.
 
-| Field | FlowPilot v3.1.0 Official Distribution Candidate |
+| Item | Measured value |
 |---|---|
-| Release Version | `v3.1.0` (Workstation Refresh, Sand & Stone Design, Spoken Self-Correction Engine & Rights Hardened) |
-| Distribution Archive | `dist/FlowPilot-v3.1.0-win64.zip` |
-| Archive Size | **772,898,922 bytes** (737.09 MB, includes offline Faster-Whisper `base` + `small` model weights and Silero VAD assets) |
-| Archive SHA-256 | `E29D57E2AD1D42FD2B642D60425F37F54346F366D5DD0C0107840684795925EC` |
-| Executable File | `FlowPilot/FlowPilot.exe` |
-| Executable Size | **24,854,581 bytes** (23.70 MB) |
-| Executable SHA-256 | `71685D4BC829BBE6A8E3ECEAF658E874F048BE9F4E7F6023BF196828DAF64D1B` |
-| Bundled Model Weights | Faster-Whisper `base` + `small` (`_internal/models/`) + Silero VAD v5 ONNX assets |
-| Authenticode Status | `NotSigned` (Unsigned developer build. Standard or EV code signing establishes identity to build SmartScreen reputation over time, but does not provide immediate suppression.) |
-| Standalone Offline Smoke Test | **PASSED** (`FlowPilot.exe` smoke test launched with isolated test mutex, validated bundled Silero VAD v5 assets and Faster-Whisper base weights, enforced single-instance mutex, and cleanly terminated with 0 bytes network egress) |
-| Offline Transcription Self-Test | **PASSED** (`FlowPilot.exe --self-test` transcribed SAPI fixture on CPU in 3.19s with local correction logic verified offline) |
-| Automated Test Gate Status | **51 PASSED, 0 SKIPPED, 0 FAILED** (Registry holds 51 suites. Measured on an interactive Windows 11 desktop: full `run_all_tests.py` verdict "ALL TESTS PASSED" 51/51 in 463.8 s, including the four physical desktop-automation suites. Requires the harness force-foreground fix (`tests/notepad_harness.py::_force_foreground`, AttachThreadInput) for modern Store Notepad 11.2410.21.0. Headless/non-interactive sessions: 46 passed + 4 honest skips.) |
+| Archive | `dist/FlowPilot-v3.1.0-RC2-win64.zip` |
+| Archive size | 772,927,221 bytes |
+| Archive SHA-256 | `682A7FFC39516FA1C2733D4275E8383D1B5603E46DBA859FC85F7DBAB1B0C51E` |
+| Unpacked application | `dist/FlowPilot/` (1,111,616,314 bytes across files) |
+| Executable | `dist/FlowPilot/FlowPilot.exe` (24,856,098 bytes) |
+| Executable SHA-256 | `FD3E2D7825E6AEDBC745215FF8E64EBD8F561F4E00B01B5FB408AE597304CAC0` |
+| Signing | `NotSigned` by Windows Authenticode inspection |
+| Bundled models | Faster-Whisper `base` and `small`, plus Silero VAD v5 ONNX assets |
+| Source gate | **53 passed, 0 skipped, 0 failed** in 162.12 seconds using `python -X utf8 tests/run_all_tests.py --require-all` on the available interactive desktop |
+| Standalone gate | Smoke passed on final `dist/FlowPilot/`: named mutex, duplicate exit, bundled assets, clean termination |
+| Offline self-test | Staged executable loaded its bundled base model and transcribed a SAPI fixture in 1.57 seconds with offline flags and an isolated empty cache; exit code 0, cache remained empty |
 
-### Reliability & Feature Upgrades in v3.1.0
+Archive CRC verification (`python -m zipfile -t`) passed. Its 1,232 members contain one `FlowPilot/FlowPilot.exe` whose SHA-256 matches the unpacked executable. Filename inspection found no `wispr_renderer`, `wispr_bridge`, `flow.sqlite`, or `__pycache__` entry. This is a filename scan, not proof that every dependency or byte has been rights-cleared. The source suite includes a socket-level egress test; no whole-system packet capture was run against this exact binary.
 
-1. **Native Sand & Stone Warm Light Theme:** Full aesthetic refresh matching modern design standards (`#f5f4f0` warm canvas, 18px rounded white cards, hairline borders, warm amber accents), with Obsidian Dark toggle and dynamic `harmonize_legacy_styles()` for all secondary pages.
-2. **Responsive 3-Tab Meetings Workspace:** Refactored Meetings from a cramped 3-column horizontal splitter into 3 clean tabs: **Library**, **Live transcript**, and **Notes & actions**, completely eliminating horizontal clipping at 880×580 minimum window size.
-3. **Deterministic Spoken Self-Correction Engine:** Integrated `engine/correction_intent.py` (755 lines) resolving verbal retractions (*"actually"*, *"no wait"*, *"sorry Jane"*, *"I mean"*) before text injection while preserving FactGuard safety invariants.
-4. **Competitor Asset & Credential Purge:** Permanently deleted all extracted competitor bundles and credential bridges. Added `.gitignore` defense-in-depth rules; verified zero vendored code in Git history.
-5. **Multilingual Honesty:** Withdrew misleading 0.00% synthetic WER claims; established CC0 Mozilla Common Voice real-speech evaluation pipeline (`DE_ES_FR_REAL_VOICE_MANIFEST.json`).
-6. **Binary Footprint Optimization:** Trimmed unpacked installation directory by 139 MB (down from 764 MB to 625 MB / 1,199 files); distribution archive size reduced from 388 MB to 326 MB.
+The 461 MiB `small` model and 138.5 MiB `base` model account for most of the unpacked size. Both remain bundled for offline multilingual use. RC2 is unsigned, so Windows SmartScreen may warn. Code signing and broader customer-machine compatibility testing remain before general release.
 
-### Independent Integrity Verification
+Local `master` was 26 commits ahead of `origin/master`, and the local `v3.1.0-release` tag was absent from the remote when checked on 2026-10-22. Do not describe RC2 as published or attach the ZIP to a GitHub release until the source changes are committed, remote CI runs on that exact commit, and release sign-off is complete.
 
-Verify your downloaded ZIP before extraction:
+### Independent integrity check
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\dist\FlowPilot-v3.1.0-win64.zip
-# Expected: 9DB50A8B63AACB62A81546904521CDAA44217992F638B24F970614B427CBC572
-
+Get-FileHash -Algorithm SHA256 .\dist\FlowPilot-v3.1.0-RC2-win64.zip
+# 682A7FFC39516FA1C2733D4275E8383D1B5603E46DBA859FC85F7DBAB1B0C51E
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot\FlowPilot.exe
-# Expected: 71685D4BC829BBE6A8E3ECEAF658E874F048BE9F4E7F6023BF196828DAF64D1B
+# FD3E2D7825E6AEDBC745215FF8E64EBD8F561F4E00B01B5FB408AE597304CAC0
+python -m zipfile -t .\dist\FlowPilot-v3.1.0-RC2-win64.zip
 ```
 
-### Verification & Compliance Evidence
+## Historical published release: v3.0.2
 
-1. **Artifact Cleanliness Scan:** A full filename and content scan of the unpacked package confirmed **zero** competitor renderers, credential bridges, Electron, Sentry, Supabase, `__pycache__`, or `.pyc` files.
-2. **Standalone Smoke Test:** PASSED (`test_standalone_binary_smoke.py`). The executable holds the named single-instance mutex and validates bundled Silero VAD v5 assets and Faster-Whisper base weights.
-3. **Offline Transcription Self-Test:** PASSED (`FlowPilot.exe --self-test`). Loaded offline base model on CPU (int8, 8 threads), transcribed fixture audio, and executed local correction logic with zero network egress.
-4. **Source Test Suite Gate:** Full regression run across all 51 registered test modules on an interactive Windows 11 desktop: **51 PASSED, 0 SKIPPED, 0 FAILED** (463.8 s). The previous headless-mode gate (46 passed + 4 skips) is superseded: `tests/notepad_harness.py::_force_foreground` makes the four desktop suites pass for real on Win11 modern Notepad.
-
-### System & Setup Requirements
-
-1. **Operating System:** Windows 10 (Build 19041+) or Windows 11 64-bit.
-2. **Hardware:** x86_64 CPU with AVX2 support (Intel Core i5/i7/i9 6th gen+, AMD Ryzen 1000+).
-3. **RAM:** 8 GB system RAM recommended (FlowPilot utilizes ~100 MB baseline resident RAM, ~280 MB with Faster-Whisper base model loaded).
-4. **Microphone:** Standard default Windows recording device (WASAPI / DirectSound).
-5. **SmartScreen & Antivirus:** Because this is an unsigned developer build (`NotSigned`), Windows Defender SmartScreen may display an informational prompt on first launch ("Windows protected your PC"). Click **"More info"** -> **"Run anyway"**. Code signing certificates establish identity to accumulate reputation over time, but do not bypass initial reputation thresholds unconditionally.
-6. **Network & Privacy Invariant:** 100% offline local inference. Zero outbound sockets or cloud dependencies.
-
----
-
-## 2. Historical Published Release: FlowPilot v3.0.2
-
-| Field | Published v3.0.2 Windows release |
-|---|---|
-| Release | [`v3.0.2-release`](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release) |
-| Source commit | `b9bd76396b2883fa2e87e8b131d231dc39c34515` |
-| Download | [`FlowPilot-v3.0.2-win64.zip`](https://github.com/abishekvr0910/flowpilot/releases/download/v3.0.2-release/FlowPilot-v3.0.2-win64.zip) |
-| Published asset size | 252,311,634 bytes |
-| GitHub asset SHA-256 | `985e031c7af2617e4c03138d1a00472607ff9f9e1d2cff636827f26077f63f74` |
+The previous published release is [`v3.0.2-release`](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release), source commit `b9bd76396b2883fa2e87e8b131d231dc39c34515`. Its published asset was `FlowPilot-v3.0.2-win64.zip` (252,311,634 bytes; SHA-256 `985e031c7af2617e4c03138d1a00472607ff9f9e1d2cff636827f26077f63f74`). These historical values do not validate RC2.

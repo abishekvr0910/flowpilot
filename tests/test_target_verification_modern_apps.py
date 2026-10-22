@@ -1,15 +1,14 @@
 """
 Target Verification & Foreground Focus Robustness for Modern Windows Applications
-Validates:
-1. Physical target verification across modern UI controls via Microsoft UI Automation (UIA)
-2. TextInjector.read_window_buffer reading from modern document buffers (TextPattern & ValuePattern)
-3. TextInjector.verify_text_injected returning CONFIRMED_INSERTED on verified document presence
-4. Robust foreground restoration via AttachThreadInput trio tolerating Windows 11 foreground lock
+Validates UI Automation reading on a Qt editor and conservative status logic.
+The mocked status checks below do not claim physical paste delivery in other apps.
 """
 
 import sys
 import time
 from pathlib import Path
+from contextlib import ExitStack
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -19,7 +18,7 @@ from PySide6.QtWidgets import QApplication, QTextEdit, QLineEdit, QMainWindow
 from engine.text_injector import TextInjector, InjectionStatus, InjectionResult
 
 def test_uia_modern_buffer_read_and_verification():
-    """Verify that TextInjector reads and physically confirms text in modern editor surfaces via UIA."""
+    """Verify that UIA reads text already present in a Qt editor."""
     app = QApplication.instance() or QApplication(sys.argv)
     win = QMainWindow()
     editor = QTextEdit(win)
@@ -40,25 +39,37 @@ def test_uia_modern_buffer_read_and_verification():
     verified = TextInjector.verify_text_injected("FlowPilot Physical Verification", hwnd, timeout=1.0)
     assert verified is True, "Physical verification failed on modern UI document buffer"
 
-    # 3. inject_with_status with verify_confirmation=True must return CONFIRMED_INSERTED
-    test_token = "FlowPilot Token 98765"
-    editor.setPlainText(f"Existing document content with {test_token} present.")
-    app.processEvents()
-
-    from unittest.mock import patch
-    with patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=hwnd):
-        res = TextInjector.inject_with_status(
-            test_token,
-            target_hwnd=hwnd,
-            preserve_clipboard=True,
-            verify_confirmation=True,
-            expected_token=test_token
-        )
-    assert res.status == InjectionStatus.CONFIRMED_INSERTED
-    assert res.is_confirmed() is True
-
     win.close()
     app.processEvents()
+
+
+def test_confirmation_requires_new_document_content():
+    """Never claim delivery solely because the token was already in the target."""
+    token = "FlowPilot Token 98765"
+    baseline = f"Existing document content with {token} present."
+    common = (
+        patch("engine.text_injector.win32gui.IsWindow", return_value=True),
+        patch("engine.text_injector.win32gui.GetForegroundWindow", return_value=12345),
+        patch("engine.text_injector.win32api.keybd_event"),
+        patch.object(TextInjector, "_resolve_verified_foreground", return_value=(True, 12345, None)),
+        patch.object(TextInjector, "_safe_clipboard_copy", return_value=True),
+        patch.object(TextInjector, "_is_flowpilot_window", return_value=False),
+        patch.object(TextInjector, "_get_target_process_name", return_value=""),
+    )
+
+    with ExitStack() as stack:
+        active_mocks = [stack.enter_context(mocked) for mocked in common]
+        key_events = active_mocks[2]
+        stack.enter_context(patch.object(TextInjector, "read_window_buffer", return_value=baseline))
+        result = TextInjector.inject_with_status(
+            token, target_hwnd=12345, preserve_clipboard=False,
+            verify_confirmation=True
+        )
+    assert result.status == InjectionStatus.SENT_UNVERIFIED
+    key_events.assert_called()
+
+    with patch.object(TextInjector, "read_window_buffer", side_effect=["Before", f"Before {token}"]):
+        assert TextInjector._verify_new_text_injected(token, 12345, "Before", timeout=0.1)
 
 def test_safe_set_foreground_handles_same_window_and_remote_threads():
     """Verify that _safe_set_foreground handles already-active and non-active targets cleanly."""
@@ -77,5 +88,6 @@ def test_safe_set_foreground_handles_same_window_and_remote_threads():
 
 if __name__ == "__main__":
     test_uia_modern_buffer_read_and_verification()
+    test_confirmation_requires_new_document_content()
     test_safe_set_foreground_handles_same_window_and_remote_threads()
-    print("ALL MODERN APP VERIFICATION TESTS PASSED.")
+    print("UIA READ AND CONSERVATIVE VERIFICATION TESTS PASSED.")
