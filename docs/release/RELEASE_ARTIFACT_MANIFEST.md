@@ -10,12 +10,12 @@ Built from master with native Sand & Stone Warm Light UI, 3-tab Meetings workspa
 |---|---|
 | Release Version | `v3.1.0` (Workstation Refresh, Sand & Stone Design, Spoken Self-Correction Engine & Rights Hardened) |
 | Distribution Archive | `dist/FlowPilot-v3.1.0-win64.zip` |
-| Archive Size | **326,463,821 bytes** (311.34 MB, including bundled Faster-Whisper base model weights and Silero VAD assets) |
-| Archive SHA-256 | `2DA83443780737F16D5F3D4A7177DEF023FFF600D96A0197CCEFC1D7BBB1C7C8` |
+| Archive Size | **772,898,922 bytes** (737.09 MB, includes offline Faster-Whisper `base` + `small` model weights and Silero VAD assets) |
+| Archive SHA-256 | `E29D57E2AD1D42FD2B642D60425F37F54346F366D5DD0C0107840684795925EC` |
 | Executable File | `FlowPilot/FlowPilot.exe` |
-| Executable Size | **24,849,527 bytes** (23.70 MB) |
-| Executable SHA-256 | `8B1C0FF0CC873E8200E5B826AC8A0D2B0FF1B9143FD39342887F600C3676D98B` |
-| Bundled Model Weights | Faster-Whisper `base` (`models/faster-whisper-base/model.bin`, 145.2 MB) + Silero VAD v5 ONNX assets |
+| Executable Size | **24,852,435 bytes** (23.70 MB) |
+| Executable SHA-256 | `0CB43E80B30F7C962B94F3AA46B3D92664B9CEC125A434DCBE5FCF8626DCB822` |
+| Bundled Model Weights | Faster-Whisper `base` + `small` (`_internal/models/`) + Silero VAD v5 ONNX assets |
 | Authenticode Status | `NotSigned` (Unsigned developer build. Standard or EV code signing establishes identity to build SmartScreen reputation over time, but does not provide immediate suppression.) |
 | Standalone Offline Smoke Test | **PASSED** (`FlowPilot.exe` smoke test launched with isolated test mutex, validated bundled Silero VAD v5 assets and Faster-Whisper base weights, enforced single-instance mutex, and cleanly terminated with 0 bytes network egress) |
 | Offline Transcription Self-Test | **PASSED** (`FlowPilot.exe --self-test` transcribed SAPI fixture on CPU in 3.19s with local correction logic verified offline) |
@@ -36,10 +36,10 @@ Verify your downloaded ZIP before extraction:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot-v3.1.0-win64.zip
-# Expected: 2DA83443780737F16D5F3D4A7177DEF023FFF600D96A0197CCEFC1D7BBB1C7C8
+# Expected: E29D57E2AD1D42FD2B642D60425F37F54346F366D5DD0C0107840684795925EC
 
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot\FlowPilot.exe
-# Expected: 8B1C0FF0CC873E8200E5B826AC8A0D2B0FF1B9143FD39342887F600C3676D98B
+# Expected: 0CB43E80B30F7C962B94F3AA46B3D92664B9CEC125A434DCBE5FCF8626DCB822
 ```
 
 ### Verification & Compliance Evidence
