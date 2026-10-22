@@ -95,12 +95,12 @@ class FlowOrchestrator:
         if self.state == AppState.RECORDING or self.recorder.is_recording:
             self._notify("audio_level", {"level": round(level, 3)})
 
-            # Wispr Flow behavior: intelligent silence auto-finalization
-            if self.config.get("auto_stop_on_silence", True) and self.state == AppState.RECORDING:
+            # Intelligent silence auto-finalization (when enabled)
+            if self.config.get("auto_stop_on_silence", False) and self.state == AppState.RECORDING:
                 now = time.time()
                 perf_now = time.perf_counter()
-                # Threshold for speech presence (RMS level > 0.025)
-                if level > 0.025:
+                # Threshold for speech presence (RMS level > 0.015 for sensitivity)
+                if level > 0.015:
                     if not self._speech_detected:
                         self._speech_detected = True
                         self._speech_start_time = now
@@ -109,9 +109,9 @@ class FlowOrchestrator:
                 elif self._speech_detected:
                     speech_duration = self._last_speech_time - self._speech_start_time
                     silence_duration = now - self._last_speech_time
-                    timeout = self.config.get("silence_timeout_sec", 0.85)
-                    if speech_duration >= 0.3 and silence_duration >= timeout:
-                        print(f"[Orchestrator] Post-speech silence ({silence_duration:.2f}s) detected. Auto-finalizing dictation (Wispr Flow mode)...")
+                    timeout = self.config.get("silence_timeout_sec", 2.5)
+                    if speech_duration >= 0.5 and silence_duration >= timeout:
+                        print(f"[Orchestrator] Post-speech silence ({silence_duration:.2f}s) detected. Auto-finalizing dictation...")
                         self._speech_detected = False
                         self.stop_dictation_and_process()
 
@@ -752,8 +752,13 @@ class FlowOrchestrator:
             service_name = self.hotkey_service.__class__.__name__
             if success:
                 print(f"[Orchestrator] {service_name} active: '{clean_hk}' (mode={mode}), auxiliary and recovery shortcuts")
-            else:
-                print(f"[Orchestrator Warning] {service_name} encountered errors: {self.hotkey_service.stats['errors']}")
+            if self.hotkey_service.stats['errors']:
+                err_summary = "; ".join(self.hotkey_service.stats['errors'])
+                print(f"[Orchestrator Warning] {service_name} encountered errors: {err_summary}")
+                self._notify(AppState.ERROR, {
+                    "message": f"Hotkey conflict: {err_summary}",
+                    "notice": "Shortcut already in use by another app"
+                })
         except Exception as e:
             print(f"[Orchestrator Error] Failed to start hotkey service: {e}")
 
