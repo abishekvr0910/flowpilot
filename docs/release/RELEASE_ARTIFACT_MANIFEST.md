@@ -4,16 +4,16 @@ Updated 2026-10-22. A locally verified candidate is not a published release.
 
 ## Local candidate: v3.1.0-RC2, Windows x64
 
-RC2 was built from local `master` at `06196fa` **plus uncommitted source changes** documented in the [release reassessment](../reviews/2026-10-22-release-reassessment.md). It is not yet a reproducible commit-based release. The older `FlowPilot-v3.1.0-win64.zip` is superseded for local testing; its hashes must not be applied to RC2.
+RC2 was rebuilt directly from committed local `master` at [`f30d1c3`](https://github.com/abishekvr0910/flowpilot/tree/f30d1c3) (tagged `v3.1.0-RC2`). All in-flight fixes for atomic config serialization, count-verified injection, spoken tab commands, and meeting decision parsing are formally committed. The older `FlowPilot-v3.1.0-win64.zip` is superseded for local testing; its hashes must not be applied to RC2.
 
 | Item | Measured value |
 |---|---|
 | Archive | `dist/FlowPilot-v3.1.0-RC2-win64.zip` |
-| Archive size | 772,927,221 bytes |
-| Archive SHA-256 | `682A7FFC39516FA1C2733D4275E8383D1B5603E46DBA859FC85F7DBAB1B0C51E` |
+| Archive size | 772,926,271 bytes |
+| Archive SHA-256 | `1A11922FA4F249B3CFE96D04C7F567782B90528D4B4F49354B3C2487DAEC31C5` |
 | Unpacked application | `dist/FlowPilot/` (1,111,616,314 bytes across files) |
 | Executable | `dist/FlowPilot/FlowPilot.exe` (24,856,098 bytes) |
-| Executable SHA-256 | `FD3E2D7825E6AEDBC745215FF8E64EBD8F561F4E00B01B5FB408AE597304CAC0` |
+| Executable SHA-256 | `5CD18458BB3279C7B9156878318360B8E9741A0725574F546AA25C686A5EB0CB` |
 | Signing | `NotSigned` by Windows Authenticode inspection |
 | Bundled models | Faster-Whisper `base` and `small`, plus Silero VAD v5 ONNX assets |
 | Source gate | **53 passed, 0 skipped, 0 failed** in 162.12 seconds using `python -X utf8 tests/run_all_tests.py --require-all` on the available interactive desktop |
@@ -30,9 +30,9 @@ Local `master` was 26 commits ahead of `origin/master`, and the local `v3.1.0-re
 
 ```powershell
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot-v3.1.0-RC2-win64.zip
-# 682A7FFC39516FA1C2733D4275E8383D1B5603E46DBA859FC85F7DBAB1B0C51E
+# 1A11922FA4F249B3CFE96D04C7F567782B90528D4B4F49354B3C2487DAEC31C5
 Get-FileHash -Algorithm SHA256 .\dist\FlowPilot\FlowPilot.exe
-# FD3E2D7825E6AEDBC745215FF8E64EBD8F561F4E00B01B5FB408AE597304CAC0
+# 5CD18458BB3279C7B9156878318360B8E9741A0725574F546AA25C686A5EB0CB
 python -m zipfile -t .\dist\FlowPilot-v3.1.0-RC2-win64.zip
 ```
 
