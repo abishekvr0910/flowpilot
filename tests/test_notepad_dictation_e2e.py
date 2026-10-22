@@ -142,6 +142,11 @@ def run_5_consecutive_injections():
             orchestrator.stop_hotkey_listener()
         cleanup_test_fixture(fixture, notepad_hwnd, proc)
 
+def test_5_consecutive_injections():
+    """Pytest test discovery alias for physical 5-cycle Notepad integration."""
+    success = run_5_consecutive_injections()
+    assert success is True
+
 if __name__ == "__main__":
     test_safe_abort_when_focus_unavailable()
     success = run_5_consecutive_injections()
