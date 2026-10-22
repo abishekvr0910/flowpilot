@@ -509,8 +509,8 @@ class WritingIntelligence:
             text = re.sub(r"\s*\b(?:new line|newline|nueva l[ií]nea|nouvelle ligne|neue zeile)\b\s*", "\n", text, flags=re.IGNORECASE)
             changes.append("Inserted new line")
 
-        if re.search(r"\b(?:press tab|tab key|tab)\b", text, flags=re.IGNORECASE):
-            text = re.sub(r"\s*\b(?:press tab|tab key|tab)\b\s*", "\t", text, flags=re.IGNORECASE)
+        if re.search(r"\b(?:press tab|tab key|insert tab)\b", text, flags=re.IGNORECASE):
+            text = re.sub(r"\s*\b(?:press tab|tab key|insert tab)\b\s*", "\t", text, flags=re.IGNORECASE)
             changes.append("Inserted tab")
 
         # 4. Spoken Punctuation (English + Native Spanish/French/German)

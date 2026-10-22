@@ -1,6 +1,8 @@
 import sys
 import subprocess
 import time
+import os
+import tempfile
 from pathlib import Path
 
 try:
@@ -65,6 +67,7 @@ TESTS = [
     ("Handoff Integration & Adversarial Safety", "tests/test_review_integration.py"),
     ("Voice Command Mode & Local LLM Rewriting (PR 5)", "tests/test_voice_command_and_llm.py"),
     ("Modern UI Automation & Focus Robustness", "tests/test_target_verification_modern_apps.py"),
+    ("Release Integrity Regression Guards", "tests/test_release_integrity_fixes.py"),
 ]
 
 
@@ -72,7 +75,7 @@ def ensure_desktop_accessible():
     # Non-destructive desktop access verification (do not kill system processes like LockApp)
     pass
 
-def run_suite():
+def run_suite(require_all: bool = False):
     print("=" * 70)
     print("           FLOWPILOT AUTOMATED AUDIT SUITE EXECUTION")
     print("=" * 70)
@@ -83,16 +86,34 @@ def run_suite():
         ensure_desktop_accessible()
         print(f"\n--- Running: {name} ({script}) ---", flush=True)
         t0 = time.time()
-        res = subprocess.run([sys.executable, "-X", "utf8", script], capture_output=True, encoding="utf-8", errors="replace")
+        # Every suite gets a fresh config profile. Otherwise the user's model
+        # choice and settings can make the state-machine test take minutes and
+        # can let tests modify the user's real profile.
+        with tempfile.TemporaryDirectory(prefix="flowpilot-suite-") as profile_dir:
+            suite_env = os.environ.copy()
+            suite_env["FLOWPILOT_CONFIG_DIR"] = profile_dir
+            suite_env["FLOWPILOT_CONFIG_FILE"] = str(Path(profile_dir) / "config.json")
+            try:
+                res = subprocess.run(
+                    [sys.executable, "-X", "utf8", script], capture_output=True,
+                    encoding="utf-8", errors="replace", env=suite_env,
+                    timeout=240,
+                )
+                returncode, stdout, stderr = res.returncode, res.stdout, res.stderr
+            except subprocess.TimeoutExpired as exc:
+                returncode = 124
+                stdout = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+                stderr = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+                stderr += f"\nSuite exceeded 240 seconds: {script}"
         dur = time.time() - t0
-        passed = (res.returncode == 0)
-        is_skipped = passed and ("[RESULT] SKIPPED:" in res.stdout or "[SKIP]" in res.stdout)
-        results.append((name, passed, is_skipped, dur, res.stdout, res.stderr))
+        passed = (returncode == 0)
+        is_skipped = passed and ("[RESULT] SKIPPED:" in stdout or "[SKIP]" in stdout)
+        results.append((name, passed, is_skipped, dur, stdout, stderr))
         status_str = "SKIPPED" if is_skipped else ("PASSED" if passed else "FAILED")
         print(f"Status: {status_str} ({dur:.2f}s)", flush=True)
         if not passed:
-            print("STDOUT:\n", res.stdout, flush=True)
-            print("STDERR:\n", res.stderr, flush=True)
+            print("STDOUT:\n", stdout, flush=True)
+            print("STDERR:\n", stderr, flush=True)
 
     total_dur = time.time() - start_total
     print("\n" + "=" * 70)
@@ -115,13 +136,17 @@ def run_suite():
     if not all_passed:
         verdict = "FAILURES DETECTED"
     elif any_skipped:
-        verdict = "PASSED WITH SKIPPED SUITES"
+        verdict = "RELEASE GATE BLOCKED: SKIPPED SUITES" if require_all else "PASSED WITH SKIPPED SUITES"
     else:
         verdict = "ALL TESTS PASSED"
+    passed_count = sum(passed and not skipped for _, passed, skipped, *_ in results)
+    skipped_count = sum(skipped for _, _, skipped, *_ in results)
+    failed_count = len(results) - passed_count - skipped_count
+    print(f"Suites: {len(results)} total, {passed_count} passed, {skipped_count} skipped, {failed_count} failed")
     print(f"Total Test Time: {total_dur:.2f}s | Overall Verdict: {verdict}")
     print("=" * 70)
-    return all_passed
+    return all_passed and (not require_all or not any_skipped)
 
 if __name__ == "__main__":
-    success = run_suite()
+    success = run_suite(require_all="--require-all" in sys.argv)
     sys.exit(0 if success else 1)

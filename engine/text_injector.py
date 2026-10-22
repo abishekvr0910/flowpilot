@@ -1,8 +1,10 @@
+import os
 import sys
 import time
 import threading
 from typing import Optional
 import pyperclip
+import psutil
 
 from enum import Enum
 from dataclasses import dataclass
@@ -400,6 +402,13 @@ class TextInjector:
                     recovery_available=True
                 )
 
+        # A token that was already in the document is not proof this paste
+        # arrived. Record the target buffer before dispatch for comparison.
+        before_buffer = (
+            cls.read_window_buffer(target_hwnd)
+            if verify_confirmation and target_hwnd else None
+        )
+
         # 2. Coordinate clipboard backup without race conditions
         with cls._restore_lock:
             if cls._restore_timer is not None:
@@ -443,7 +452,7 @@ class TextInjector:
                         cls.last_injected_text = text
                         if verify_confirmation and target_hwnd:
                             check_val = expected_token if expected_token is not None else text.strip()
-                            if cls.verify_text_injected(check_val, target_hwnd, timeout=0.6):
+                            if cls._verify_new_text_injected(check_val, target_hwnd, before_buffer, timeout=0.6):
                                 return InjectionResult(
                                     status=InjectionStatus.CONFIRMED_INSERTED,
                                     chars_sent=len(text),
@@ -549,7 +558,7 @@ class TextInjector:
             effective_target = target_hwnd or (cur_fg if ('cur_fg' in locals() and cur_fg) else None)
             if verify_confirmation and effective_target:
                 check_val = expected_token if expected_token is not None else text.strip()
-                if cls.verify_text_injected(check_val, effective_target, timeout=0.6):
+                if cls._verify_new_text_injected(check_val, effective_target, before_buffer, timeout=0.6):
                     return InjectionResult(
                         status=InjectionStatus.CONFIRMED_INSERTED,
                         chars_sent=len(text),
@@ -835,7 +844,8 @@ class TextInjector:
     @classmethod
     def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 2.5) -> bool:
         """
-        Verifies that expected_text was physically received and is present inside the target document buffer.
+        Check physical presence in a document buffer. This does not prove that
+        a new paste occurred when the text was already present beforehand.
         """
         start = time.time()
         clean_expected = expected_text.strip().lower()
@@ -848,6 +858,24 @@ class TextInjector:
                 buf_lower = buf.lower()
                 if clean_expected in buf_lower or (prefix and prefix in buf_lower):
                     return True
+            time.sleep(0.06)
+        return False
+
+    @classmethod
+    def _verify_new_text_injected(
+        cls, expected_text: str, target_hwnd: int,
+        before_buffer: Optional[str], timeout: float = 0.6
+    ) -> bool:
+        """Confirm delivery only when the expected text appears more often than before."""
+        expected = expected_text.strip().casefold()
+        if before_buffer is None or not expected:
+            return False
+        before_count = before_buffer.casefold().count(expected)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            after_buffer = cls.read_window_buffer(target_hwnd)
+            if after_buffer is not None and after_buffer.casefold().count(expected) > before_count:
+                return True
             time.sleep(0.06)
         return False
 
