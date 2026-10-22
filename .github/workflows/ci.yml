@@ -30,17 +30,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pyinstaller fastapi uvicorn websockets psutil python-multipart
+          pip install pytest pyinstaller fastapi uvicorn websockets psutil python-multipart pillow
 
       - name: Pre-provision Offline Whisper Model Cache for CI
         run: |
-          python -c "from faster_whisper import WhisperModel; WhisperModel('tiny', device='cpu', compute_type='int8'); WhisperModel('base', device='cpu', compute_type='int8')"
+          python -c "from faster_whisper import download_model, WhisperModel; download_model('base', output_dir='models/faster-whisper-base'); WhisperModel('tiny', device='cpu', compute_type='int8')"
 
       - name: Build Standalone Windows Executable via PyInstaller
         run: |
           python -m PyInstaller flowpilot.spec --noconfirm
 
-      - name: Run Python Automated Master Regression Suite (38 Suites)
+      - name: Run Python Automated Master Regression Suite (53 Suites)
         run: |
           python -X utf8 tests/run_all_tests.py
 

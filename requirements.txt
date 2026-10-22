@@ -3,6 +3,7 @@
 
 # Native Desktop UI & System Tray
 PySide6>=6.5.0
+Pillow>=10.0.0
 
 # Speech Recognition & Inference
 faster-whisper>=1.1.0
