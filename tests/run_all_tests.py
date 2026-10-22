@@ -64,6 +64,7 @@ TESTS = [
     ("Kiki Anime Companion Prototype & States (Gemini B)", "tests/test_kiki_companion.py"),
     ("Handoff Integration & Adversarial Safety", "tests/test_review_integration.py"),
     ("Voice Command Mode & Local LLM Rewriting (PR 5)", "tests/test_voice_command_and_llm.py"),
+    ("Modern UI Automation & Focus Robustness", "tests/test_target_verification_modern_apps.py"),
 ]
 
 
