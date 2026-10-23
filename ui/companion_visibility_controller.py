@@ -37,11 +37,17 @@ class CompanionVisibilityController(QObject):
         self._timer.timeout.connect(self.refresh)
 
     def start(self):
+        start_media = getattr(self.media, "start", None)
+        if callable(start_media):
+            start_media()
         self.refresh(force=True)
         self._timer.start()
 
     def stop(self):
         self._timer.stop()
+        stop_media = getattr(self.media, "stop", None)
+        if callable(stop_media):
+            stop_media()
 
     def set_mode(self, mode: str):
         try:

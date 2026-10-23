@@ -1,4 +1,4 @@
-"""Feature 25: local media audio presence for smart companion hiding.
+"""Feature 27: local media audio presence for smart companion hiding.
 
 Answers one question per sample: is any audible render-session playback active
 right now? The signal is the Windows audio session API (pycaw), the same surface
@@ -10,6 +10,7 @@ instead of breaking the visibility tick.
 """
 
 import logging
+import threading
 import time
 from typing import Callable, List, NamedTuple, Optional
 
@@ -39,8 +40,8 @@ class MediaAudioPresence:
 
     Only CONTINUOUS audibility counts: a one-off system sound that stops before
     the sustain window passes never hides the companion. Once sustained, a short
-    linger grace keeps the hide stable through momentary pauses. Runs on the Qt
-    main thread alongside the visibility tick. `provider` and `clock` are
+    linger grace keeps the hide stable through momentary pauses. The production
+    sampler calls this probe off the Qt thread. `provider` and `clock` are
     injection points for tests so no COM ever appears in suites.
     """
 
@@ -81,7 +82,10 @@ class MediaAudioPresence:
                 return self._established
             return True
         self._suspect_since = None  # continuity is required for the sustain gate
-        return self._established and (now - self._last_peak_ts) < self.grace_seconds
+        if self._established and (now - self._last_peak_ts) < self.grace_seconds:
+            return True
+        self._established = False
+        return False
 
     def _sample_audible(self, sample: SessionSample) -> bool:
         if sample.volume <= 0.0:
@@ -111,6 +115,18 @@ class MediaAudioPresence:
                 pid = int(getattr(session, "ProcessId", 0) or 0)
                 if pid == my_pid:
                     continue
+                volume = 1.0
+                simple = getattr(session, "SimpleAudioVolume", None)
+                if simple is not None:
+                    try:
+                        if bool(simple.GetMute()):
+                            continue
+                        volume = float(simple.GetMasterVolume())
+                    except Exception:
+                        # Unknown volume state is not evidence of audible media.
+                        continue
+                if volume <= 0.0:
+                    continue
                 meter = None
                 ctl = getattr(session, "_ctl", None)
                 if ctl is None:
@@ -125,13 +141,6 @@ class MediaAudioPresence:
                     peak = float(meter.GetPeakValue())
                 except Exception:
                     continue
-                volume = 1.0
-                simple = getattr(session, "SimpleAudioVolume", None)
-                if simple is not None:
-                    try:
-                        volume = float(simple.GetMasterVolume())
-                    except Exception:
-                        volume = 1.0
                 samples.append(SessionSample(pid, "", peak, volume))
             return samples
         except Exception:
@@ -142,3 +151,49 @@ class MediaAudioPresence:
                     comtypes.CoUninitialize()
                 except Exception:
                     pass
+
+
+class SampledMediaPresence:
+    """Keep the potentially slow Windows audio query off the Qt event loop."""
+
+    def __init__(self, probe=None, interval_seconds: float = 0.35):
+        self._probe = probe if probe is not None else MediaAudioPresence()
+        self._interval_seconds = interval_seconds
+        self._active = False
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._thread = None
+
+    def start(self):
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._stop_event.clear()
+            self._thread = threading.Thread(
+                target=self._run, name="FlowPilotMediaPresence", daemon=True,
+            )
+            self._thread.start()
+
+    def stop(self):
+        self._stop_event.set()
+        with self._lock:
+            self._active = False
+            thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=0.1)
+
+    def is_active(self) -> bool:
+        with self._lock:
+            return self._active
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            try:
+                active = self._probe.is_active()
+            except Exception as exc:
+                log.warning("Media presence sampler stopped after error: %s", exc)
+                active = False
+                self._stop_event.set()
+            with self._lock:
+                self._active = active and not self._stop_event.is_set()
+            self._stop_event.wait(self._interval_seconds)

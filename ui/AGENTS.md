@@ -23,6 +23,7 @@ PySide6 windows for the whole desktop experience: dashboard, tray, floating comp
 - Engine threads reach widgets only through `StateBridge.state_changed`; never poll engine objects from a dashboard timer.
 - The HUD never takes keyboard focus; keep the `WS_EX_NOACTIVATE` setup and the ctypes native font picks intact.
 - Route companion show and hide actions through CompanionVisibilityController. Do not call HUD show or hide from dashboard, tray, or Studio.
+- Keep slow Windows audio session sampling off the Qt thread. The visibility controller reads the cached media signal and starts or stops its sampler with the HUD lifecycle.
 - Feature hubs are widgets appended in the dashboard; when adding one, keep the tray menu and hotkeys in sync.
 - The external transform panel supports preview and explicit Copy Output. Replace and Revert stay disabled; successful formatting does not authorize an external edit or prove delivery.
 - Web companion is same origin only; the server whitelists 127.0.0.1 ports, do not widen it.

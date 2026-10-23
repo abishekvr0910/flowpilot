@@ -15,6 +15,7 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 | hotkey_service.py | RegisterHotKey message loop on its own thread plus pynput fallback, conflict tables |
 | window_inspector.py | Active window and process enumeration per OS |
 | companion_visibility.py | Pure Smart, Always and Hide presentation policy; no window content reads |
+| media_presence.py | Windows render session audibility probe and background cached sampler for the Qt visibility tick |
 | audio_ducker.py | pycaw session mute while dictating (Windows), external tool adapters elsewhere |
 | personalization.py | Dictionary, aliases, voice snippets, prompt budget, process wide singleton |
 | writing_intelligence.py | FactGuard polishing, conservative entity guard |

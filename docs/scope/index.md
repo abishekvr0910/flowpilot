@@ -33,6 +33,7 @@ This is the project scope, not a feature inventory or a promise that every curre
 | 18 | Trust, security, and public claims review | Next release | planned |
 | 19 | Whole app usability and visual quality | Product quality | planned |
 | 20 | Context aware companion visibility | Product quality | in-progress |
+| 27 | Media audio aware hiding | Product quality | in-progress |
 | 21 | Original character quality and rights | Product quality | planned |
 | 22 | Safe editing beyond the scratchpad | Product quality | planned |
 | 23 | Optional editor presence | Later | planned |

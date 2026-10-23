@@ -29,18 +29,20 @@ history was read only as numeric aggregates, never as transcript text.
 | Processes | 12 (Electron: 11 + native helper) | 1 |
 | Total RAM | **814.7 MB** | **504.9 MB** (includes loaded local Whisper weights) |
 | Cumulative CPU of one process | 1,981 s on one Electron process (uptime-dependent, recorded as-is) | n/a small local workload |
-| On-disk size | 235 MB exe + 136 MB asar + 20 MB helper + Chromium DLLs ≈ 400+ MB | 24.9 MB dist folder |
+| On-disk size | 235 MB exe + 136 MB asar + 20 MB helper + Chromium DLLs ≈ 400+ MB | 24.9 MB launcher executable only; bundled models and the full distribution folder are additional |
 | Network model | cloud ASR everywhere (Sentry crash reporting + websocket sync + CDN) | zero cloud egress by invariant |
 
 Honest caveat: the RAM/CPU comparison is a snapshot, not a controlled load test.
 FlowPilot's 505 MB holds a whole STT model; Wispr's evaluative weight is in 12
 processes and a 332 MB local SQLite vault.
 
-## Measured Latency benchmark (real, from the product's own history table)
+## App-recorded latency fields (from the local history table)
 
 The `History` table in `flow.sqlite` records `e2eLatency`, `clientNetworkLatency`,
 `speechDuration`, `numWords` per dictation. Aggregates over the user's own 1,847
-Utterances (66,895 words; none of the transcript rows read):
+utterances (66,895 words; none of the transcript rows read) reflect Wispr's
+internal field definitions. They are not an independently measured stop to
+visible text benchmark against FlowPilot.
 
 | Measure | Value |
 |---|---|
@@ -59,7 +61,10 @@ column at all, which is itself high-value cheap instrumentation work (see possib
 
 ## Feature inventory (from tables, migration scripts, and bundle strings)
 
-**Confirmed shipped features, with evidence source in brackets:**
+**Artifact indicators, with evidence source in brackets.** A database table or
+bundle string shows implementation material, not that a feature is enabled or
+works in the installed client. The rows below need a live workflow check before
+being called shipped product capabilities.
 
 1. Cloud dictation with OPUS streaming chunks and silence-based auto-stop
    (`opusChunks`, `audioActiveRatio`, `longestSilentStreakMs`, `autoEnded`,
@@ -95,11 +100,12 @@ column at all, which is itself high-value cheap instrumentation work (see possib
 15. Sound design: dictation-start sound WAV backups, achievement sounds: several wav/mp4
     media assets [renderer media list].
 
-**No product evidence of “hide companion while a video plays”:** no renderer/main
+**No artifact evidence of “hide companion while a video plays”:** no renderer/main
 bundle strings for media-aware hiding (`videoPlaying`, `hideOnFullscreen`,
 `audioSessionDetect` all zero; the only fullscreen matches are window-style flags
 and a post-onboarding action). Feature-flag names in userData also show no such
-mode. Wisp's companion is designed to coexist with media, not to duck under it.
+mode. Absence of these strings does not prove the client lacks a differently
+implemented behavior; that would require a live workflow check.
 
 ## Helper byte-scan (imports detected in shipped binary)
 
@@ -109,11 +115,11 @@ IAudioSessionEnumerator 1 | IAudioMeterInformation 1 | IAudioCaptureClient 1
 UIAutomation 16 | GetForegroundWindow 2 | CoCreateInstance 1 | opus 0
 ```
 
-Wispr's helper uses the same three Windows surfaces FlowPilot already uses: global
-input hooks + synthetic input injection, UIA window inspection, and
-IAudioSession/IAudioMeter sessioning. Zero-egress FlowPilot equivalents in the repo:
-`engine/text_injector.py`, `engine/window_inspector.py`, and (not yet built)
-an audio-presence module on pycaw, which is already a FlowPilot dependency.
+These imports suggest that the helper can access input, UIA, and audio session
+APIs. A byte scan does not establish which call paths it executes or how it
+uses them. FlowPilot's independently implemented local counterparts are
+`engine/text_injector.py`, `engine/window_inspector.py`, and
+`engine/media_presence.py`.
 
 ## Feature parity vs FlowPilot
 
@@ -132,7 +138,7 @@ an audio-presence module on pycaw, which is already a FlowPilot dependency.
 | Automations / Todos / Calendar sync | yes | no |
 | Hardware headset buttons (Jabra/button) | yes | no |
 | Distraction sound FX/wake achievements | yes | no |
-| **Hide companion while media plays** | **no evidence shipped** | **yes — Feature 25 audio presence slice implemented 2026-10-23, see below** |
+| **Hide companion while media plays** | **no evidence shipped** | **feature 27 audio presence source slice implemented; live media gate pending** |
 | Fullscreen-aware hiding | not found | **yes, measured AC-2 gate with 0.20-0.5 s hides** |
 | Fall-back ASR diversity | yes (cloud fallback levels) | against zero-egress for cloud options; a second local model is feasible |
 | Screenshot in history | yes | no |
@@ -148,13 +154,13 @@ then local LLM formatting fallback (already in repo).
 ## The audio-aware invisibility slice design (feature for “watching a video”)
 
 Evidence base: the Windows media session APIs (`IAudioSessionEnumerator` +
-`IAudioMeterInformation`) are already in the stack (pycaw dependency) and the
-shipped helper of Wispr uses the identical surface, so feasibility on this stack is
-proven, not aspirational.
+`IAudioMeterInformation`) are already in FlowPilot's stack through pycaw. This
+establishes a local playback signal, not what Wispr Flow uses internally and not
+whether the playing media is visible in the foreground window.
 
 Design (smallest verifiable slice):
 
-1. New `engine/audio_presence.py`: `MediaAudioPresence(provider=None)` — polls
+1. `engine/media_presence.py`: `MediaAudioPresence(provider=None)` polls
    render sessions; `active` when any session's `GetPeakValue()` exceeds a small
    threshold. Excludes the FlowPilot process itself and microphone capture
    sessions. Provider is injectable for tests via fakes (COM must not appear in
@@ -169,10 +175,12 @@ Design (smallest verifiable slice):
    something”; muted video does NOT hide via audio (fullscreen rule already
    covers fullscreen video). Manual per-app rules and `always show`/`hide`
    modes remain fully in control; nothing auto-changes in those modes.
-4. Tests: fake nothing-that-uses-COM provider for unit tests, plus a controller
-   test asserting hidden-under-audio and restored-after-quiet with the debounce
-   timing. Full 54-suite gate after. AC-7 sampling budget is untouched because
-   polling is piggybacked on the existing evaluator tick.
+4. Tests: fake the COM provider for unit tests, plus a controller test asserting
+   hidden-under-audio and restored-after-quiet with the debounce timing. The
+   production probe now runs through `SampledMediaPresence` on a background
+   thread after local measurement found a roughly 30 ms audio query on the Qt
+   tick. The Qt tick reads only the cached result. Live media and fullscreen
+   behavior still require the interactive gate.
 
 Limitations to record up front: true “video visible but muted” cannot be proven
 without reading pixels or window content — that restriction is what closed

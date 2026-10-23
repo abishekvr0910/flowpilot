@@ -24,13 +24,17 @@ Keep the companion out of fullscreen viewing and presentations. Let users choose
 
 Active implementation contract: [spec 0001](../specs/0001-context-aware-companion-visibility.md). Automated checks do not replace the interactive desktop gate, and RC2 remains unchanged.
 
-### 25. Media audio aware hiding · implemented slice
+### 27. Media audio aware hiding · implemented slice
 
 While any audible playback is active (video, music, podcast), a smart-mode companion hides itself and returns after 1.5 s of quiet, unless dictation is in flight, a manual mode is set, a per app rule applies, the foreground app is a quiet editor, or the temporarily shown state is active. The signal is the Windows render session meter (`IAudioMeterInformation` via pycaw), the same surface already used by the audio ducker; a muted or paused stream does not count as audible and window title, pixels, and clipboard stay untouched. Only continuous audibility of about one second hides the companion, so a short system sound never does the hiding. Code in `engine/media_presence.py`, `engine/companion_visibility.py`, `ui/companion_visibility_controller.py`, and `desktop_app.py`; coverage in `tests/test_companion_visibility.py`. This generalizes, and does not reopen, feature 24: it still cannot tell a windowed video from background music, it only treats audible playback as a viewing signal.
+
+The audio session query runs in a background sampler so a slow COM call cannot stall the Qt event loop. A fresh sound after the quiet grace must pass the one second sustain gate again.
 
 **Done when:** audible media hides the companion in smart mode, silence restores it, dictation states win over the hide, manual modes and app rules are untouched by the hide, and the probe fails soft without breaking the visibility tick.
 
 - [ ] A person verifies on a live desktop with real media (YouTube audibles vs muted) and reports timing behavior.
+
+Source and package evidence: [media audio validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md).
 
 ### 21. Original character quality and rights · planned · needs a decision
 

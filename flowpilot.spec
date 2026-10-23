@@ -56,6 +56,7 @@ hidden_imports = [
     'engine.single_instance',
     'engine.companion_store',
     'engine.companion_visibility',
+    'engine.media_presence',
     'engine.companion_assets',
     'engine.preference_learning',
     'engine.insights_engine',

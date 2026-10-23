@@ -167,3 +167,18 @@ fresh CI build of this master plus a new manifest run and the full strict gate u
   suites that spin the whole app.
 - Never terminate desktop processes by generic name; ask before killing anything
   the user is actively using, including their running FlowPilot kitty.
+
+## Later same-day update, source after `b67c9b9`
+
+This directive records the state at `ca8944b`. Two later local commits added a
+competitor artifact research note (`e01eb85`) and an approximate audible-media
+companion feature (`b67c9b9`). The current working tree also contains uncommitted
+fixes for that feature. Read [the media validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md)
+before treating this older packaging and test record as current.
+
+The media fix resets its sustain latch after quiet, reads session mute, and runs
+Windows audio-session queries off the Qt thread. Its isolated development binary
+passed smoke and offline self-test. The final isolated suite recorded 49 passed,
+5 skipped, 0 failed across 54 suites; `npm test` passed. The five skips and the
+unperformed live video and presentation trials keep release promotion open. RC2
+and the default `dist/FlowPilot` executable were not replaced by this work.
