@@ -33,7 +33,7 @@ from ui.flowpilot_dashboard import FlowPilotDashboard
 from ui.setup_wizard import SetupWizardDialog
 from ui.companion_visibility_controller import CompanionVisibilityController
 from engine.companion_store import get_companion_store
-from engine.media_presence import MediaAudioPresence
+from engine.media_presence import SampledMediaPresence
 from engine.preference_learning import get_learning_engine
 
 class StateBridge(QObject):
@@ -105,7 +105,7 @@ class FlowPilotApp:
         )
         self.visibility = CompanionVisibilityController(
             self.hud, get_companion_store(), get_learning_engine(),
-            media=MediaAudioPresence(),
+            media=SampledMediaPresence(),
         )
         self.visibility.decision_changed.connect(self._on_visibility_changed)
         self.visibility.error.connect(self._on_visibility_error)

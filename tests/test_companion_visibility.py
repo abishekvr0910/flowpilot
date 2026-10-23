@@ -1,4 +1,4 @@
-"""Feature 20 companion visibility contract, covers AC-1 through AC-10."""
+"""Features 20 and 27: visibility policy and audible media regression checks."""
 
 import os
 import sys
@@ -348,6 +348,23 @@ def test_media_presence_grace_and_audibility_rules_without_com():
     tick[0] = 1.51
     assert sustained.is_active() is False  # quiet for longer than grace
 
+    samples[0] = SessionSample(1, "vlc.exe", 0.5, 1.0)
+    tick[0] = 2.0
+    assert sustained.is_active() is True  # this probe has no sustain delay
+
+    # A fresh burst after the grace period must earn its sustain window again.
+    samples[0] = SessionSample(1, "vlc.exe", 0.5, 1.0)
+    tick[0] = 3.0
+    assert presence_active.is_active() is True
+    samples[0] = SessionSample(1, "vlc.exe", 0.0, 1.0)
+    tick[0] = 5.0
+    assert presence_active.is_active() is False
+    samples[0] = SessionSample(1, "vlc.exe", 0.5, 1.0)
+    tick[0] = 5.1
+    assert presence_active.is_active() is False
+    tick[0] = 6.1
+    assert presence_active.is_active() is True
+
     # The classic false hide: a short system sound blip must not hide anything.
     blip = [SessionSample(2, "audiodg-ish.exe", 0.5, 1.0)]
     short_noise = MediaAudioPresence(
@@ -370,6 +387,106 @@ def test_media_presence_grace_and_audibility_rules_without_com():
     assert broken.is_active() is False
     assert broken.is_active() is False  # permanently disabled after the error
     assert NullMediaPresence().is_active() is False
+
+
+def test_media_sampler_keeps_blocked_audio_query_off_ui_thread():
+    import threading
+    import time
+
+    from engine.media_presence import SampledMediaPresence
+
+    entered = threading.Event()
+    release = threading.Event()
+
+    class SlowProbe:
+        def is_active(self):
+            entered.set()
+            release.wait(timeout=1.0)
+            return True
+
+    sampler = SampledMediaPresence(probe=SlowProbe(), interval_seconds=0.35)
+    try:
+        sampler.start()
+        assert entered.wait(timeout=1.0)
+        started = time.perf_counter()
+        assert sampler.is_active() is False
+        assert time.perf_counter() - started < 0.2
+        sampler.stop()
+        assert sampler.is_active() is False
+    finally:
+        release.set()
+        sampler.stop()
+        assert sampler.is_active() is False
+
+
+def test_media_provider_ignores_muted_session_before_reading_peak(monkeypatch):
+    import os
+    import sys
+    from types import SimpleNamespace
+
+    from engine.media_presence import MediaAudioPresence
+
+    class Volume:
+        muted = True
+
+        def GetMute(self):
+            return self.muted
+
+        def GetMasterVolume(self):
+            return 1.0
+
+    class Meter:
+        def GetPeakValue(self):
+            return 0.5
+
+    volume = Volume()
+    session = SimpleNamespace(
+        ProcessId=os.getpid() + 1,
+        SimpleAudioVolume=volume,
+        _ctl=SimpleNamespace(QueryInterface=lambda _: Meter()),
+    )
+    utilities = SimpleNamespace(
+        GetSpeakers=lambda: SimpleNamespace(
+            EndpointVolume=SimpleNamespace(GetMute=lambda: False),
+        ),
+        GetAllSessions=lambda: [session],
+    )
+    monkeypatch.setitem(sys.modules, "comtypes", SimpleNamespace(
+        CoInitialize=lambda: None, CoUninitialize=lambda: None,
+    ))
+    monkeypatch.setitem(sys.modules, "pycaw.pycaw", SimpleNamespace(
+        AudioUtilities=utilities, IAudioMeterInformation=object,
+    ))
+    probe = MediaAudioPresence()
+    assert probe._pycaw_provider() == []
+    volume.muted = False
+    assert probe._pycaw_provider()[0].peak == 0.5
+
+
+def test_controller_starts_and_stops_media_sampler(app, profile):
+    class LifecyclePresence(FakePresence):
+        starts = 0
+        stops = 0
+
+        def start(self):
+            self.starts += 1
+
+        def stop(self):
+            self.stops += 1
+
+    presence = LifecyclePresence()
+    store, learning = profile
+    controller = CompanionVisibilityController(
+        FakeHUD(), store, learning,
+        monitor=FakeMonitor(ContextSnapshot(90, "chrome.exe", False, 5, True)),
+        media=presence,
+    )
+    try:
+        controller.start()
+        assert presence.starts == 1
+    finally:
+        controller.stop()
+    assert presence.stops == 1
 
 
 if __name__ == "__main__":
