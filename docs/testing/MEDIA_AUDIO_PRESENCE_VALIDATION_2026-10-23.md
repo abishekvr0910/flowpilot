@@ -1,33 +1,98 @@
 # Media audio presence validation, 23 October 2026
 
-This note covers source after local `b67c9b9` plus the current uncommitted
-fixes. It is development evidence for scope feature 27, not an RC2 release
-manifest or a claim that a visible video was recognized.
+This is the release gate record for the companion media feature and the
+dashboard screen fit repair made after source commit `7db96df`. It records
+what was seen on the live Windows desktop. The audio meter detects audible
+playback. It cannot identify a video, browser tab, or page content.
 
-## Defects and fixes
+## Behavior and earlier engineering checks
 
-| Finding | Reproduction or evidence | Fix |
+The Windows render session meter runs in a background sampler. Qt reads only
+the cached result, so slow COM audio queries cannot block the visibility tick.
+The controller ignores muted sessions and requires sustained audio before
+hiding the companion. After 1.5 seconds of quiet it resets the latch, so a
+new sound must sustain again. It reads no pixels, titles, URLs, clipboard, or
+transcript. Microsoft documents [session mute state](https://learn.microsoft.com/en-us/windows/win32/api/audioclient/nf-audioclient-isimpleaudiovolume-getmute)
+and [peak meters](https://learn.microsoft.com/en-us/windows/win32/api/endpointvolume/nn-endpointvolume-iaudiometerinformation)
+as separate signals.
+
+Before the live gate, `tests/test_companion_visibility.py` passed 22 focused
+tests with fake audio samples and COM objects. Five direct audio reads took
+137.56 ms on first call and 26.68 to 29.31 ms thereafter; 1,000 cached reads
+had a maximum of 0.0685 ms. An earlier non strict 54 suite run reported 49
+passed, 5 skipped, 0 failed in a headless session. Those checks did not prove
+live browser or presentation behavior.
+
+## Exact packaged build under test
+
+The following five checks ran on the unlocked Windows input desktop using one
+isolated PyInstaller executable from the repaired source tree:
+
+| Item | Evidence |
+|---|---|
+| Executable | `scratch/release-live-fixtures-20261023/rc3-dist/FlowPilot/FlowPilot.exe` |
+| Size | 24,885,089 bytes |
+| SHA-256 | `D17FEC1C94918520CAF51B3F250897875671B6BB0B401429315AA08999ABF52E` |
+| Runtime | Separate config profile and named mutex, bundled Whisper base and small models, Silero VAD assets |
+| Media fixture | Local 15 second H.264/AAC file played in a normal Edge window |
+
+An existing Chrome audio session interfered with the first controlled Chrome
+attempt. Muting that process also muted the Chrome fixture, so that attempt
+was discarded. The session was restored. For the final controlled media and
+presentation trials, the existing Chrome session was temporarily muted while
+an independent Edge fixture played, then restored immediately afterward.
+This avoids counting another application's sound as the fixture.
+
+## Five live checks
+
+| Check | Direct observation | Result |
 |---|---|---|
-| A short sound hid the pet immediately after a long quiet period | Deterministic clock and fake samples returned `False, True, False, True`; the last value should be false until sustained again | Reset the established latch when quiet exceeds its 1.5 second grace |
-| Audio session reads blocked the Qt visibility tick | Five local direct reads measured 137.56 ms on first call, then 26.68 to 29.31 ms; the tick runs every 350 ms | Query on a background sampler thread and give Qt only the cached boolean; 1,000 local cached reads had a maximum of 0.0685 ms |
-| A muted session could still have a nonzero meter peak | Windows exposes session mute separately through `ISimpleAudioVolume::GetMute` | Ignore muted or zero volume sessions before reading their peak; fake COM test covers mute and unmute |
-| Media feature reused feature number 25 | `docs/scope/voice.md` already owns 25 for runtime performance | Renumber media hiding as feature 27 in scope and module header |
+| Audible windowed video | Edge playback hid the HUD in 2.141 s; unmuting hid it again in 1.414 s | Pass as an audio presence heuristic |
+| Muted or paused video | Muting restored the HUD in 2.068 s; pausing restored it in 1.717 s | Pass |
+| Browser F11 fullscreen | Edge held foreground; F11 hid the HUD in 0.556 s with fullscreen classification and Windows shell state 2. F11 exit restored it in 0.706 s | Pass |
+| Presentation | A real PowerPoint slide show held foreground and covered the primary monitor. It hid the HUD in 0.607 s and restored it in 0.746 s after exit | Pass |
+| F9 while hidden | With persistent Hide selected, F9 dictated a local WAV into a unique Notepad document. The buffer contained `FlowPilot hidden companion dictation test.` once. Notepad held foreground and the HUD remained hidden before, during, and after recording | Pass on repeat with stable focus |
 
-The [Windows mute API](https://learn.microsoft.com/en-us/windows/win32/api/audioclient/nf-audioclient-isimpleaudiovolume-getmute) documents the separate session mute state. The [Windows peak meter API](https://learn.microsoft.com/en-us/windows/win32/api/endpointvolume/nn-endpointvolume-iaudiometerinformation) documents peak levels and their limits; a meter reading alone does not prove that a browser is showing video.
+The first hidden F9 attempt failed because Chrome took foreground during the
+trial; the expected phrase was absent from the inspected Notepad document.
+It was not counted as an insertion success. When the desktop was left idle,
+the repeat kept Notepad focus and verified the phrase. PortAudio device
+numbers also changed between runs. The passing trial checked the actual
+`CABLE Output` input and `CABLE Input` playback endpoints first.
 
-## Verification completed
+## Physical layout gate and repair
 
-- `python -X utf8 -m pytest -q tests/test_companion_visibility.py`: 22 passed. These tests use fake audio samples and COM objects; they do not prove live playback behavior.
-- `python -X utf8 tests/run_all_tests.py` with `GITHUB_ACTIONS=true`, `FLOWPILOT_HEADLESS=1`, and `FLOWPILOT_TEST_EXE` pointing at the fresh isolated binary: 54 suites, 49 passed, 5 skipped, 0 failed in 98.83 seconds. The skipped suites include physical focus and insertion work; this is not the strict `--require-all` release gate.
-- `npm test`: Node.js and local FastAPI static, REST, and WebSocket checks passed on loopback port 8766.
-- `QT_QPA_PLATFORM=offscreen python -X utf8 scratch/ui_audit_20261023.py`: all ten main pages opened; safe Home, Text edits, Dictionary, Scratchpad, Meetings, Insights, Snippets, History, Studio, and Settings actions completed in an isolated profile. Closed Settings and Studio combo values stayed fixed under wheel events. Home scrolled. This was an offscreen interaction audit, not a physical monitor review.
-- Fresh isolated PyInstaller build at `scratch/codex-media-validation-20261023/dist/FlowPilot/FlowPilot.exe`: 24,882,896 bytes, SHA-256 `99A7AE9631AD55574EA4DB5FA91B4C7F6211452F0440311CED2B1A866D2F5FA8`. The unpacked folder is 1,111,643,112 bytes across 1,203 files, including the base and small models. This is a validation build; the existing RC2 archive and the user's running application were not replaced.
-- Standalone smoke against that exact binary passed: bundled base weights and Silero assets found, mutex held, duplicate instance exited, primary shut down cleanly.
-- `FlowPilot.exe --self-test` against the same binary exited 0 with `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, and an empty `HF_HOME`. It loaded bundled base weights and transcribed the SAPI fixture. The isolated cache directory remained absent. This is offline model resolution evidence, not a whole system packet capture.
+The initial build from `7db96df` exposed a layout defect on the 125 percent
+primary display: the dashboard bottom actions fell below the taskbar. The
+repair bounds the native window frame to the usable monitor area and enables
+a Home scrollbar when content extends below the viewport. Two focused
+regression tests now cover those conditions.
 
-## Still open
+On the repaired packaged build the dashboard frame `[226, 41, 1694, 988]`
+fit inside the primary work area `[0, 0, 1920, 1020]`. After moving to the
+100 percent secondary monitor, frame `[1970, 13, 3144, 716]` fit work area
+`[1920, 0, 3286, 720]`; it still fit after returning to the primary. A
+native Qt capture on each display showed the Studio Cancel and Apply Changes
+buttons inside the frame. A direct screenshot on the secondary display was
+occluded by another fullscreen application and was discarded. The packaged
+secondary result is therefore a frame geometry check, not a screenshot claim.
 
-- Human desktop checks for audible and muted browser video, background music, a real PowerPoint presentation, Chrome F11, F9 while hidden, app rules, focus integrity, and multi-monitor restore. The feature cannot be promoted from fake audio or offscreen Qt tests.
-- The offscreen UI audit still flags narrow button text on some older pages at 880 × 580. Scrolling and action dispatch worked, but real Windows font rendering and visual fit have not been signed off. This visual polish was left outside the media fix.
-- Windowed media is approximated by any audible playback. This may hide the pet while music plays and will miss a muted windowed video. Scope feature 24 remains closed on explicit per app rules for that case.
-- The current built executable is an isolated developer artifact. A public release needs an interactive gate, a new CI build, and a new manifest. RC2 hashes are historical.
+## Automated and standalone gates
+
+`python -X utf8 tests/run_all_tests.py --require-all`, with
+`FLOWPILOT_TEST_EXE` set to the exact executable above, completed in 175.07 s:
+**54 passed, 0 skipped, 0 failed**. This included physical Notepad and cross
+application insertion, the 18 scenario desktop suite, and packaged smoke.
+The same binary passed a separate offline self test with an isolated empty
+model cache and transcribed the SAPI fixture. `npm test` passed local REST and
+WebSocket integration on loopback port 8766.
+
+## Remaining limits
+
+Audible background music can also hide the companion, and muted windowed
+video does not. Per app rules remain the precise user control. Other checks
+in spec 0001, including Studio app rule editing, restart persistence,
+reduced motion, and a wider pilot across target apps, remain separate from
+these five release checks. This gate does not establish universal paste
+reliability or real speaker accuracy. The build is unsigned. RC2 hashes are
+historical; a new candidate needs its own manifest and hosted CI result.

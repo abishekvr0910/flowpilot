@@ -1,4 +1,6 @@
-"""Native FlowPilot home page for dictation and companion controls."""
+"""Feature 20: native FlowPilot home page and reachable companion controls."""
+
+import logging
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QComboBox
@@ -9,6 +11,8 @@ from engine.text_injector import TextInjector
 from ui.companion_preview import CompanionPreviewWidget
 from ui.workspace_style import label, surface
 
+log = logging.getLogger("FlowPilot.WorkspaceHome")
+
 
 class WorkspaceHome(QScrollArea):
     def __init__(self, dashboard):
@@ -16,7 +20,7 @@ class WorkspaceHome(QScrollArea):
         self.dashboard = dashboard
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
         content = QWidget()
         content.setObjectName("WorkspacePage")
@@ -169,6 +173,7 @@ class WorkspaceHome(QScrollArea):
         super().showEvent(event)
         self.refresh()
         self._refresh_timer.start()
+        log.debug("Home scroll range: %s", self.verticalScrollBar().maximum())
 
     def hideEvent(self, event):
         self._refresh_timer.stop()

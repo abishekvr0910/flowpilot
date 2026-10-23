@@ -1,8 +1,10 @@
-"""
-FlowPilot native workspace shell with embedded Home, Studio and Settings.
+"""Feature 20: FlowPilot native workspace shell and screen-safe layout.
+
+Embedded Home, Studio and Settings.
 Existing dictation, recovery and writing tools retain their production handlers.
 """
 
+import logging
 from typing import Optional, Callable, Dict, Any
 
 from PySide6.QtWidgets import (
@@ -10,7 +12,7 @@ from PySide6.QtWidgets import (
     QPushButton, QButtonGroup, QMessageBox, QScrollArea, QApplication,
     QAbstractScrollArea, QComboBox
 )
-from PySide6.QtCore import Qt, Signal, QObject, QEvent, QPointF
+from PySide6.QtCore import Qt, Signal, QObject, QEvent, QPointF, QTimer
 from PySide6.QtGui import QWheelEvent
 
 from engine.companion_store import get_companion_store, CompanionStore
@@ -29,6 +31,8 @@ from engine.text_injector import TextInjector
 from engine.personalization import get_shared_personalization, PersonalizationEngine
 from ui.workspace_style import workspace_style, harmonize_legacy_styles, label
 from ui.workspace_home import WorkspaceHome
+
+log = logging.getLogger("FlowPilot.Dashboard")
 
 
 class _ComboWheelGuard(QObject):
@@ -95,8 +99,20 @@ class FlowPilotDashboard(QMainWindow):
         self.store: CompanionStore = get_companion_store()
 
         self.setWindowTitle("FlowPilot")
-        self.resize(1160, 820)
         self.setMinimumSize(880, 580)
+        self._screen_signal_connected = False
+        self._initial_screen_fit_done = False
+
+        # Leave room for the native title bar and taskbar before first show.
+        screen = QApplication.primaryScreen()
+        if screen:
+            available = screen.availableGeometry()
+            self.resize(
+                min(1160, max(880, available.width() - 64)),
+                min(820, max(580, available.height() - 96)),
+            )
+        else:
+            self.resize(1160, 720)
 
         self._init_styles()
         self._init_ui()
@@ -107,11 +123,55 @@ class FlowPilotDashboard(QMainWindow):
         _ensure_wheel_guard(QApplication.instance())
 
         # Center dashboard on primary screen
-        screen = QApplication.primaryScreen()
         if screen:
             geom = screen.availableGeometry()
             x = geom.center().x() - (self.width() // 2)
             y = geom.center().y() - (self.height() // 2)
+            self.move(x, y)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._screen_signal_connected and self.windowHandle():
+            self.windowHandle().screenChanged.connect(self._on_screen_changed)
+            self._screen_signal_connected = True
+        if not self._initial_screen_fit_done:
+            self._initial_screen_fit_done = True
+            QTimer.singleShot(0, lambda: self._fit_visible_frame(center=True))
+
+    def _on_screen_changed(self, screen):
+        QTimer.singleShot(0, self._fit_visible_frame)
+
+    def _fit_visible_frame(self, center=False):
+        """Keep the native frame, including its title bar, inside the work area."""
+        if self.isMaximized() or self.isFullScreen():
+            return
+        handle = self.windowHandle()
+        screen = handle.screen() if handle else QApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        margin = 12
+        frame = self.frameGeometry()
+        excess_width = max(0, frame.width() - (available.width() - 2 * margin))
+        excess_height = max(0, frame.height() - (available.height() - 2 * margin))
+        if excess_width or excess_height:
+            self.resize(
+                max(self.minimumWidth(), self.width() - excess_width),
+                max(self.minimumHeight(), self.height() - excess_height),
+            )
+            frame = self.frameGeometry()
+        if frame.width() > available.width() or frame.height() > available.height():
+            log.warning("Dashboard minimum size exceeds available screen geometry")
+        if center:
+            x = available.left() + (available.width() - frame.width()) // 2
+            y = available.top() + (available.height() - frame.height()) // 2
+        else:
+            x, y = frame.left(), frame.top()
+        rightmost = available.right() - frame.width() + 1 - margin
+        bottommost = available.bottom() - frame.height() + 1 - margin
+        x = max(available.left() + margin, min(x, rightmost))
+        y = max(available.top() + margin, min(y, bottommost))
+        if (x, y) != (frame.left(), frame.top()):
             self.move(x, y)
 
     def _init_styles(self):
