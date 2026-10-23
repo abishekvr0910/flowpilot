@@ -33,6 +33,7 @@ def decide_visibility(
     context: ContextSnapshot,
     app_rule: Optional[str] = None,
     show_now_hwnd: int = 0,
+    media: bool = False,
 ) -> VisibilityDecision:
     """Only explicit intent or a verified local context may hide the companion."""
     if mode == "hidden":
@@ -52,4 +53,6 @@ def decide_visibility(
             return VisibilityDecision(app_rule, f"App rule: {context.process_name}")
         if context.process_name in QUIET_APPS:
             return VisibilityDecision("edge", "Quiet editor or terminal")
+    if media:
+        return VisibilityDecision("hidden", "Media audio playing")
     return VisibilityDecision("normal", "Smart default")

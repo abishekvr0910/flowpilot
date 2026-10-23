@@ -132,7 +132,7 @@ an audio-presence module on pycaw, which is already a FlowPilot dependency.
 | Automations / Todos / Calendar sync | yes | no |
 | Hardware headset buttons (Jabra/button) | yes | no |
 | Distraction sound FX/wake achievements | yes | no |
-| **Hide companion while media plays** | **no evidence** | **planned slice below — direct differentiator** |
+| **Hide companion while media plays** | **no evidence shipped** | **yes — Feature 25 audio presence slice implemented 2026-10-23, see below** |
 | Fullscreen-aware hiding | not found | **yes, measured AC-2 gate with 0.20-0.5 s hides** |
 | Fall-back ASR diversity | yes (cloud fallback levels) | against zero-egress for cloud options; a second local model is feasible |
 | Screenshot in history | yes | no |

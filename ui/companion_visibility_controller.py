@@ -5,20 +5,28 @@ import time
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from engine.companion_visibility import ContextSnapshot, VisibilityDecision, decide_visibility
+from engine.media_presence import NullMediaPresence
 from engine.window_inspector import ContextMonitor
+
+
+IN_FLIGHT_STATES = frozenset({
+    "starting", "listening", "stopping", "processing", "validating", "formatting",
+})
 
 
 class CompanionVisibilityController(QObject):
     decision_changed = Signal(str, str)
     error = Signal(str)
 
-    def __init__(self, hud, store, learning, parent=None, monitor=None):
+    def __init__(self, hud, store, learning, parent=None, monitor=None, media=None):
         super().__init__(parent)
         self.hud = hud
         self.store = store
         self.learning = learning
         self.monitor = monitor or ContextMonitor()
+        self.media = media if media is not None else NullMediaPresence()
         self.current = VisibilityDecision("hidden", "Starting")
+        self._dictation_state = "idle"
         self._stable = ContextSnapshot()
         self._unknown_since = None
         self._candidate = None
@@ -77,6 +85,10 @@ class CompanionVisibilityController(QObject):
                 snapshot.process_name, "companion_visibility", presentation
             )
 
+    def set_state_hint(self, payload: dict):
+        """Receives the StateBridge orchestrator payload to protect the tick."""
+        self._dictation_state = (payload or {}).get("state", "idle")
+
     def set_app_rule(self, app_name: str, presentation: str):
         app_name = app_name.strip().lower()
         if not app_name.endswith(".exe") or any(c in app_name for c in "\\/:"):
@@ -125,7 +137,8 @@ class CompanionVisibilityController(QObject):
         approved = self.learning.get_approved_rules()
         rule = approved.get(snapshot.process_name, {}).get("companion_visibility")
         decision = decide_visibility(
-            self.store.get("visibility_mode", "smart"), snapshot, rule, self._show_now_hwnd
+            self.store.get("visibility_mode", "smart"), snapshot, rule, self._show_now_hwnd,
+            media=self.media.is_active() and self._dictation_state not in IN_FLIGHT_STATES,
         )
         self.apply(decision)
 

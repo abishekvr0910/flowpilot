@@ -285,5 +285,92 @@ def test_ac8_studio_exposes_keyboard_named_visibility_and_app_rule_controls(app,
         studio.close()
 
 
+def test_ac4_media_audio_hides_smart_but_respects_manual_wins_and_rules():
+    chrome = ContextSnapshot(41, "chrome.exe", False, 5, True)
+    assert decide_visibility("smart", chrome, media=True).presentation == "hidden"
+    assert decide_visibility("smart", chrome, media=True).reason == "Media audio playing"
+    assert decide_visibility("always", chrome, media=True).presentation == "normal"
+    assert decide_visibility("hidden", chrome, media=True).presentation == "hidden"
+    assert decide_visibility("smart", chrome, "normal", media=True).presentation == "normal"
+    assert decide_visibility("smart", chrome, "hidden", media=True).presentation == "hidden"
+    shown = ContextSnapshot(41, "chrome.exe", False, 5, True)
+    assert decide_visibility("smart", shown, show_now_hwnd=41, media=True).presentation == "normal"
+    editor = ContextSnapshot(42, "code.exe", False, 5, True)
+    assert decide_visibility("smart", editor, media=True).presentation == "edge"
+
+
+class FakePresence:
+    def __init__(self, active=False):
+        self.active = active
+
+    def is_active(self):
+        return self.active
+
+
+def test_ac6_media_presence_hides_until_quiet_and_heeds_dictation(app, profile):
+    store, learning = profile
+    hud = FakeHUD()
+    monitor = FakeMonitor(ContextSnapshot(90, "chrome.exe", False, 5, True))
+    presence = FakePresence(active=True)
+    controller = CompanionVisibilityController(hud, store, learning, monitor=monitor, media=presence)
+    controller.refresh(force=True)
+    assert not hud.visible
+    assert controller.current.reason == "Media audio playing"
+    presence.active = False
+    controller.refresh(force=True)
+    assert hud.visible
+    presence.active = True
+    controller.set_state_hint({"state": "listening"})
+    controller.refresh(force=True)
+    assert hud.visible
+    controller.set_state_hint({"state": "idle"})
+    controller.refresh(force=True)
+    assert not hud.visible
+
+
+def test_media_presence_grace_and_audibility_rules_without_com():
+    from engine.media_presence import NullMediaPresence, SessionSample, MediaAudioPresence
+
+    tick = [0.0]
+    clock = lambda: tick[0]  # noqa: E731
+    samples = [SessionSample(1, "vlc.exe", 0.5, 1.0)]
+    presence_active = MediaAudioPresence(
+        grace_seconds=1.5, sustain_seconds=1.0, provider=lambda: samples, clock=clock,
+    )
+    assert presence_active.is_active() is False  # one audible probe: not yet sustained
+
+    sustained = MediaAudioPresence(sustain_seconds=0.0, provider=lambda: samples, clock=clock)
+    assert sustained.is_active() is True
+
+    samples[0] = SessionSample(1, "vlc.exe", 0.0, 1.0)  # playback went silent
+    tick[0] = 1.0
+    assert sustained.is_active() is True  # within the 1.5 s linger
+    tick[0] = 1.51
+    assert sustained.is_active() is False  # quiet for longer than grace
+
+    # The classic false hide: a short system sound blip must not hide anything.
+    blip = [SessionSample(2, "audiodg-ish.exe", 0.5, 1.0)]
+    short_noise = MediaAudioPresence(
+        grace_seconds=1.5, sustain_seconds=1.0,
+        provider=lambda: blip, clock=clock,
+    )
+    tick[0] = 5.0
+    assert short_noise.is_active() is False  # single audible tick, no continuity
+    blip[0] = SessionSample(2, "blip.exe", 0.0, 1.0)
+    assert short_noise.is_active() is False  # silence drops the suspicion
+    silent_source = MediaAudioPresence(grace_seconds=0.0, provider=lambda: [], clock=clock)
+    assert silent_source.is_active() is False
+    volume_zero = MediaAudioPresence(
+        sustain_seconds=0.0,
+        provider=lambda: [SessionSample(2, "vlc.exe", 0.5, 0.0)],
+        clock=clock,
+    )
+    assert volume_zero.is_active() is False
+    broken = MediaAudioPresence(grace_seconds=0.0, provider=lambda: (_ for _ in ()).throw(RuntimeError("com")), clock=clock)
+    assert broken.is_active() is False
+    assert broken.is_active() is False  # permanently disabled after the error
+    assert NullMediaPresence().is_active() is False
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
