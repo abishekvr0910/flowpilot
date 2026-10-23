@@ -666,6 +666,7 @@ class TextInjector:
         """
         Direct-typing fallback via Windows SendInput with KEYEVENTF_UNICODE.
         Bypasses the system clipboard entirely and types characters directly into the target control.
+        Guarded: verifies target foreground focus before dispatching any keystrokes.
         """
         if not HAS_WIN32 or sys.platform != "win32":
             return False
@@ -673,6 +674,13 @@ class TextInjector:
         if target_hwnd and win32gui.IsWindow(target_hwnd):
             cls._safe_set_foreground(target_hwnd)
             time.sleep(0.06)
+
+        # Guarded foreground verification before any physical SendInput dispatch
+        ok, cur_fg, err_msg = cls._resolve_verified_foreground(target_hwnd)
+        if not ok:
+            cls.last_injected_text = text
+            print(f"[Injector Security] {err_msg} SendInput fallback aborted; target unverified.")
+            return False
 
         try:
             import ctypes
@@ -724,6 +732,12 @@ class TextInjector:
                 return True
 
             arr = (INPUT * len(inputs))(*inputs)
+            # Preparing a long Unicode sequence can outlast a focus change.
+            ok, cur_fg, err_msg = cls._resolve_verified_foreground(target_hwnd)
+            if not ok:
+                cls.last_injected_text = text
+                print(f"[Injector Security] {err_msg} SendInput dispatch aborted; target unverified.")
+                return False
             sent = user32.SendInput(len(inputs), arr, ctypes.sizeof(INPUT))
             cls.last_injected_text = text
             print(f"[Injector] Successfully sent {sent // 2} Unicode keystrokes directly to target window.")

@@ -7,9 +7,11 @@ from typing import Optional, Callable, Dict, Any
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
-    QPushButton, QButtonGroup, QMessageBox, QScrollArea
+    QPushButton, QButtonGroup, QMessageBox, QScrollArea, QApplication,
+    QAbstractScrollArea, QComboBox
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QObject, QEvent, QPointF
+from PySide6.QtGui import QWheelEvent
 
 from engine.companion_store import get_companion_store, CompanionStore
 from engine.config import load_config, save_config
@@ -29,11 +31,53 @@ from ui.workspace_style import workspace_style, harmonize_legacy_styles, label
 from ui.workspace_home import WorkspaceHome
 
 
+class _ComboWheelGuard(QObject):
+    """One application wide guard: the wheel over a closed combo never changes
+    its selected value. Wheel intent is retargeted to the enclosing scroll area
+    so page scrolling keeps working. Combos with an open popup are untouched."""
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Wheel and isinstance(obj, QComboBox) and not obj.view().isVisible():
+            viewport = self._scroll_target(obj)
+            if viewport is not None:
+                local = QPointF(viewport.mapFromGlobal(obj.mapToGlobal(obj.rect().center())))
+                phase = getattr(event, "phase", None)
+                forward = QWheelEvent(
+                    local, event.globalPosition().toPoint(),
+                    event.pixelDelta(), event.angleDelta(),
+                    event.buttons(), event.modifiers(),
+                    phase() if callable(phase) else Qt.NoScrollPhase,
+                    event.inverted()
+                )
+                QApplication.sendEvent(viewport, forward)
+            return True
+        return False
+
+    def _scroll_target(self, combo: QComboBox):
+        parent = combo.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QAbstractScrollArea):
+                return parent.viewport()
+            parent = parent.parentWidget()
+        return None
+
+
+_wheel_guard: Optional[_ComboWheelGuard] = None
+
+
+def _ensure_wheel_guard(app):
+    global _wheel_guard
+    if _wheel_guard is None:
+        _wheel_guard = _ComboWheelGuard()
+        app.installEventFilter(_wheel_guard)
+
+
 class FlowPilotDashboard(QMainWindow):
     dictate_requested = Signal()
     companion_changed = Signal(str)
     companion_settings_applied = Signal(dict)
     show_companion_requested = Signal()
+    companion_visibility_requested = Signal(str)
 
     def __init__(
         self,
@@ -58,8 +102,11 @@ class FlowPilotDashboard(QMainWindow):
         self._init_ui()
         self._apply_theme()
 
+        # One shared application level guard covers every current and future
+        # combo on any page, including pages built later.
+        _ensure_wheel_guard(QApplication.instance())
+
         # Center dashboard on primary screen
-        from PySide6.QtWidgets import QApplication
         screen = QApplication.primaryScreen()
         if screen:
             geom = screen.availableGeometry()
@@ -284,6 +331,9 @@ class FlowPilotDashboard(QMainWindow):
     def _on_companion_applied(self, new_data: dict):
         if new_data.get("action") == "show_live":
             self.show_companion_requested.emit()
+            return
+        if new_data.get("action") == "rule_changed":
+            self.companion_settings_applied.emit(dict(new_data))
             return
         asset_id = new_data.get("selected_asset_id", "kitty")
         self.companion_changed.emit(asset_id)

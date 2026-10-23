@@ -352,6 +352,21 @@ class CompanionStudioDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(14)
 
+        visibility_row = QHBoxLayout()
+        visibility_row.addWidget(QLabel("Desktop visibility:"))
+        self.combo_visibility = QComboBox()
+        for title, value in (("Smart (hide for fullscreen and presentations)", "smart"),
+                             ("Always show", "always"), ("Hide until I show it", "hidden")):
+            self.combo_visibility.addItem(title, value)
+        self.combo_visibility.setAccessibleName("Desktop companion visibility")
+        self.combo_visibility.currentIndexChanged.connect(
+            lambda _: self._draft.__setitem__("visibility_mode", self.combo_visibility.currentData()))
+        visibility_row.addWidget(self.combo_visibility, 1)
+        layout.addLayout(visibility_row)
+        visibility_hint = QLabel("Smart can hide the pet on any monitor. Dictation still works from the tray and hotkey.")
+        visibility_hint.setWordWrap(True)
+        layout.addWidget(visibility_hint)
+
         # Motion Preset Dropdown
         m_row = QHBoxLayout()
         m_row.addWidget(QLabel("Motion Preset:"))
@@ -443,6 +458,21 @@ class CompanionStudioDialog(QDialog):
         desc.setStyleSheet("color: #94A3B8; font-size: 11px;")
         desc.setWordWrap(True)
         layout.addWidget(desc)
+
+        app_row = QHBoxLayout()
+        self.txt_visibility_app = QLineEdit()
+        self.txt_visibility_app.setPlaceholderText("Application name, e.g. code.exe")
+        self.txt_visibility_app.setAccessibleName("Application executable name")
+        app_row.addWidget(self.txt_visibility_app)
+        self.combo_app_visibility = QComboBox()
+        for title, value in (("Normal", "normal"), ("Quiet edge", "edge"), ("Hidden", "hidden")):
+            self.combo_app_visibility.addItem(title, value)
+        self.combo_app_visibility.setAccessibleName("Companion appearance in this application")
+        app_row.addWidget(self.combo_app_visibility)
+        save_app_rule = QPushButton("Save app rule")
+        save_app_rule.clicked.connect(self._on_save_app_visibility)
+        app_row.addWidget(save_app_rule)
+        layout.addLayout(app_row)
 
         # Proposals & Rules Section
         scroll = QScrollArea()
@@ -549,6 +579,8 @@ class CompanionStudioDialog(QDialog):
     # -------------------------------------------------------------
     def _load_draft_into_ui(self):
         self._draft = self.store.get_all()
+        visibility_index = self.combo_visibility.findData(self._draft.get("visibility_mode", "smart"))
+        self.combo_visibility.setCurrentIndex(max(0, visibility_index))
         self.chk_lock.setChecked(self._draft.get("appearance_locked", True))
         self.chk_sound.setChecked(self._draft.get("cat_sound", True))
 
@@ -715,6 +747,21 @@ class CompanionStudioDialog(QDialog):
     def _on_forget_rule(self, app_id: str, setting_key: str):
         self.learning.forget_rule(app_id, setting_key)
         self._refresh_memory_tab()
+        self.applied.emit({"action": "rule_changed"})
+
+    def _on_save_app_visibility(self):
+        app_name = self.txt_visibility_app.text().strip().lower()
+        if not app_name.endswith(".exe") or any(c in app_name for c in "\\/:"):
+            QMessageBox.warning(self, "Invalid application", "Enter an executable name such as code.exe.")
+            return
+        try:
+            self.learning.set_approved_rule(app_name, "companion_visibility", self.combo_app_visibility.currentData())
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Invalid rule", str(exc))
+            return
+        self.txt_visibility_app.clear()
+        self._refresh_memory_tab()
+        self.applied.emit({"action": "rule_changed"})
 
     def _on_clear_learning_clicked(self):
         resp = QMessageBox.question(
@@ -751,7 +798,11 @@ class CompanionStudioDialog(QDialog):
 
     def _on_apply_clicked(self):
         # Atomically commit draft to CompanionStore
-        updated = self.store.update(self._draft)
+        try:
+            updated = self.store.update(self._draft)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Could not save companion", str(exc))
+            return
         self.applied.emit(updated)
         if self.embedded:
             self.apply_status.setText("Companion changes applied.")

@@ -11,7 +11,7 @@ Wispr Flow Parity & Leapfrog:
     * Translate to English (🌐)
 - Custom Prompt / Spoken Instruction box with voice input
 - FactGuard Invariant safety validation indicator
-- Atomic replacement and Undo / Revert support
+- Preview and explicit copying; external Replace and Revert are unavailable
 """
 
 import sys
@@ -25,6 +25,7 @@ from PySide6.QtGui import QFont, QColor
 import pyperclip
 
 from engine.transforms_engine import get_transforms_engine, PRESET_TRANSFORMS, TransformsEngine, TransformResult
+from engine.text_injector import InjectionStatus
 
 
 class TransformsView(QWidget):
@@ -48,7 +49,7 @@ class TransformsView(QWidget):
         title_box.setSpacing(2)
         lbl_title = QLabel("Selected-Text Transforms")
         lbl_title.setStyleSheet("font-size: 18px; font-weight: bold; color: #F8FAFC;")
-        lbl_sub = QLabel("Select text anywhere in Windows, choose a transform preset or spoken instruction, and replace atomically.")
+        lbl_sub = QLabel("Preview a text transform, then copy the result into your editor.")
         lbl_sub.setStyleSheet("font-size: 12px; color: #94A3B8;")
         title_box.addWidget(lbl_title)
         title_box.addWidget(lbl_sub)
@@ -196,19 +197,23 @@ class TransformsView(QWidget):
         footer = QHBoxLayout()
         footer.setSpacing(10)
 
-        btn_copy = QPushButton("📋 Copy Output")
-        btn_copy.setStyleSheet(self._btn_secondary_style())
-        btn_copy.clicked.connect(self._copy_output)
-        footer.addWidget(btn_copy)
+        self.btn_copy = QPushButton("📋 Copy Output")
+        self.btn_copy.setStyleSheet(self._btn_secondary_style())
+        self.btn_copy.setToolTip("Copies the preview to your clipboard when you click.")
+        self.btn_copy.clicked.connect(self._copy_output)
+        footer.addWidget(self.btn_copy)
 
-        btn_revert = QPushButton("↩ Revert Last Replace")
-        btn_revert.setStyleSheet(self._btn_secondary_style())
-        btn_revert.clicked.connect(self._revert_last)
-        footer.addWidget(btn_revert)
+        self.btn_revert = QPushButton("↩ Revert Last Replace")
+        self.btn_revert.setStyleSheet(self._btn_secondary_style())
+        self.btn_revert.setToolTip("External revert is unavailable because the prior edit cannot be verified. Use your editor's Undo.")
+        self.btn_revert.setEnabled(False)
+        self.btn_revert.clicked.connect(self._revert_last)
+        footer.addWidget(self.btn_revert)
 
         footer.addStretch()
 
         self.btn_replace = QPushButton("⚡ Replace in Target Window")
+        self.btn_replace.setToolTip("In-place replacement requires a verified document transaction adapter. For external applications, use 'Copy Output'.")
         self.btn_replace.setStyleSheet("""
             QPushButton {
                 background-color: #10B981;
@@ -227,6 +232,13 @@ class TransformsView(QWidget):
         footer.addWidget(self.btn_replace)
 
         layout.addLayout(footer)
+
+        self.lbl_external_edit = QLabel(
+            "External Replace and Revert are unavailable while document changes "
+            "cannot be verified. Use Copy Output, then paste in your editor."
+        )
+        self.lbl_external_edit.setWordWrap(True)
+        layout.addWidget(self.lbl_external_edit)
 
         # Enforce initial safe UI state
         self.btn_replace.setEnabled(False)
@@ -314,7 +326,7 @@ class TransformsView(QWidget):
         self._update_status_ui(res)
 
     def _update_status_ui(self, res: TransformResult):
-        self.btn_replace.setEnabled(res.can_apply)
+        self.btn_replace.setEnabled(False)
         self.edit_transformed.setStyleSheet(self._editor_style())
 
         if res.status == "success":
@@ -343,8 +355,8 @@ class TransformsView(QWidget):
         if not transformed:
             return
 
-        success = self.engine.replace_selection(transformed, result=self._current_result)
-        if success:
+        inj_res = self.engine.replace_selection(transformed, result=self._current_result)
+        if inj_res.status == InjectionStatus.CONFIRMED_INSERTED:
             self.transform_applied.emit(transformed)
             self.edit_transformed.setStyleSheet("""
                 QTextEdit {
@@ -357,20 +369,30 @@ class TransformsView(QWidget):
                     font-size: 13px;
                 }
             """)
+            QMessageBox.information(self, "Replace Confirmed", "Transformed text was verified and inserted into the target document.")
+        elif inj_res.status == InjectionStatus.SENT_UNVERIFIED:
+            QMessageBox.information(self, "Sent for Verification", "Sent, please check target window. Insertion could not be verified automatically.")
+        elif inj_res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE:
+            msg = inj_res.error_message or "External in-place replacement unavailable. Use 'Copy Output' to paste manually."
+            QMessageBox.warning(self, "Replace Unavailable", f"{msg}\n\nTransformed text is preserved in memory. Click 'Copy Output' to copy.")
         else:
-            QMessageBox.warning(self, "Replace Failed", "Could not inject transformed text into target window.")
+            QMessageBox.warning(self, "Replace Refused", inj_res.error_message or "Could not inject transformed text into target window.")
 
     def _revert_last(self):
-        success = self.engine.revert_last_transform()
-        if success:
+        inj_res = self.engine.revert_last_transform()
+        if inj_res.status == InjectionStatus.CONFIRMED_INSERTED:
             QMessageBox.information(self, "Reverted", "Restored original untransformed text back into the application.")
+        elif inj_res.status == InjectionStatus.SENT_UNVERIFIED:
+            QMessageBox.information(self, "Revert Sent", "Sent, please check target window. Document restoration could not be verified automatically.")
+        elif inj_res.status == InjectionStatus.CANCELLED:
+            QMessageBox.warning(self, "Revert Refused", inj_res.error_message or "No previous transform found to revert.")
         else:
-            QMessageBox.warning(self, "Revert", "No previous transform found to revert.")
+            QMessageBox.warning(self, "Revert Unavailable", inj_res.error_message or "Cannot revert in external window without verified document revision.")
 
     def _copy_output(self):
         text = self.edit_transformed.toPlainText().strip()
         if text:
             pyperclip.copy(text)
-            self.btn_replace.setText("✓ Copied to Clipboard!")
+            self.btn_copy.setText("✓ Copied to Clipboard!")
             from PySide6.QtCore import QTimer
-            QTimer.singleShot(1500, lambda: self.btn_replace.setText("⚡ Replace in Target Window"))
+            QTimer.singleShot(1500, lambda: self.btn_copy.setText("📋 Copy Output"))

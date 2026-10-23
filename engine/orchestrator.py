@@ -15,6 +15,24 @@ from engine.hotkey_service import get_hotkey_service, Win32HotkeyService, dictat
 from engine.personalization import PersonalizationEngine, get_shared_personalization
 from engine.session import DictationSession, SessionState
 
+
+def injection_completion_timing(
+    stop_action_at: float,
+    completion_at: float,
+    acoustic_end_at: float = 0.0,
+) -> Dict[str, Any]:
+    """Time the injection result without claiming text was observed on screen."""
+    return {
+        "stop_action_to_injection_result_ms": round((completion_at - stop_action_at) * 1000, 2),
+        "acoustic_end_to_injection_result_ms": (
+            round((completion_at - acoustic_end_at) * 1000, 2)
+            if acoustic_end_at > 0 else None
+        ),
+        "stop_action_to_visible_text_ms": None,
+        "visible_delivery_status": "not_measured",
+    }
+
+
 class AppState:
     IDLE = "IDLE"
     STARTING_RECORDING = "STARTING_RECORDING"
@@ -404,8 +422,9 @@ class FlowOrchestrator:
                 stt_ms = round((t_stt_end - t_stt_start) * 1000, 2)
                 cleanup_ms = round((t_clean_end - t_clean_start) * 1000, 2)
                 inj_ms = round((t_inj_end - t_inj_start) * 1000, 2)
-                stop_to_visible_text_ms = round((t_inj_end - stop_action_time) * 1000, 2)
-                acoustic_to_visible_text_ms = round((t_inj_end - self._last_speech_perf) * 1000, 2) if self._last_speech_perf > 0 else None
+                delivery_timing = injection_completion_timing(
+                    stop_action_time, t_inj_end, self._last_speech_perf
+                )
 
                 active_session.record_timing("user_stop_to_cap_ms", user_stop_to_cap_ms)
                 active_session.record_timing("cap_to_finalize_ms", cap_to_finalize_ms)
@@ -413,7 +432,10 @@ class FlowOrchestrator:
                 active_session.record_timing("stt_ms", stt_ms)
                 active_session.record_timing("cleanup_ms", cleanup_ms)
                 active_session.record_timing("inj_ms", inj_ms)
-                active_session.record_timing("stop_to_visible_text_ms", stop_to_visible_text_ms)
+                active_session.record_timing(
+                    "stop_to_injection_result_ms",
+                    delivery_timing["stop_action_to_injection_result_ms"],
+                )
 
                 self.last_pipeline_timing = {
                     "stop_to_capture_shutdown_ms": user_stop_to_cap_ms,
@@ -422,15 +444,17 @@ class FlowOrchestrator:
                     "transcription_ms": stt_ms,
                     "cleanup_ms": cleanup_ms,
                     "text_insertion_ms": inj_ms,
-                    "stop_action_to_visible_text_ms": stop_to_visible_text_ms,
-                    "acoustic_end_to_visible_text_ms": acoustic_to_visible_text_ms
+                    **delivery_timing,
                 }
 
                 print(
                     f"[Latency Breakdown] Stop->Cap: {user_stop_to_cap_ms}ms | Finalize: {cap_to_finalize_ms}ms | "
                     f"STT: {stt_ms}ms | Clean: {cleanup_ms}ms | Inject: {inj_ms}ms | "
-                    f"StopAction->VisibleText: {stop_to_visible_text_ms}ms"
-                    + (f" | AcousticEnd->VisibleText: {acoustic_to_visible_text_ms}ms" if acoustic_to_visible_text_ms else "")
+                    f"StopAction->InjectionResult: {delivery_timing['stop_action_to_injection_result_ms']}ms"
+                    + (
+                        f" | AcousticEnd->InjectionResult: {delivery_timing['acoustic_end_to_injection_result_ms']}ms"
+                        if delivery_timing["acoustic_end_to_injection_result_ms"] is not None else ""
+                    )
                 )
 
                 # 6. Save into history and recovery buffer
@@ -465,8 +489,7 @@ class FlowOrchestrator:
                     "stt_duration_sec": stt_duration,
                     "format_duration_sec": format_duration,
                     "total_duration_sec": total_duration,
-                    "stop_to_visible_text_ms": stop_to_visible_text_ms,
-                    "acoustic_end_to_visible_text_ms": acoustic_to_visible_text_ms,
+                    **delivery_timing,
                     "char_count": len(formatted_text),
                     "injection_method": injection_method,
                     "injection_status": inj_res.status.value,

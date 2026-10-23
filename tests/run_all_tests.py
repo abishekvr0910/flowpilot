@@ -46,6 +46,7 @@ TESTS = [
     ("18-Scenario Full Specification End-to-End", "tests/test_final_specification_e2e.py"),
     ("Standalone Windows Binary Packaging Smoke", "tests/test_standalone_binary_smoke.py"),
     ("Companion Studio & Local Learning", "tests/test_companion_studio.py"),
+    ("Context Aware Companion Visibility", "tests/test_companion_visibility.py"),
     ("Productivity Insights Engine", "tests/test_insights_engine.py"),
     ("Meeting Notetaker Engine & Extractive Summary", "tests/test_meeting_notetaker.py"),
     ("Meeting Notetaker Streaming & Library v2", "tests/test_meeting_notetaker_v2.py"),

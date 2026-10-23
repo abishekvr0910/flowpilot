@@ -1,7 +1,7 @@
 """Native FlowPilot home page for dictation and companion controls."""
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QComboBox
 
 from engine.companion_assets import CompanionAssetManager
 from engine.language_registry import LanguageRegistry
@@ -15,7 +15,7 @@ class WorkspaceHome(QScrollArea):
         super().__init__(dashboard)
         self.dashboard = dashboard
         self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         content = QWidget()
@@ -63,6 +63,19 @@ class WorkspaceHome(QScrollArea):
         self.companion_label = label("", "section")
         self.companion_label.setAlignment(Qt.AlignCenter)
         companion.addWidget(self.companion_label)
+        self.visibility_label = label("Companion visibility: starting")
+        self.visibility_label.setAlignment(Qt.AlignCenter)
+        companion.addWidget(self.visibility_label)
+        self.visibility_choice = QComboBox()
+        self.visibility_choice.setAccessibleName("Desktop companion visibility")
+        for title, mode in (("Smart", "smart"), ("Always show", "always"), ("Hide", "hidden")):
+            self.visibility_choice.addItem(title, mode)
+        self.visibility_choice.currentIndexChanged.connect(
+            lambda _: dashboard.companion_visibility_requested.emit(self.visibility_choice.currentData()))
+        companion.addWidget(self.visibility_choice)
+        show_now = QPushButton("Show companion now")
+        show_now.clicked.connect(dashboard.show_companion_requested.emit)
+        companion.addWidget(show_now)
         caption = label("YOUR DESKTOP COMPANION", "eyebrow")
         caption.setAlignment(Qt.AlignCenter)
         companion.addWidget(caption)
@@ -138,12 +151,19 @@ class WorkspaceHome(QScrollArea):
         self.btn_copy.setEnabled(bool(text))
         self.retention_label.setText("Dictation history is enabled. Manage saved entries in History & audio." if config.get("save_history_text", False) else "Dictation history is off. Scratchpad and meeting notes are saved separately.")
         data = self.dashboard.store.get_all()
+        mode_index = self.visibility_choice.findData(data.get("visibility_mode", "smart"))
+        self.visibility_choice.blockSignals(True)
+        self.visibility_choice.setCurrentIndex(max(0, mode_index))
+        self.visibility_choice.blockSignals(False)
         key = (data.get("selected_asset_id", "kitty"), data.get("cat_palette", "orange tabby"), data.get("motion_preset", "gentle_bob"), data.get("reduced_motion", False))
         if key != self._companion_key:
             self._companion_key = key
             comp = CompanionAssetManager().get_companion_by_id(key[0]) or {"id": "kitty", "type": "builtin", "name": "Pixel Kitty"}
             self.preview.set_companion(comp, palette=key[1], motion_preset=key[2], reduced_motion=key[3])
             self.companion_label.setText(comp.get("name", key[0]).replace(" (Prototype)", ""))
+
+    def set_visibility_status(self, presentation: str, reason: str):
+        self.visibility_label.setText(f"Companion: {presentation} — {reason}")
 
     def showEvent(self, event):
         super().showEvent(event)

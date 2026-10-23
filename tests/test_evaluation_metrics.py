@@ -134,6 +134,31 @@ def test_dev_smoke_corpus_manifest_integrity():
         assert loaded.items[0].item_id == "en-01-clean"
         assert loaded.items[20].language == "ta"
 
+
+def test_runtime_summary_keeps_unmeasured_delivery_unknown():
+    from benchmarks.runtime_metrics import percentile, summarize_processing_trials
+    trials = [
+        {"status": "evaluated", "phase": "cold", "decode_sec": 2.0, "format_sec": 0.1},
+        {"status": "evaluated", "phase": "warm", "decode_sec": 0.2, "format_sec": 0.1},
+        {"status": "evaluated", "phase": "warm", "decode_sec": 0.4, "format_sec": 0.1},
+        {"status": "failed", "phase": "warm", "decode_sec": None, "format_sec": None},
+    ]
+    summary = summarize_processing_trials(trials)
+    assert summary["cold"]["processing_p50_sec"] == 2.1
+    assert summary["warm"]["count"] == 2
+    assert summary["warm"]["processing_p50_sec"] == 0.4
+    assert summary["warm"]["processing_p95_sec"] == 0.49
+    assert summary["stop_to_visible_text"]["status"] == "not_measured"
+    assert summary["stop_to_visible_text"]["p95_sec"] is None
+    assert percentile([], 95) is None
+    for invalid in (float("nan"), float("inf"), -1):
+        try:
+            percentile([invalid], 95)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Invalid timing was accepted")
+
 if __name__ == "__main__":
     print("Running Multilingual Evaluation Metrics tests...")
     test_unicode_normalization_preserves_indic_marks()
@@ -142,5 +167,6 @@ if __name__ == "__main__":
     test_critical_facts_verification_numbers_negations_and_code()
     test_formatted_quality_score()
     test_dev_smoke_corpus_manifest_integrity()
+    test_runtime_summary_keeps_unmeasured_delivery_unknown()
     print("[RESULT] Multilingual Evaluation Metrics tests PASSED.")
     sys.exit(0)

@@ -1,0 +1,473 @@
+{
+  "purpose": "Source-only synthetic processing smoke; not a paired competitor benchmark or a release performance signoff",
+  "fixture": "One English SAPI-generated utterance, repeated eight times per model in separate fresh Python processes",
+  "phase_boundary": "Cold includes lazy model load; warm is WAV recognition plus formatting; no OS injection",
+  "source_state": "Uncommitted source based on 367185c; see the remediation verification report for source fingerprints",
+  "models": {
+    "base": {
+      "timestamp": 1792698756.6315687,
+      "summary": {
+        "status": "complete",
+        "model_size": "base",
+        "total_items": 8,
+        "evaluated_items": 8,
+        "missing_audio_items": 0,
+        "failed_items": 0,
+        "consent_required_items": 0,
+        "initial_rss_mb": 61.82,
+        "final_sampled_rss_mb": 288.13,
+        "latency_boundary": "WAV decode + formatting only; first decode includes lazy model load; no OS injection",
+        "network_verification": "not instrumented by this runner",
+        "languages": {
+          "en": {
+            "count": 8,
+            "requested_items": 8,
+            "avg_wer": 0,
+            "avg_cer": 0,
+            "fact_accuracy": 1,
+            "quality_score": 1,
+            "avg_decode_sec": 0.8934
+          }
+        },
+        "runtime": {
+          "environment": {
+            "cpu_model": "12th Gen Intel(R) Core(TM) i5-12500H",
+            "logical_processors": 16,
+            "physical_cores": 12,
+            "ram_total_mb": 16088.05,
+            "os": "Windows",
+            "os_release": "10",
+            "os_version": "10.0.26200",
+            "python": "3.11.15",
+            "packages": {
+              "faster-whisper": "1.1.0",
+              "ctranslate2": "4.8.1",
+              "onnxruntime": "1.28.0"
+            },
+            "source": {
+              "commit": "367185c3fc6de06ef50af1d18fab65ed1d2aeb1f",
+              "worktree_dirty": true
+            },
+            "build_kind": "source_evaluation"
+          },
+          "cpu_threads": 8,
+          "timing": {
+            "cold": {
+              "count": 1,
+              "processing_p50_sec": 2.4927,
+              "processing_p95_sec": 2.4927
+            },
+            "warm": {
+              "count": 7,
+              "processing_p50_sec": 0.6866,
+              "processing_p95_sec": 0.739
+            },
+            "stop_to_visible_text": {
+              "status": "not_measured",
+              "p50_sec": null,
+              "p95_sec": null
+            }
+          },
+          "cpu_boundary": "Evaluator process CPU seconds during decode and formatting; percent may exceed 100 across cores",
+          "memory_boundary": "Process tree RSS sampled after each successful trial; not peak memory or desktop HUD usage",
+          "unmeasured": [
+            "visible_delivery",
+            "desktop_cold_start",
+            "recording_cpu",
+            "companion_cpu",
+            "peak_memory",
+            "long_session_growth"
+          ],
+          "model_sha256": "d01c3014881c9c6f3133c182f3d2887eb6ca1c789a7538c5c007196857a0a6a9"
+        }
+      },
+      "trials": [
+        {
+          "item_id": "synthetic-timing-0",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 2.4708,
+          "format_sec": 0.0219,
+          "phase": "cold",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 9.2344,
+          "processing_cpu_percent": 370.47,
+          "sampled_rss_mb": 287.13
+        },
+        {
+          "item_id": "synthetic-timing-1",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 0.727,
+          "format_sec": 0.0233,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 5.9844,
+          "processing_cpu_percent": 797.62,
+          "sampled_rss_mb": 288.04
+        },
+        {
+          "item_id": "synthetic-timing-2",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 0.6416,
+          "format_sec": 0.0255,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 5.3438,
+          "processing_cpu_percent": 801.04,
+          "sampled_rss_mb": 286.41
+        },
+        {
+          "item_id": "synthetic-timing-3",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 0.6744,
+          "format_sec": 0.0264,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 5.4219,
+          "processing_cpu_percent": 773.66,
+          "sampled_rss_mb": 288.08
+        },
+        {
+          "item_id": "synthetic-timing-4",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 0.6533,
+          "format_sec": 0.0164,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 5.3594,
+          "processing_cpu_percent": 800.29,
+          "sampled_rss_mb": 286.44
+        },
+        {
+          "item_id": "synthetic-timing-5",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 0.6659,
+          "format_sec": 0.0207,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 5.4844,
+          "processing_cpu_percent": 798.79,
+          "sampled_rss_mb": 288.11
+        },
+        {
+          "item_id": "synthetic-timing-6",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 0.6296,
+          "format_sec": 0.0282,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 5.2188,
+          "processing_cpu_percent": 793.39,
+          "sampled_rss_mb": 286.46
+        },
+        {
+          "item_id": "synthetic-timing-7",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 0.6847,
+          "format_sec": 0.028,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 5.7188,
+          "processing_cpu_percent": 802.34,
+          "sampled_rss_mb": 288.13
+        }
+      ]
+    },
+    "small": {
+      "timestamp": 1792698777.9238048,
+      "summary": {
+        "status": "complete",
+        "model_size": "small",
+        "total_items": 8,
+        "evaluated_items": 8,
+        "missing_audio_items": 0,
+        "failed_items": 0,
+        "consent_required_items": 0,
+        "initial_rss_mb": 61.98,
+        "final_sampled_rss_mb": 472.41,
+        "latency_boundary": "WAV decode + formatting only; first decode includes lazy model load; no OS injection",
+        "network_verification": "not instrumented by this runner",
+        "languages": {
+          "en": {
+            "count": 8,
+            "requested_items": 8,
+            "avg_wer": 0,
+            "avg_cer": 0,
+            "fact_accuracy": 1,
+            "quality_score": 1,
+            "avg_decode_sec": 2.3515
+          }
+        },
+        "runtime": {
+          "environment": {
+            "cpu_model": "12th Gen Intel(R) Core(TM) i5-12500H",
+            "logical_processors": 16,
+            "physical_cores": 12,
+            "ram_total_mb": 16088.05,
+            "os": "Windows",
+            "os_release": "10",
+            "os_version": "10.0.26200",
+            "python": "3.11.15",
+            "packages": {
+              "faster-whisper": "1.1.0",
+              "ctranslate2": "4.8.1",
+              "onnxruntime": "1.28.0"
+            },
+            "source": {
+              "commit": "367185c3fc6de06ef50af1d18fab65ed1d2aeb1f",
+              "worktree_dirty": true
+            },
+            "build_kind": "source_evaluation"
+          },
+          "cpu_threads": 8,
+          "timing": {
+            "cold": {
+              "count": 1,
+              "processing_p50_sec": 4.3574,
+              "processing_p95_sec": 4.3574
+            },
+            "warm": {
+              "count": 7,
+              "processing_p50_sec": 2.0928,
+              "processing_p95_sec": 2.1169
+            },
+            "stop_to_visible_text": {
+              "status": "not_measured",
+              "p50_sec": null,
+              "p95_sec": null
+            }
+          },
+          "cpu_boundary": "Evaluator process CPU seconds during decode and formatting; percent may exceed 100 across cores",
+          "memory_boundary": "Process tree RSS sampled after each successful trial; not peak memory or desktop HUD usage",
+          "unmeasured": [
+            "visible_delivery",
+            "desktop_cold_start",
+            "recording_cpu",
+            "companion_cpu",
+            "peak_memory",
+            "long_session_growth"
+          ],
+          "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671"
+        }
+      },
+      "trials": [
+        {
+          "item_id": "synthetic-timing-0",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 4.3268,
+          "format_sec": 0.0306,
+          "phase": "cold",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 24.2656,
+          "processing_cpu_percent": 556.89,
+          "sampled_rss_mb": 474.5
+        },
+        {
+          "item_id": "synthetic-timing-1",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 2.0957,
+          "format_sec": 0.0261,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 16.8438,
+          "processing_cpu_percent": 793.87,
+          "sampled_rss_mb": 474.95
+        },
+        {
+          "item_id": "synthetic-timing-2",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 2.0848,
+          "format_sec": 0.0206,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 16.2344,
+          "processing_cpu_percent": 771.09,
+          "sampled_rss_mb": 474.98
+        },
+        {
+          "item_id": "synthetic-timing-3",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 2.0567,
+          "format_sec": 0.0209,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 16.4688,
+          "processing_cpu_percent": 792.68,
+          "sampled_rss_mb": 475.57
+        },
+        {
+          "item_id": "synthetic-timing-4",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 2.0783,
+          "format_sec": 0.0211,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 16.5781,
+          "processing_cpu_percent": 789.65,
+          "sampled_rss_mb": 472.37
+        },
+        {
+          "item_id": "synthetic-timing-5",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 2.0728,
+          "format_sec": 0.02,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 16.6094,
+          "processing_cpu_percent": 793.64,
+          "sampled_rss_mb": 472.37
+        },
+        {
+          "item_id": "synthetic-timing-6",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 2.0657,
+          "format_sec": 0.0191,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 16.5,
+          "processing_cpu_percent": 791.41,
+          "sampled_rss_mb": 475.34
+        },
+        {
+          "item_id": "synthetic-timing-7",
+          "language": "en",
+          "group": "synthetic_sapi",
+          "status": "evaluated",
+          "wer": 0,
+          "cer": 0,
+          "fact_accuracy": 1,
+          "facts_preserved": true,
+          "quality_score": 1,
+          "decode_sec": 2.0311,
+          "format_sec": 0.022,
+          "phase": "warm",
+          "missing_critical": [],
+          "added_critical": [],
+          "process_cpu_sec": 16.2812,
+          "processing_cpu_percent": 793.01,
+          "sampled_rss_mb": 472.41
+        }
+      ]
+    }
+  }
+}
+

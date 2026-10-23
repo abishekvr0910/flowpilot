@@ -62,7 +62,7 @@ class SettingsDialog(QDialog):
         general_scroll = QScrollArea()
         general_scroll.setWidgetResizable(True)
         general_scroll.setMinimumWidth(0)
-        general_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        general_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         general_scroll.setWidget(self._build_general_tab())
         self.tabs.addTab(general_scroll, "Dictation")
         self.tabs.addTab(self._build_personalization_tab(), "Words and snippets")
