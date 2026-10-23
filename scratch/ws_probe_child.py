@@ -1,14 +1,12 @@
 """Child fullscreen window for the live gate probe. Separate process so the
 companion treats it as a third party app, which is the real spec 0001 case."""
 
-import os
 import sys
 import time
 from pathlib import Path
 
 state_dir = Path(sys.argv[1])
 
-os.environ.setdefault("QT_QPA_PLATFORM", "")
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication, QWidget
 
@@ -16,7 +14,7 @@ app = QApplication([])
 window = QWidget()
 window.setWindowFlags(Qt.FramelessWindowHint)
 window.setStyleSheet("background-color: #202024; color: #9a9aa0;")
-(window_state := {"claimed": False})
+window_state = {"claimed": False}
 
 import win32gui
 
