@@ -150,6 +150,30 @@ def test_compact_window_does_not_force_horizontal_growth(dashboard):
         assert dashboard.height() == 580
 
 
+def test_dashboard_frame_stays_above_taskbar_at_start_and_after_resize(dashboard):
+    available = dashboard.windowHandle().screen().availableGeometry()
+    if available.height() < dashboard.minimumHeight() + 24:
+        pytest.skip("Screen is shorter than the supported dashboard minimum")
+    QApplication.processEvents()
+    assert dashboard.frameGeometry().top() >= available.top()
+    assert dashboard.frameGeometry().bottom() <= available.bottom()
+
+    dashboard.resize(dashboard.minimumWidth(), available.height())
+    QApplication.processEvents()
+    dashboard._fit_visible_frame()
+    assert dashboard.frameGeometry().top() >= available.top()
+    assert dashboard.frameGeometry().bottom() <= available.bottom()
+
+
+def test_home_shows_scrollbar_when_compact_content_extends_below_viewport(dashboard):
+    dashboard._on_nav_clicked(0)
+    dashboard.resize(880, 580)
+    QApplication.processEvents()
+    bar = dashboard.home_page.verticalScrollBar()
+    assert bar.maximum() > 0
+    assert bar.isVisible()
+
+
 def test_compact_settings_save_action_is_fully_visible(dashboard):
     dashboard._on_nav_clicked(9)
     dashboard.resize(880, 580)
