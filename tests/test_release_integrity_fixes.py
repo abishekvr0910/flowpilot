@@ -129,6 +129,17 @@ def test_existing_profile_survives_packaged_launch():
             test_env.get("FLOWPILOT_TEST_EXE")
             or str(PROJECT_ROOT / "dist" / "FlowPilot" / "FlowPilot.exe")
         )
+        newest_source_mtime = max(
+            p.stat().st_mtime
+            for folder in ("engine", "ui")
+            for p in PROJECT_ROOT.rglob(folder + "/*.py")
+        )
+        if Path(test_env["FLOWPILOT_TEST_EXE"]).stat().st_mtime < newest_source_mtime:
+            print(
+                "[RELEASE] WARNING: the packaged binary is older than the newest source file.\n"
+                f"[RELEASE]   binary : {test_env['FLOWPILOT_TEST_EXE']}\n"
+                "[RELEASE]   Rebuild the binary or stage FLOWPILOT_TEST_EXE before trusting this result."
+            )
         smoke = subprocess.run(
             [sys.executable, "-X", "utf8", str(PROJECT_ROOT / "tests" / "test_standalone_binary_smoke.py")],
             cwd=PROJECT_ROOT, env=test_env, capture_output=True, text=True,

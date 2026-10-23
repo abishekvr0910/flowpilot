@@ -12,10 +12,22 @@ import time
 import subprocess
 import psutil
 import ctypes
+from pathlib import Path
 
 def main():
     default_exe = os.path.join(os.path.dirname(__file__), "..", "dist", "FlowPilot", "FlowPilot.exe")
     exe_path = os.path.abspath(os.environ.get("FLOWPILOT_TEST_EXE") or default_exe)
+    newest_source_mtime = max(
+        p.stat().st_mtime
+        for folder in ("engine", "ui")
+        for p in (Path(__file__).resolve().parents[1] / folder).rglob("*.py")
+    )
+    if Path(exe_path).stat().st_mtime < newest_source_mtime:
+        print(
+            "[SMOKE] WARNING: the packaged binary is older than the newest source file.\n"
+            f"[SMOKE]   binary : {exe_path}\n"
+            "[SMOKE]   Rebuild the binary or stage FLOWPILOT_TEST_EXE before trusting this result."
+        )
     print(f"Testing packaged executable: {exe_path}")
     
     if not os.path.isfile(exe_path):

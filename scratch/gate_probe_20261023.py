@@ -67,9 +67,13 @@ def main():
 
     monitor = ContextMonitor()
     hud = FloatingHUD()
+    # The probe kitty must stay visible to Qt so AC-2 sees show/hide flips, but
+    # it must never litter the user's desktop, so park it far offscreen.
+    hud.move(-20000, -20000)
     controller = CompanionVisibilityController(hud, store, learning, monitor=monitor)
     controller.start()
     app.processEvents()
+    hud.move(-20000, -20000)
     if controller.current.presentation == "hidden":
         failures.append("AC-2 force start on a normal desktop hid the HUD: " + controller.current.reason)
 
@@ -79,6 +83,7 @@ def main():
     probe_window.setWindowTitle("FlowPilot gate probe")
     probe_window.resize(240, 160)
     probe_window.show()
+    probe_window.move(40, 40)
     probe_window.activateWindow()
     probe_window.raise_()
     try:
