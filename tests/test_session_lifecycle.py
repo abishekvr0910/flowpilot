@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from engine.session import DictationSession, SessionState, LEGAL_TRANSITIONS
-from engine.orchestrator import FlowOrchestrator, AppState
+from engine.orchestrator import FlowOrchestrator, AppState, injection_completion_timing
 
 def test_session_state_machine_transitions():
     print("=" * 65)
@@ -87,6 +87,19 @@ def test_session_timings():
     print("[PASS] Monotonic stage timings recorded accurately.")
 
 
+def test_injection_timing_does_not_claim_visible_delivery():
+    timing = injection_completion_timing(10.0, 10.75, 10.2)
+    assert timing["stop_action_to_injection_result_ms"] == 750.0
+    assert timing["acoustic_end_to_injection_result_ms"] == 550.0
+    assert timing["stop_action_to_visible_text_ms"] is None
+    assert timing["visible_delivery_status"] == "not_measured"
+    assert "acoustic_end_to_visible_text_ms" not in timing
+
+    without_acoustic = injection_completion_timing(10.0, 10.75)
+    assert without_acoustic["acoustic_end_to_injection_result_ms"] is None
+    assert without_acoustic["stop_action_to_visible_text_ms"] is None
+
+
 def test_orchestrator_session_ownership():
     print("\n" + "=" * 65)
     print("TEST: ORCHESTRATOR SESSION OWNERSHIP & CANCELLATION")
@@ -119,7 +132,8 @@ if __name__ == "__main__":
     test_session_state_machine_transitions()
     test_session_cancellation_guards()
     test_session_timings()
+    test_injection_timing_does_not_claim_visible_delivery()
     test_orchestrator_session_ownership()
     print("\n=======================================================")
-    print("ALL SESSION LIFECYCLE TESTS PASSED (4/4)")
+    print("ALL SESSION LIFECYCLE TESTS PASSED (5/5)")
     print("=======================================================")

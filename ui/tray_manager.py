@@ -14,6 +14,8 @@ class TrayManager(QObject):
     reinject_requested = Signal()
     dashboard_requested = Signal()
     toggle_hud_requested = Signal()
+    show_now_requested = Signal()
+    visibility_mode_requested = Signal(str)
     restore_hud_requested = Signal()
     switch_visual_requested = Signal()
     settings_requested = Signal()
@@ -88,6 +90,23 @@ class TrayManager(QObject):
 
         self.action_hud = self.menu.addAction("Show/Hide Desktop Companion")
         self.action_hud.triggered.connect(self.toggle_hud_requested.emit)
+
+        self.action_show_now = self.menu.addAction("Show companion now")
+        self.action_show_now.triggered.connect(self.show_now_requested.emit)
+
+        self.visibility_menu = self.menu.addMenu("Companion visibility")
+        from PySide6.QtGui import QActionGroup
+        self.visibility_group = QActionGroup(self)
+        self.visibility_group.setExclusive(True)
+        self.visibility_actions = {}
+        for title, mode in (("Smart", "smart"), ("Always show", "always"), ("Hide", "hidden")):
+            action = self.visibility_menu.addAction(title)
+            action.setCheckable(True)
+            self.visibility_group.addAction(action)
+            action.triggered.connect(lambda checked=False, value=mode: self.visibility_mode_requested.emit(value))
+            self.visibility_actions[mode] = action
+        self.action_visibility_status = self.visibility_menu.addAction("Status: starting")
+        self.action_visibility_status.setEnabled(False)
 
         self.action_restore = self.menu.addAction("Restore Companion to Bottom-Right")
         self.action_restore.triggered.connect(self.restore_hud_requested.emit)
@@ -183,6 +202,7 @@ class TrayManager(QObject):
 
     def set_state(self, state: str):
         st = state.lower()
+        self._last_state = st
         hk = getattr(self, '_hotkey_str', 'Ctrl+Shift+Space')
         if st in ("listening", "recording"):
             self.tray_icon.setIcon(self.icon_recording)
@@ -204,6 +224,17 @@ class TrayManager(QObject):
             self.tray_icon.setIcon(self.icon_idle)
             self.tray_icon.setToolTip(f"FlowPilot: Ready ({hk})")
             self.action_toggle.setText(f"Start Dictation ({hk})")
+        visibility_info = getattr(self, "_visibility_info", "")
+        if visibility_info:
+            self.tray_icon.setToolTip(f"{self.tray_icon.toolTip()} | Companion: {visibility_info}")
+
+    def set_visibility_status(self, mode: str, presentation: str, reason: str):
+        self._visibility_info = f"{presentation} — {reason}"
+        if mode in self.visibility_actions:
+            self.visibility_actions[mode].setChecked(True)
+        self.action_visibility_status.setText(f"Status: {presentation} — {reason}")
+        self.action_hud.setText("Show companion" if presentation == "hidden" else "Hide companion")
+        self.set_state(getattr(self, "_last_state", "idle"))
 
     def show_notification(self, title: str, message: str, is_error: bool = False, is_warning: bool = False):
         if is_error:

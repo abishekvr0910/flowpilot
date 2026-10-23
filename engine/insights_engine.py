@@ -20,8 +20,10 @@ INSIGHTS_FILE = Path.home() / ".flowpilot" / "insights.json"
 DEFAULT_INSIGHTS: Dict[str, Any] = {
     "total_words": 0,
     "total_utterances": 0,
-    "wpm_rolling": 150.0,
-    "daily_streak": 1,
+    # No fabricated defaults: an empty profile shows dashes in the UI, and the
+    # first recorded session seeds the rolling WPM directly (no 150 WPM prior).
+    "wpm_rolling": 0.0,
+    "daily_streak": 0,
     "last_active_date": "",
     "time_saved_minutes": 0.0,
     "app_breakdown": {},
@@ -86,9 +88,14 @@ class InsightsEngine:
             self._data["total_words"] += word_count
             self._data["total_utterances"] += 1
 
-            # Exponentially weighted moving average for rolling WPM (alpha = 0.25)
-            old_wpm = self._data.get("wpm_rolling", 150.0)
-            new_wpm = round((0.75 * old_wpm) + (0.25 * session_wpm), 1)
+            # Exponentially weighted moving average for rolling WPM (alpha = 0.25).
+            # The first session seeds the rolling value directly; never smooth
+            # toward a fabricated 150 WPM prior.
+            old_wpm = self._data.get("wpm_rolling", 0.0)
+            if old_wpm <= 0.0:
+                new_wpm = session_wpm
+            else:
+                new_wpm = round((0.75 * old_wpm) + (0.25 * session_wpm), 1)
             self._data["wpm_rolling"] = new_wpm
 
             # Update streak
@@ -164,11 +171,14 @@ class InsightsEngine:
             else:
                 words_display = str(total_words)
 
+            has_data = self._data.get("total_utterances", 0) > 0 or self._data.get("meeting_count", 0) > 0
+
             return {
+                "has_data": has_data,
                 "total_words": total_words,
                 "total_words_formatted": words_display,
-                "wpm": int(round(self._data.get("wpm_rolling", 150.0))),
-                "streak": self._data.get("daily_streak", 1),
+                "wpm": int(round(self._data.get("wpm_rolling", 0.0))),
+                "streak": self._data.get("daily_streak", 0),
                 "time_saved_minutes": round(self._data.get("time_saved_minutes", 0.0), 2),
                 "time_saved_hours": round(self._data.get("time_saved_minutes", 0.0) / 60.0, 2),
                 "total_utterances": self._data.get("total_utterances", 0),

@@ -59,8 +59,8 @@ class InsightsView(QWidget):
         cards_grid.setSpacing(14)
 
         self.card_words, self.val_words = self._make_metric_card("Total Words", "0", "words dictated lifetime", "#38BDF8")
-        self.card_wpm, self.val_wpm = self._make_metric_card("Dictation Speed", "150", "average words per minute", "#34D399")
-        self.card_streak, self.val_streak = self._make_metric_card("Active Streak", "1", "consecutive active days", "#FBBF24")
+        self.card_wpm, self.val_wpm = self._make_metric_card("Dictation Speed", "—", "average words per minute", "#34D399")
+        self.card_streak, self.val_streak = self._make_metric_card("Active Streak", "—", "consecutive active days", "#FBBF24")
         self.card_time, self.val_time = self._make_metric_card("Time Saved", "0.0h", "hours saved vs. typing", "#A78BFA")
 
         # Row 2: Meeting & Guided Deliberation Intelligence
@@ -162,9 +162,15 @@ class InsightsView(QWidget):
 
     def refresh_metrics(self):
         m = self.engine.get_metrics()
+        has_data = bool(m.get("has_data", False))
         self.val_words.setText(m.get("total_words_formatted", "0"))
-        self.val_wpm.setText(f"{m.get('wpm', 150)} wpm")
-        self.val_streak.setText(f"{m.get('streak', 1)} days")
+        if has_data:
+            self.val_wpm.setText(f"{m.get('wpm', 0)} wpm")
+            self.val_streak.setText(f"{m.get('streak', 0)} days")
+        else:
+            # No sessions yet: show an explicit empty state, never invented numbers.
+            self.val_wpm.setText("—")
+            self.val_streak.setText("—")
         self.val_time.setText(f"{m.get('time_saved_hours', 0.0)}h")
 
         # Meeting Intelligence metrics
@@ -177,7 +183,7 @@ class InsightsView(QWidget):
         dict_hrs = m.get("time_saved_hours", 0.0) * 1.5
         total_hrs = dict_hrs + m_hrs
         deep_pct = 100 if m_hrs == 0 else int(max(10, min(100, (dict_hrs / (total_hrs or 1.0)) * 100)))
-        self.val_deep_work.setText(f"{deep_pct}%")
+        self.val_deep_work.setText(f"{deep_pct}%" if has_data else "—")
 
         # Populate table
         recent = m.get("recent_sessions", [])

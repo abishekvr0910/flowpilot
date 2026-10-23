@@ -4,6 +4,7 @@ Reports decode/format duration, not stop-to-visible-text latency. RSS is sampled
 not a peak measurement. This runner does not perform network instrumentation.
 """
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -22,6 +23,7 @@ from engine.evaluation_metrics import (
     calculate_wer, calculate_cer, verify_critical_facts, calculate_formatted_quality_score,
 )
 from engine.real_voice_corpus import RealVoiceCorpus, get_dev_smoke_corpus
+from benchmarks.runtime_metrics import collect_runtime_environment, summarize_processing_trials
 
 
 def get_current_rss_mb():
@@ -45,6 +47,7 @@ def run_evaluation(manifest_path: Optional[Path] = None, model_size="base",
     items = corpus.items if limit is None else corpus.items[:limit]
     root = manifest_path.resolve().parent if manifest_path is not None else PROJECT_ROOT
     initial_rss = get_current_rss_mb()
+    environment = collect_runtime_environment(PROJECT_ROOT)
     stt = processor = None
     results = []
     for item in items:
@@ -67,6 +70,9 @@ def run_evaluation(manifest_path: Optional[Path] = None, model_size="base",
                 stt = STTEngine({"local_model_size": model_size, "cpu_threads": min(8, os.cpu_count() or 4)})
                 processor = ContextProcessor({"active_tone_mode": "developer"})
             wav = audio_path.read_bytes()
+            phase = "warm" if stt.get_model_status()["status"] == "ready" else "cold"
+            row["phase"] = phase
+            cpu_start = time.process_time()
             start = time.perf_counter()
             raw = stt.transcribe(wav, language=item.language)
             if raw.get("error"):
@@ -80,6 +86,7 @@ def run_evaluation(manifest_path: Optional[Path] = None, model_size="base",
                 active_window={"window_title": "Evaluation", "process_name": "code.exe"},
                 session_mode="developer", language=item.language)
             format_sec = time.perf_counter() - start
+            process_cpu_sec = time.process_time() - cpu_start
             facts = verify_critical_facts(item.spoken_reference, hypothesis, item.language)
             missing_critical = (facts["missing_numbers"] + facts["missing_negations"]
                                 + facts["missing_identifiers"])
@@ -90,7 +97,10 @@ def run_evaluation(manifest_path: Optional[Path] = None, model_size="base",
                 fact_accuracy=facts["accuracy"], facts_preserved=facts["preserved"],
                 missing_critical=missing_critical, added_critical=added_critical,
                 quality_score=calculate_formatted_quality_score(item.formatted_reference, formatted, item.language),
-                decode_sec=round(decode_sec, 4), format_sec=round(format_sec, 4))
+                decode_sec=round(decode_sec, 4), format_sec=round(format_sec, 4),
+                process_cpu_sec=round(process_cpu_sec, 4),
+                processing_cpu_percent=round(100 * process_cpu_sec / max(decode_sec + format_sec, 1e-9), 2),
+                sampled_rss_mb=get_current_rss_mb())
             if include_text:
                 row.update(spoken_ref=item.spoken_reference, hypothesis=hypothesis,
                            formatted_ref=item.formatted_reference, formatted_hyp=formatted)
@@ -109,7 +119,26 @@ def run_evaluation(manifest_path: Optional[Path] = None, model_size="base",
         "latency_boundary": "WAV decode + formatting only; first decode includes lazy model load; no OS injection",
         "network_verification": "not instrumented by this runner",
         "languages": {},
+        "runtime": {
+            "environment": environment,
+            "cpu_threads": min(8, os.cpu_count() or 4),
+            "timing": summarize_processing_trials(results),
+            "cpu_boundary": "Evaluator process CPU seconds during decode and formatting; percent may exceed 100 across cores",
+            "memory_boundary": "Process tree RSS sampled after each successful trial; not peak memory or desktop HUD usage",
+            "unmeasured": ["visible_delivery", "desktop_cold_start", "recording_cpu", "companion_cpu", "peak_memory", "long_session_growth"],
+        },
     }
+    if measured:
+        try:
+            model_file = Path(STTEngine.resolve_model_path(model_size)) / "model.bin"
+            if model_file.is_file():
+                digest = hashlib.sha256()
+                with model_file.open("rb") as model_stream:
+                    for block in iter(lambda: model_stream.read(1048576), b""):
+                        digest.update(block)
+                aggregate["runtime"]["model_sha256"] = digest.hexdigest()
+        except OSError as exc:
+            aggregate["runtime"]["model_fingerprint_error"] = type(exc).__name__
     for language in sorted({r["language"] for r in results}):
         rows = [r for r in measured if r["language"] == language]
         stats = {"count": len(rows), "requested_items": sum(r["language"] == language for r in results)}

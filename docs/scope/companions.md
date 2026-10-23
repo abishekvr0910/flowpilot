@@ -1,0 +1,53 @@
+# Companions
+
+The companion should make dictation feel welcoming without interrupting the work underneath it. It remains an original native part of FlowPilot, not a copy of another app or character franchise.
+
+## Existing foundation
+
+### 10. Native companions and creator · existing
+
+The HUD, tray, Studio, pixel creator, and opt in preference proposals are implemented. The selected character and its motion can be changed locally. App visibility rules now feed the native visibility controller in the working tree. Code in `ui/floating_hud.py`, `ui/companion_visibility_controller.py`, `ui/companion_studio.py`, `ui/pixel_creator.py`, `engine/companion_store.py`, and `engine/preference_learning.py`.
+
+## Product quality
+
+### 20. Context aware companion visibility · in progress
+
+Keep the companion out of fullscreen viewing and presentations. Let users choose a quiet edge presence in selected editors and terminals, or keep the pet visible. Dictation and tray feedback continue while it is hidden.
+
+**Done when:** entering and leaving fullscreen changes only presentation, manual hide persists, approved app rules apply, hidden animation stops, and no transition steals focus or changes paste status.
+
+- [x] Design it (spec): `/architect context aware companion visibility`
+- [x] Build the native policy, migration, controller, tray, dashboard, Studio and app rule controls.
+- [x] Measure the automatable portion of the interactive gate on a live desktop: borderless fullscreen hide 0.203 s and 0.516 s, restore 0.610 s and 0.625 s, a maximized plain window holds the companion, and a full context sample stays under half a millisecond per call. Details in [the gate results note](../testing/COMPANION_VISIBILITY_INTERACTIVE_GATE_RESULTS.md). The probe needs a quiet desktop and reports unmeasurable rather than a pass when the operator keeps working.
+- [ ] A person still verifies the human portion on a real machine: Chrome F11, a real PowerPoint slideshow, F9 tray behavior while hidden, third party paste behavior across real editors, and the packaged binary on one live session. The open list is in the gate results note.
+- [ ] Decide release promotion after measured window transitions and pilot review.
+
+Active implementation contract: [spec 0001](../specs/0001-context-aware-companion-visibility.md). Automated checks do not replace the interactive desktop gate, and RC2 remains unchanged.
+
+### 21. Original character quality and rights · planned · needs a decision
+
+Make a small set of expressive original characters and improve the creator so people can make and share their own without importing unsafe or unlicensed assets.
+
+**Done when:** characters remain readable at desktop size in every dictation state, reduced motion works, import limits and credits are clear, and a rights review finds no copied franchise art or competitor bundle in the package.
+
+- [ ] Design it (spec): `/architect original companion character quality`
+
+## Later
+
+### 23. Optional editor presence · planned · needs a decision
+
+Explore an opt in status item inside a supported editor after desktop visibility rules are proven. Keep workspace and source content out of the integration by default.
+
+**Done when:** an opted in editor can show truthful dictation status and open companion controls without a desktop overlay, editor focus loss, or non local traffic.
+
+- [ ] Design it (spec): `/architect optional editor presence`
+
+### 24. Windowed media and screen share behavior · closed · manual app rules
+
+Research question: can a local signal distinguish foreground windowed video from background music without reading screen pixels or private content?
+
+Answer from [the windowed video detection note](../research/WINDOWED_VIDEO_COMPANION_DETECTION.md): no provable signal. Global media session metadata does not tie playback to the visible foreground tab; some players publish nothing; proving otherwise would require reading content the companion must not touch. The decision closes this feature on manual rules: fullscreen video and Windows presentation states hide the companion automatically, and any ordinary sized player or browser is handled by an explicit per app rule in Companion Studio. Automatic windowed recognition is out of scope unless a future local, opt in signal can pass the false hide and missed hide tests listed in the note.
+
+**Done when:** a tested signal avoids false hides without reading screen pixels or private content, or the feature stays a manual app rule. Screen capture exclusion is evaluated separately and never described as a guarantee.
+
+- [ ] Design it (spec): `/architect windowed media and screen share behavior`

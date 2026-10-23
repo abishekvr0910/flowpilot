@@ -11,7 +11,7 @@ Wispr Flow Parity & Leapfrog:
     * Translate to English (multilingual input to clear English)
     * Custom Voice / Text Prompt (apply user-defined transformation prompt)
 - FactGuard Invariant Protection: verifies critical named entities, digits, and negations
-- Atomic replacement with undo/recovery buffer
+- External replacements remain unavailable until revision and selection checks exist
 """
 
 import sys
@@ -77,7 +77,7 @@ except ImportError:
     HAS_WIN32 = False
 
 from engine.writing_intelligence import FactGuard
-from engine.text_injector import TextInjector
+from engine.text_injector import TextInjector, InjectionResult, InjectionStatus
 
 PRESET_TRANSFORMS = {
     "make_concise": {
@@ -412,48 +412,88 @@ class TransformsEngine:
             can_apply=True
         )
 
-    def replace_selection(self, replacement_text: str, target_hwnd: Optional[int] = None, result: Optional[TransformResult] = None) -> bool:
+    def replace_selection(
+        self,
+        replacement_text: str,
+        target_hwnd: Optional[int] = None,
+        result: Optional[TransformResult] = None,
+        transaction: Optional[Any] = None
+    ) -> InjectionResult:
         """
-        Atomically replaces the active selection with transformed text.
-        Guarded: cannot inject if result or last transform is not eligible to apply.
+        Refuses external replacement until a real target adapter is implemented.
+
+        Formatting eligibility and caller-supplied transaction labels do not prove
+        document ownership. Scratchpad edits use VoiceEditor.apply_transaction()
+        directly. The transaction argument is retained for caller compatibility,
+        but cannot authorize input through this method.
         """
         if result is not None and not result.can_apply:
             logger.warning("[Transforms] Injection blocked: TransformResult has can_apply=False.")
-            return False
+            return InjectionResult(
+                status=InjectionStatus.CANCELLED,
+                error_message="Injection blocked: TransformResult has can_apply=False.",
+                recovery_available=False
+            )
 
         with self._lock:
             if result is None and not getattr(self, "_last_can_apply", False):
                 logger.warning("[Transforms] Injection blocked: Last transform has can_apply=False.")
-                return False
+                return InjectionResult(
+                    status=InjectionStatus.CANCELLED,
+                    error_message="Injection blocked: last transform has can_apply=False.",
+                    recovery_available=False
+                )
 
         if not replacement_text:
-            return False
+            return InjectionResult(
+                status=InjectionStatus.CANCELLED,
+                error_message="Empty replacement text provided.",
+                recovery_available=False
+            )
 
-        hwnd = target_hwnd or self._last_target_hwnd
-        if not hwnd and HAS_WIN32:
-            hwnd = win32gui.GetForegroundWindow()
+        TextInjector.last_injected_text = replacement_text
+        return InjectionResult(
+            status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+            target_hwnd=target_hwnd or self._last_target_hwnd,
+            error_message=(
+                "External in-place replacement unavailable: document revision and "
+                "selection cannot be verified. Use Copy Output and paste manually."
+            ),
+            recovery_available=True,
+        )
 
-        res = TextInjector.inject_with_status(replacement_text, hwnd)
-        if not res:
-            res_bool = TextInjector.inject_unicode_sendinput(replacement_text, hwnd)
-            return bool(res_bool)
-        return True
+    def revert_last_transform(
+        self,
+        target_hwnd: Optional[int] = None,
+        transaction: Optional[Any] = None
+    ) -> InjectionResult:
+        """
+        Refuses external revert without a verified record of the applied edit.
 
-    def revert_last_transform(self) -> bool:
-        """Restores the original untransformed text back into the target window."""
+        Reinserting old text at the current cursor is not an undo. Scratchpad
+        undo remains available through its separate VoiceEditor transactions.
+        """
         with self._lock:
             orig = self._last_original_text
-            hwnd = self._last_target_hwnd
+            hwnd = target_hwnd or self._last_target_hwnd
 
         if not orig:
-            return False
-        if not hwnd and HAS_WIN32:
-            hwnd = win32gui.GetForegroundWindow()
-        res = TextInjector.inject_with_status(orig, hwnd)
-        if not res:
-            res_bool = TextInjector.inject_unicode_sendinput(orig, hwnd)
-            return bool(res_bool)
-        return True
+            return InjectionResult(
+                status=InjectionStatus.CANCELLED,
+                error_message="No previous transform text found to revert.",
+                recovery_available=False
+            )
+
+        TextInjector.last_injected_text = orig
+        return InjectionResult(
+            status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+            target_hwnd=hwnd,
+            error_message=(
+                "External revert unavailable: the prior edit and document revision "
+                "cannot be verified. Original text remains in memory for recovery."
+            ),
+            recovery_available=True,
+        )
 
     # -----------------------------------------------------------------
     # Deterministic Local Transformation Primitives

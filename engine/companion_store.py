@@ -11,10 +11,12 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 DEFAULT_COMPANION_CONFIG: Dict[str, Any] = {
-    "schema_version": 1,
+    "schema_version": 2,
     "selected_asset_id": "kitty",  # "kitty", "mascot", "edge_line", "wave_bar", or custom
     "appearance_locked": True,     # Replaces double-click cycling with locked, explicit selection
     "visible": True,
+    "visibility_mode": "smart",
+    "last_visible_mode": "smart",
     "size_scale": 1.0,
     "motion_preset": "gentle_bob", # "breathe", "gentle_bob", "tiny_tilt", "audio_pulse", "celebration", "reduced_motion"
     "reduced_motion": False,
@@ -50,9 +52,22 @@ class CompanionStore:
             try:
                 with open(self.companion_file, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
+                if not isinstance(loaded, dict):
+                    raise ValueError("companion.json must contain an object")
                 data = DEFAULT_COMPANION_CONFIG.copy()
                 data.update(loaded)
+                if loaded.get("visibility_mode") not in ("smart", "always", "hidden"):
+                    if "visible" in loaded:
+                        data["visibility_mode"] = "always" if loaded["visible"] else "hidden"
+                    else:
+                        data["visibility_mode"] = "smart"
+                if loaded.get("last_visible_mode") not in ("smart", "always"):
+                    data["last_visible_mode"] = "smart" if data["visibility_mode"] == "hidden" else data["visibility_mode"]
+                data["schema_version"] = 2
+                data["visible"] = data["visibility_mode"] != "hidden"
                 self._data = data
+                if data != loaded:
+                    self._persist_unlocked()
             except Exception as e:
                 print(f"[CompanionStore Warning] Failed to read {self.companion_file}: {e}. Initializing defaults.")
                 self._migrate_or_init()
@@ -79,6 +94,10 @@ class CompanionStore:
                     data["hud_y"] = cfg["hud_y"]
                 if "appearance_locked" in cfg:
                     data["appearance_locked"] = bool(cfg["appearance_locked"])
+                if "visible" in cfg:
+                    data["visibility_mode"] = "always" if cfg["visible"] else "hidden"
+                    data["visible"] = bool(cfg["visible"])
+                    data["last_visible_mode"] = "always"
             except Exception:
                 pass
 
@@ -94,6 +113,9 @@ class CompanionStore:
             return self._data.copy()
 
     def set(self, key: str, value: Any) -> Any:
+        if key == "visibility_mode":
+            self.set_visibility_mode(value)
+            return value
         with self._lock:
             self._data[key] = value
             self._persist_unlocked()
@@ -102,26 +124,51 @@ class CompanionStore:
     def update(self, updates: Dict[str, Any]) -> Dict[str, Any]:
         """Atomically updates specific keys and persists them to disk."""
         with self._lock:
-            self._data.update(updates)
-            self._persist_unlocked()
+            if "visibility_mode" in updates:
+                mode = updates["visibility_mode"]
+                if mode not in ("smart", "always", "hidden"):
+                    raise ValueError("Invalid companion visibility mode")
+            previous = self._data
+            self._data = {**self._data, **updates}
+            if "visibility_mode" in updates:
+                if mode != "hidden":
+                    self._data["last_visible_mode"] = mode
+                self._data["visible"] = mode != "hidden"
+            if not self._persist_unlocked():
+                self._data = previous
+                raise OSError("Could not save companion settings")
             return self._data.copy()
+
+    def set_visibility_mode(self, mode: str) -> Dict[str, Any]:
+        if mode not in ("smart", "always", "hidden"):
+            raise ValueError("Invalid companion visibility mode")
+        return self.update({"visibility_mode": mode})
 
     def save(self, data: Dict[str, Any]) -> None:
         """Atomically writes configuration to companion.json using tempfile replacement."""
         with self._lock:
-            self._data = DEFAULT_COMPANION_CONFIG.copy()
-            self._data.update(data)
+            merged = DEFAULT_COMPANION_CONFIG.copy()
+            merged.update(data)
+            mode = merged.get("visibility_mode", "smart")
+            if mode not in ("smart", "always", "hidden"):
+                raise ValueError("Invalid companion visibility mode")
+            merged["visible"] = mode != "hidden"
+            if mode != "hidden":
+                merged["last_visible_mode"] = mode
+            self._data = merged
             self._persist_unlocked()
 
-    def _persist_unlocked(self) -> None:
+    def _persist_unlocked(self) -> bool:
         try:
             self.storage_dir.mkdir(parents=True, exist_ok=True)
             temp_path = self.companion_file.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(self._data, f, indent=2, ensure_ascii=False)
             os.replace(temp_path, self.companion_file)
+            return True
         except Exception as e:
             print(f"[CompanionStore Error] Failed to persist companion.json: {e}")
+            return False
 
 # Global singleton accessor
 _store_instance: Optional[CompanionStore] = None

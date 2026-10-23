@@ -28,8 +28,21 @@ class TestInsightsEngine(unittest.TestCase):
         m = self.engine.get_metrics()
         self.assertEqual(m["total_words"], 0)
         self.assertEqual(m["total_words_formatted"], "0")
-        self.assertEqual(m["streak"], 1)
+        self.assertEqual(m["streak"], 0)
         self.assertEqual(m["total_utterances"], 0)
+        self.assertFalse(m["has_data"])
+        self.assertEqual(m["wpm"], 0)
+
+    def test_first_session_seeds_wpm_and_drives_has_data(self):
+        m = self.engine.record_dictation("one two three four five six seven eight nine ten", duration_sec=4.0)
+        self.assertEqual(m["wpm"], 150)
+        self.assertEqual(m["streak"], 1)
+        self.assertTrue(m["has_data"])
+
+    def test_second_session_smooths_without_fake_prior(self):
+        self.engine.record_dictation("one two three four five six seven eight nine ten", duration_sec=4.0)  # 150 wpm
+        m = self.engine.record_dictation("one two three four five six seven eight nine ten", duration_sec=2.0)  # 300 wpm
+        self.assertEqual(m["wpm"], int(round(0.75 * 150 + 0.25 * 300)))
 
     def test_record_dictation_calculates_words_and_wpm(self):
         text = "This is a quick test of the local transcription system."  # 10 words

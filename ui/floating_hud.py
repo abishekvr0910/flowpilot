@@ -66,6 +66,8 @@ class FloatingHUD(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._current_state = "idle"
+        self._presentation_style = "normal"
+        self._edge_original_pos = None
         self._audio_level = 0.0
         self._tick = 0
         self._is_blinking = False
@@ -112,7 +114,7 @@ class FloatingHUD(QWidget):
         # Animation timer (30 FPS for fluid procedural animation)
         self._anim_timer = QTimer(self)
         self._anim_timer.timeout.connect(self._on_anim_tick)
-        self._anim_timer.start(33)
+        self._sync_animation_timer()
 
     def _apply_style_dimensions(self):
         w, h = CompanionRenderer.get_preferred_size(self._visual_style)
@@ -139,6 +141,7 @@ class FloatingHUD(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        self._sync_animation_timer()
         if sys.platform == "win32":
             try:
                 hwnd = int(self.winId())
@@ -147,6 +150,43 @@ class FloatingHUD(QWidget):
                 user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style | WS_EX_NOACTIVATE | WS_EX_TOPMOST)
             except Exception as e:
                 print(f"[FloatingHUD Warning] Could not apply WS_EX_NOACTIVATE: {e}")
+
+    def hideEvent(self, event):
+        self._anim_timer.stop()
+        super().hideEvent(event)
+
+    def _sync_animation_timer(self):
+        if not hasattr(self, "_anim_timer"):
+            return
+        animate = self.isVisible() and not self._reduced_motion and self._presentation_style != "edge"
+        if animate and not self._anim_timer.isActive():
+            self._anim_timer.start(33)
+        elif not animate and self._anim_timer.isActive():
+            self._anim_timer.stop()
+
+    def set_presentation(self, presentation: str):
+        """Change only live rendering; never mutate the selected companion or placement."""
+        if presentation not in ("normal", "edge"):
+            raise ValueError("Invalid companion presentation")
+        if presentation == self._presentation_style:
+            self._sync_animation_timer()
+            return
+        if presentation == "edge":
+            self._edge_original_pos = self.pos()
+            self._presentation_style = "edge"
+            self.setFixedSize(*CompanionRenderer.get_preferred_size("signal_edge"))
+            screen = self.screen() or QApplication.primaryScreen()
+            if screen:
+                geom = screen.availableGeometry()
+                self.move(geom.right() - self.width() - 6, geom.center().y() - self.height() // 2)
+        else:
+            self._presentation_style = "normal"
+            self._apply_style_dimensions()
+            if self._edge_original_pos is not None:
+                self.move(self._edge_original_pos)
+                self._edge_original_pos = None
+        self._sync_animation_timer()
+        self.update()
 
     def set_hotkey_info(self, hotkey_str: str, mode: str = "toggle"):
         # Tooltip with clean hotkey guidance
@@ -307,6 +347,8 @@ class FloatingHUD(QWidget):
         self._cat_pixmap_cache.clear()
         self._custom_pixmap_cache.clear()
         self._apply_style_dimensions()
+        if self._presentation_style == "edge":
+            self.setFixedSize(*CompanionRenderer.get_preferred_size("signal_edge"))
         self._save_position()
         self.update()
 
@@ -341,6 +383,8 @@ class FloatingHUD(QWidget):
 
 
     def _save_position(self):
+        if self._presentation_style == "edge":
+            return
         try:
             from engine.companion_store import get_companion_store
             store = get_companion_store()
@@ -527,15 +571,16 @@ class FloatingHUD(QWidget):
         w = self.width()
         h = self.height()
         st = self._current_state
+        render_style = "signal_edge" if self._presentation_style == "edge" else self._visual_style
 
         # Branch Custom: User-Created Emoji, Image, or Sprite Companion
-        if self._visual_style not in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee", "edge_line", "signal_edge", "wave_bar", "signal", "mascot", "pilot", "seedling", "nimbus", "kiki"):
+        if render_style not in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee", "edge_line", "signal_edge", "wave_bar", "signal", "mascot", "pilot", "seedling", "nimbus", "kiki"):
             self._paint_custom_companion(p, w, h, st)
             p.end()
             return
 
         # Branch K: SondeR-Cat Pixel Kitty, Dog & Retro Companions
-        if self._visual_style in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
+        if render_style in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
             self._paint_kitty(p, w, h, st)
             p.end()
             return
@@ -548,7 +593,7 @@ class FloatingHUD(QWidget):
         CompanionRenderer.render(
             painter=p,
             bounds=bounds,
-            style=self._visual_style,
+            style=render_style,
             state=st,
             elapsed_ms=elapsed_ms,
             audio_level=self._audio_level,

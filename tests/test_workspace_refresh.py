@@ -218,5 +218,88 @@ def test_recovery_controls_use_existing_handlers(dashboard):
         copy_text.assert_called_once_with("A synthetic recovery fixture.")
 
 
+def _wheel(dashboard, combo, delta=120):
+    from PySide6.QtGui import QWheelEvent
+    from PySide6.QtCore import QPointF, QPoint, Qt
+    center = QPointF(combo.rect().center())
+    event = QWheelEvent(
+        center, QPointF(combo.mapToGlobal(center.toPoint())),
+        QPoint(0, 0), QPoint(0, delta),
+        Qt.NoButton, Qt.NoModifier, Qt.ScrollUpdate, False
+    )
+    QApplication.sendEvent(combo, event)
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    QApplication.processEvents()
+    return event
+
+
+def test_wheel_over_closed_combo_never_changes_value_and_scrolls_page(dashboard):
+    combo = dashboard.home_page.visibility_choice
+    assert combo.count() >= 2
+    combo.blockSignals(True)
+    combo.setCurrentIndex(0)
+    combo.blockSignals(False)
+    before = combo.currentIndex()
+    mode_requests = []
+    dashboard.companion_visibility_requested.connect(mode_requests.append)
+    _wheel(dashboard, combo, delta=240)
+    assert combo.currentIndex() == before
+    assert mode_requests == []
+
+
+def test_wheel_over_closed_combo_forwards_to_parent_scroll_area(dashboard):
+    from PySide6.QtWidgets import QAbstractScrollArea
+    combo = dashboard.home_page.visibility_choice
+    # At the minimum window size the home page does not fit and must remain
+    # reachable by wheel scrolling even over the combo.
+    dashboard.resize(880, 580)
+    QApplication.processEvents()
+    target = None
+    parent = combo.parentWidget()
+    while parent is not None:
+        if isinstance(parent, QAbstractScrollArea):
+            target = parent
+            break
+        parent = parent.parentWidget()
+    assert target is not None
+    assert target.verticalScrollBar().maximum() > 0
+    target.verticalScrollBar().setValue(0)
+    combo.blockSignals(True)
+    combo.setCurrentIndex(0)
+    _wheel(dashboard, combo, delta=-240)
+    assert target.verticalScrollBar().value() > 0
+
+
+def test_wheel_filter_ignores_combo_with_open_popup(dashboard, monkeypatch):
+    from ui.flowpilot_dashboard import _wheel_guard
+    assert _wheel_guard is not None
+    combo = dashboard.home_page.visibility_choice
+
+    class FakeView:
+        def isVisible(self):
+            return True
+
+    monkeypatch.setattr(combo, "view", lambda: FakeView())
+    combo.blockSignals(True)
+    combo.setCurrentIndex(0)
+    event = _wheel(dashboard, combo, delta=120)
+    assert _wheel_guard.eventFilter(combo, event) is False
+
+
+def test_insights_view_shows_dashes_until_real_data(tmp_path):
+    from engine.insights_engine import InsightsEngine
+    from ui.insights_view import InsightsView
+    engine = InsightsEngine(storage_path=tmp_path / "insights.json")
+    view = InsightsView(parent=None, engine=engine)
+    assert view.val_words.text() == "0"
+    assert view.val_wpm.text() == "—"
+    assert view.val_streak.text() == "—"
+    assert view.val_deep_work.text() == "—"
+    engine.record_dictation("six fresh words are now real data", duration_sec=2.4)
+    view.refresh_metrics()
+    assert view.val_wpm.text().endswith("wpm")
+    assert view.val_streak.text().endswith("days")
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

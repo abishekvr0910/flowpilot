@@ -31,6 +31,9 @@ from ui.settings_dialog import SettingsDialog
 from ui.companion_studio import CompanionStudioDialog
 from ui.flowpilot_dashboard import FlowPilotDashboard
 from ui.setup_wizard import SetupWizardDialog
+from ui.companion_visibility_controller import CompanionVisibilityController
+from engine.companion_store import get_companion_store
+from engine.preference_learning import get_learning_engine
 
 class StateBridge(QObject):
     state_changed = Signal(dict)
@@ -99,6 +102,11 @@ class FlowPilotApp:
             on_dictate=self.orchestrator.toggle_dictation,
             personalization=self.orchestrator.personalization
         )
+        self.visibility = CompanionVisibilityController(
+            self.hud, get_companion_store(), get_learning_engine()
+        )
+        self.visibility.decision_changed.connect(self._on_visibility_changed)
+        self.visibility.error.connect(self._on_visibility_error)
         self.settings_dlg = None
         self.studio_dlg = None
 
@@ -118,8 +126,8 @@ class FlowPilotApp:
         self.tray.dashboard_requested.connect(self.show_dashboard)
         self.dashboard.companion_changed.connect(self._on_companion_switched_from_dashboard)
         self.dashboard.companion_settings_applied.connect(self._on_companion_applied)
-        self.dashboard.show_companion_requested.connect(self.hud.show)
-        self.dashboard.show_companion_requested.connect(self.hud.raise_)
+        self.dashboard.show_companion_requested.connect(self.visibility.show_now)
+        self.dashboard.companion_visibility_requested.connect(self.visibility.set_mode)
         self.dashboard.dictate_requested.connect(self.orchestrator.toggle_dictation)
 
         # Unified dictation triggers: Floating HUD button & Tray click & Hotkeys
@@ -145,9 +153,11 @@ class FlowPilotApp:
         # Companion Studio triggers
         self.hud.studio_requested.connect(self.show_companion_studio)
         self.tray.studio_requested.connect(self.show_companion_studio)
-        self.tray.restore_hud_requested.connect(lambda: self.hud.snap_to_corner("bottom_right"))
+        self.tray.restore_hud_requested.connect(self.restore_hud)
 
         self.tray.toggle_hud_requested.connect(self.toggle_hud_visibility)
+        self.tray.show_now_requested.connect(self.visibility.show_now)
+        self.tray.visibility_mode_requested.connect(self.visibility.set_mode)
         self.tray.switch_visual_requested.connect(self.hud.toggle_visual_style)
         self.tray.ducking_toggled.connect(self._on_ducking_toggled)
 
@@ -168,8 +178,7 @@ class FlowPilotApp:
                 x = geom.right() - self.hud.width() - 24
                 y = geom.bottom() - self.hud.height() - 140
                 self.hud.move(x, y)
-        self.hud.show()
-        self.hud.raise_()
+        self.visibility.start()
 
         # Show setup wizard on first run, or master application dashboard window
         if enforce_single_instance and not os.environ.get("CI") and not os.environ.get("FLOWPILOT_HEADLESS"):
@@ -269,10 +278,24 @@ class FlowPilotApp:
         self.hud.update()
 
     def toggle_hud_visibility(self):
-        if self.hud.isVisible():
-            self.hud.hide()
-        else:
-            self.hud.show()
+        self.visibility.toggle()
+
+    def restore_hud(self):
+        if self.visibility.store.get("visibility_mode") == "hidden":
+            self.visibility.set_mode(self.visibility.store.get("last_visible_mode", "smart"))
+        self.visibility.show_now()
+        self.hud.set_presentation("normal")
+        self.hud.snap_to_corner("bottom_right")
+        self.visibility.refresh(force=True)
+
+    def _on_visibility_changed(self, presentation: str, reason: str):
+        mode = self.visibility.store.get("visibility_mode", "smart")
+        self.tray.set_visibility_status(mode, presentation, reason)
+        self.dashboard.home_page.set_visibility_status(presentation, reason)
+
+    def _on_visibility_error(self, message: str):
+        self.tray.show_notification("Companion setting not saved", message, is_error=True)
+        self.dashboard.home_page.refresh()
 
     def _on_ducking_toggled(self, enabled: bool):
         self.orchestrator.ducker.duck_mode = "mute" if enabled else "off"
@@ -357,14 +380,15 @@ class FlowPilotApp:
 
     def _on_companion_applied(self, payload: dict):
         if payload.get("action") == "show_live":
-            self.hud.show()
-            self.hud.raise_()
+            self.visibility.show_now()
+            return
+        if payload.get("action") == "rule_changed":
+            self.visibility.refresh(force=True)
             return
 
         # Synchronize live companion with applied companion store state
         if "selected_asset_id" in payload:
-            self.hud._visual_style = payload["selected_asset_id"]
-            self.hud._apply_style_dimensions()
+            self.hud.set_visual_style(payload["selected_asset_id"])
         if "cat_palette" in payload:
             self.hud._cat_palette = payload["cat_palette"]
             self.hud._cat_pixmap_cache.clear()
@@ -376,13 +400,16 @@ class FlowPilotApp:
             self.hud._motion_preset = payload["motion_preset"]
         if "reduced_motion" in payload:
             self.hud._reduced_motion = bool(payload["reduced_motion"])
+            self.hud._sync_animation_timer()
         if "snap_corner" in payload:
             self.hud.snap_to_corner(payload["snap_corner"])
 
         self.hud.update()
+        self.visibility.refresh(force=True)
 
     def quit(self):
         print("[FlowPilot] Shutting down cleanly...")
+        self.visibility.stop()
         self.orchestrator.stop_hotkey_listener()
         try:
             self.orchestrator.ducker.stop_ducking()

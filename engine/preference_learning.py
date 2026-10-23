@@ -177,6 +177,8 @@ class PreferenceLearningEngine:
 
         if not app_id or not setting_key:
             return
+        if setting_key == "companion_visibility" and value not in ("normal", "edge", "hidden"):
+            return
 
         with self._lock:
             rules = self._data.setdefault("approved_rules", {})
@@ -204,7 +206,19 @@ class PreferenceLearningEngine:
 
     def get_approved_rules(self) -> Dict[str, Dict[str, Any]]:
         with self._lock:
-            return self._data.get("approved_rules", {}).copy()
+            return copy.deepcopy(self._data.get("approved_rules", {}))
+
+    def set_approved_rule(self, app_id: str, setting_key: str, value: Any) -> None:
+        """A deliberate rule is immediately active and never needs learning consent."""
+        app_id = Path(app_id).name.lower()
+        if setting_key != "companion_visibility" or value not in ("normal", "edge", "hidden"):
+            raise ValueError("Invalid companion visibility rule")
+        with self._lock:
+            previous = copy.deepcopy(self._data)
+            self._data.setdefault("approved_rules", {}).setdefault(app_id, {})[setting_key] = value
+            if not self._persist_unlocked():
+                self._data = previous
+                raise OSError("Could not save app rule")
 
     def forget_rule(self, app_id: str, setting_key: str) -> None:
         """Deletes an active rule and records a tombstone preventing resurrection."""
@@ -243,15 +257,17 @@ class PreferenceLearningEngine:
                 pass
         self._data["observations"] = valid
 
-    def _persist_unlocked(self) -> None:
+    def _persist_unlocked(self) -> bool:
         try:
             self.storage_dir.mkdir(parents=True, exist_ok=True)
             temp_path = self.storage_file.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(self._data, f, indent=2, ensure_ascii=False)
             os.replace(temp_path, self.storage_file)
+            return True
         except Exception as e:
             print(f"[LearningEngine Error] Failed to save {self.storage_file}: {e}")
+            return False
 
 _learning_instance: Optional[PreferenceLearningEngine] = None
 
