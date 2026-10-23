@@ -20,6 +20,7 @@ historical evidence and must not be described with RC3 hashes.
 | Bundled assets | Faster-Whisper base and small models; Silero VAD ONNX assets |
 | Signing | `NotSigned` developer candidate |
 | Local strict gate | 54 passed, 0 skipped, 0 failed in 175.07 s with `--require-all` and this executable |
+| Hosted CI gate | [Run 40005496898](https://github.com/abishekvr0910/flowpilot/actions/runs/40005496898) passed on Windows for commit `2d3d5c4`: 47 passed, 7 headless skips, 0 failed; Node integration and binary smoke passed |
 | Standalone smoke | Passed on the promoted `dist/FlowPilot/` executable, including named mutex, duplicate launch, bundled assets and clean exit |
 | Offline self test | Passed on promoted executable with empty isolated Hugging Face cache and offline flags; zero cache files created |
 
@@ -32,9 +33,12 @@ The [live validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23
 records the media, F11, PowerPoint, hidden F9, and mixed DPI evidence,
 including failed attempts that were not counted.
 
-Hosted Windows CI for this candidate must be checked before pushing the RC3
-tag. A public general release remains held for real user pilot feedback,
-including paste reliability and real speaker language accuracy.
+The hosted runner cannot perform physical keyboard and window checks; those
+seven skips are not passes. The local `--require-all` run supplies that
+separate evidence. Before pushing the RC3 tag, verify that CI also passes on
+the exact tagged commit. A public general release remains held for real user
+pilot feedback, including paste reliability and real speaker language
+accuracy.
 
 The later [remediation verification report](../reviews/2026-10-23-remediation-verification.md) records a separate unsigned development executable built from uncommitted repairs. It does not replace this RC2 archive or its source identity, hashes, hosted CI result, or public release status.
 

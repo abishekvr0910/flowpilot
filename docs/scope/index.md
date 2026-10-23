@@ -5,7 +5,7 @@ FlowPilot is a local voice workstation for Windows users who want to dictate, re
 **Build approach:** Journey (prove setup, dictation, correction, insertion, recovery, and safe exit on real Windows machines before adding more breadth).
 **Workflow:** Beta (verify the real behavior, then test it). Release and security work uses the GA tier.
 
-This is the project scope, not a feature inventory or a promise that every current feature is field proven. `existing` means code is present. A release claim needs separate user and artifact evidence. The public download is v3.0.2; v3.1.0 RC2 is a local candidate held for pilot validation.
+This is the project scope, not a feature inventory or a promise that every current feature is field proven. `existing` means code is present. A release claim needs separate user and artifact evidence. The public download is v3.0.2; v3.1.0 RC3 is the current local candidate held for pilot validation. RC2 remains historical.
 
 ## At a glance
 
@@ -48,7 +48,7 @@ This is the project scope, not a feature inventory or a promise that every curre
 
 ## Order and boundaries
 
-The current source refuses unsupported external Replace and Revert operations. The old RC2 binary does not acquire this repair from a source edit. The next decision is [the consented pilot](release.md), after a repaired candidate is reviewed and validated. Define the exact build identity, success thresholds, and failure reporting before trials. Real voice, real paste, and runtime performance evidence are required before release promotion. Product quality work can proceed separately without relabelling RC2.
+The current source and RC3 candidate refuse unsupported external Replace and Revert operations. RC2 does not acquire later repairs from source edits. The next decision is [the consented pilot](release.md). Define the exact build identity, success thresholds, and failure reporting before trials. Real voice, real paste, and runtime performance evidence are required before a general release. Product quality work can proceed separately without relabelling RC2.
 
 FlowPilot stays local first. The normal desktop path does not depend on a cloud model. Optional localhost integrations have their own trust boundary. A green automated suite is not proof of universal paste reliability, zero risk, regulatory compliance, or superiority over Wispr Flow. Character art and interface work must be original or properly licensed. We are not planning a competitor code clone.
 
