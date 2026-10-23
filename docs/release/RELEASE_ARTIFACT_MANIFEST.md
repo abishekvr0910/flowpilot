@@ -1,6 +1,40 @@
 # FlowPilot release artifact manifest
 
-Updated 2026-10-22. A locally verified candidate is not a published release.
+Updated 2026-10-23. A locally verified candidate is not a published general release.
+
+## Local candidate: v3.1.0-RC3, Windows x64
+
+The new candidate uses the exact executable that passed the five live
+companion checks after source repair commit `681363e`. It replaces the
+unpacked app at `dist/FlowPilot/`. The RC2 archive below is retained as
+historical evidence and must not be described with RC3 hashes.
+
+| Item | Measured value |
+|---|---|
+| Archive | `dist/FlowPilot-v3.1.0-RC3-win64.zip` |
+| Archive size | 772,950,120 bytes |
+| Archive SHA-256 | `FEB13D469622B53DFD4D3B54BC8ED7C90A47DADA4B32BC1EA7432992A89C340C` |
+| Unpacked application | `dist/FlowPilot/`, 1,111,645,305 bytes across 1,203 files |
+| Executable | `dist/FlowPilot/FlowPilot.exe`, 24,885,089 bytes |
+| Executable SHA-256 | `D17FEC1C94918520CAF51B3F250897875671B6BB0B401429315AA08999ABF52E` |
+| Bundled assets | Faster-Whisper base and small models; Silero VAD ONNX assets |
+| Signing | `NotSigned` developer candidate |
+| Local strict gate | 54 passed, 0 skipped, 0 failed in 175.07 s with `--require-all` and this executable |
+| Standalone smoke | Passed on the promoted `dist/FlowPilot/` executable, including named mutex, duplicate launch, bundled assets and clean exit |
+| Offline self test | Passed on promoted executable with empty isolated Hugging Face cache and offline flags; zero cache files created |
+
+The archive passed a full CRC read of its 1,203 members. Its embedded
+`FlowPilot.exe` has the same SHA-256 as the unpacked executable and the one
+used for live testing. A filename scan found no `wispr_renderer`,
+`wispr_bridge`, `flow.sqlite`, `access_token`, `.env`, or `private` member.
+That is a filename scan, not a byte level rights audit or packet capture.
+The [live validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md)
+records the media, F11, PowerPoint, hidden F9, and mixed DPI evidence,
+including failed attempts that were not counted.
+
+Hosted Windows CI for this candidate must be checked before pushing the RC3
+tag. A public general release remains held for real user pilot feedback,
+including paste reliability and real speaker language accuracy.
 
 The later [remediation verification report](../reviews/2026-10-23-remediation-verification.md) records a separate unsigned development executable built from uncommitted repairs. It does not replace this RC2 archive or its source identity, hashes, hosted CI result, or public release status.
 

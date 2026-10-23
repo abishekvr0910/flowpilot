@@ -29,8 +29,23 @@ Latency scales with the controller interval: `ui/companion_visibility_controller
 ## Probe limitations
 
 - The probe reports unmeasurable instead of a pass when the operator keeps working, because a fullscreen child window depends on Windows foreground handoff, and any foreground activity can win it back. Attempted runs while the user was active produced this honest unmeasurable outcome rather than a false pass.
-- The probe does not touch browsers, slide shows, the real tray, dictation flows, or the packaged binary. Every human row in the checklist remains open: Chrome F11, real PowerPoint or Windows presentation mode, F9 while hidden, third party paste behavior in real editors, restart persistence of Hide and Always show, app rule behavior through Studio, motion and focus behavior, and ordinary windowed browser video (this build does not recognize it by design; use a manual app rule).
+- This earlier probe did not touch browsers, slide shows, the real tray,
+  dictation flows, or a packaged binary. Its open items were subsequently
+  narrowed by the live packaged checks below. Restart persistence, Studio
+  app rule changes, reduced motion, and a broader editor pilot remain open.
 
 ## Automated suite status on the same day
 
 `python -X utf8 tests/run_all_tests.py --require-all` with `FLOWPILOT_TEST_EXE` pointing at `scratch/companion-visibility-build-20261022/dist/FlowPilot/FlowPilot.exe`: 54 suites, 54 passed, 0 skipped, 0 failed, 133.68 s total (an independent strict rerun earlier the same day measured 135.15 s). The packaged smoke suite runs inside that count against the hash verified dev build.
+
+## Later packaged live gate
+
+The repaired candidate executable was tested on the unlocked desktop on
+23 October 2026. Its SHA-256 is
+`D17FEC1C94918520CAF51B3F250897875671B6BB0B401429315AA08999ABF52E`.
+Audible and muted windowed media, browser F11, a real PowerPoint slide show,
+F9 dictation while Hidden, and mixed DPI frame fit passed with measured
+observations in [the media validation note](MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md).
+The first F9 attempt lost foreground to Chrome and was not counted; the
+repeat verified the text in Notepad. The strict runner on this exact package
+reported 54 passed, 0 skipped, 0 failed in 175.07 s.
