@@ -128,6 +128,19 @@ a = Analysis(
     noarchive=False,
 )
 
+# FlowPilot does not import these optional Qt modules. PyInstaller's broad Qt
+# hook otherwise bundles their plugins and native libraries with every build.
+# Qt Virtual Keyboard has a different open source license boundary, and Qt PDF
+# pulls in PDFium notices; neither is needed by this widgets based desktop app.
+unused_qt_files = {
+    'qt6virtualkeyboard.dll', 'qtvirtualkeyboardplugin.dll',
+    'qt6pdf.dll', 'qpdf.dll',
+}
+a.binaries = [entry for entry in a.binaries
+              if Path(entry[0]).name.lower() not in unused_qt_files]
+a.datas = [entry for entry in a.datas
+           if Path(entry[0]).name.lower() not in unused_qt_files]
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
