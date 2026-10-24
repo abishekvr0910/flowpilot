@@ -7,6 +7,8 @@ FlowPilot is a local voice workstation for Windows users who want to dictate, re
 
 This is the project scope, not a feature inventory or a promise that every current feature is field proven. `existing` means code is present. A release claim needs separate user and artifact evidence. The public download is v3.0.2; v3.1.0 RC3 is the current local candidate held for pilot validation. RC2 remains historical.
 
+**Reviewed baseline:** `6555e3d`, 24 October 2026. The five requested RC3 live checks have recorded results. They do not close every acceptance criterion in spec 0001 or establish a competitive win. The [complete Gemini handoff](../handoffs/GEMINI_PRODUCT_COMPLETION_AND_COMPETITIVE_VALIDATION.md) maps the whole product to evidence, remaining work, delivery order, and proposed comparison gates. Writing that plan does not complete its work.
+
 ## At a glance
 
 | # | Feature | Phase | Status |
@@ -25,6 +27,8 @@ This is the project scope, not a feature inventory or a promise that every curre
 | 12 | Local storage and privacy controls | Foundation | existing |
 | 13 | Windows RC2 candidate | Foundation | existing |
 | 26 | External transform safety repair | Next release | done |
+| 28 | Persistent microphone selection | Next release | in-progress |
+| 29 | Competitive outcome evaluation | Next release | in-progress |
 | 14 | Consented Windows pilot | Next release | planned |
 | 15 | Real speaker language evaluation | Next release | planned |
 | 16 | Real application paste reliability | Next release | planned |
@@ -36,6 +40,8 @@ This is the project scope, not a feature inventory or a promise that every curre
 | 27 | Media audio aware hiding | Product quality | in-progress |
 | 21 | Original character quality and rights | Product quality | planned |
 | 22 | Safe editing beyond the scratchpad | Product quality | planned |
+| 30 | Optional local writing context | Product quality | planned |
+| 31 | Approved local correction learning | Product quality | planned |
 | 23 | Optional editor presence | Later | planned |
 | 24 | Windowed media and screen share behavior | Later | closed (manual app rules) |
 
@@ -44,11 +50,14 @@ This is the project scope, not a feature inventory or a promise that every curre
 - [Voice and writing](voice.md): existing foundations, the external transform repair, and language, delivery, performance, and editing work.
 - [Workspace](workspace.md): 3 existing work areas and one whole app usability step.
 - [Companions](companions.md): the native pet, the next visibility slice, original character polish, and later context work.
-- [Release and trust](release.md): privacy and local API boundaries, the RC2 candidate, and the evidence needed before public release.
+- [Release and trust](release.md): privacy and local API boundaries, the RC3 candidate, and the evidence needed before public release.
+- [Competitive validation](competitive.md): a fair comparison of useful text, delivery, correction effort, and user preference.
 
 ## Order and boundaries
 
-The current source and RC3 candidate refuse unsupported external Replace and Revert operations. RC2 does not acquire later repairs from source edits. The next decision is [the consented pilot](release.md). Define the exact build identity, success thresholds, and failure reporting before trials. Real voice, real paste, and runtime performance evidence are required before a general release. Product quality work can proceed separately without relabelling RC2.
+The current source and RC3 candidate refuse unsupported external Replace and Revert operations. RC2 does not acquire later repairs from source edits. The persistent microphone and independent delivery observer implementations are now present, with focused tests and a strict interactive source gate. Physical microphone disconnect and reconnect behavior still needs validation on the new candidate. Next close the remaining spec 0001 live rows, collect real voice, real paste, and runtime evidence for the consented pilot (feature 14), and run paired competitive trials. Define build identity, thresholds, and failure reporting before trials. Product quality work can proceed separately without relabelling RC2 or replacing RC3 evidence.
+
+The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the Gemini handoff; no claim of being "100% better" is authorized by a suite count or this scope.
 
 FlowPilot stays local first. The normal desktop path does not depend on a cloud model. Optional localhost integrations have their own trust boundary. A green automated suite is not proof of universal paste reliability, zero risk, regulatory compliance, or superiority over Wispr Flow. Character art and interface work must be original or properly licensed. We are not planning a competitor code clone.
 

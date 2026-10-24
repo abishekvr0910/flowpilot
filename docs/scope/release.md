@@ -12,7 +12,7 @@ Before promoting any candidate to public release, satisfy the [engineering direc
 3. **External transform safety repair**: Unsupported external Replace and Revert refuse without any input dispatch, including when a caller supplies a supposed verified transaction. Preview and Copy Output remain available, as does guarded scratchpad editing.
 4. **Physical hardware and editor validation**: Live microphone capture, audio ducking restoration, and confirmed text insertion across diverse target editors (Notepad, VS Code, Word, Terminal).
 5. **Fresh artifact provenance and verification**: Build the new candidate from its recorded source identity. Keep the original RC2 archive and hashes historical. After code changes or signing, test the final bytes, verify ZIP CRC, and compute fresh executable and archive hashes in the matching manifest. A development build from a dirty tree remains a development candidate with a recorded patch identity.
-6. **Dual profile lifecycle testing**: Test a fresh profile with `save_history_text: false` and an upgrade from supported existing profiles, preserving privacy choices, dictionary, snippets, companion settings, and old records. `visibility_mode: smart` belongs to the separate proposed companion feature and is not a current release default.
+6. **Dual profile lifecycle testing**: Test a fresh profile with `save_history_text: false` and upgrades from supported existing profiles, preserving privacy choices, dictionary, snippets, companion settings, and old records. RC3 includes the Smart companion policy; test its default and migration against the exact candidate. Do not apply the older RC2 feature boundary to RC3.
 7. **Documented rollback and downgrade limits**: Record the previous public download and tested profile compatibility. Do not assert that migrations are additive or older binaries can read them without evidence.
 8. **Measured performance**: Use the [runtime protocol](../testing/RUNTIME_PERFORMANCE_PROTOCOL.md). Processing duration and unverified dispatch must not be described as confirmed visible text latency. Record unmeasured hardware classes and resource phases explicitly.
 
@@ -28,7 +28,7 @@ New profiles default to no persisted dictation history (`save_history_text: fals
 
 ### 13. Windows RC2 candidate · existing
 
-The repository has a local v3.1.0 RC2 Windows archive with bundled base and small models, an offline self test, and a 53-suite source regression runner. It is unsigned and held from public release. See `docs/release/RELEASE_ARTIFACT_MANIFEST.md` and `tests/run_all_tests.py`. The manifest records 49 passes, 4 skips locally and 46 passes, 7 skips in hosted CI. Those skips are not physical desktop passes.
+This foundation row preserves the historical RC2 milestone. The current candidate is RC3 at `6555e3d`, with bundled base and small models. Its recorded strict local gate is 54 passed, 0 skipped, 0 failed. Hosted CI [40006224097](https://github.com/abishekvr0910/flowpilot/actions/runs/40006224097) passed for that exact commit with 47 passed and 7 headless skips. RC3 remains unsigned and held for pilot validation. See the [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md); RC2 results and hashes remain historical, and hosted skips are not physical desktop passes.
 
 ## Next release
 

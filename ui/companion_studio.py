@@ -1,5 +1,5 @@
 """
-FlowPilot Companion Studio
+Feature 19: FlowPilot Companion Studio
 Interactive native configuration window for desktop companions:
 - Explicit character selection (Kitty, Robot, Docked Line, Equalizer, and Custom Creations).
 - Appearance locking to eliminate accidental double-click cycling.
@@ -10,6 +10,9 @@ Interactive native configuration window for desktop companions:
 
 import sys
 import os
+import logging
+
+logger = logging.getLogger("FlowPilot.CompanionStudio")
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -27,7 +30,7 @@ from engine.preference_learning import get_learning_engine, PreferenceLearningEn
 from engine.personalization import PersonalizationEngine
 from ui.companion_preview import CompanionPreviewWidget
 from ui.companion_renderer import CompanionRenderer
-from ui.workspace_style import workspace_style, label, surface, harmonize_legacy_styles
+from ui.workspace_style import workspace_style, label, surface, harmonize_legacy_styles, guard_wheel_events
 
 class CompanionStudioDialog(QDialog):
     applied = Signal(dict)
@@ -56,6 +59,7 @@ class CompanionStudioDialog(QDialog):
         self._init_ui()
         self._load_draft_into_ui()
         harmonize_legacy_styles(self, self._theme, include_root=False)
+        guard_wheel_events(self)
 
     def _init_styles(self):
         self.setObjectName("WorkspacePage")

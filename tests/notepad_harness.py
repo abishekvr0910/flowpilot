@@ -108,6 +108,8 @@ class NotepadPasteResult(NamedTuple):
 def is_interactive_desktop() -> bool:
     """Returns True if the current thread is attached to the active interactive input desktop."""
     import sys
+    if os.environ.get("FLOWPILOT_HEADLESS") == "1" or os.environ.get("QT_QPA_PLATFORM", "").lower() == "offscreen":
+        return False
     if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
         # Hosted Windows runners can expose a Notepad shell without a usable
         # RichEdit document or hardware-input desktop.

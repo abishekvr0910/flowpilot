@@ -1,9 +1,13 @@
+"""Feature 28: Atomic configuration and persistent input migration."""
 import json
+import logging
 import os
 import tempfile
 import threading
 from pathlib import Path
 from typing import List, Dict, Any
+
+logger = logging.getLogger("FlowPilot.Config")
 
 def get_config_file() -> Path:
     env_file = os.environ.get("FLOWPILOT_CONFIG_FILE")
@@ -47,6 +51,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "local_llm_endpoint": "http://127.0.0.1:11434",  # Strictly localhost only
     "local_llm_model": "",  # Explicit model identity required; no silent guessing
     "local_llm_timeout": 3.0,  # Strict wall-clock deadline in seconds
+    "audio_input_selection": {"mode": "default"},  # Feature 28: Persistent endpoint identity or system default
     "history": []
 }
 
@@ -59,15 +64,17 @@ def load_config() -> Dict[str, Any]:
     try:
         with open(cfg_file, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # Merge defaults for any missing keys
-            config = DEFAULT_CONFIG.copy()
-            config.update(data)
-            # Normalize hotkey format
-            hk = config.get("hotkey", "<ctrl>+<shift>+<space>")
-            if "+space" in hk and "+<space>" not in hk:
-                config["hotkey"] = hk.replace("+space", "+<space>")
-                save_config(config)
-            return config
+        # Close the Windows read handle before an atomic replacement.
+        from engine.audio_devices import migrate_legacy_audio_config
+        changed = migrate_legacy_audio_config(data)
+        config = {**DEFAULT_CONFIG, **data}
+        hk = config.get("hotkey", "<ctrl>+<shift>+<space>")
+        if "+space" in hk and "+<space>" not in hk:
+            config["hotkey"] = hk.replace("+space", "+<space>")
+            changed = True
+        if changed and not save_config(config):
+            logger.warning("Could not persist migrated configuration")
+        return config
     except Exception as e:
         print(f"[Config] Error loading config: {e}. Using defaults.")
         return DEFAULT_CONFIG.copy()

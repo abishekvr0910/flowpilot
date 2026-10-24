@@ -1,4 +1,6 @@
+"""Feature 28: Dictation sessions and persistent microphone ownership."""
 import time
+import logging
 import threading
 import json
 from pathlib import Path
@@ -14,6 +16,9 @@ from engine.audio_feedback import AudioFeedback
 from engine.hotkey_service import get_hotkey_service, Win32HotkeyService, dictation_hotkey_conflict, parse_hotkey_string
 from engine.personalization import PersonalizationEngine, get_shared_personalization
 from engine.session import DictationSession, SessionState
+from engine.audio_devices import resolve_audio_input, build_device_selection, migrate_legacy_audio_config
+
+logger = logging.getLogger("FlowPilot.Orchestrator")
 
 
 def injection_completion_timing(
@@ -51,8 +56,10 @@ class FlowOrchestrator:
         self.on_state_change = on_state_change
         
         self.personalization = get_shared_personalization()
-        mic_dev = self.config.get("audio_device_index", self.config.get("mic_device"))
-        self.recorder = AudioRecorder(device=mic_dev)
+        migrate_legacy_audio_config(self.config)
+        self._device_selection = self.config["audio_input_selection"]
+        self._last_device_resolution = resolve_audio_input(self._device_selection)
+        self.recorder = AudioRecorder(device=self._last_device_resolution.device_index)
         self.stt = STTEngine(self.config, personalization=self.personalization)
         self.processor = ContextProcessor(self.config, personalization=self.personalization)
         self.ducker = AudioDucker(duck_mode="mute")
@@ -181,6 +188,18 @@ class FlowOrchestrator:
 
         def start_worker(active_session: DictationSession):
             try:
+                # Enumeration can change since startup or the last settings save.
+                resolution = resolve_audio_input(self._device_selection)
+                previous = self._last_device_resolution
+                if resolution.device_index != self.recorder.device:
+                    self.recorder.set_device(resolution.device_index)
+                elif (isinstance(self._device_selection, dict)
+                      and self._device_selection.get("mode") == "default"
+                      and resolution.device_info != previous.device_info):
+                    self.recorder.close()
+                self._last_device_resolution = resolution
+                if resolution.device_index is not None and resolution.device_index < 0:
+                    raise RuntimeError(resolution.error_message or "Select an available microphone in Settings.")
                 self.recorder.start_recording()
                 
                 with self._state_lock:
@@ -658,6 +677,15 @@ class FlowOrchestrator:
                     self.stt.config = self.config
                     return False
 
+        # Persist identity in the same transaction as the rest of the settings.
+        if "audio_input_selection" not in new_config:
+            if "audio_device_index" in new_config or "mic_device" in new_config:
+                requested = new_config.get("audio_device_index", new_config.get("mic_device"))
+                updated_config["audio_input_selection"] = build_device_selection(requested)
+            else:
+                migrate_legacy_audio_config(updated_config)
+        resolution = resolve_audio_input(updated_config["audio_input_selection"])
+        updated_config["audio_device_index"] = resolution.device_index
         if not save_config(updated_config):
             return False
         self.config = updated_config
@@ -667,8 +695,11 @@ class FlowOrchestrator:
 
         # Update audio input device dynamically if changed
         old_dev = getattr(self.recorder, "device", None)
-        new_dev = self.config.get("audio_device_index", self.config.get("mic_device"))
-        if new_dev != old_dev:
+        self._device_selection = self.config["audio_input_selection"]
+        self._last_device_resolution = resolution
+        new_dev = resolution.device_index
+
+        if new_dev != old_dev or getattr(self.recorder, "_device_change_pending", False):
             print(f"[Orchestrator] Audio input device changed ({old_dev} -> {new_dev}). Updating recorder.")
             self.recorder.set_device(new_dev, defer_if_recording=True)
 

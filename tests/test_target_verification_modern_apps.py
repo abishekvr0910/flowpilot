@@ -1,9 +1,11 @@
-"""
+"""Feature 29: modern target verification and conservative paste status.
+
 Target Verification & Foreground Focus Robustness for Modern Windows Applications
 Validates UI Automation reading on a Qt editor and conservative status logic.
 The mocked status checks below do not claim physical paste delivery in other apps.
 """
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -16,6 +18,18 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from PySide6.QtWidgets import QApplication, QTextEdit, QLineEdit, QMainWindow
 from engine.text_injector import TextInjector, InjectionStatus, InjectionResult
+
+
+def _can_test_physical_uia() -> bool:
+    """An offscreen Qt widget has no native accessibility surface to inspect."""
+    if os.environ.get("QT_QPA_PLATFORM", "").lower() == "offscreen":
+        return False
+    if os.environ.get("FLOWPILOT_HEADLESS") == "1":
+        return False
+    if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
+        return False
+    from tests.notepad_harness import is_interactive_desktop
+    return is_interactive_desktop()
 
 def test_uia_modern_buffer_read_and_verification():
     """Verify that UIA reads text already present in a Qt editor."""
@@ -87,7 +101,10 @@ def test_safe_set_foreground_handles_same_window_and_remote_threads():
     app.processEvents()
 
 if __name__ == "__main__":
-    test_uia_modern_buffer_read_and_verification()
     test_confirmation_requires_new_document_content()
     test_safe_set_foreground_handles_same_window_and_remote_threads()
-    print("UIA READ AND CONSERVATIVE VERIFICATION TESTS PASSED.")
+    if _can_test_physical_uia():
+        test_uia_modern_buffer_read_and_verification()
+        print("UIA READ AND CONSERVATIVE VERIFICATION TESTS PASSED.")
+    else:
+        print("[RESULT] SKIPPED: physical UI Automation document read requires an interactive Windows Qt surface")

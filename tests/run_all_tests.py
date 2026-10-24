@@ -69,6 +69,8 @@ TESTS = [
     ("Voice Command Mode & Local LLM Rewriting (PR 5)", "tests/test_voice_command_and_llm.py"),
     ("Modern UI Automation & Focus Robustness", "tests/test_target_verification_modern_apps.py"),
     ("Release Integrity Regression Guards", "tests/test_release_integrity_fixes.py"),
+    ("Persistent Audio Input Identity and Resolution", "tests/test_audio_devices.py"),
+    ("Benchmark Visible Delivery Observer and Latency", "tests/test_delivery_observer.py"),
 ]
 
 

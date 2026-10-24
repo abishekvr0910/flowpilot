@@ -34,7 +34,7 @@ The current scratchpad can plan and apply guarded edits with a preview. External
 
 Prevent unsupported external replacements and revert attempts from dispatching input. Keep recovery text in memory without touching the user's clipboard. Keep ordinary dictation and guarded scratchpad edits available.
 
-**Done when:** backend and UI refuse external mutation, forged transaction labels cannot bypass the restriction, and scratchpad revision checks and undo still pass regression tests. This is a source repair, not a new packaged release.
+**Done when:** backend and UI refuse external mutation, forged transaction labels cannot bypass the restriction, and scratchpad revision checks and undo still pass regression tests. The current RC3 includes this repair; historical RC2 evidence does not verify later changes.
 
 - [x] Implement the bounded repair: `/develop external transform safety`
 - [x] Verify backend refusal and Qt control behavior: `/check verify external transform safety`
@@ -42,11 +42,26 @@ Prevent unsupported external replacements and revert attempts from dispatching i
 
 Plan: [remediation directive](../design/GEMINI_SCOPE_AND_RELEASE_REMEDIATION.md). Code in `engine/transforms_engine.py`, `ui/transforms_view.py`, and `tests/test_honest_transforms.py`.
 
+### 28. Persistent microphone selection · in-progress
+
+Keep the chosen physical input stable when Windows device enumeration changes. Settings currently persists a persistent endpoint contract (`name`, `host_api`, `max_channels`), and dynamic runtime resolution disambiguates host APIs (WASAPI, DirectSound, MME). Disconnected devices resolve to an explicit sentinel (`DEVICE_MISSING_SENTINEL = -9999`) preventing silent fallback to internal default mics.
+
+**Done when:** a saved device is resolved by a persistent identity, duplicate names remain distinguishable, a missing input is reported honestly, explicit system default selection works, and reconnect or restart cannot silently select a different device. Existing deferred switching and recorded frames remain safe.
+
+- [x] Design it (spec): [spec 0002](../specs/0002-persistent-audio-input-identity.md)
+- [x] Implement the persistent endpoint contract and resolver: `engine/audio_devices.py`
+- [x] Guard missing devices against silent fallback: `engine/audio_recorder.py` and `engine/orchestrator.py`
+- [x] Expose host API and disconnected indicators in UI: `ui/settings_dialog.py` and `ui/setup_wizard.py`
+- [x] Regression tests: `tests/test_audio_devices.py` (20 tests passed on 24 October 2026)
+- [ ] Confirm disconnect, reconnect, default changes, and index renumbering on physical hardware with the exact packaged candidate.
+
+Code in `engine/audio_devices.py`, `engine/audio_recorder.py`, `engine/orchestrator.py`, `engine/config.py`, `ui/settings_dialog.py`, `ui/setup_wizard.py`, and `ui/scratchpad_view.py`.
+
 ### 15. Real speaker language evaluation · planned · needs a decision
 
 Measure speech from consenting native speakers in English, Hindi, Tamil, and Malayalam, including mixed language and developer terms. Keep synthetic speech in a separate diagnostic group.
 
-**Done when:** each advertised language has a published sample count, corpus rules, word and character error results, critical fact errors, hardware, model, and failure examples. Do not promote an experimental language from synthetic tests alone.
+**Done when:** each advertised language has a published sample count, corpus rules, word and character error results, critical fact errors, hardware, model, and failure examples. Include spontaneous and mixed language speech, with speakers separated between development and final evaluation. Do not promote an experimental language from synthetic tests alone.
 
 - [ ] Design it (spec): `/architect real speaker language evaluation`
 
@@ -71,6 +86,26 @@ Measure and record cold startup, warm dictation latency (stop action to visible 
 - [ ] Review the resulting support matrix and regression budgets: `/test runtime latency and resource evaluation`
 
 ## Product quality
+
+### 31. Approved local correction learning · planned · needs a decision
+
+Let a user explicitly teach a recurring correction and review its language and app/profile scope. Build on current vocabulary, aliases and deliberate preference proposals, without passive editor monitoring or a general autonomous agent.
+
+**Done when:** only approved rules persist locally, changes take effect through the shared personalization engine, users can inspect/edit/undo/delete/disable them, forgotten rules stay forgotten, and an evaluation shows fewer repeated mistakes without extra semantic errors.
+
+- [ ] Design it (spec): `/architect approved local correction learning`
+
+Current foundations: `engine/personalization.py`, `engine/preference_learning.py`, `engine/context_processor.py`, `ui/dictionary_view.py`, and `ui/companion_studio.py`. This enhancement follows the core device, delivery, and real speech evaluation work. See section 16.5 of the complete Gemini handoff for the existing versus proposed boundary.
+
+### 30. Optional local writing context · planned · needs a decision · GA
+
+Evaluate whether narrowly scoped, explicitly enabled field context improves capitalization, terminology, or writing quality. App category profiles already exist; focused field context is a separate capability and privacy boundary.
+
+**Done when:** a declared supported field supplies only bounded necessary context, secure or unsupported fields refuse, acquisition respects a total 500 ms budget without blocking the UI, nothing is persisted or sent outside the machine, and a held out comparison shows enough benefit to justify the added access. On failure, ordinary dictation continues without context.
+
+- [ ] Design it (spec): `/architect optional local writing context`
+
+This follows the core pilot and a measured context related error category. No general screenshot collection, workspace scanning, or passive clipboard monitoring is included. It is not a prerequisite for the initial offline developer comparison.
 
 ### 22. Safe editing beyond the scratchpad · planned · needs a decision
 

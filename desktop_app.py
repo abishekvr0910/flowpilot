@@ -82,6 +82,11 @@ class FlowPilotApp:
         self.app.setApplicationVersion(__version__)
         self.app.setQuitOnLastWindowClosed(False)
 
+        # Application-wide wheel guard: scrolling over closed dropdowns or unfocused sliders
+        # never accidentally changes settings; scroll events are cleanly forwarded to the page.
+        from ui.flowpilot_dashboard import _ensure_wheel_guard
+        _ensure_wheel_guard(self.app)
+
         self.bridge = StateBridge()
         self.config = load_config()
 

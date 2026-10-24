@@ -1,4 +1,6 @@
+"""Feature 28: Buffered capture with safe deferred microphone changes."""
 import os
+import logging
 import io
 import time
 import threading
@@ -7,6 +9,8 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 from typing import Callable, Optional
+
+logger = logging.getLogger("FlowPilot.AudioRecorder")
 
 def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
     """Fast linear interpolation resampling for multi-device audio compatibility."""
@@ -73,6 +77,9 @@ class AudioRecorder:
             pass
 
     def _warmup_stream_locked(self):
+        if self.device is not None and self.device < 0:
+            print(f"[Audio] Selected audio device is missing/disconnected (device={self.device}). Warmup stream skipped.")
+            return
         if self.stream and getattr(self.stream, "active", False):
             return
         try:
@@ -114,6 +121,9 @@ class AudioRecorder:
                 return
             if self.sample_rate <= 0:
                 raise ValueError(f"Invalid sample rate: {self.sample_rate}")
+            if self.device is not None and self.device < 0:
+                self.is_recording = False
+                raise RuntimeError(f"Selected audio input device is missing or disconnected (device={self.device}).")
 
             # 1. If stream is already hot and running, start recording immediately with pre-roll!
             if self.stream and getattr(self.stream, "active", False):
@@ -181,9 +191,9 @@ class AudioRecorder:
 
                 if not fallback_success:
                     is_explicit_bad_device = (self.device is not None and self.device > 1000)
-                    is_ci = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
-                    is_hw_missing = any(k in str(e).lower() for k in ("device unavailable", "host error", "invalid device", "no default", "unanticipated", "error querying"))
-                    if not is_explicit_bad_device and (is_ci or is_hw_missing or self.device == -1):
+                    is_headless_test = (os.environ.get("FLOWPILOT_HEADLESS") == "1"
+                                        or bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")))
+                    if not is_explicit_bad_device and is_headless_test:
                         print(f"[Audio Headless Mode] Physical microphone unavailable in headless environment ({e}). Operating in synthetic audio mode.")
                         self.is_recording = True
                         self.is_synthetic_mode = True
@@ -250,12 +260,13 @@ class AudioRecorder:
                     pending = self._pending_device
                     self._device_change_pending = False
                     self._pending_device = None
-                    self.set_device(pending)
+                    self.set_device(pending, warmup=keep_stream_alive)
 
-    def set_device(self, device: Optional[int], defer_if_recording: bool = False):
+    def set_device(self, device: Optional[int], defer_if_recording: bool = False, *, warmup: bool = True):
         """Updates the input audio capture device and dynamically re-warms the stream."""
         with self._lock:
-            if self.device == device and self.stream and getattr(self.stream, "active", False):
+            if self.device == device and ((self.stream and getattr(self.stream, "active", False))
+                                          or (defer_if_recording and self.is_recording)):
                 self._device_change_pending = False
                 self._pending_device = None
                 return
@@ -277,12 +288,17 @@ class AudioRecorder:
                     pass
                 self.stream = None
             self._preroll_buffer.clear()
+            if self.device is not None and self.device < 0:
+                print(f"[Audio] Input device switched to missing/disconnected state (device={self.device}).")
+                if was_recording:
+                    self.is_recording = False
+                return
             if was_recording:
                 self.is_recording = False
                 self.start_recording()
                 # Preserve all audio frames captured prior to the device switch
                 self.audio_frames = existing_frames + self.audio_frames
-            else:
+            elif warmup:
                 self._warmup_stream_locked()
 
     def close(self):
