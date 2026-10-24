@@ -1,10 +1,12 @@
-"""
+"""Feature 2: Physical recording state machine and recovery checks.
+
 FlowPilot State Machine & Robustness Regression Test Suite
 Validates the explicit 9-state machine, rapid shortcut re-activation,
 stop-pending queues, cancellation, and error recovery.
 """
 
 import sys
+import logging
 import time
 from pathlib import Path
 
@@ -13,6 +15,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from engine.orchestrator import FlowOrchestrator, AppState
+from engine.audio_devices import resolve_audio_input, DEVICE_MISSING_SENTINEL
+
+logger = logging.getLogger("FlowPilot.StateMachineTest")
 
 # Budget for waiting on the orchestrator to finish a dictation.
 #
@@ -25,6 +30,9 @@ from engine.orchestrator import FlowOrchestrator, AppState
 PROCESS_TIMEOUT = 120.0
 
 def test_explicit_state_machine():
+    if resolve_audio_input({"mode": "default"}).device_index == DEVICE_MISSING_SENTINEL:
+        print("[RESULT] SKIPPED: physical recording state machine requires an available microphone")
+        return True
     print("=" * 65)
     print("TEST: FLOWPILOT EXPLICIT 9-STATE MACHINE & TRANSITIONS")
     print("=" * 65)
