@@ -1,6 +1,6 @@
 # FlowPilot remediation and release gate, 24 October 2026
 
-This record follows the earlier [adversarial review](2026-10-24-master-verification.md). It describes the working source on top of `6555e3d` and a staged development binary. A tagged release and public download require their own exact commit, archive, hosted CI result, and pilot decision.
+This record follows the earlier [adversarial review](2026-10-24-master-verification.md). It tracks the staged development binary and the later fixed-source RC4 candidate separately. A general release still requires pilot evidence and a separate decision.
 
 ## Verified repairs
 
@@ -28,7 +28,7 @@ The first headless full run was **not** a pass: it started before the Notepad he
 
 ## Open release decisions
 
-1. Build and archive from a fixed committed source revision. Run smoke, offline self-test, ZIP CRC, embedded executable hash match, and hosted CI on that revision. Do not reuse RC3 hashes.
+1. The RC4 build and archive from committed package source `2baa2f9` now have smoke, offline self-test, ZIP CRC, embedded executable hash match, and hosted CI evidence. Preserve these exact hashes; do not reuse RC3 values or relabel a later rebuild without retesting.
 2. Validate physical disconnect/reconnect and default microphone changes on the exact candidate. Unit tests use mock device inventories; ordinary audio capture passed, but it does not cover unplugging the selected device.
 3. Complete remaining companion visibility rows in scope 0001 and the consented real speaker and real application pilot. The current tests do not establish 99.9 percent insertion reliability or superiority over Wispr Flow.
 4. Review signing, notices, privacy controls, optional API boundaries, clean and upgraded profiles, and final release claims using the [release guide](../release/flowpilot_build_and_release.md). The executable is unsigned.
@@ -39,4 +39,4 @@ The first headless full run was **not** a pass: it started before the Notepad he
 
 Application code was committed at `2710397`; later test-only commits through `19c3e57` introduced isolated packaged smoke profiles and deterministic, declared virtual audio for headless API and Node checks. The application source did not change. Earlier hosted runs failed because old fixtures assumed a microphone. Those results were not counted as passes. The [RC4 manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) links the successful hosted run on `19c3e57`.
 
-The exact RC4 executable and the current test tree passed `python -X utf8 tests/run_all_tests.py --require-all` with **56 passed, 0 skipped, 0 failed in 123.07 seconds** on the interactive desktop. The same executable passed standalone smoke and offline self-test. Its archive and executable hashes are in the manifest. `npm test` also passed. Hardware unplug/reconnect and pilot outcomes remain open; none of these checks establishes comparative superiority.
+The earlier RC4 build and the current test tree passed `python -X utf8 tests/run_all_tests.py --require-all` with **56 passed, 0 skipped, 0 failed in 123.07 seconds** on the interactive desktop. After pruning unused Qt modules, the final committed-source rebuild passed standalone smoke and offline self-test. Its first strict run reported **55 passed, 0 skipped, 1 failed** because the Notepad focus harness could not establish document focus for scenarios 4 and 5. That failure is retained in the local `scratch/rc4-final-strict.log`. The targeted 18-scenario retry passed, followed by a full strict interactive rerun against the same final executable: **56 passed, 0 skipped, 0 failed in 133.93 seconds** (`scratch/rc4-final-strict-rerun.log`). Test-only commit `b4fe12c` made real microphone capture mandatory in scenario 3 and added focus diagnostics; it did not change the packaged application bytes. The archive and executable hashes are in the manifest. Hosted CI [run 40116350311](https://github.com/abishekvr0910/flowpilot/actions/runs/40116350311) passed on the packaging commit. Hardware unplug/reconnect and pilot outcomes remain open; none of these checks establishes comparative superiority.

@@ -15,7 +15,7 @@ pip install -r requirements.txt
 pip install -e ".[dev,web]"
 ```
 
-The runtime model loader uses local-only weights. Provision required `tiny` and `base` model files during the build/setup phase on a connected machine, then validate offline behavior separately. The [CI workflow](../../.github/workflows/ci.yml) shows its current model provisioning step.
+The runtime model loader uses local-only weights. Provision the `base` and `small` model files bundled by the current RC4 spec during the build/setup phase on a connected machine, then validate offline behavior separately. The [CI workflow](../../.github/workflows/ci.yml) shows its current model provisioning step.
 
 ## Build the candidate, then verify it
 
