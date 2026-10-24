@@ -34,7 +34,7 @@ The current scratchpad can plan and apply guarded edits with a preview. External
 
 Prevent unsupported external replacements and revert attempts from dispatching input. Keep recovery text in memory without touching the user's clipboard. Keep ordinary dictation and guarded scratchpad edits available.
 
-**Done when:** backend and UI refuse external mutation, forged transaction labels cannot bypass the restriction, and scratchpad revision checks and undo still pass regression tests. The current RC3 includes this repair; historical RC2 evidence does not verify later changes.
+**Done when:** backend and UI refuse external mutation, forged transaction labels cannot bypass the restriction, and scratchpad revision checks and undo still pass regression tests. The current RC4 includes this repair; historical RC2 and RC3 evidence does not verify later changes.
 
 - [x] Implement the bounded repair: `/develop external transform safety`
 - [x] Verify backend refusal and Qt control behavior: `/check verify external transform safety`

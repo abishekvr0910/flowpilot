@@ -23,7 +23,7 @@ python desktop_app.py
 # Offline self test (Windows only, synthesizes speech through SAPI)
 python desktop_app.py --self-test
 
-# Full audit suite, 54 suites; release promotion also requires --require-all
+# Full audit suite, 56 suites; release promotion also requires --require-all
 python -X utf8 tests/run_all_tests.py
 
 # One suite
@@ -35,7 +35,7 @@ python -m PyInstaller flowpilot.spec --noconfirm
 
 ## Specs
 
-Stored in `docs/specs/` as `NNNN-title.md`. Companion visibility is in progress under spec 0001. It is not part of RC2 and needs interactive fullscreen verification before release.
+Stored in `docs/specs/` as `NNNN-title.md`. Companion visibility is in progress under spec 0001 and has a recorded RC3 live subset. Persistent microphone identity under spec 0002 and visible delivery observation under spec 0003 remain in progress. Historical RC2 did not include these features.
 
 ## Rules
 
