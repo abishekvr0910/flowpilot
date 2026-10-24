@@ -114,14 +114,10 @@ def run_18_scenarios():
         print("\n--- [Scenario 3] Real Microphone Capture on Hardware ---")
         try:
             rec = AudioRecorder(sample_rate=16000)
-            wav_bytes = None
             try:
                 rec.start_recording()
                 time.sleep(1.2)
                 wav_bytes = rec.stop_recording()
-            except Exception as e:
-                print(f"  Note: Direct mic recording deferred ({e}). Using synthetic WAV.")
-                wav_bytes = synthesize_audio_sapi("FlowPilot hardware verification.")
             finally:
                 rec.close()
             assert wav_bytes is not None and len(wav_bytes) > 1000, "Audio recording empty"
