@@ -34,3 +34,9 @@ The first headless full run was **not** a pass: it started before the Notepad he
 4. Review signing, notices, privacy controls, optional API boundaries, clean and upgraded profiles, and final release claims using the [release guide](../release/flowpilot_build_and_release.md). The executable is unsigned.
 
 **Decision:** the source and staged build passed the local strict gate. Public general release is still held pending the exact candidate CI, remaining hardware and pilot checks. A prerelease for consented testers can be considered with the unsigned status and limitations stated plainly.
+
+## Fixed source candidate update
+
+Application code was committed at `2710397`; later test-only commits through `19c3e57` introduced isolated packaged smoke profiles and deterministic, declared virtual audio for headless API and Node checks. The application source did not change. Earlier hosted runs failed because old fixtures assumed a microphone. Those results were not counted as passes. The [RC4 manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) links the successful hosted run on `19c3e57`.
+
+The exact RC4 executable and the current test tree passed `python -X utf8 tests/run_all_tests.py --require-all` with **56 passed, 0 skipped, 0 failed in 123.07 seconds** on the interactive desktop. The same executable passed standalone smoke and offline self-test. Its archive and executable hashes are in the manifest. `npm test` also passed. Hardware unplug/reconnect and pilot outcomes remain open; none of these checks establishes comparative superiority.

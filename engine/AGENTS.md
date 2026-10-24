@@ -10,6 +10,7 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 |---|---|
 | orchestrator.py | The nine state loop from recording through validation to insertion, owns history saving and telemetry |
 | audio_recorder.py | sounddevice capture, 0.35s pre-roll ring buffer, level driven silence auto stop |
+| audio_devices.py | Persistent microphone identity and fail closed resolution of missing or ambiguous inputs |
 | stt_engine.py | faster-whisper load and transcribe, model path resolution, Silero asset patching at import |
 | text_injector.py | Focus verified clipboard paste plus keybd_event injection, InjectionStatus truthfulness, clipboard restore |
 | hotkey_service.py | RegisterHotKey message loop on its own thread plus pynput fallback, conflict tables |
@@ -34,10 +35,11 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 - All shared personalization state flows through `get_shared_personalization`; do not add new singletons silently.
 - Transform delivery methods return `InjectionResult` and refuse external Replace and Revert without dispatch. Do not add a typing fallback or accept a transaction merely because its `target_type` says verified.
 - Orchestrator timing ends at the injection result. Keep visible-delivery latency unmeasured until a target document observer records actual text appearance; never graph dispatch completion as visible delivery.
+- A saved missing or ambiguous microphone resolves to `DEVICE_MISSING_SENTINEL = -9999`. Only a verified explicit system default may use `device=None`; normal sessions must not enter synthetic capture after a hardware failure.
 
 ## Gotchas
 
-- `engine/config.py` caches `CONFIG_FILE` at import; stage `FLOWPILOT_CONFIG_DIR` or `FLOWPILOT_CONFIG_FILE` before importing anything from engine.
+- `engine/config.py` retains an import time `CONFIG_FILE` constant, while load and save resolve the path dynamically. Stage `FLOWPILOT_CONFIG_DIR` or `FLOWPILOT_CONFIG_FILE` before importing the server or other modules with startup side effects.
 - Importing `engine.server` instantiates a full orchestrator at module level; it spins model preload and hotkey detection unless env is staged first.
 - Importing `engine.stt_engine` monkeypatches `faster_whisper.utils.get_assets_path` for Silero assets; importing STT twice from cache layers is safe, changing the patch is not.
 - Process detection and adaptive timing depend on the existing `psutil` import; retain it and test detection when changing those paths.
@@ -47,6 +49,6 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 
 ## Related specs
 
-None yet, see `docs/specs/` when /architect writes its first one.
+Persistent audio identity uses [spec 0002](../docs/specs/0002-persistent-audio-input-identity.md). Visible delivery observation uses [spec 0003](../docs/specs/0003-visible-delivery-benchmark-observer.md).
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

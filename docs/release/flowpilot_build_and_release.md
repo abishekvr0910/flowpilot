@@ -29,7 +29,7 @@ python -X utf8 tests/run_all_tests.py
 npm test
 ```
 
-The runner currently defines 53 suites (2026-10-22). Use `python -X utf8 tests/run_all_tests.py --require-all` for release verification. Physical microphone, audio-ducking, clipboard-sequence, and real-editor insertion checks may be skipped in hosted headless CI; a skip is not a pass for those behaviors. Require a green [GitHub Actions run](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the intended commit and perform explicit interactive Windows hardware and insertion checks before release. If CI is red, stop and investigate; do not reuse results from an older tag.
+The runner currently defines 56 suites (2026-10-24). Use `python -X utf8 tests/run_all_tests.py --require-all` for release verification. Physical microphone, audio-ducking, clipboard-sequence, and real-editor insertion checks may be skipped in hosted headless CI; a skip is not a pass for those behaviors. Require a green [GitHub Actions run](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the intended commit and perform explicit interactive Windows hardware and insertion checks before release. If CI is red, stop and investigate; do not reuse results from an older tag.
 
 ## Inspect the exact artifact
 
@@ -60,4 +60,4 @@ Before marketing broader security assurance, verify the optional API's token and
 
 ## Publish only after review
 
-Record the source commit, artifact size, SHA-256 hash, test results, skipped hardware checks, and known limitations in a release-specific manifest. Review bundled third-party notices using [THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md). Publish a versioned ZIP through GitHub Releases only after the exact candidate build has passed the required checks. Do not replace a reviewed asset with different bytes under the same version. Verify GitHub tag/release protection settings before describing assets as immutable. The [current release manifest](RELEASE_ARTIFACT_MANIFEST.md) distinguishes the historical published v3.0.2 release from the unpublished local v3.1.0-RC2 candidate.
+Record the source commit, artifact size, SHA-256 hash, test results, skipped hardware checks, and known limitations in a release-specific manifest. Review bundled third-party notices using [THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md). Publish a versioned ZIP through GitHub Releases only after the exact candidate build has passed the required checks. Do not replace a reviewed asset with different bytes under the same version. Verify GitHub tag/release protection settings before describing assets as immutable. The [current release manifest](RELEASE_ARTIFACT_MANIFEST.md) distinguishes the historical published v3.0.2 release from the current RC4 pilot candidate and older candidates.

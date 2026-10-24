@@ -28,7 +28,7 @@ New profiles default to no persisted dictation history (`save_history_text: fals
 
 ### 13. Windows RC2 candidate · existing
 
-This foundation row preserves the historical RC2 milestone. The current candidate is RC3 at `6555e3d`, with bundled base and small models. Its recorded strict local gate is 54 passed, 0 skipped, 0 failed. Hosted CI [40006224097](https://github.com/abishekvr0910/flowpilot/actions/runs/40006224097) passed for that exact commit with 47 passed and 7 headless skips. RC3 remains unsigned and held for pilot validation. See the [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md); RC2 results and hashes remain historical, and hosted skips are not physical desktop passes.
+This foundation row preserves the historical RC2 milestone. The current candidate is RC4, built from application source at `2710397`, with bundled base and small models. Its recorded strict local gate is 56 passed, 0 skipped, 0 failed against the exact candidate executable. Hosted CI [run 40114775331](https://github.com/abishekvr0910/flowpilot/actions/runs/40114775331) passed on test revision `19c3e57` with 47 passed and 9 honest hardware or desktop skips. RC4 is unsigned and remains a pilot candidate; RC2 and RC3 results and hashes are historical, and hosted skips are not physical desktop passes. See the [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md).
 
 ## Next release
 

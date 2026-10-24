@@ -2,7 +2,7 @@
 
 ## Overview
 
-Fifty four standalone suites, listed in `tests/run_all_tests.py`, run sequentially as child processes; the runner judges return codes plus skip markers. Suites double as offline audit scripts, so each file can also run on its own without pytest. Release verification uses `--require-all` and rejects skipped suites.
+Fifty six standalone suites, listed in `tests/run_all_tests.py`, run sequentially as child processes; the runner judges return codes plus skip markers. Suites double as offline audit scripts, so each file can also run on its own without pytest. Release verification uses `--require-all` and rejects skipped suites.
 
 ## Key files
 
@@ -36,11 +36,14 @@ pytest tests/test_factguard_v2.py -q
 - Two accepted styles coexist: pytest suites with fixtures and monkeypatch, and older audit scripts that print and `return False`. Prefer pytest for new suites.
 - Stage test env before importing engine modules: `FLOWPILOT_CONFIG_FILE`, `FLOWPILOT_CONFIG_DIR`, `FLOWPILOT_MUTEX_NAME`, `FLOWPILOT_HEADLESS`, `FLOWPILOT_NO_POPUP`.
 - Suites that spin the whole app use a unique mutex name per PID, see `test_standalone_binary_smoke.py`.
+- The packaged smoke test uses an isolated config by default. Only `FLOWPILOT_SMOKE_USE_CALLER_PROFILE=1` lets a profile migration test select its own temporary profile.
 - Transform unit tests mock clipboard and physical input boundaries. They must not overwrite the user's actual clipboard to test an aborted operation.
 
 ## Gotchas
 
 - Notepad and SAPI suites launch real Windows processes and need desktop access; they skip silently when the desktop test cannot be held, never schedule them in parallel.
+- The physical state machine suite skips honestly when no default microphone exists. The API protocol suite uses a declared virtual input and sends a known frame through the recorder callback.
+- The Node integration test launches `tests/virtual_api_server.py` with virtual microphone and hotkey boundaries. This exercises REST and WebSocket transitions on CI without weakening production missing-device refusal.
 - `test_network_egress.py` monkeypatches socket `sendto`, `connect`, and `getaddrinfo`; any new network call in engine code shows up as a failure here. Keep it green.
 - `test_silero_vad_resolution.py` falls back to a `C:\Temp` path; it assumes a writable temp directory.
 - Never import `engine.server` in a suite without staging env first; it instantiates a full orchestrator at import.
@@ -48,6 +51,6 @@ pytest tests/test_factguard_v2.py -q
 
 ## Related specs
 
-None yet.
+Audio identity tests follow [spec 0002](../docs/specs/0002-persistent-audio-input-identity.md). The delivery observer tests follow [spec 0003](../docs/specs/0003-visible-delivery-benchmark-observer.md).
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

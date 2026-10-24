@@ -5,9 +5,9 @@ FlowPilot is a local voice workstation for Windows users who want to dictate, re
 **Build approach:** Journey (prove setup, dictation, correction, insertion, recovery, and safe exit on real Windows machines before adding more breadth).
 **Workflow:** Beta (verify the real behavior, then test it). Release and security work uses the GA tier.
 
-This is the project scope, not a feature inventory or a promise that every current feature is field proven. `existing` means code is present. A release claim needs separate user and artifact evidence. The public download is v3.0.2; v3.1.0 RC3 is the current local candidate held for pilot validation. RC2 remains historical.
+This is the project scope, not a feature inventory or a promise that every current feature is field proven. `existing` means code is present. A release claim needs separate user and artifact evidence. The public general release is v3.0.2; v3.1.0 RC4 is the current pilot candidate. RC2 and RC3 remain historical.
 
-**Reviewed baseline:** `6555e3d`, 24 October 2026. The five requested RC3 live checks have recorded results. They do not close every acceptance criterion in spec 0001 or establish a competitive win. The [complete Gemini handoff](../handoffs/GEMINI_PRODUCT_COMPLETION_AND_COMPETITIVE_VALIDATION.md) maps the whole product to evidence, remaining work, delivery order, and proposed comparison gates. Writing that plan does not complete its work.
+**Reviewed baseline:** application source at `2710397`, 24 October 2026. The five requested RC3 companion live checks have recorded results. RC4 adds persistent microphone identity, a separate delivery observer, and workspace scroll repairs. Its strict local gate passed 56 suites; hosted CI and pilot evidence are separate gates. These checks do not close every acceptance criterion in spec 0001 or establish a competitive win. The [complete Gemini handoff](../handoffs/GEMINI_PRODUCT_COMPLETION_AND_COMPETITIVE_VALIDATION.md) maps the whole product to evidence, remaining work, delivery order, and proposed comparison gates. Writing that plan does not complete its work.
 
 ## At a glance
 
@@ -50,12 +50,12 @@ This is the project scope, not a feature inventory or a promise that every curre
 - [Voice and writing](voice.md): existing foundations, the external transform repair, and language, delivery, performance, and editing work.
 - [Workspace](workspace.md): 3 existing work areas and one whole app usability step.
 - [Companions](companions.md): the native pet, the next visibility slice, original character polish, and later context work.
-- [Release and trust](release.md): privacy and local API boundaries, the RC3 candidate, and the evidence needed before public release.
+- [Release and trust](release.md): privacy and local API boundaries, the RC4 candidate, and the evidence needed before general release.
 - [Competitive validation](competitive.md): a fair comparison of useful text, delivery, correction effort, and user preference.
 
 ## Order and boundaries
 
-The current source and RC3 candidate refuse unsupported external Replace and Revert operations. RC2 does not acquire later repairs from source edits. The persistent microphone and independent delivery observer implementations are now present, with focused tests and a strict interactive source gate. Physical microphone disconnect and reconnect behavior still needs validation on the new candidate. Next close the remaining spec 0001 live rows, collect real voice, real paste, and runtime evidence for the consented pilot (feature 14), and run paired competitive trials. Define build identity, thresholds, and failure reporting before trials. Product quality work can proceed separately without relabelling RC2 or replacing RC3 evidence.
+The current source and RC4 candidate refuse unsupported external Replace and Revert operations. RC2 and RC3 do not acquire later repairs from source edits. The persistent microphone and independent delivery observer implementations are now present, with focused tests and a strict interactive gate. Physical microphone disconnect and reconnect behavior still needs validation on the new candidate. Next close the remaining spec 0001 live rows, collect real voice, real paste, and runtime evidence for the consented pilot (feature 14), and run paired competitive trials. Define build identity, thresholds, and failure reporting before trials. Product quality work can proceed separately without relabelling older release evidence.
 
 The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the Gemini handoff; no claim of being "100% better" is authorized by a suite count or this scope.
 

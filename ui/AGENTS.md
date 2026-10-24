@@ -16,6 +16,8 @@ PySide6 windows for the whole desktop experience: dashboard, tray, floating comp
 | scratchpad_view.py | Scratchpad hub, one of five feature hubs alongside transforms, dictionary, snippets, history, and insights views |
 | companion_renderer.py, pet_sprites.py, pixel_creator.py, companion_studio.py, companion_preview.py | Mascot rendering, sprite states, painting and preview stack |
 | setup_wizard.py, settings_dialog.py | First run flow and device or hotkey settings |
+| audio_input_picker.py | Shared microphone picker identity and disconnected input placeholder |
+| workspace_style.py | Shared application wheel guard for menus, sliders and tab headers |
 | index.html, app.js, styles.css | Flat web companion served by `engine/server.py` |
 
 ## Conventions
@@ -25,6 +27,7 @@ PySide6 windows for the whole desktop experience: dashboard, tray, floating comp
 - Route companion show and hide actions through CompanionVisibilityController. Do not call HUD show or hide from dashboard, tray, or Studio.
 - Keep slow Windows audio session sampling off the Qt thread. The visibility controller reads the cached media signal and starts or stops its sampler with the HUD lifecycle.
 - Feature hubs are widgets appended in the dashboard; when adding one, keep the tray menu and hotkeys in sync.
+- Install the one application wheel guard through `workspace_style.py`. Page scrolling must not change a closed menu, slider, or tab selection; mouse and keyboard navigation still work.
 - The external transform panel supports preview and explicit Copy Output. Replace and Revert stay disabled; successful formatting does not authorize an external edit or prove delivery.
 - Web companion is same origin only; the server whitelists 127.0.0.1 ports, do not widen it.
 
@@ -36,6 +39,6 @@ PySide6 windows for the whole desktop experience: dashboard, tray, floating comp
 
 ## Related specs
 
-None yet.
+Companion visibility uses [spec 0001](../docs/specs/0001-context-aware-companion-visibility.md). The microphone picker follows [spec 0002](../docs/specs/0002-persistent-audio-input-identity.md).
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
