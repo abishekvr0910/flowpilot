@@ -4,26 +4,26 @@ Updated 2026-10-24. A locally verified candidate is not a published general rele
 
 ## Validation candidate: v3.1.0-RC4, Windows x64
 
-The application source was fixed at `2710397` before the local PyInstaller build. Follow-up commits through `19c3e57` changed only tests; `git diff 2710397..19c3e57 -- desktop_app.py engine ui flowpilot.spec requirements.txt pyproject.toml` is empty. The exact executable below passed the packaged smoke and offline self-test. It was the `FLOWPILOT_TEST_EXE` used by the final local strict runner. Hosted CI [run 40114775331](https://github.com/abishekvr0910/flowpilot/actions/runs/40114775331) passed on `19c3e57` after test fixtures were given explicit virtual audio in microphone-free CI. Earlier failed CI runs remain historical evidence.
+The application source was fixed at `2710397`. The RC4 package was rebuilt from committed source at `2baa2f9`, which excludes unused Qt Virtual Keyboard and PDF modules and adds an archive notice set. The executable below passed packaged smoke and offline self-test. Hosted CI [run 40116350311](https://github.com/abishekvr0910/flowpilot/actions/runs/40116350311) passed on `2baa2f9`. An initial strict run against the exact rebuilt executable passed 55 suites and failed one physical Notepad focus suite. After a test-only change at `b4fe12c` removed synthetic microphone fallback and added focus diagnostics, the targeted 18-scenario suite passed; a full interactive rerun against the **same executable bytes** passed 56 suites with no skips or failures. The earlier failure remains recorded in the local `scratch/rc4-final-strict.log`. This repeat establishes one clean run, not a reliability rate.
 
 | Item | Measured value |
 |---|---|
-| Archive | `dist/FlowPilot-v3.1.0-RC4-win64.zip` |
-| Archive size | 772,971,321 bytes |
-| Archive SHA-256 | `1EDEF319984F222B611F54A2B81CAA5C758BC1379662A93F5E344949ED51864E` |
-| Unpacked application | `dist/RC4-2710397/FlowPilot/`, 1,111,654,982 bytes across 1,203 files |
+| Archive | `dist/FlowPilot-v3.1.0-RC4-win64.zip` (byte-for-byte copy of the verified archive under `dist/RC4-final-2baa2f9/`) |
+| Archive size | 770,634,494 bytes |
+| Archive SHA-256 | `55918EB873499001A34E85F6F636DB701D4F5937B340C3A051BAC332DB8F8C88` |
+| Unpacked application | `dist/RC4-final-2baa2f9/FlowPilot/`, 1,106,528,102 bytes across 1,199 files |
 | Executable | `FlowPilot.exe`, 24,894,766 bytes |
-| Executable SHA-256 | `3059851502943858457C76B345C154E025241D9D0D11E95410319285928D10F0` |
+| Executable SHA-256 | `4655DB97D46AC7DA795AF4DDF2228901CB816CF8E8DC829CC1D0BD4CE3EED225` |
 | Bundled assets | Faster-Whisper base and small; Silero VAD ONNX encoder and decoder |
 | Signing | `NotSigned` by Windows Authenticode inspection |
-| Local strict gate | 56 passed, 0 skipped, 0 failed in 123.07 seconds against this executable |
-| Hosted Windows CI | [Run 40114775331](https://github.com/abishekvr0910/flowpilot/actions/runs/40114775331) on `19c3e57`: 47 passed, 9 honest hardware/desktop skips, 0 failed; Node integration and packaged smoke passed |
+| Local strict gate | Initial final-executable run: 55 passed, 0 skipped, 1 failed (Notepad focus unavailable). Exact-executable rerun: **56 passed, 0 skipped, 0 failed in 133.93 s** with `--require-all`; targeted 18-scenario retry also passed. |
+| Hosted Windows CI | [Run 40116350311](https://github.com/abishekvr0910/flowpilot/actions/runs/40116350311) on packaging commit `2baa2f9` and [run 40116943044](https://github.com/abishekvr0910/flowpilot/actions/runs/40116943044) on test-only commit `b4fe12c`: each 47 passed, 9 honest hardware/desktop skips, 0 failed; Node integration and packaged smoke passed |
 | Node integration | `npm test` passed local REST and WebSocket lifecycle checks |
 | Packaged smoke | Named mutex, duplicate launch, bundled asset presence, isolated profile and process termination passed |
 | Offline self-test | Bundled base model recognized the SAPI fixture with offline flags and an empty Hugging Face cache; exit 0, cache remained empty |
-| Archive integrity | All 1,207 members passed CRC; embedded executable SHA-256 matches the disk file |
+| Archive integrity | All 1,296 members passed CRC; embedded executable SHA-256 matches the disk file |
 
-The ZIP includes `LICENSE`, `THIRD_PARTY_LICENSES.md`, `PRIVACY.md`, and `README.md` at its root. A member-name scan found no `wispr_renderer`, `wispr_bridge`, `flow.sqlite`, `access_token`, `.env`, or `private/` path. These checks do not constitute a complete rights audit or whole-process network capture. The local build used Python 3.11.15, PyInstaller 6.22.3 and PySide6 6.12.0; hosted CI uses Python 3.12 and builds independently.
+The ZIP includes `LICENSE`, `THIRD_PARTY_LICENSES.md`, `PRIVACY.md`, `README.md`, and 93 files under `licenses/` at its root. The unused Qt Virtual Keyboard and Qt PDF binaries are absent. A member-name scan found no `wispr_renderer`, `wispr_bridge`, `flow.sqlite`, `access_token`, `.env`, or `private/` path. These checks do not constitute a complete rights audit or whole-process network capture. The local build used Python 3.11.15, PyInstaller 6.22.3 and PySide6 6.12.0; hosted CI uses Python 3.12 and builds independently. The verified executable is inside this ZIP and under `dist/RC4-final-2baa2f9/FlowPilot/`; an older `dist/FlowPilot/` tree may remain while its process is running and is not the RC4 test target.
 
 RC4 remains a pilot prerelease candidate. Physical microphone disconnect and reconnect behavior, real-speaker language quality, paired competitor trials, publisher signing, and broader pilot reliability remain open. The prior RC3 and RC2 hashes below are historical and must not be applied to this archive.
 

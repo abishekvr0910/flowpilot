@@ -28,7 +28,7 @@ New profiles default to no persisted dictation history (`save_history_text: fals
 
 ### 13. Windows RC2 candidate · existing
 
-This foundation row preserves the historical RC2 milestone. The current candidate is RC4, built from application source at `2710397`, with bundled base and small models. Its recorded strict local gate is 56 passed, 0 skipped, 0 failed against the exact candidate executable. Hosted CI [run 40114775331](https://github.com/abishekvr0910/flowpilot/actions/runs/40114775331) passed on test revision `19c3e57` with 47 passed and 9 honest hardware or desktop skips. RC4 is unsigned and remains a pilot candidate; RC2 and RC3 results and hashes are historical, and hosted skips are not physical desktop passes. See the [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md).
+This foundation row preserves the historical RC2 milestone. The current candidate is RC4, built from committed packaging source at `2baa2f9`, with bundled base and small models. Hosted CI [run 40116350311](https://github.com/abishekvr0910/flowpilot/actions/runs/40116350311) passed with 47 suites and 9 honest hardware or desktop skips. An initial exact-candidate local run passed 55 suites and failed one physical Notepad focus suite; the targeted suite and full strict interactive rerun then passed against the same executable, ending at 56 passed, 0 skipped, 0 failed. The first failure remains in the release record. RC4 is unsigned and remains a pilot candidate; RC2 and RC3 results and hashes are historical, and hosted skips are not physical desktop passes. See the [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md).
 
 ## Next release
 
