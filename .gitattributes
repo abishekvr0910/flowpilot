@@ -1,0 +1,3 @@
+# Preserve upstream license and notice bytes exactly as received.
+licenses/** -diff -merge -text
+licenses/python/MANIFEST.json text eol=lf diff

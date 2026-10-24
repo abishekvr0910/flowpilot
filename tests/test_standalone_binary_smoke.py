@@ -52,6 +52,15 @@ def main():
         )
     for forbidden in ("wispr_renderer", "wispr_bridge.py", "wispr_bridge.pyc"):
         assert not os.path.exists(os.path.join(packaged_ui, forbidden)), forbidden
+    qt_dir = os.path.join(exe_dir, "_internal", "PySide6")
+    unused_qt_paths = (
+        os.path.join(qt_dir, "Qt6VirtualKeyboard.dll"),
+        os.path.join(qt_dir, "plugins", "platforminputcontexts", "qtvirtualkeyboardplugin.dll"),
+        os.path.join(qt_dir, "Qt6Pdf.dll"),
+        os.path.join(qt_dir, "plugins", "imageformats", "qpdf.dll"),
+    )
+    for unused_path in unused_qt_paths:
+        assert not os.path.exists(unused_path), f"Unused Qt module bundled: {unused_path}"
     cand_enc = [
         os.path.join(exe_dir, "_internal", "faster_whisper", "assets", "silero_encoder_v5.onnx"),
         os.path.join(exe_dir, "_internal", "assets", "silero_encoder_v5.onnx"),
