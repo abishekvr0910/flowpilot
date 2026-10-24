@@ -22,6 +22,6 @@ Local meeting capture, notes, and deliberation views are present. Their stored d
 
 Review setup, dashboard, Studio, scratchpad, meetings, settings, and recovery as one user journey. Use one original visual system and keep navigation available when a view fails.
 
-**Done when:** a new user can set a microphone and key, make a first dictation, recover a failed paste, find language and privacy settings, and return from every view, with readable light and dark layouts, keyboard access, and honest state labels.
+**Done when:** a new user can set a microphone and key, make a first dictation, recover a failed paste, find language and privacy settings, and return from every view, with readable light and dark layouts, keyboard access, and honest state labels. A control inventory covers each visible action, scrolling never changes an unintended setting, and display scaling keeps primary actions reachable.
 
 - [ ] Design it (spec): `/architect whole app usability and visual quality`

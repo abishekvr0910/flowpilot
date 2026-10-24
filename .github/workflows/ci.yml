@@ -34,13 +34,13 @@ jobs:
 
       - name: Pre-provision Offline Whisper Model Cache for CI
         run: |
-          python -c "from faster_whisper import download_model, WhisperModel; download_model('base', output_dir='models/faster-whisper-base'); WhisperModel('tiny', device='cpu', compute_type='int8')"
+          python -c "from faster_whisper import download_model; download_model('base', output_dir='models/faster-whisper-base'); download_model('small', output_dir='models/faster-whisper-small')"
 
       - name: Build Standalone Windows Executable via PyInstaller
         run: |
           python -m PyInstaller flowpilot.spec --noconfirm
 
-      - name: Run Python Automated Master Regression Suite (54 Suites)
+      - name: Run Python Automated Master Regression Suite (56 Suites)
         run: |
           python -X utf8 tests/run_all_tests.py
 

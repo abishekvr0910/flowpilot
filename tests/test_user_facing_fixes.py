@@ -40,8 +40,16 @@ class TestUserFacingFixes(unittest.TestCase):
             created_streams.append(m)
             return m
 
+        mock_devices = [
+            {"index": 0, "name": "Default Mic", "host_api": "Windows WASAPI", "max_input_channels": 2},
+            {"index": 1, "name": "System Default Mic", "host_api": "Windows WASAPI", "max_input_channels": 2},
+            {"index": 4, "name": "USB Headset", "host_api": "Windows WASAPI", "max_input_channels": 1},
+        ]
+
         # Test device change using the REAL warmup_stream and mocked sounddevice InputStream
-        with patch("engine.audio_recorder.sd.InputStream", side_effect=fake_input_stream):
+        with patch("engine.audio_recorder.sd.InputStream", side_effect=fake_input_stream), \
+             patch("engine.audio_devices.get_audio_input_devices", return_value=mock_devices), \
+             patch("engine.audio_devices.sd.default.device", [0, -1]):
             orch.recorder.warmup_stream()
             self.assertEqual(len(created_streams), 1)
 
@@ -61,6 +69,7 @@ class TestUserFacingFixes(unittest.TestCase):
             created_streams[1].close.assert_called()
             self.assertEqual(len(created_streams), 3)
             self.assertIsNone(created_streams[2].kwargs.get("device"))
+        orch.recorder.close()
 
     def test_recorder_lock_reentrancy_and_live_switch(self):
         """Verify that set_device does not deadlock when re-entering locks during idle or active recording."""

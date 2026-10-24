@@ -1,7 +1,12 @@
-"""Original native workspace themes. No web assets, downloads or dependencies."""
+"""Feature 19: Native workspace themes and safe page scrolling."""
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QFrame, QVBoxLayout
+import logging
+
+from PySide6.QtCore import Qt, QObject, QEvent, QPointF
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtWidgets import QLabel, QFrame, QVBoxLayout, QApplication, QComboBox, QAbstractScrollArea
+
+logger = logging.getLogger("FlowPilot.WorkspaceStyle")
 
 
 _DARK_STYLE = """
@@ -132,3 +137,55 @@ def harmonize_legacy_styles(root, theme="sand", *, include_root=True):
                                    r"\1#252923", recolored, flags=re.IGNORECASE)
             if recolored != widget.styleSheet():
                 widget.setStyleSheet(recolored)
+
+
+class WheelGuardEventFilter(QObject):
+    """One application wide guard: the wheel over a closed combo never changes
+    its selected value. Wheel intent is retargeted to the enclosing scroll area
+    so page scrolling keeps working. Combos with an open popup are untouched."""
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Wheel:
+            from PySide6.QtWidgets import QSlider, QTabBar
+            is_closed_combo = isinstance(obj, QComboBox) and not obj.view().isVisible()
+            is_slider = isinstance(obj, QSlider)
+            is_tab_bar = isinstance(obj, QTabBar)
+            if is_closed_combo or is_slider or is_tab_bar:
+                viewport = self._scroll_target(obj)
+                if viewport is not None:
+                    local = QPointF(viewport.mapFromGlobal(event.globalPosition().toPoint()))
+                    phase = getattr(event, "phase", None)
+                    forward = QWheelEvent(
+                        local, event.globalPosition(),
+                        event.pixelDelta(), event.angleDelta(),
+                        event.buttons(), event.modifiers(),
+                        phase() if callable(phase) else Qt.NoScrollPhase,
+                        event.inverted()
+                    )
+                    QApplication.sendEvent(viewport, forward)
+                event.accept()
+                return True
+        return False
+
+    def _scroll_target(self, combo: QComboBox):
+        parent = combo.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QAbstractScrollArea):
+                return parent.viewport()
+            parent = parent.parentWidget()
+        return None
+
+
+def ensure_wheel_guard(app):
+    """One application owned filter covers present and future dialog controls."""
+    guard = getattr(app, "_fp_wheel_guard", None)
+    if guard is None:
+        guard = WheelGuardEventFilter(app)
+        app._fp_wheel_guard = guard
+        app.installEventFilter(guard)
+    return guard
+
+
+def guard_wheel_events(root_widget):
+    """Enable the shared wheel policy for a standalone dialog."""
+    return ensure_wheel_guard(QApplication.instance())

@@ -1,0 +1,141 @@
+{
+  "missing": {
+    "status": "MISSING",
+    "device": -9999,
+    "stream_calls": 0,
+    "stream_devices": []
+  },
+  "unavailable": {
+    "status": "UNAVAILABLE",
+    "device": null,
+    "stream_calls": 1,
+    "stream_devices": [
+      null
+    ]
+  },
+  "invalid_name": {
+    "status": "MISSING",
+    "device": null,
+    "stream_calls": 1,
+    "stream_devices": [
+      null
+    ]
+  },
+  "ambiguous": {
+    "status": "AMBIGUOUS",
+    "device": 4,
+    "stream_calls": 1,
+    "stream_devices": [
+      4
+    ]
+  },
+  "legacy_migration": {
+    "mode": "endpoint",
+    "name": "Mic B",
+    "host_api": "Windows WASAPI",
+    "max_channels": 2
+  },
+  "explicit_default_with_legacy": {
+    "recorder_device": 4
+  },
+  "legacy_update_persistence": {
+    "memory": {
+      "mode": "endpoint",
+      "name": "Mic B",
+      "host_api": "Windows WASAPI",
+      "max_channels": 2
+    },
+    "disk": {
+      "mode": "default"
+    }
+  },
+  "unreadable_baseline": {
+    "status": "VERIFIED_FIRST_DELIVERY",
+    "first_ms": 0.0,
+    "settled_ms": 0.0,
+    "delta": "phrase",
+    "returned_at_ms": 110.0
+  },
+  "duplicate_delivery": {
+    "status": "VERIFIED_FIRST_DELIVERY",
+    "first_ms": 0.0,
+    "settled_ms": 0.0,
+    "delta": "phrase phrase",
+    "returned_at_ms": 110.0
+  },
+  "preexisting_mid_document_token": {
+    "status": "VERIFIED_FIRST_DELIVERY",
+    "first_ms": 0.0,
+    "settled_ms": 0.0,
+    "delta": "hello OTHER phrase end",
+    "returned_at_ms": 110.0
+  },
+  "disappear_and_reappear": {
+    "status": "VERIFIED_FIRST_DELIVERY",
+    "first_ms": 0.0,
+    "settled_ms": 0.0,
+    "delta": "phrase",
+    "returned_at_ms": 200.0
+  },
+  "singleton_summary": {
+    "total_trials": 1,
+    "verified_count": 1,
+    "unverified_count": 0,
+    "refused_count": 0,
+    "timeout_count": 0,
+    "verified_first_delivery_rate": 1.0,
+    "first_visible_p50_ms": 0.0,
+    "first_visible_p95_ms": 0.0,
+    "settled_visible_p50_ms": 0.0,
+    "settled_visible_p95_ms": 0.0
+  },
+  "reader_deadline": {
+    "budget_ms": 10,
+    "elapsed_ms": 131.52,
+    "status": "TIMEOUT"
+  },
+  "wizard_missing_selection": {
+    "mode": "default"
+  },
+  "settings_channel_identity": {
+    "host_api": "Windows WASAPI",
+    "max_channels": 1,
+    "mode": "endpoint",
+    "name": "Mic A"
+  },
+  "ui_probe_stream_calls": 0,
+  "submitted_tests_with_hardware_mock": {
+    "tests": 19,
+    "failures": 0,
+    "errors": 0,
+    "hardware_boundary_calls": 1
+  },
+  "review_metadata": {
+    "time_utc": "2026-10-24T04:27:13.488656+00:00",
+    "source_baseline": "6555e3dc9cd507b5fbc31d71f3d0be95d1c4078a",
+    "dirty_worktree": true,
+    "physical_hardware_used": false,
+    "concurrent_ui_edits": true,
+    "source_sha256": {
+      "engine/audio_devices.py": "78352ede5476d58335551999d40e8fc1964c2fb297f15b25d9bebe797b01a42d",
+      "engine/audio_recorder.py": "c799af59d07db66ec1569b43d20b70abc28a125cf1e7858b54a6e16c0600e1a9",
+      "engine/config.py": "43d07aaee284b868b575b7cd0d4dfce338d7680b39578663ee94217e340cb5c8",
+      "engine/orchestrator.py": "bb7d2bb15ae2b2f05b10cfcfd0cca70fa9c2f8422a371aebf184a511739ea9ac",
+      "benchmarks/delivery_observer.py": "5275edc37567016529ca9eaf5a744567068724ba9668cc83273de9047096c5b0",
+      "ui/setup_wizard.py": "acba3fd47caad663009439e1745c18270aed3154cc99b00d0905f1b9ce6a3554",
+      "ui/settings_dialog.py": "a831da73656233806de9cc842b33ff3c0a993e9983732a04ad44dca947b7d561",
+      "ui/flowpilot_dashboard.py": "8c23dfd3d2f314ed926d82c03ec19d4ed93bff2b839d4846b56dd954460d3c94",
+      "ui/workspace_style.py": "592c0995c1287b19c0b3944e282f705e0467f2509338ddb9d4638903c68d4d88",
+      "tests/test_workspace_refresh.py": "eddba0618a75ecd569c03360b5aa9a82f5b84b405b203efd8e4712cda1fdc73f"
+    }
+  },
+  "scroll_recheck": {
+    "result": "27 passed",
+    "duration_sec": 11.55,
+    "suite": "tests/test_workspace_refresh.py",
+    "qt_platform": "offscreen",
+    "fix_author": "Gemini concurrent edit",
+    "dashboard_sha256": "8c23dfd3d2f314ed926d82c03ec19d4ed93bff2b839d4846b56dd954460d3c94",
+    "physical_desktop_verified": false
+  }
+}

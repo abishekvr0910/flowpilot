@@ -19,12 +19,13 @@ Keep the companion out of fullscreen viewing and presentations. Let users choose
 - [x] Design it (spec): `/architect context aware companion visibility`
 - [x] Build the native policy, migration, controller, tray, dashboard, Studio and app rule controls.
 - [x] Measure the automatable portion of the interactive gate on a live desktop: borderless fullscreen hide 0.203 s and 0.516 s, restore 0.610 s and 0.625 s, a maximized plain window holds the companion, and a full context sample stays under half a millisecond per call. Details in [the gate results note](../testing/COMPANION_VISIBILITY_INTERACTIVE_GATE_RESULTS.md). The probe needs a quiet desktop and reports unmeasurable rather than a pass when the operator keeps working.
-- [ ] A person still verifies the human portion on a real machine: Chrome F11, a real PowerPoint slideshow, F9 tray behavior while hidden, third party paste behavior across real editors, and the packaged binary on one live session. The open list is in the gate results note.
+- [x] Record RC3 packaged live checks for Edge F11, a real PowerPoint slideshow, F9 text delivery while Hidden, and primary/secondary display frame fit. Evidence: [media validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md). This does not verify every tray state or every target app.
+- [ ] Complete the remaining live rows: Chrome F11 specifically, restart persistence, Studio app rule edits, reduced motion after hide/restore, tray states during hidden dictation, and fullscreen video on one monitor while editing on another. Record outcomes on the exact candidate rather than inferring them from unit tests.
 - [ ] Decide release promotion after measured window transitions and pilot review.
 
 Active implementation contract: [spec 0001](../specs/0001-context-aware-companion-visibility.md). Automated checks do not replace the interactive desktop gate, and RC2 remains unchanged.
 
-### 27. Media audio aware hiding · implemented slice
+### 27. Media audio aware hiding · in-progress
 
 While any audible playback is active (video, music, podcast), a smart-mode companion hides itself and returns after 1.5 s of quiet, unless dictation is in flight, a manual mode is set, a per app rule applies, the foreground app is a quiet editor, or the temporarily shown state is active. The signal is the Windows render session meter (`IAudioMeterInformation` via pycaw), the same surface already used by the audio ducker; a muted or paused stream does not count as audible and window title, pixels, and clipboard stay untouched. Only continuous audibility of about one second hides the companion, so a short system sound never does the hiding. Code in `engine/media_presence.py`, `engine/companion_visibility.py`, `ui/companion_visibility_controller.py`, and `desktop_app.py`; coverage in `tests/test_companion_visibility.py`. This generalizes, and does not reopen, feature 24: it still cannot tell a windowed video from background music, it only treats audible playback as a viewing signal.
 
@@ -32,7 +33,8 @@ The audio session query runs in a background sampler so a slow COM call cannot s
 
 **Done when:** audible media hides the companion in smart mode, silence restores it, dictation states win over the hide, manual modes and app rules are untouched by the hide, and the probe fails soft without breaking the visibility tick.
 
-- [ ] A person verifies on a live desktop with real media (YouTube audibles vs muted) and reports timing behavior.
+- [x] Record audible, muted, unmuted, and paused local video behavior in Edge on RC3 with measured hide and restore times.
+- [ ] Extend the live check to the intended browser playback workflow, music, notification sounds, quiet gaps, and interactions with manual modes and app rules. Do not label audio presence as video recognition.
 
 Source and package evidence: [media audio validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md).
 

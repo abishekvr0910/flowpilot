@@ -22,6 +22,9 @@ def test_desktop_app_startup_and_lifecycle():
     app_instance = FlowPilotApp(enforce_single_instance=False)
     print("[1] FlowPilotApp initialized successfully.")
 
+    # Ensure HUD presentation is active via visibility controller for lifecycle testing
+    app_instance.visibility.set_mode("always")
+
     # Verify HUD
     assert app_instance.hud is not None
     assert app_instance.hud.isVisible() is True

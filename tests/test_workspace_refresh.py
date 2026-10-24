@@ -310,6 +310,103 @@ def test_wheel_filter_ignores_combo_with_open_popup(dashboard, monkeypatch):
     assert _wheel_guard.eventFilter(combo, event) is False
 
 
+@pytest.mark.parametrize("page", [4, 8, 9])
+def test_wheel_over_tabs_does_not_switch_workspace_section(dashboard, page):
+    from PySide6.QtWidgets import QTabBar
+    dashboard._on_nav_clicked(page)
+    for tabs in dashboard.stack.currentWidget().findChildren(QTabBar):
+        if not tabs.isVisible() or tabs.count() < 2:
+            continue
+        before = tabs.currentIndex()
+        _wheel(dashboard, tabs, delta=-120)
+        assert tabs.currentIndex() == before
+
+
+@pytest.mark.parametrize("page", [0, 8, 9])
+def test_repeated_wheel_at_page_bottom_keeps_scroll_and_controls_stable(dashboard, page):
+    from PySide6.QtWidgets import QScrollArea, QComboBox
+    dashboard._on_nav_clicked(page)
+    dashboard.resize(880, 580)
+    QApplication.processEvents()
+    current = dashboard.stack.currentWidget()
+    areas = ([current] if isinstance(current, QScrollArea) else []) + current.findChildren(QScrollArea)
+    for area in areas:
+        if not area.isVisible():
+            continue
+        bar = area.verticalScrollBar()
+        bar.setValue(bar.maximum())
+        before = (bar.value(), bar.maximum(), dashboard.geometry())
+        controls = area.findChildren(QComboBox)
+        indices = [combo.currentIndex() for combo in controls]
+        for _ in range(10):
+            _wheel(dashboard, area.viewport(), delta=-120)
+        assert (bar.value(), bar.maximum(), dashboard.geometry()) == before
+        assert [combo.currentIndex() for combo in controls] == indices
+
+
+def test_wheel_stops_at_inner_scroll_boundary(dashboard):
+    from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QLabel
+    outer = QScrollArea(dashboard)
+    outer.setWidgetResizable(True)
+    content = QWidget()
+    layout = QVBoxLayout(content)
+    inner = QScrollArea()
+    inner.setFixedHeight(120)
+    inner_content = QLabel("Nested content")
+    inner_content.setFixedHeight(600)
+    inner.setWidget(inner_content)
+    layout.addWidget(inner)
+    spacer = QWidget()
+    spacer.setFixedHeight(800)
+    layout.addWidget(spacer)
+    outer.setWidget(content)
+    outer.resize(300, 200)
+    outer.show()
+    QApplication.processEvents()
+    inner.verticalScrollBar().setValue(inner.verticalScrollBar().maximum())
+    outer.verticalScrollBar().setValue(0)
+    for _ in range(5):
+        _wheel(dashboard, inner.viewport(), delta=-120)
+    assert outer.verticalScrollBar().value() == 0
+    outer.deleteLater()
+
+
+def test_shared_guard_preserves_click_and_keyboard_navigation(dashboard):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from ui.workspace_style import guard_wheel_events, ensure_wheel_guard
+    dashboard._on_nav_clicked(9)
+    settings = dashboard.stack.currentWidget()
+    first = guard_wheel_events(settings)
+    assert first is ensure_wheel_guard(QApplication.instance())
+    combo = settings.combo_ui_theme
+    combo.setFocus()
+    combo.setCurrentIndex(0)
+    _wheel(dashboard, combo, delta=-120)
+    assert combo.currentIndex() == 0
+    QTest.keyClick(combo, Qt.Key_Down)
+    assert combo.currentIndex() == 1
+    tabs = settings.tabs.tabBar()
+    QTest.mouseClick(tabs, Qt.LeftButton, pos=tabs.tabRect(1).center())
+    assert tabs.currentIndex() == 1
+
+
+def test_shared_guard_covers_controls_created_after_install(dashboard):
+    from PySide6.QtWidgets import QComboBox, QTabBar, QWidget
+    from ui.workspace_style import guard_wheel_events
+    dialog = QWidget()
+    guard_wheel_events(dialog)
+    combo = QComboBox(dialog)
+    combo.addItems(["First", "Second"])
+    tabs = QTabBar(dialog)
+    tabs.addTab("First")
+    tabs.addTab("Second")
+    for control in (combo, tabs):
+        _wheel(dashboard, control, delta=-120)
+        assert control.currentIndex() == 0
+    dialog.deleteLater()
+
+
 def test_insights_view_shows_dashes_until_real_data(tmp_path):
     from engine.insights_engine import InsightsEngine
     from ui.insights_view import InsightsView

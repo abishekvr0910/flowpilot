@@ -1,5 +1,5 @@
 """
-FlowPilot Settings & Personalization Dialog
+Feature 28: FlowPilot Settings & Personalization Dialog
 Allows configuring:
 1. General Settings: STT model size, Writing Tone mode, Global Hotkeys, Audio Ducking, and Audio Cues.
 2. Multilingual: Primary language selection from LanguageRegistry with native scripts and auto-detect.
@@ -19,11 +19,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 import pyperclip
 import json
+import logging
+
+logger = logging.getLogger("FlowPilot.SettingsDialog")
 
 from engine.language_registry import LanguageRegistry
 from engine.personalization import PersonalizationEngine
 from engine.hotkey_service import Win32HotkeyService
-from ui.workspace_style import workspace_style, label, harmonize_legacy_styles
+from ui.workspace_style import workspace_style, label, harmonize_legacy_styles, guard_wheel_events
 
 class SettingsDialog(QDialog):
     def __init__(
@@ -88,6 +91,7 @@ class SettingsDialog(QDialog):
         footer.addLayout(actions)
         layout.addLayout(footer)
         harmonize_legacy_styles(self, theme, include_root=False)
+        guard_wheel_events(self)
 
     def reject(self):
         if self.embedded:
@@ -133,25 +137,8 @@ class SettingsDialog(QDialog):
         lbl_mic = QLabel("Microphone")
         vbox.addWidget(lbl_mic)
         self.combo_mic = QComboBox()
-        self.combo_mic.addItem("Windows System Default Recording Device", None)
-        try:
-            import sounddevice as sd
-            devs = sd.query_devices()
-            seen_mics = set()
-            for idx, d in enumerate(devs):
-                if d.get("max_input_channels", 0) > 0:
-                    name = d.get("name", f"Device {idx}")
-                    if name not in seen_mics:
-                        seen_mics.add(name)
-                        self.combo_mic.addItem(f"{name} (Index {idx})", idx)
-        except Exception:
-            pass
-        cur_mic = self.config.get("audio_device_index", self.config.get("mic_device"))
-        if cur_mic is not None:
-            for i in range(self.combo_mic.count()):
-                if self.combo_mic.itemData(i) == cur_mic:
-                    self.combo_mic.setCurrentIndex(i)
-                    break
+        from ui.audio_input_picker import populate_audio_inputs
+        populate_audio_inputs(self.combo_mic, self.config)
         vbox.addWidget(self.combo_mic)
 
         # Primary Language Selector (from LanguageRegistry)
@@ -520,8 +507,17 @@ class SettingsDialog(QDialog):
         if not self._test_current_hotkey():
             QMessageBox.warning(self, "Shortcut Unavailable", self.lbl_hotkey_status.text())
             return
-        # STT model size
-        self.config["audio_device_index"] = self.combo_mic.currentData()
+        # Audio device selection (Feature 28)
+        selected_mic = self.combo_mic.currentData()
+        if isinstance(selected_mic, dict):
+            self.config["audio_input_selection"] = selected_mic
+            from engine.audio_devices import resolve_audio_input
+            res = resolve_audio_input(selected_mic)
+            self.config["audio_device_index"] = res.device_index
+        else:
+            self.config["audio_device_index"] = selected_mic
+            from engine.audio_devices import build_device_selection
+            self.config["audio_input_selection"] = build_device_selection(selected_mic)
         self.config["ui_theme"] = self.combo_ui_theme.currentData()
         model_text = self.combo_model.currentText()
         if "tiny" in model_text:

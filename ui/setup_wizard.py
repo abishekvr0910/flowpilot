@@ -1,5 +1,5 @@
 """
-FlowPilot First-Run Local Setup Wizard
+Feature 28: FlowPilot First-Run Local Setup Wizard
 Provides an interactive 4-step onboarding flow:
 1. Microphone selection and live audio level test
 2. Local STT model verification (100% offline, zero network egress)
@@ -10,6 +10,9 @@ Provides an interactive 4-step onboarding flow:
 import os
 import sys
 import time
+import logging
+
+logger = logging.getLogger("FlowPilot.SetupWizard")
 import threading
 import numpy as np
 from pathlib import Path
@@ -27,6 +30,7 @@ from engine.config import load_config, save_config
 from engine.language_registry import LanguageRegistry
 from engine.stt_engine import STTEngine
 from engine.hotkey_service import Win32HotkeyService
+from ui.workspace_style import guard_wheel_events
 
 try:
     import sounddevice as sd
@@ -51,6 +55,7 @@ class SetupWizardDialog(QDialog):
 
         self._init_styles()
         self._init_ui()
+        guard_wheel_events(self)
 
     def _init_styles(self):
         self.setStyleSheet("""
@@ -231,28 +236,8 @@ class SetupWizardDialog(QDialog):
         return card
 
     def _populate_mics(self):
-        self.combo_mics.clear()
-        self.combo_mics.addItem("Windows System Default Recording Device", None)
-        if HAS_SD:
-            try:
-                devices = sd.query_devices()
-                seen = set()
-                for idx, d in enumerate(devices):
-                    if d.get("max_input_channels", 0) > 0:
-                        name = d.get("name", f"Device {idx}")
-                        if name not in seen:
-                            seen.add(name)
-                            self.combo_mics.addItem(f"{name} (Index {idx})", idx)
-            except Exception as e:
-                print(f"[SetupWizard] Device enumeration error: {e}")
-
-        # Pre-select currently saved device
-        current_dev = self.config.get("audio_device_index", self.config.get("mic_device"))
-        if current_dev is not None:
-            for i in range(self.combo_mics.count()):
-                if self.combo_mics.itemData(i) == current_dev:
-                    self.combo_mics.setCurrentIndex(i)
-                    break
+        from ui.audio_input_picker import populate_audio_inputs
+        populate_audio_inputs(self.combo_mics, self.config)
 
     def _toggle_mic_test(self):
         if self._mic_testing:
@@ -274,7 +259,15 @@ class SetupWizardDialog(QDialog):
             QMessageBox.warning(self, "No Sound Device", "sounddevice library is not available.")
             return False
         try:
-            dev_idx = self.combo_mics.currentData()
+            sel_data = self.combo_mics.currentData()
+            if isinstance(sel_data, dict):
+                from engine.audio_devices import resolve_audio_input
+                res = resolve_audio_input(sel_data)
+                dev_idx = res.device_index
+                if dev_idx is not None and dev_idx < 0:
+                    raise RuntimeError(res.error_message or "Select an available microphone.")
+            else:
+                dev_idx = sel_data
             def audio_cb(indata, frames, time_info, status):
                 rms = np.sqrt(np.mean(indata**2))
                 self._current_level = float(rms)
@@ -606,7 +599,16 @@ class SetupWizardDialog(QDialog):
         self._stop_mic_test()
         # Persist user choices
         self.config["first_run_completed"] = True
-        self.config["audio_device_index"] = self.combo_mics.currentData()
+        sel_mic = self.combo_mics.currentData()
+        if isinstance(sel_mic, dict):
+            self.config["audio_input_selection"] = sel_mic
+            from engine.audio_devices import resolve_audio_input
+            res = resolve_audio_input(sel_mic)
+            self.config["audio_device_index"] = res.device_index
+        else:
+            self.config["audio_device_index"] = sel_mic
+            from engine.audio_devices import build_device_selection
+            self.config["audio_input_selection"] = build_device_selection(sel_mic)
         selected_lang = self.combo_lang.currentData()
         self.config["language"] = selected_lang or "auto"
         self.config["translate_to_english"] = self.chk_translate.isChecked()

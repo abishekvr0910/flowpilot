@@ -566,15 +566,20 @@ class ScratchpadView(QWidget):
         return self._stt_engine
 
     def _get_audio_recorder(self):
-        if self._audio_recorder is None:
-            try:
-                from engine.audio_recorder import AudioRecorder
-                from engine.config import load_config
-                cfg = load_config()
-                mic_dev = cfg.get("audio_device_index", cfg.get("mic_device"))
-                self._audio_recorder = AudioRecorder(device=mic_dev)
-            except Exception as e:
-                logger.warning(f"Could not load AudioRecorder for voice commands: {e}")
+        try:
+            from engine.audio_recorder import AudioRecorder
+            from engine.config import load_config
+            from engine.audio_devices import resolve_audio_input
+            # Do not change a stream while its command is being finalized.
+            if self._audio_recorder is None or not self._audio_recorder.is_recording:
+                res = resolve_audio_input(load_config().get("audio_input_selection"))
+                if self._audio_recorder is None:
+                    self._audio_recorder = AudioRecorder(device=res.device_index)
+                elif self._audio_recorder.device != res.device_index:
+                    self._audio_recorder.set_device(res.device_index, warmup=False)
+        except Exception as e:
+            logger.warning(f"Could not resolve AudioRecorder for voice commands: {e}")
+            return None
         return self._audio_recorder
 
     def _toggle_command_recording(self):
