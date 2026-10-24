@@ -28,9 +28,17 @@ console.log(`Target Test Endpoint: ${BASE_URL}\n`);
 // Phase 1: Launch FastAPI Engine Server
 console.log("[Phase 1] Launching Python FastAPI / Uvicorn Server on port " + TEST_PORT + "...");
 const serverProcess = spawn("python", [
-  "-c",
-  `import uvicorn; from engine.server import app; uvicorn.run(app, host='127.0.0.1', port=${TEST_PORT}, log_level='warning')`
-], { stdio: "pipe", env: { ...process.env, FLOWPILOT_API_TOKEN: TEST_API_TOKEN, FLOWPILOT_CONFIG_FILE: testConfigFile } });
+  "-X", "utf8", "tests/virtual_api_server.py", "--port", String(TEST_PORT)
+], {
+  stdio: "pipe",
+  env: {
+    ...process.env,
+    FLOWPILOT_API_TOKEN: TEST_API_TOKEN,
+    FLOWPILOT_CONFIG_FILE: testConfigFile,
+    FLOWPILOT_HEADLESS: "1",
+    FLOWPILOT_NO_POPUP: "1",
+  },
+});
 
 serverProcess.stderr.on("data", (chunk) => {
   const msg = chunk.toString();
