@@ -7,6 +7,7 @@ import time
 import json
 import asyncio
 import threading
+import numpy as np
 from pathlib import Path
 import urllib.request
 import urllib.error
@@ -139,6 +140,11 @@ async def client_test():
 
         # Receive at least one audio level event
         print("\n[Step 5] Listening for real-time RMS audio level packets...")
+        # A known in-process frame drives the recorder callback in both local
+        # and CI runs. The virtual stream never opens a physical microphone.
+        from engine.server import orchestrator
+        frame = np.full((1600, 1), 0.05, dtype=np.float32)
+        orchestrator.recorder._audio_callback(frame, len(frame), None, None)
         received_levels = 0
         for _ in range(5):
             try:
@@ -151,7 +157,7 @@ async def client_test():
                 break
 
         print(f"  Total audio level packets received: {received_levels}")
-        assert received_levels > 0 or bool(os.environ.get("CI")), "No audio level packets received during active recording!"
+        assert received_levels > 0, "No audio level packets received during active recording!"
 
         # Send stop recording action
         print("\n[Step 6] Sending WebSocket action: 'stop'...")
