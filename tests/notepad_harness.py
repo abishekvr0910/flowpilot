@@ -251,9 +251,19 @@ def focus_notepad_document(hwnd: int, timeout: float = 6.0) -> bool:
             return True
     edit = TextInjector._find_edit_control(hwnd) if win32gui.IsWindow(hwnd) else 0
     fg = win32gui.GetForegroundWindow()
+    focus_handles = []
+    for thread_id in {win32process.GetWindowThreadProcessId(handle)[0]
+                      for handle in (hwnd, edit) if handle and win32gui.IsWindow(handle)}:
+        info = _GuiThreadInfo()
+        info.cbSize = ctypes.sizeof(info)
+        if ctypes.windll.user32.GetGUIThreadInfo(thread_id, ctypes.byref(info)):
+            focus_handles.append(int(info.hwndFocus or 0))
     print(f"[Notepad harness] Document focus unavailable: target={hwnd}, "
-          f"edit_class={win32gui.GetClassName(edit) if edit else None}, "
-          f"foreground_class={win32gui.GetClassName(fg) if fg else None}")
+          f"target_title={win32gui.GetWindowText(hwnd) if win32gui.IsWindow(hwnd) else None}, "
+          f"edit={edit}, edit_class={win32gui.GetClassName(edit) if edit else None}, "
+          f"foreground={fg}, foreground_title={win32gui.GetWindowText(fg) if fg else None}, "
+          f"foreground_class={win32gui.GetClassName(fg) if fg else None}, "
+          f"thread_focus={focus_handles}")
     return False
 
 
