@@ -125,6 +125,7 @@ def test_existing_profile_survives_packaged_launch():
         test_env = os.environ.copy()
         test_env["FLOWPILOT_CONFIG_DIR"] = folder
         test_env["FLOWPILOT_CONFIG_FILE"] = str(root / "config.json")
+        test_env["FLOWPILOT_SMOKE_USE_CALLER_PROFILE"] = "1"
         test_env["FLOWPILOT_TEST_EXE"] = os.path.abspath(
             test_env.get("FLOWPILOT_TEST_EXE")
             or str(PROJECT_ROOT / "dist" / "FlowPilot" / "FlowPilot.exe")

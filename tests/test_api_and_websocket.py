@@ -1,5 +1,8 @@
+"""Feature 11: Loopback API and WebSocket lifecycle without real microphone input."""
+
 import sys
 import os
+import logging
 import time
 import json
 import asyncio
@@ -7,8 +10,10 @@ import threading
 from pathlib import Path
 import urllib.request
 import urllib.error
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 import websockets
+
+logger = logging.getLogger("FlowPilot.ApiWebsocketTest")
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -167,7 +172,16 @@ def test_api_and_websocket_pipeline():
     t.start()
     success = False
     try:
-        success = asyncio.run(client_test())
+        # This suite measures API control flow. A declared virtual input keeps
+        # hosted CI deterministic without permitting a production default mic
+        # fallback when no endpoint exists.
+        fake_devices = [{"index": 0, "name": "API Test Input", "host_api": "Windows WASAPI", "max_input_channels": 1}]
+        fake_stream = MagicMock()
+        fake_stream.active = True
+        with patch("engine.audio_devices.get_audio_input_devices", return_value=fake_devices), \
+             patch("engine.audio_devices.sd.default.device", [0, -1]), \
+             patch("engine.audio_recorder.sd.InputStream", return_value=fake_stream):
+            success = asyncio.run(client_test())
     finally:
         if test_server:
             test_server.should_exit = True

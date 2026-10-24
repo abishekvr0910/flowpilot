@@ -1,4 +1,5 @@
-"""
+"""Feature 13: Isolated smoke test for the packaged FlowPilot binary.
+
 Smoke test for the packaged FlowPilot standalone binary (dist/FlowPilot/FlowPilot.exe).
 Verifies:
 1. Binary existence and size
@@ -7,16 +8,23 @@ Verifies:
 4. Clean termination
 """
 import os
+import logging
 import sys
 import time
 import subprocess
 import psutil
 import ctypes
+import tempfile
 from pathlib import Path
+
+logger = logging.getLogger("FlowPilot.StandaloneSmokeTest")
 
 def main():
     default_exe = os.path.join(os.path.dirname(__file__), "..", "dist", "FlowPilot", "FlowPilot.exe")
     exe_path = os.path.abspath(os.environ.get("FLOWPILOT_TEST_EXE") or default_exe)
+    if not os.path.isfile(exe_path):
+        print(f"FAILED: Binary not found at {exe_path}")
+        sys.exit(1)
     newest_source_mtime = max(
         p.stat().st_mtime
         for folder in ("engine", "ui")
@@ -30,10 +38,6 @@ def main():
         )
     print(f"Testing packaged executable: {exe_path}")
     
-    if not os.path.isfile(exe_path):
-        print(f"FAILED: Binary not found at {exe_path}")
-        sys.exit(1)
-        
     size_mb = os.path.getsize(exe_path) / (1024 * 1024)
     print(f"Binary size: {size_mb:.2f} MB")
     assert size_mb > 10, f"Binary too small ({size_mb:.2f} MB), packaging may be incomplete"
@@ -84,6 +88,17 @@ def main():
     test_env["FLOWPILOT_NO_POPUP"] = "1"
     test_env["CI"] = "1"
     test_env["FLOWPILOT_HEADLESS"] = "1"
+    isolated_profile = tempfile.TemporaryDirectory(prefix="flowpilot-smoke-profile-")
+    use_caller_profile = (test_env.get("FLOWPILOT_SMOKE_USE_CALLER_PROFILE") == "1"
+                          and test_env.get("FLOWPILOT_CONFIG_DIR")
+                          and test_env.get("FLOWPILOT_CONFIG_FILE"))
+    if not use_caller_profile:
+        test_env["FLOWPILOT_CONFIG_DIR"] = isolated_profile.name
+        test_env["FLOWPILOT_CONFIG_FILE"] = os.path.join(isolated_profile.name, "config.json")
+    test_env["HF_HOME"] = os.path.join(isolated_profile.name, "empty-hf-cache")
+    test_env["HF_HUB_CACHE"] = test_env["HF_HOME"]
+    test_env["HF_HUB_OFFLINE"] = "1"
+    test_env["TRANSFORMERS_OFFLINE"] = "1"
 
 
     mutex_name = test_env["FLOWPILOT_MUTEX_NAME"]
@@ -130,17 +145,19 @@ def main():
         print("Primary instance remained healthy and active.")
         
     finally:
-        print("\n[Phase 3] Cleanly terminating primary instance...")
+        print("\n[Phase 3] Terminating the isolated primary instance...")
         try:
             p = psutil.Process(proc.pid)
             for child in p.children(recursive=True):
                 child.terminate()
             p.terminate()
             proc.wait(timeout=5)
-            print("Primary process terminated cleanly.")
+            print("Isolated primary process terminated.")
         except Exception as e:
             print(f"Termination exception: {e}")
             proc.kill()
+            proc.wait(timeout=5)
+        isolated_profile.cleanup()
             
     print("\n=== STANDALONE BINARY SMOKE TEST PASSED ===")
 

@@ -1,8 +1,13 @@
+"""Feature 2: Global hotkey parsing and binding regression checks."""
+
 import sys
+import logging
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+
+logger = logging.getLogger("FlowPilot.HotkeyTest")
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -73,7 +78,7 @@ def test_hotkey_resolution():
     assert legacy.hotkey_service.keys[:3] == ["Ctrl+Shift+Space", "F9", "Ctrl+Alt+Space"]
     legacy.stt = SimpleNamespace(config=None)
     legacy.processor = SimpleNamespace(config=None)
-    legacy.recorder = SimpleNamespace(device=None)
+    legacy.recorder = SimpleNamespace(device=None, set_device=MagicMock())
     with patch("engine.orchestrator.save_config", return_value=True), \
          patch("engine.hotkey_service.get_hotkey_service", side_effect=FakeService):
         assert legacy.update_config({"hotkey_exclusive": True}) is True
@@ -89,7 +94,7 @@ def test_hotkey_resolution():
     assert isolated.hotkey_service.keys == ["F9", "Ctrl+Alt+T", "Alt+Shift+Z", "Alt+Shift+X"]
     isolated.stt = SimpleNamespace(config=None)
     isolated.processor = SimpleNamespace(config=None)
-    isolated.recorder = SimpleNamespace(device=None)
+    isolated.recorder = SimpleNamespace(device=None, set_device=MagicMock())
     with patch("engine.orchestrator.save_config", return_value=True), \
          patch("engine.hotkey_service.get_hotkey_service", side_effect=FakeService), \
          patch.object(Win32HotkeyService, "test_hotkey_availability", return_value=(True, "Available")):

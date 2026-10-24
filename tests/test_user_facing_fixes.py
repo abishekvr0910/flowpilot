@@ -1,4 +1,5 @@
-"""
+"""Feature 28: User-facing microphone, personalization, and paste recovery checks.
+
 Unit and integration tests for the three user-facing fixes:
 1. Chosen microphone actually becomes FlowPilot's input.
 2. Dictionary and snippet edits work immediately without restart.
@@ -6,6 +7,7 @@ Unit and integration tests for the three user-facing fixes:
 """
 
 import sys
+import logging
 import unittest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -22,6 +24,8 @@ from engine.hotkey_service import Win32HotkeyService
 from ui.setup_wizard import SetupWizardDialog
 from PySide6.QtWidgets import QApplication
 
+logger = logging.getLogger("FlowPilot.UserFacingFixesTest")
+
 
 class TestUserFacingFixes(unittest.TestCase):
     def setUp(self):
@@ -29,9 +33,6 @@ class TestUserFacingFixes(unittest.TestCase):
 
     def test_microphone_selection_updates_recorder_device(self):
         """Verify that updating audio_device_index in config immediately updates AudioRecorder device."""
-        orch = FlowOrchestrator(on_state_change=lambda _: None)
-        self.assertEqual(orch.recorder.device, orch.config.get("audio_device_index", orch.config.get("mic_device")))
-
         created_streams = []
         def fake_input_stream(**kwargs):
             m = MagicMock()
@@ -50,6 +51,8 @@ class TestUserFacingFixes(unittest.TestCase):
         with patch("engine.audio_recorder.sd.InputStream", side_effect=fake_input_stream), \
              patch("engine.audio_devices.get_audio_input_devices", return_value=mock_devices), \
              patch("engine.audio_devices.sd.default.device", [0, -1]):
+            orch = FlowOrchestrator(on_state_change=lambda _: None)
+            self.assertIsNone(orch.recorder.device)
             orch.recorder.warmup_stream()
             self.assertEqual(len(created_streams), 1)
 
