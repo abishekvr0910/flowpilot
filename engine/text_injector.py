@@ -91,11 +91,16 @@ class TextInjector:
         "slack.exe", "teams.exe", "ms-teams.exe", "discord.exe", "notion.exe",
         "outlook.exe", "winword.exe", "powerpnt.exe", "excel.exe", "whatsapp.exe",
         "code.exe", "cursor.exe", "devenv.exe", "pycharm64.exe", "idea64.exe",
-        "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "obsidian.exe"
+        "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "obsidian.exe",
+        "windowsterminal.exe", "wt.exe", "sublime_text.exe", "webstorm64.exe",
+        "clion64.exe", "rider64.exe", "goland64.exe", "datagrip64.exe",
+        "linear.exe", "superhuman.exe", "chatgpt.exe", "claude.exe", "telegram.exe",
+        "signal.exe", "todoist.exe", "craft.exe", "onenote.exe"
     }
 
     REMOTE_APP_PROCESSES = {
-        "mstsc.exe", "vncviewer.exe", "anydesk.exe", "teamviewer.exe", "vmware.exe", "virtualboxvm.exe"
+        "mstsc.exe", "vncviewer.exe", "anydesk.exe", "teamviewer.exe", "vmware.exe",
+        "virtualboxvm.exe", "putty.exe", "kitty.exe", "mobaxterm.exe", "wfica32.exe"
     }
 
     @classmethod
@@ -337,7 +342,7 @@ class TextInjector:
         def enum_cb(child, _):
             try:
                 cname = win32gui.GetClassName(child).lower()
-                if any(x in cname for x in ("edit", "richedit", "document", "scintilla", "terminal", "textbox")):
+                if any(x in cname for x in ("edit", "richedit", "document", "scintilla", "terminal", "textbox", "console", "renderwidget")):
                     found.append(child)
             except Exception:
                 pass

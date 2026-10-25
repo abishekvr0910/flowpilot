@@ -85,9 +85,75 @@ def package(bundle: Path, archive: Path) -> dict:
     }
 
 
+def find_signtool() -> Optional[Path]:
+    """Finds signtool.exe in PATH or standard Windows SDK install locations."""
+    import shutil
+    which_path = shutil.which("signtool.exe")
+    if which_path:
+        return Path(which_path)
+    sdk_root = Path("C:/Program Files (x86)/Windows Kits/10/bin")
+    if sdk_root.is_dir():
+        for candidate in sorted(sdk_root.glob("*/x64/signtool.exe"), reverse=True):
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def sign_executable(
+    executable_path: Path,
+    cert_path: Optional[Path] = None,
+    cert_password: Optional[str] = None,
+    signtool_path: Optional[Path] = None,
+    timestamp_url: str = "http://timestamp.digicert.com"
+) -> dict:
+    """Signs the Windows executable using signtool.exe if a certificate is provided."""
+    import subprocess
+    if not cert_path or not cert_path.is_file():
+        return {
+            "signed": False,
+            "status": "UNSIGNED_PILOT",
+            "message": "No code signing certificate supplied; binary remains unsigned (Windows SmartScreen warning expected in pilot)."
+        }
+    tool = signtool_path or find_signtool()
+    if not tool or not tool.is_file():
+        return {
+            "signed": False,
+            "status": "SIGNTOOL_MISSING",
+            "message": "signtool.exe not found in PATH or Windows Kits. Install Windows SDK to enable Authenticode signing."
+        }
+    cmd = [
+        str(tool), "sign", "/fd", "SHA256",
+        "/tr", timestamp_url, "/td", "SHA256",
+        "/f", str(cert_path)
+    ]
+    if cert_password:
+        cmd.extend(["/p", cert_password])
+    cmd.append(str(executable_path))
+    res = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
+    if res.returncode == 0:
+        return {
+            "signed": True,
+            "status": "AUTHENTICODE_SIGNED",
+            "signtool": str(tool),
+            "timestamp_url": timestamp_url
+        }
+    return {
+        "signed": False,
+        "status": "SIGN_FAILED",
+        "error": res.stderr.strip() or res.stdout.strip()
+    }
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument("--cert", type=Path, default=None, help="Path to Authenticode .pfx certificate")
+    parser.add_argument("--cert-password", type=str, default=None, help="Password for .pfx certificate")
+    parser.add_argument("--signtool", type=Path, default=None, help="Explicit path to signtool.exe")
     args = parser.parse_args()
-    print(json.dumps(package(args.bundle, args.archive), indent=2))
+
+    signing_info = sign_executable(args.bundle / "FlowPilot.exe", cert_path=args.cert, cert_password=args.cert_password, signtool_path=args.signtool)
+    result = package(args.bundle, args.archive)
+    result["code_signing"] = signing_info
+    print(json.dumps(result, indent=2))
