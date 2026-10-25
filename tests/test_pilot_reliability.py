@@ -29,6 +29,20 @@ from engine.session import DictationSession, SessionState
 from engine.text_injector import InjectionStatus, TextInjector
 
 
+_QT_APP = None
+
+
+def _qt_app():
+    # Keep one application alive across both widget tests. Recreating QApplication
+    # while Qt wrappers are still being finalized can terminate Python on Windows.
+    global _QT_APP
+    from PySide6.QtWidgets import QApplication
+
+    if _QT_APP is None:
+        _QT_APP = QApplication.instance() or QApplication([])
+    return _QT_APP
+
+
 class PilotReliabilityTests(unittest.TestCase):
     def test_pilot_metrics_rotate_and_never_write_transcript_fields(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -184,18 +198,21 @@ class PilotReliabilityTests(unittest.TestCase):
 
     def test_indic_language_selection_uses_visible_small_model_guidance(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-        from PySide6.QtWidgets import QApplication
         from ui.settings_dialog import SettingsDialog
         from ui.setup_wizard import SetupWizardDialog
 
-        app = QApplication.instance() or QApplication([])
+        app = _qt_app()
 
         def default_input(combo, _config):
             combo.addItem("System default", {"mode": "default"})
 
-        with patch("ui.audio_input_picker.populate_audio_inputs", side_effect=default_input), \
+        with tempfile.TemporaryDirectory() as model_dir, \
+             patch("ui.audio_input_picker.populate_audio_inputs", side_effect=default_input), \
              patch("engine.audio_devices.resolve_audio_input") as resolve, \
+             patch("ui.setup_wizard.STTEngine.resolve_model_path", return_value=model_dir), \
+             patch("ui.setup_wizard.QMessageBox.warning", side_effect=AssertionError("Bundled model fixture was not found")), \
              patch("ui.setup_wizard.save_config", return_value=True):
+            (Path(model_dir) / "model.bin").touch()
             resolve.return_value.device_index = None
             settings = SettingsDialog(
                 {"language": "en", "local_model_size": "base", "hotkey": "F9"},
@@ -211,14 +228,14 @@ class PilotReliabilityTests(unittest.TestCase):
             self.assertIn("bundled small model", wizard.lbl_language_model.text())
             wizard._finish_setup()
             self.assertEqual(wizard.config["local_model_size"], "small")
+            wizard.close()
         app.processEvents()
 
     def test_setup_refuses_indic_model_switch_without_local_weights(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-        from PySide6.QtWidgets import QApplication
         from ui.setup_wizard import SetupWizardDialog
 
-        app = QApplication.instance() or QApplication([])
+        app = _qt_app()
         with tempfile.TemporaryDirectory() as temporary, \
              patch("ui.audio_input_picker.populate_audio_inputs", side_effect=lambda combo, _: combo.addItem("Default", {"mode": "default"})), \
              patch("ui.setup_wizard.STTEngine.resolve_model_path", return_value=temporary), \
@@ -235,4 +252,4 @@ class PilotReliabilityTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)
