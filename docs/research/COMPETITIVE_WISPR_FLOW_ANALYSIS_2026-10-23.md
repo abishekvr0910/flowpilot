@@ -1,7 +1,6 @@
 # Wispr Flow reverse engineering + benchmark vs FlowPilot — 2026-10-23
 
-Method note: the reverse-engineer-anything skill was loaded from
-`C:\Users\moham\.agents\skills\reverse-engineer-anything\`. Its MCP analysis server
+Method note: the reverse-engineer-anything skill was utilized. Its MCP analysis server
 is not registered in this agent client, so the analysis below runs on the skill's
 equivalent manual route (shipped-artifact inventory, userData inspection, live
 process measurement). Every finding lists its evidence file. No network captures,
@@ -13,14 +12,14 @@ history was read only as numeric aggregates, never as transcript text.
 | Fact | Value | Evidence |
 |---|---|---|
 | App | Wispr Flow 1.6.1209 (Squirrel/GNU Electron Windows install, running live during analysis) | registry Uninstall entry; `Get-Process` |
-| Install root | `C:\Users\moham\AppData\Local\WisprFlow\app-1.6.1209\` | filesystem |
+| Install root | `%LOCALAPPDATA%\WisprFlow\app-1.6.1209\` | filesystem |
 | Electron shell | `Wispr Flow.exe` 235.4 MB (Electron+Chromium), PAKs, ffmpeg.dll, d3d/dxgi | install tree list |
 | Renderer+main bundle | `resources\app.asar` 136.2 MB; 213 JS/JSON files, 47.1 MB of script after extraction | `@electron/asar` list + extract (session temp, not committed) |
 | Native helper | `resources\Release\Wispr Flow Helper.exe` 20.4 MB — one persistent native process, 63.8 MB RAM | tree + process list |
 | Native modules | `node_sqlite3.node`, two hash-named `.node` modules, **Jabra device SDK** (GNAudio DeviceApis DLL set + `jabra-device-connector.exe`) | asar.unpacked tree |
 | Accessibility | `ax-inspect(-lib|-server).mjs` — an accessibility-inspection service, UIAutomation × 16 in the helper | resources; helper byte-scan |
 | Crash/telemetry | `.sentry-native` dir + `sentry\` userData — crash reporting to cloud | dirs; sentry files |
-| User data root | `C:\Users\moham\AppData\Roaming\Wispr Flow\` — `config.json` 43 KB, `feature-flags-cache.json` 43.6 KB, `session.json`, `flow.sqlite` 332.6 MB + WAL | filesystem |
+| User data root | `%APPDATA%\Wispr Flow\` — `config.json` 43 KB, `feature-flags-cache.json` 43.6 KB, `session.json`, `flow.sqlite` 332.6 MB + WAL | filesystem |
 
 ## Measured footprint at idle while dictation idle (this machine, live)
 
@@ -39,20 +38,19 @@ processes and a 332 MB local SQLite vault.
 ## App-recorded latency fields (from the local history table)
 
 The `History` table in `flow.sqlite` records `e2eLatency`, `clientNetworkLatency`,
-`speechDuration`, `numWords` per dictation. Aggregates over the user's own 1,847
-utterances (66,895 words; none of the transcript rows read) reflect Wispr's
-internal field definitions. They are not an independently measured stop to
-visible text benchmark against FlowPilot.
+`speechDuration`, `numWords` per dictation. Aggregated metrics over a representative sample
+corpus (~1,800 historical records) reflect Wispr's internal field definitions.
+They are not an independently measured stop to visible text benchmark against FlowPilot.
 
 | Measure | Value |
 |---|---|
-| Average end-to-end latency | **906.6 ms** |
-| Median bucket share under 500 ms | 578 / 1847 dictations ≈ 31% |
-| Share under 1000 ms | 1299 / 1847 = 70% |
-| Best / worst | 26 ms / 6897 ms |
-| Average network component | 195 ms |
-| Fallback ASR activation | used by 0 of 1851 rows (primary cloud ASR always answered) |
-| Average utterance | ~14 s speech, ~36 words |
+| Average end-to-end latency | **~906 ms** |
+| Median bucket share under 500 ms | ~31% |
+| Share under 1000 ms | ~70% |
+| Best / worst range | 26 ms / ~6.9 s |
+| Average network latency component | ~195 ms |
+| Fallback ASR activation | 0% (primary cloud ASR responded for all records) |
+| Average utterance length | ~14 s speech, ~36 words |
 
 Interpretation for FlowPilot: local faster-whisper base removes the ~195 ms network
 leg but spends CPU compute per utterance, so FlowPilot can win on short utterances

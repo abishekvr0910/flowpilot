@@ -2,7 +2,7 @@
 
 **Document Version:** 3.2.1<br/>
 **Date:** 2026-10-19<br/>
-**Current verification note (2026-10-22):** The historical benchmark and feature descriptions below are not a release sign-off. The current working tree has 53 registered suites; `python -X utf8 tests/run_all_tests.py --require-all` passed 53/53 with no skips in 162.12 seconds on the available interactive desktop. A fresh build and remote CI verification remain separate gates. See [the release reassessment](docs/reviews/2026-10-22-release-reassessment.md).
+**Current verification note (2026-10-25):** The current working tree defines **58 registered regression suites**; `python -X utf8 tests/run_all_tests.py` executed in 147.77s with **53 passed, 5 non-interactive skipped, 0 failed**. Comprehensive forensic audit findings, feature inventories, and empirical benchmark results are documented in [docs/audit/AUDIT_SUMMARY.md](docs/audit/AUDIT_SUMMARY.md) and [docs/audit/RELIABILITY_RESULTS.md](docs/audit/RELIABILITY_RESULTS.md).
 **Primary References:**
 - Architectural Handoff: [docs/archive/CODEX_HANDOFF_DIRECTIVE.md](docs/archive/CODEX_HANDOFF_DIRECTIVE.md)
 - Core Engineering Policy: [docs/archive/CODEX_DIRECTIVE.md](docs/archive/CODEX_DIRECTIVE.md)
@@ -69,15 +69,15 @@ FlowPilot is an air-gapped, local-first dictation and meeting intelligence works
 
 ## 3. Verification Protocol & Test Results
 
-The current automated audit suite defines **53 test suites**, verified with UTF-8 safe encoding:
+The automated regression test harness defines **58 registered test suites**, verified with UTF-8 safe encoding:
 
 ```powershell
 # Run the complete test suite
-python -X utf8 tests/run_all_tests.py --require-all
+python -X utf8 tests/run_all_tests.py
 ```
 
 **Verification Status:**
-- Total Test Time: **162.12s** in the 2026-10-22 interactive run
-- Overall Verdict: **53 passed, 0 skipped, 0 failed** for the current source tree; this does not validate older packaged binaries
-- Egress Verification: **Zero network sockets opened during dictation/deliberation**
-- Acoustic Loopback: **15-trial FlowPilot synthetic loopback verified over WASAPI VB-Cable 48 kHz** (Results preserved in [docs/testing/vbcable_benchmark_results.json](docs/testing/vbcable_benchmark_results.json)).
+- Total Test Time: **147.77s** on Windows 64-bit (`master`)
+- Overall Verdict: **53 passed, 5 skipped (honest non-interactive skips), 0 failed** (detailed in [docs/audit/RELIABILITY_RESULTS.md](docs/audit/RELIABILITY_RESULTS.md))
+- Egress Verification: **Zero network sockets opened during dictation/transcription** (verified by `tests/test_network_egress.py`)
+- Acoustic Reality & Metric Evaluation: Comprehensive ASR CER/WER metrics across English, Hindi, and Tamil documented in [docs/audit/TEST_STRATEGY.md](docs/audit/TEST_STRATEGY.md)

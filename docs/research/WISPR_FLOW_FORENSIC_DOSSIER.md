@@ -11,10 +11,10 @@
 
 | Evidence Source | Location / Identifier | Confidence Level | What It Proves |
 |---|---|---|---|
-| **Shipped Windows Package** | `C:\Users\moham\AppData\Local\WisprFlow\app-1.6.1209\` | Direct Fact (100%) | Shipped executable binaries, DLL dependencies, native addons, and packaging structure. |
+| **Shipped Windows Package** | `%LOCALAPPDATA%\WisprFlow\app-1.6.1209\` | Direct Fact (100%) | Shipped executable binaries, DLL dependencies, native addons, and packaging structure. |
 | **Electron Main & Renderer Bundle** | `resources\app.asar` (136.2 MB; 213 files, 47.1 MB script extracted) | Direct Fact (100%) | Client JavaScript architecture, API routes, database schemas, feature flags, hotkeys, and UI workflows. |
 | **Native Helper Process** | `resources\Release\Wispr Flow Helper.exe` (20.4 MB, 63.8 MB RSS) | Direct Fact (100%) | Native Win32 API imports (`SetWindowsHookEx`, `SendInput`, `UIAutomation`, `IAudioSessionEnumerator`). |
-| **Local SQLite Vault** | `%APPDATA%\WisprFlow\flow.sqlite` (332 MB) | Direct Fact (100%) | Local schema, migration history, telemetric schema (`e2eLatency`, `clientNetworkLatency`, `speechDuration`, `numWords`), and aggregates over 1,847 user utterances. |
+| **Local SQLite Vault** | `%APPDATA%\WisprFlow\flow.sqlite` (332 MB) | Direct Fact (100%) | Local schema, migration history, telemetric schema (`e2eLatency`, `clientNetworkLatency`, `speechDuration`, `numWords`), and field metrics over historical dictation records. |
 | **Vendor Documentation & Support** | `wisprflow.ai`, help center, shortcut guide | Evidence-Backed Fact | Public interface commitments, enterprise HIPAA/SOC2 terms, officially documented recovery shortcuts (`Shift+Alt+Z`, `Shift+Alt+X`). |
 | **Process & Resource Telemetry** | Windows Task Manager / `Get-Process` | Direct Fact (100%) | 12 processes, 814.7 MB idle RSS, multi-process memory footprint. |
 

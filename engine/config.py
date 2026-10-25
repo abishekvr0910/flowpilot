@@ -22,10 +22,7 @@ CONFIG_FILE = get_config_file()
 _CONFIG_WRITE_LOCK = threading.RLock()
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "engine_mode": "local",  # Local Faster-Whisper; cloud mode is rejected by STTEngine
-    "cloud_provider": "groq",  # "groq" or "openai"
-    "groq_api_key": "",
-    "openai_api_key": "",
+    "engine_mode": "local",  # Local Faster-Whisper (100% offline; cloud mode retired)
     "local_model_size": "base",  # "tiny", "base", "small", "medium"
     "beam_size": 1,  # Default greedy decoding (3x faster than beam search on CPU)
     "vad_filter": False,  # Pre-gated dictation audio does not require redundant VAD chunking (~480ms saved)
