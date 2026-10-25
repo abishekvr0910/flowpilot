@@ -14,7 +14,7 @@ This directive serves as the formal engineering update, verification protocol, a
 
 We explicitly acknowledge and retain the critical audit contributions Codex delivered to the repository:
 1. **Elimination of Unsubstantiated Claims:** Halting inflated assertions (e.g. "99.9% paste reliability") and establishing clear distinctions between headless CI passes (35 passed, 2 hardware skips) and live Windows desktop verification.
-2. **Commercial Surface Protection:** Moving internal pilot decks, enterprise agreements, pricing matrices, and participant interview protocols out of public repository tracking into Git-ignored [`private/pilot/`](../../private/pilot/).
+2. **Commercial Surface Protection:** Moving internal pilot decks, enterprise agreements, pricing matrices, and participant interview protocols into the Git-ignored `private/pilot/` directory, which is not available in this public repository.
 3. **Data Integrity & Privacy Realism:** Exposing that the History Vault previously saved audio WAVs by default, and enforcing `save_history_text: false` as the default across all fresh profiles with zero-vault creation.
 4. **Third-Party Attribution:** Documenting the SondeR-Cat pixel assets under the Apache-2.0 license (Verisonder notice) in [`THIRD_PARTY_LICENSES.md`](../../THIRD_PARTY_LICENSES.md).
 
@@ -27,7 +27,7 @@ All engineering work completed in this cycle builds directly upon these rigorous
 To protect FlowPilot's commercial viability and competitive defensibility while maintaining open-source hygiene:
 
 1. **Strict Private Directory Isolation:**
-   - [`private/pilot/`](../../private/pilot/) must remain permanently in [`.gitignore`](../../.gitignore). Never stage, commit, or push files from this directory to any public branch.
+   - `private/pilot/` must remain permanently in [`.gitignore`](../../.gitignore). Never stage, commit, or push files from this directory to any public branch.
    - All commercial pilot metrics, enterprise pricing documents, customer validation data, and partner strategy notes reside exclusively in `private/pilot/`.
 
 2. **Original Character IP & Visual Independence:**

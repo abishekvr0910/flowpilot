@@ -1,4 +1,4 @@
-// FlowPilot Frontend State & WebSocket Controller
+// Feature 11: Local web companion state and WebSocket controller.
 
 let ws = null;
 let apiToken = null;
@@ -17,13 +17,9 @@ const wsStatusChip = document.getElementById("wsStatusChip");
 const wsStatusText = document.getElementById("wsStatusText");
 
 const toneCards = document.querySelectorAll(".tone-card");
-const cloudProviderSelect = document.getElementById("cloudProviderSelect");
-const groqApiKeyInput = document.getElementById("groqApiKeyInput");
-const openaiApiKeyInput = document.getElementById("openaiApiKeyInput");
 const localModelSizeSelect = document.getElementById("localModelSizeSelect");
 const languageSelect = document.getElementById("languageSelect");
 const codeSwitchingToggle = document.getElementById("codeSwitchingToggle");
-const engineModeTag = document.getElementById("engineModeTag");
 
 const newVocabInput = document.getElementById("newVocabInput");
 const addVocabBtn = document.getElementById("addVocabBtn");
@@ -138,15 +134,6 @@ function populateUIWithConfig(config) {
     card.classList.toggle("active", card.dataset.mode === mode);
   });
 
-  // Engine Mode
-  const engineMode = config.engine_mode || "cloud";
-  switchEngineTab(engineMode);
-
-  // Cloud API Keys
-  if (config.groq_api_key) groqApiKeyInput.value = config.groq_api_key;
-  if (config.openai_api_key) openaiApiKeyInput.value = config.openai_api_key;
-  if (config.cloud_provider) cloudProviderSelect.value = config.cloud_provider;
-
   // Local Model Size
   if (config.local_model_size) localModelSizeSelect.value = config.local_model_size;
 
@@ -157,16 +144,6 @@ function populateUIWithConfig(config) {
   // Vocabulary
   renderVocabTags(config.custom_vocabulary || []);
 }
-
-// Engine Tab Switcher (Cloud vs Local)
-window.switchEngineTab = function(mode) {
-  currentConfig.engine_mode = mode;
-  document.getElementById("tabCloud").classList.toggle("active", mode === "cloud");
-  document.getElementById("tabLocal").classList.toggle("active", mode === "local");
-  document.getElementById("cloudSettingsPanel").style.display = mode === "cloud" ? "block" : "none";
-  document.getElementById("localSettingsPanel").style.display = mode === "local" ? "block" : "none";
-  engineModeTag.textContent = mode === "cloud" ? "Cloud BYOK" : "100% Offline";
-};
 
 // Tone Mode Click Handler
 toneCards.forEach(card => {
@@ -311,16 +288,12 @@ hudMicBtn.addEventListener("click", () => {
 });
 
 // Save Settings Button
-saveSettingsBtn.addEventListener("click", () => {
-  currentConfig.cloud_provider = cloudProviderSelect.value;
-  currentConfig.groq_api_key = groqApiKeyInput.value.trim();
-  currentConfig.openai_api_key = openaiApiKeyInput.value.trim();
+saveSettingsBtn.addEventListener("click", async () => {
   currentConfig.local_model_size = localModelSizeSelect.value;
   currentConfig.language = languageSelect.value;
   currentConfig.enable_code_switching = codeSwitchingToggle.checked;
-  saveConfigToServer();
-
-  saveSettingsBtn.textContent = "Saved ✓";
+  const saved = await saveConfigToServer();
+  saveSettingsBtn.textContent = saved ? "Saved ✓" : "Save failed";
   setTimeout(() => {
     saveSettingsBtn.textContent = "Save Configuration";
   }, 1500);
@@ -329,15 +302,17 @@ saveSettingsBtn.addEventListener("click", () => {
 async function saveConfigToServer() {
   try {
     const token = getApiToken();
-    if (!token) return;
+    if (!token) return false;
     const response = await fetch("/api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(currentConfig)
     });
     if (!response.ok) throw new Error(`API rejected settings: ${response.status}`);
+    return true;
   } catch (e) {
     console.error("Failed to save config:", e);
+    return false;
   }
 }
 

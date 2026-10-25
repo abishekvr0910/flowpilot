@@ -4,7 +4,7 @@ import logging
 import threading
 from pathlib import Path
 from typing import Dict, Any, Callable, Optional, List
-from engine.config import load_config, save_config
+from engine.config import OBSOLETE_CLOUD_KEYS, load_config, local_only_config, save_config
 from engine.audio_recorder import AudioRecorder
 from engine.window_inspector import WindowInspector
 from engine.stt_engine import STTEngine
@@ -672,6 +672,9 @@ class FlowOrchestrator:
         self.update_config({"local_model_size": target_model})
 
     def update_config(self, new_config: Dict[str, Any]):
+        if OBSOLETE_CLOUD_KEYS.intersection(new_config) or new_config.get("engine_mode", "local") != "local":
+            logger.warning("Unsupported cloud speech setting refused")
+            return False
         old_hk = self.config.get("hotkey")
         old_mode = self.config.get("hotkey_mode")
         old_exclusive = self.config.get("hotkey_exclusive", False)
@@ -679,7 +682,7 @@ class FlowOrchestrator:
         new_model = new_config.get("local_model_size")
         model_changed = (new_model is not None and new_model != old_model)
 
-        updated_config = {**self.config, **new_config}
+        updated_config = local_only_config({**self.config, **new_config})
         new_hk = updated_config.get("hotkey", "Ctrl+Shift+Space")
         if new_hk != old_hk:
             updated_config["hotkey_exclusive"] = True
