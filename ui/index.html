@@ -98,37 +98,13 @@
           </div>
         </div>
 
-        <!-- ENGINE SETTINGS: LOCAL VS CLOUD -->
+        <!-- LOCAL ENGINE SETTINGS -->
         <div class="card">
           <div class="card-header">
             <h3>⚙️ Engine & Privacy</h3>
-            <span class="tag" id="engineModeTag">Cloud BYOK</span>
+            <span class="tag">Local speech recognition</span>
           </div>
-          
-          <div class="tab-switch">
-            <button class="tab-btn active" id="tabCloud" onclick="switchEngineTab('cloud')">Ultra-Fast Cloud (Groq/OpenAI)</button>
-            <button class="tab-btn" id="tabLocal" onclick="switchEngineTab('local')">100% Offline (Local Whisper)</button>
-          </div>
-
-          <div id="cloudSettingsPanel" class="tab-panel">
-            <div class="form-group">
-              <label>Cloud Provider</label>
-              <select id="cloudProviderSelect" class="input-select">
-                <option value="groq">Groq (Ultra-Fast ~300ms, Whisper Large-v3)</option>
-                <option value="openai">OpenAI (Official Whisper-1)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Groq API Key <span class="hint">(Free at console.groq.com)</span></label>
-              <input type="password" id="groqApiKeyInput" class="input-text" placeholder="gsk_...">
-            </div>
-            <div class="form-group">
-              <label>OpenAI API Key <span class="hint">(Optional)</span></label>
-              <input type="password" id="openaiApiKeyInput" class="input-text" placeholder="sk-...">
-            </div>
-          </div>
-
-          <div id="localSettingsPanel" class="tab-panel" style="display: none;">
+          <div class="tab-panel">
             <div class="info-banner">
               🔒 <strong>Zero Cloud Calls:</strong> Runs completely on your device via <code>faster-whisper</code>. Completely private & offline.
             </div>
