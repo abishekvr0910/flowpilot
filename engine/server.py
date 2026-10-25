@@ -1,3 +1,5 @@
+"""Feature 11: Token protected local API and web companion."""
+
 import asyncio
 import hmac
 import os
@@ -11,15 +13,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from engine import __version__
 from engine.orchestrator import FlowOrchestrator
-from engine.config import load_config, save_config
+from engine.config import OBSOLETE_CLOUD_KEYS, load_config, local_only_config, save_config
 
 def redact_sensitive_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """Return a shallow copy of config with API keys masked."""
-    safe = dict(cfg)
-    for k in ("groq_api_key", "openai_api_key"):
-        if safe.get(k):
-            safe[k] = "***"
-    return safe
+    """Return only supported local settings to API clients."""
+    return local_only_config(cfg)
 
 # Active WebSocket connections
 active_connections: List[WebSocket] = []
@@ -151,13 +149,9 @@ async def get_config():
 
 @app.post("/api/config")
 async def set_config(new_config: Dict[str, Any]):
-    # Prevent masked strings ('***') from wiping existing keys
-    clean_config = {}
-    for k, v in new_config.items():
-        if k in ("groq_api_key", "openai_api_key") and v == "***":
-            continue
-        clean_config[k] = v
-    if not orchestrator.update_config(clean_config):
+    if OBSOLETE_CLOUD_KEYS.intersection(new_config) or new_config.get("engine_mode", "local") != "local":
+        raise HTTPException(status_code=422, detail="Cloud speech settings are unsupported. Use local mode.")
+    if not orchestrator.update_config(new_config):
         raise HTTPException(status_code=500, detail="Configuration could not be saved.")
     return {"status": "success", "config": redact_sensitive_config(orchestrator.config)}
 

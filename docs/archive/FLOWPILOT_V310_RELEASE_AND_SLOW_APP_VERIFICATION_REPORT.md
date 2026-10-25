@@ -1,5 +1,10 @@
 # FlowPilot v3.1.0 Release Packaging, Verification & Slow-App Hardening Report
 
+Historical candidate report from October 20, 2026. Its binary paths and hashes
+are superseded and do not identify a current GitHub release. Check the
+[release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) and the exact
+downloaded artifact before using any checksum.
+
 **Evaluation Date:** October 20, 2026<br/>
 **Target Release:** FlowPilot v3.1.0 (Standalone Windows 64-bit Desktop Candidate)<br/>
 **Base Commit:** [`a302b80`](https://github.com/abishekvr0910/flowpilot/commit/a302b80) (Multilingual Workstation, Slow-App Hardening, Setup Wizard & Hotkey Protection)<br/>
@@ -13,10 +18,10 @@ The release binary has been compiled from current verified master source using P
 
 | Artifact Property | Value / Measurement |
 | :--- | :--- |
-| **Distribution ZIP Path** | [`dist/FlowPilot-v3.1.0-win64.zip`](file:///S:/APPs/New%20folder/dist/FlowPilot-v3.1.0-win64.zip) |
+| **Distribution ZIP Path** | [`dist/FlowPilot-v3.1.0-win64.zip`](https://github.com/abishekvr0910/flowpilot/releases) |
 | **Archive File Size** | **522,666,896 bytes** (498.45 MB, including bundled Faster-Whisper base model weights and Silero VAD assets) |
 | **Archive SHA-256 Hash** | `5417451092BCAEA4DBE5B53C3955AC3BD9ED22EB30878B3CC09E3A6B7531B397` |
-| **Packaged Executable** | [`dist/FlowPilot/FlowPilot.exe`](file:///S:/APPs/New%20folder/dist/FlowPilot/FlowPilot.exe) |
+| **Packaged Executable** | [`dist/FlowPilot/FlowPilot.exe`](https://github.com/abishekvr0910/flowpilot/releases) |
 | **Executable File Size** | **32,269,310 bytes** (30.77 MB) |
 | **Executable SHA-256 Hash** | `9A06363DB31A170889370D7401F983E76523A078626E373F1965D5F0E1007B12` |
 | **Authenticode Signature** | `NotSigned` (Unsigned open-source developer binary) |
@@ -113,11 +118,11 @@ To prevent UI threads under heavy rendering load from coalescing or dropping key
 
 ## 5. Summary of Modified & Tracked Files
 
-- [`engine/text_injector.py`](file:///S:/APPs/New%20folder/engine/text_injector.py): Added `SLOW_APP_PROCESSES`, `REMOTE_APP_PROCESSES`, adaptive dwell pacing, adaptive clipboard hold buffer, and `inject_last()` recovery dispatch.
-- [`engine/orchestrator.py`](file:///S:/APPs/New%20folder/engine/orchestrator.py): Registered `Alt+Shift+Z` (Paste Last) and `Alt+Shift+X` (Copy Last) recovery shortcuts; added `re_inject_last()`.
-- [`ui/tray_manager.py`](file:///S:/APPs/New%20folder/ui/tray_manager.py): Added `reinject_requested` signal and tray menu actions for Paste Last Dictation (`Shift+Alt+Z`) and Copy Last Dictation (`Shift+Alt+X`).
-- [`desktop_app.py`](file:///S:/APPs/New%20folder/desktop_app.py): Wired `_on_reinject_last()` with user feedback notifications.
-- [`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py): Added unit test `test_slow_app_timing_and_dwell()`.
-- [`docs/release/RELEASE_ARTIFACT_MANIFEST.md`](file:///S:/APPs/New%20folder/docs/release/RELEASE_ARTIFACT_MANIFEST.md): Documented v3.1.0 release candidate metrics, SHA-256 hashes, Authenticode status, and system requirements.
-- [`docs/testing/vbcable_benchmark_results.json`](file:///S:/APPs/New%20folder/docs/testing/vbcable_benchmark_results.json): Updated with October 19 VB-Cable benchmark empirical observations.
-- [`CODEX.md`](file:///S:/APPs/New%20folder/CODEX.md): Updated comparison table with v3.1.0 numbers, honest measurement boundaries, and slow-app adaptive injection capabilities.
+- [`engine/text_injector.py`](../../engine/text_injector.py): Added `SLOW_APP_PROCESSES`, `REMOTE_APP_PROCESSES`, adaptive dwell pacing, adaptive clipboard hold buffer, and `inject_last()` recovery dispatch.
+- [`engine/orchestrator.py`](../../engine/orchestrator.py): Registered `Alt+Shift+Z` (Paste Last) and `Alt+Shift+X` (Copy Last) recovery shortcuts; added `re_inject_last()`.
+- [`ui/tray_manager.py`](../../ui/tray_manager.py): Added `reinject_requested` signal and tray menu actions for Paste Last Dictation (`Shift+Alt+Z`) and Copy Last Dictation (`Shift+Alt+X`).
+- [`desktop_app.py`](../../desktop_app.py): Wired `_on_reinject_last()` with user feedback notifications.
+- [`tests/test_text_injector.py`](../../tests/test_text_injector.py): Added unit test `test_slow_app_timing_and_dwell()`.
+- [`docs/release/RELEASE_ARTIFACT_MANIFEST.md`](../release/RELEASE_ARTIFACT_MANIFEST.md): Documented v3.1.0 release candidate metrics, SHA-256 hashes, Authenticode status, and system requirements.
+- [`docs/testing/vbcable_benchmark_results.json`](../testing/vbcable_benchmark_results.json): Updated with October 19 VB-Cable benchmark empirical observations.
+- [`CODEX.md`](../../CODEX.md): Updated comparison table with v3.1.0 numbers, honest measurement boundaries, and slow-app adaptive injection capabilities.

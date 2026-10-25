@@ -1,5 +1,5 @@
 /**
- * FlowPilot Full-Stack Node.js Integration & Web/API Client Test
+ * Feature 11: FlowPilot Full-Stack Node.js Integration & Web/API Client Test
  * Validates:
  * 1. FastAPI Web Server startup & Static File Serving (HTML, CSS, JS)
  * 2. REST API endpoints (/api/config) via Node.js native fetch
@@ -76,6 +76,10 @@ try {
   const indexHtml = await indexRes.text();
   console.log(`  GET / -> Status: ${indexRes.status} (Length: ${indexHtml.length} bytes)`);
   if (!indexHtml.includes("FlowPilot")) throw new Error("Index HTML does not contain 'FlowPilot'");
+  if (indexHtml.includes('id="tabCloud"') || indexHtml.includes('id="groqApiKeyInput"')) {
+    throw new Error("Unsupported cloud controls remain in the web companion");
+  }
+  if (!indexHtml.includes('id="localModelSizeSelect"')) throw new Error("Local model settings are missing");
 
   const cssRes = await fetch(`${BASE_URL}/styles.css`);
   console.log(`  GET /styles.css -> Status: ${cssRes.status}`);

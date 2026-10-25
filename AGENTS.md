@@ -51,15 +51,11 @@ Stored in `docs/specs/` as `NNNN-title.md`. Companion visibility is in progress 
 
 ## Agent skills
 
-- [audit](C:/Users/moham/.agents/skills/audit/): `jsmastery-pro/skills`, builds and keeps the project context current
-- [scope](C:/Users/moham/.agents/skills/scope/): `jsmastery-pro/skills`, plans the next slice of work
-- [architect](C:/Users/moham/.agents/skills/architect/): `jsmastery-pro/skills`, records load bearing decisions in docs/specs/
-- [develop](C:/Users/moham/.agents/skills/develop/): `jsmastery-pro/skills`, builds a feature against its spec
-- [check](C:/Users/moham/.agents/skills/check/): `jsmastery-pro/skills`, verify the real app and review code on a fresh model
-- [test](C:/Users/moham/.agents/skills/test/): `jsmastery-pro/skills`, writes suites for recent changes
-- [document](C:/Users/moham/.agents/skills/document/): `jsmastery-pro/skills`, writes PRs, changelogs, release notes from the real diff
-- [sync](C:/Users/moham/.agents/skills/sync/): `jsmastery-pro/skills`, reconciles docs and spec status after changes
-- [debug](C:/Users/moham/.agents/skills/debug/): `jsmastery-pro/skills`, finds and fixes root causes of broken behavior
+The optional `audit`, `scope`, `architect`, `develop`, `check`, `test`,
+`document`, `sync`, and `debug` workflows come from
+[jsmastery-pro/skills](https://github.com/jsmastery-pro/skills). Their install
+location depends on the agent and machine. These repository instructions apply
+even when those skills are unavailable.
 
 ## Context files
 

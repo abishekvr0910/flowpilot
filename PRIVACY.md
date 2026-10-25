@@ -65,6 +65,12 @@ Optional local text transforms send selected text or the latest dictation to the
 
 Cloud transcription is disabled in the current source. Setting `engine_mode` to `"cloud"` raises an error; it is not a supported fallback. The local OpenAI-compatible API is an integration endpoint on `127.0.0.1`, not an OpenAI cloud connection.
 
+The optional web companion no longer offers cloud transcription or asks for
+Groq/OpenAI keys. On the next configuration load, old unused cloud provider and
+API key fields are removed from the loaded settings, and the active config file
+is rewritten when its storage is writable. Existing backups and copies are not
+erased by this migration.
+
 ---
 
 ## 5. Contact & Auditing
