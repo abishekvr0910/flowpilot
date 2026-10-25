@@ -22,7 +22,7 @@ CONFIG_FILE = get_config_file()
 _CONFIG_WRITE_LOCK = threading.RLock()
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "engine_mode": "local",  # Local Faster-Whisper (100% offline; cloud mode retired)
+    "engine_mode": "local",  # Local Faster-Whisper; cloud mode is rejected by STTEngine
     "local_model_size": "base",  # "tiny", "base", "small", "medium"
     "beam_size": 1,  # Default greedy decoding (3x faster than beam search on CPU)
     "vad_filter": False,  # Pre-gated dictation audio does not require redundant VAD chunking (~480ms saved)
@@ -52,6 +52,16 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "history": []
 }
 
+OBSOLETE_CLOUD_KEYS = frozenset({"cloud_provider", "groq_api_key", "openai_api_key"})
+
+
+def local_only_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop unsupported cloud credentials and normalize legacy cloud mode."""
+    clean = {key: value for key, value in config.items() if key not in OBSOLETE_CLOUD_KEYS}
+    if "engine_mode" in clean:
+        clean["engine_mode"] = "local"
+    return clean
+
 def load_config() -> Dict[str, Any]:
     cfg_file = get_config_file()
     if not cfg_file.exists():
@@ -64,7 +74,9 @@ def load_config() -> Dict[str, Any]:
         # Close the Windows read handle before an atomic replacement.
         from engine.audio_devices import migrate_legacy_audio_config
         changed = migrate_legacy_audio_config(data)
-        config = {**DEFAULT_CONFIG, **data}
+        clean_data = local_only_config(data)
+        changed = changed or clean_data != data
+        config = {**DEFAULT_CONFIG, **clean_data}
         hk = config.get("hotkey", "<ctrl>+<shift>+<space>")
         if "+space" in hk and "+<space>" not in hk:
             config["hotkey"] = hk.replace("+space", "+<space>")
@@ -87,7 +99,7 @@ def save_config(config: Dict[str, Any]) -> bool:
                 prefix=f".{cfg_file.name}.", suffix=".tmp", delete=False
             ) as f:
                 temp_path = Path(f.name)
-                json.dump(config, f, indent=2, ensure_ascii=False)
+                json.dump(local_only_config(config), f, indent=2, ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(temp_path, cfg_file)

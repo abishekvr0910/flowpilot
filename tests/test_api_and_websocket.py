@@ -67,6 +67,8 @@ async def client_test():
     print(f"  Active tone mode: {config_data.get('active_tone_mode')}")
     print(f"  Engine mode: {config_data.get('engine_mode')}")
     assert req.status == 200, "GET /api/config failed"
+    assert config_data.get("engine_mode") == "local"
+    assert not {"cloud_provider", "groq_api_key", "openai_api_key"}.intersection(config_data)
 
     # 2. Test POST /api/config
     print("\n[Step 2] Testing POST /api/config...")
@@ -77,6 +79,18 @@ async def client_test():
     print(f"  Status: {post_res.status}")
     print(f"  Response: {post_data.get('status')}")
     assert post_res.status == 200, "POST /api/config failed"
+
+    for unsupported in ({"engine_mode": "cloud"}, {"groq_api_key": "unused-test-key"}):
+        rejected = urllib.request.Request(
+            "http://127.0.0.1:8765/api/config",
+            data=json.dumps(unsupported).encode(),
+            headers={"Content-Type": "application/json", **authorized},
+        )
+        try:
+            urllib.request.urlopen(rejected)
+            raise AssertionError("Unsupported cloud setting was accepted")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 422
 
     # A failed disk write must not be reported as a saved setting.
     from engine.server import orchestrator

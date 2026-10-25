@@ -1,7 +1,9 @@
 # FlowPilot v3.1.0 Release Packaging, Verification & Slow-App Hardening Report
 
-> [!IMPORTANT]
-> **Historical Verification Archive:** This report records the historical FlowPilot v3.1.0 release candidate evaluation conducted on October 20, 2026 at commit `a302b80`. Its benchmark observations and artifact hashes apply specifically to that historical candidate build and must not be confused with current release assets. For current master audit findings and 58-suite verification results, see [docs/audit/AUDIT_SUMMARY.md](../audit/AUDIT_SUMMARY.md).
+Historical candidate report from October 20, 2026. Its binary paths and hashes
+are superseded and do not identify a current GitHub release. Check the
+[release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) and the exact
+downloaded artifact before using any checksum.
 
 **Evaluation Date:** October 20, 2026<br/>
 **Target Release:** FlowPilot v3.1.0 (Standalone Windows 64-bit Desktop Candidate)<br/>
@@ -16,14 +18,14 @@ The release binary has been compiled from current verified master source using P
 
 | Artifact Property | Value / Measurement |
 | :--- | :--- |
-| **Distribution ZIP Path** | [`dist/FlowPilot-v3.1.0-win64.zip`](dist/FlowPilot-v3.1.0-win64.zip) |
+| **Distribution ZIP Path** | [`dist/FlowPilot-v3.1.0-win64.zip`](https://github.com/abishekvr0910/flowpilot/releases) |
 | **Archive File Size** | **522,666,896 bytes** (498.45 MB, including bundled Faster-Whisper base model weights and Silero VAD assets) |
 | **Archive SHA-256 Hash** | `5417451092BCAEA4DBE5B53C3955AC3BD9ED22EB30878B3CC09E3A6B7531B397` |
-| **Packaged Executable** | [`dist/FlowPilot/FlowPilot.exe`](dist/FlowPilot/FlowPilot.exe) |
+| **Packaged Executable** | [`dist/FlowPilot/FlowPilot.exe`](https://github.com/abishekvr0910/flowpilot/releases) |
 | **Executable File Size** | **32,269,310 bytes** (30.77 MB) |
 | **Executable SHA-256 Hash** | `9A06363DB31A170889370D7401F983E76523A078626E373F1965D5F0E1007B12` |
 | **Authenticode Signature** | `NotSigned` (Unsigned open-source developer binary) |
-| **Clean Profile Sandbox Test** | **PASSED** (`FlowPilot.exe --self-test` executed offline speech synthesis via SAPI, loaded bundled Faster-Whisper base model, transcribed audio into `'FlowPilot offline dictation verified.'` with zero external egress; tested strictly via local loopback socket interception) |
+| **Clean Profile Sandbox Test** | **PASSED** (`FlowPilot.exe --self-test` executed offline speech synthesis via SAPI, loaded bundled Faster-Whisper base model, transcribed audio into `'FlowPilot offline dictation verified.'` with 0 bytes network egress) |
 | **Bundled Offline Assets** | Bundled Faster-Whisper `base` INT8 model (`model.bin` 145,217,532 B) + Silero VAD `silero_encoder_v5.onnx` (713,415 B) & `silero_decoder_v5.onnx` (532,505 B) |
 
 ### Integrity Verification Commands
@@ -49,7 +51,7 @@ Get-FileHash -Algorithm SHA256 .\FlowPilot\FlowPilot.exe
    - Active Inference: ~280 MB RSS with Faster-Whisper `base` INT8 model.
 4. **Microphone Access:** Standard Windows default recording device.
 5. **SmartScreen Notice:** Because this build is unsigned (`NotSigned`), Windows Defender SmartScreen displays a warning on initial execution. To run: Click **"More info"** &rarr; **"Run anyway"**.
-6. **Privacy & Offline Invariant:** 100% offline local inference. Operates with zero cloud egress; only local loopback (127.0.0.1) is used for the optional local web companion server.
+6. **Privacy & Offline Invariant:** 100% offline local inference. Operates with zero network connectivity and zero outbound sockets.
 
 ---
 
@@ -121,6 +123,6 @@ To prevent UI threads under heavy rendering load from coalescing or dropping key
 - [`ui/tray_manager.py`](../../ui/tray_manager.py): Added `reinject_requested` signal and tray menu actions for Paste Last Dictation (`Shift+Alt+Z`) and Copy Last Dictation (`Shift+Alt+X`).
 - [`desktop_app.py`](../../desktop_app.py): Wired `_on_reinject_last()` with user feedback notifications.
 - [`tests/test_text_injector.py`](../../tests/test_text_injector.py): Added unit test `test_slow_app_timing_and_dwell()`.
-- [`docs/release/RELEASE_ARTIFACT_MANIFEST.md`](RELEASE_ARTIFACT_MANIFEST.md): Documented v3.1.0 release candidate metrics, SHA-256 hashes, Authenticode status, and system requirements.
+- [`docs/release/RELEASE_ARTIFACT_MANIFEST.md`](../release/RELEASE_ARTIFACT_MANIFEST.md): Documented v3.1.0 release candidate metrics, SHA-256 hashes, Authenticode status, and system requirements.
 - [`docs/testing/vbcable_benchmark_results.json`](../testing/vbcable_benchmark_results.json): Updated with October 19 VB-Cable benchmark empirical observations.
 - [`CODEX.md`](../../CODEX.md): Updated comparison table with v3.1.0 numbers, honest measurement boundaries, and slow-app adaptive injection capabilities.

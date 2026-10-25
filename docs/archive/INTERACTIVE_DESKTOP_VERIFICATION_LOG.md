@@ -1,5 +1,9 @@
 # FlowPilot Interactive Desktop Verification & Safe-Abort Audit Log
 
+Historical RC1 test log. Its examples and results do not sign off later builds.
+Use the [current release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md)
+for the exact candidate and gate results.
+
 **Evaluation Date:** October 21, 2026  
 **Target Release:** FlowPilot v3.1.0-RC1 (Release Candidate 1)  
 **Host Context:** Windows 10/11 x64, Python 3.11, Interactive Session 1  
@@ -28,11 +32,11 @@ Every physical desktop test suite now separates safe-abort unit validation from 
 
 | Suite | Safe-Abort Check | Result | Verification Detail |
 |---|---|---|---|
-| [`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py) | `test_focus_loss_after_staging_preserves_clipboard_and_recovery()` | **PASS** | Focus switch to unknown HWND aborts paste; payload retained in recovery buffer. |
-| [`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py) | `test_focus_loss_with_newer_user_copy_preserves_user_copy()` | **PASS** | When clipboard changes during focus loss, user's newer copy is preserved without overwrite. |
-| [`tests/test_notepad_dictation_e2e.py`](file:///S:/APPs/New%20folder/tests/test_notepad_dictation_e2e.py) | `test_safe_abort_when_focus_unavailable()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
-| [`tests/test_cross_app_injection.py`](file:///S:/APPs/New%20folder/tests/test_cross_app_injection.py) | `test_cross_app_safe_abort_when_focus_lost()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
-| [`tests/test_final_specification_e2e.py`](file:///S:/APPs/New%20folder/tests/test_final_specification_e2e.py) | `test_safe_abort_isolation()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
+| [`tests/test_text_injector.py`](../../tests/test_text_injector.py) | `test_focus_loss_after_staging_preserves_clipboard_and_recovery()` | **PASS** | Focus switch to unknown HWND aborts paste; payload retained in recovery buffer. |
+| [`tests/test_text_injector.py`](../../tests/test_text_injector.py) | `test_focus_loss_with_newer_user_copy_preserves_user_copy()` | **PASS** | When clipboard changes during focus loss, user's newer copy is preserved without overwrite. |
+| [`tests/test_notepad_dictation_e2e.py`](../../tests/test_notepad_dictation_e2e.py) | `test_safe_abort_when_focus_unavailable()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
+| [`tests/test_cross_app_injection.py`](../../tests/test_cross_app_injection.py) | `test_cross_app_safe_abort_when_focus_lost()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
+| [`tests/test_final_specification_e2e.py`](../../tests/test_final_specification_e2e.py) | `test_safe_abort_isolation()` | **PASS** | Mocks `IsWindow=True`, differing hierarchies, and activation; asserts focus check runs with 0 clipboard writes and 0 keystrokes. |
 
 ---
 
@@ -41,7 +45,7 @@ Every physical desktop test suite now separates safe-abort unit validation from 
 > [!NOTE]
 > **Illustrative Reference Examples (Specification Format):** The following console traces represent the expected output format when tests are executed interactively on a physical Windows workstation with genuine display focus (`is_interactive_desktop() == True`). They illustrate physical document buffer confirmation semantics and are reference specification examples, **not live captured outputs from this headless runner environment**. For the live captured output from the current test environment, see Section 4 below.
 
-### A. Notepad Single-Attempt Physical Verification ([`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py))
+### A. Notepad Single-Attempt Physical Verification ([`tests/test_text_injector.py`](../../tests/test_text_injector.py))
 
 ```text
 ============================================================
@@ -64,7 +68,7 @@ Closed Notepad instance.
 [RESULT] Text insertion and clipboard preservation PASSED.
 ```
 
-### B. 5 Consecutive Notepad Dictation Cycles ([`tests/test_notepad_dictation_e2e.py`](file:///S:/APPs/New%20folder/tests/test_notepad_dictation_e2e.py))
+### B. 5 Consecutive Notepad Dictation Cycles ([`tests/test_notepad_dictation_e2e.py`](../../tests/test_notepad_dictation_e2e.py))
 
 ```text
 =================================================================
@@ -98,7 +102,7 @@ Targeting window HWND: 72846 (Active: Notepad)
 =================================================================
 ```
 
-### C. Cross-Application Insertion ([`tests/test_cross_app_injection.py`](file:///S:/APPs/New%20folder/tests/test_cross_app_injection.py))
+### C. Cross-Application Insertion ([`tests/test_cross_app_injection.py`](../../tests/test_cross_app_injection.py))
 
 ```text
 ======================================================================
@@ -136,7 +140,7 @@ CROSS-APPLICATION INJECTION & FOCUS STABILITY: PASSED (100%)
 
 The following sections contain the raw captured terminal output from executing the test suites in the current non-interactive runner session (`is_interactive_desktop() == False`).
 
-### A. Notepad Dictation E2E Suite ([`tests/test_notepad_dictation_e2e.py`](file:///S:/APPs/New%20folder/tests/test_notepad_dictation_e2e.py))
+### A. Notepad Dictation E2E Suite ([`tests/test_notepad_dictation_e2e.py`](../../tests/test_notepad_dictation_e2e.py))
 
 ```text
 $ python tests/test_notepad_dictation_e2e.py
@@ -146,7 +150,7 @@ $ python tests/test_notepad_dictation_e2e.py
 [RESULT] SKIPPED: Five physical Notepad insertion cycles require an interactive Windows desktop.
 ```
 
-### B. Cross-Application Injection Suite ([`tests/test_cross_app_injection.py`](file:///S:/APPs/New%20folder/tests/test_cross_app_injection.py))
+### B. Cross-Application Injection Suite ([`tests/test_cross_app_injection.py`](../../tests/test_cross_app_injection.py))
 
 ```text
 $ python tests/test_cross_app_injection.py
@@ -156,7 +160,7 @@ $ python tests/test_cross_app_injection.py
 [RESULT] SKIPPED: Physical cross-application insertion requires an interactive Windows desktop.
 ```
 
-### C. Final Specification E2E Suite ([`tests/test_final_specification_e2e.py`](file:///S:/APPs/New%20folder/tests/test_final_specification_e2e.py))
+### C. Final Specification E2E Suite ([`tests/test_final_specification_e2e.py`](../../tests/test_final_specification_e2e.py))
 
 ```text
 $ python tests/test_final_specification_e2e.py
@@ -166,7 +170,7 @@ $ python tests/test_final_specification_e2e.py
 [RESULT] SKIPPED: Physical focus, microphone, and Notepad scenarios require an interactive Windows desktop.
 ```
 
-### D. Text Injector Unit & Verification Suite ([`tests/test_text_injector.py`](file:///S:/APPs/New%20folder/tests/test_text_injector.py))
+### D. Text Injector Unit & Verification Suite ([`tests/test_text_injector.py`](../../tests/test_text_injector.py))
 
 ```text
 $ python tests/test_text_injector.py
@@ -179,7 +183,7 @@ $ python tests/test_text_injector.py
 [RESULT] SKIPPED: Physical Notepad insertion requires an interactive Windows desktop; focus, copy failure fallback, focus-loss abort, slow-app timing, and clipboard-confirmation unit checks passed.
 ```
 
-### E. Voice Command Worker & LLM Deadline Suite ([`tests/test_voice_command_and_llm.py`](file:///S:/APPs/New%20folder/tests/test_voice_command_and_llm.py))
+### E. Voice Command Worker & LLM Deadline Suite ([`tests/test_voice_command_and_llm.py`](../../tests/test_voice_command_and_llm.py))
 
 ```text
 $ python tests/test_voice_command_and_llm.py
