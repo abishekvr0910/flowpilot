@@ -297,6 +297,57 @@ def test_clipboard_change_during_hold_prevents_overwrite():
         assert restore_aborted is True
         mock_copy.assert_not_called()
 
+def test_terminal_shift_insert_routing():
+    """Verify that terminal emulators route to Shift+Insert to prevent raw Ctrl+V (^V) collisions."""
+    assert "wt.exe" in TextInjector.TERMINAL_APP_PROCESSES
+    assert "cmd.exe" in TextInjector.TERMINAL_APP_PROCESSES
+    assert "powershell.exe" in TextInjector.TERMINAL_APP_PROCESSES
+    assert "alacritty.exe" in TextInjector.TERMINAL_APP_PROCESSES
+
+    # Target is Windows Terminal (wt.exe): should dispatch VK_SHIFT + VK_INSERT
+    with patch.object(TextInjector, '_get_target_process_name', return_value="wt.exe"), \
+         patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
+         patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 300, None)), \
+         patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
+         patch.object(TextInjector, '_safe_clipboard_paste', return_value="Prior clip"), \
+         patch.object(TextInjector, '_original_clipboard', None), \
+         patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
+         patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=300), \
+         patch('engine.text_injector.win32gui.GetClassName', return_value="CASCADIA_HOSTING_WINDOW_CLASS"), \
+         patch('engine.text_injector.win32api.keybd_event') as mock_keybd, \
+         patch('engine.text_injector.threading.Timer'), \
+         patch('engine.text_injector.time.sleep'):
+
+        res = TextInjector.inject_with_status("ls -la\n", target_hwnd=300, preserve_clipboard=True)
+        assert res.status == InjectionStatus.SENT_UNVERIFIED
+        called_vks = [call[0][0] for call in mock_keybd.call_args_list]
+        import win32con
+        assert win32con.VK_SHIFT in called_vks
+        assert win32con.VK_INSERT in called_vks
+        assert win32con.VK_CONTROL not in called_vks
+
+    # Standard app (Notepad): should dispatch VK_CONTROL + ord('V')
+    with patch.object(TextInjector, '_get_target_process_name', return_value="notepad.exe"), \
+         patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
+         patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 400, None)), \
+         patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
+         patch.object(TextInjector, '_safe_clipboard_paste', return_value="Prior clip"), \
+         patch.object(TextInjector, '_original_clipboard', None), \
+         patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
+         patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=400), \
+         patch('engine.text_injector.win32gui.GetClassName', return_value="Notepad"), \
+         patch('engine.text_injector.win32api.keybd_event') as mock_keybd2, \
+         patch('engine.text_injector.threading.Timer'), \
+         patch('engine.text_injector.time.sleep'):
+
+        res2 = TextInjector.inject_with_status("Hello world\n", target_hwnd=400, preserve_clipboard=True)
+        assert res2.status == InjectionStatus.SENT_UNVERIFIED
+        called_vks2 = [call[0][0] for call in mock_keybd2.call_args_list]
+        import win32con
+        assert win32con.VK_CONTROL in called_vks2
+        assert ord('V') in called_vks2
+        assert win32con.VK_INSERT not in called_vks2
+
 def test_text_injection():
     test_active_window_focus_is_preserved()
     test_clipboard_is_not_physical_confirmation()
@@ -304,6 +355,7 @@ def test_text_injection():
     test_focus_loss_after_staging_preserves_clipboard_and_recovery()
     test_focus_loss_with_newer_user_copy_preserves_user_copy()
     test_slow_app_timing_and_dwell()
+    test_terminal_shift_insert_routing()
     test_clipboard_change_during_hold_prevents_overwrite()
     test_find_edit_control_when_editor_is_not_first_child()
     test_find_edit_control_resolves_leaf_editor_when_wrapped_by_container()

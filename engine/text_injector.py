@@ -103,6 +103,13 @@ class TextInjector:
         "virtualboxvm.exe", "putty.exe", "kitty.exe", "mobaxterm.exe", "wfica32.exe"
     }
 
+    # Terminal emulators and shells requiring Shift+Insert to avoid raw Ctrl+V (^V) collisions
+    TERMINAL_APP_PROCESSES = {
+        "cmd.exe", "powershell.exe", "pwsh.exe", "windowsterminal.exe", "wt.exe",
+        "conhost.exe", "alacritty.exe", "wezterm-gui.exe", "kitty.exe", "mintty.exe",
+        "bash.exe", "wsl.exe"
+    }
+
     @classmethod
     def _get_target_process_name(cls, hwnd: Optional[int]) -> str:
         """Determines process binary name for a given HWND."""
@@ -503,15 +510,18 @@ class TextInjector:
             post_copy_seq = cls._get_clipboard_sequence_number()
             cls._last_copy_seq = post_copy_seq
 
-            # 4. Detect legacy console requiring Shift+Insert
-            is_legacy_console = False
-            if HAS_WIN32 and target_hwnd and sys.platform == "win32":
-                try:
-                    cls_name = win32gui.GetClassName(target_hwnd)
-                    if cls_name in ("ConsoleWindowClass",):
-                        is_legacy_console = True
-                except Exception:
-                    pass
+            # 4. Detect console/terminal requiring Shift+Insert instead of Ctrl+V
+            is_terminal = False
+            if HAS_WIN32 and sys.platform == "win32":
+                if target_proc in cls.TERMINAL_APP_PROCESSES:
+                    is_terminal = True
+                if not is_terminal and target_hwnd:
+                    try:
+                        cls_name = win32gui.GetClassName(target_hwnd)
+                        if cls_name and any(x in cls_name.lower() for x in ("consolewindowclass", "cascadia", "terminal", "mintty", "virtualconsoleclass")):
+                            is_terminal = True
+                    except Exception:
+                        pass
 
                 # Clipboard setup can yield long enough for another window to
                 # take focus. Never send Ctrl+V to that unrelated application or during activation changes.
@@ -539,7 +549,7 @@ class TextInjector:
             # 5. Keystroke dispatch (Ctrl+V / Shift+Insert)
             if HAS_WIN32 and sys.platform == "win32":
                 keys_dispatch_started = True
-                if is_legacy_console:
+                if is_terminal:
                     win32api.keybd_event(win32con.VK_SHIFT, 0, 0, 0)
                     win32api.keybd_event(win32con.VK_INSERT, 0, 0, 0)
                     time.sleep(key_dwell_sec)
@@ -551,7 +561,7 @@ class TextInjector:
                     time.sleep(key_dwell_sec)
                     win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
-                    time.sleep(post_paste_delay)
+                time.sleep(post_paste_delay)
             elif sys.platform == "darwin":
                 # macOS Cmd+V
                 try:
