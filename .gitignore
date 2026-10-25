@@ -51,7 +51,7 @@ _backup*/
 external/
 
 # Local model weights (packaged in release ZIP, not tracked in git)
-models/
+/models/
 *.bin
 
 # Private internal draft documents
