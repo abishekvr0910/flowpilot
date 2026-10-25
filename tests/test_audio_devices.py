@@ -196,6 +196,7 @@ class TestAudioRecorderDeviceLifecycle(unittest.TestCase):
         import numpy as np
         recorder = AudioRecorder(sample_rate=16000, device=1)
         recorder.is_recording = True
+        recorder.is_synthetic_mode = True  # This fixture has frames but no hardware stream.
         recorder.audio_frames = [np.zeros((8000, 1), dtype=np.float32)]
 
         # Request device change while recording with defer_if_recording=True
@@ -366,12 +367,12 @@ class TestAudioInputSafetyIntegration(unittest.TestCase):
         with patch.dict(os.environ, {"FLOWPILOT_HEADLESS": "", "CI": "", "GITHUB_ACTIONS": ""}), \
              patch.object(audio_recorder.sd, "InputStream", side_effect=RuntimeError("device unavailable")), \
              patch.object(audio_recorder.sd, "query_devices", side_effect=RuntimeError("device unavailable")), \
-             patch.object(audio_recorder.threading, "Thread") as thread:
+             patch.object(recorder, "_synthetic_audio_loop") as synthetic_loop:
             with self.assertRaisesRegex(RuntimeError, "device unavailable"):
                 recorder.start_recording()
             self.assertFalse(recorder.is_recording)
             self.assertFalse(recorder.is_synthetic_mode)
-            thread.assert_not_called()
+            synthetic_loop.assert_not_called()
 
     def test_reselecting_active_microphone_cancels_queued_switch(self):
         import json

@@ -131,6 +131,8 @@ class SettingsDialog(QDialog):
                 self.combo_model.setCurrentIndex(i)
                 break
         vbox.addWidget(self.combo_model)
+        self._model_chosen_by_user = False
+        self.combo_model.activated.connect(lambda _: setattr(self, "_model_chosen_by_user", True))
         vbox.addWidget(label("Larger models require local weights. Speed and accuracy depend on your language and hardware."))
 
         # Input Audio Microphone
@@ -156,6 +158,11 @@ class SettingsDialog(QDialog):
                 selected_lang_idx = idx
         self.combo_lang.setCurrentIndex(selected_lang_idx)
         vbox.addWidget(self.combo_lang)
+        self.lbl_model_guidance = QLabel()
+        self.lbl_model_guidance.setWordWrap(True)
+        vbox.addWidget(self.lbl_model_guidance)
+        self.combo_lang.currentIndexChanged.connect(self._on_language_model_guidance)
+        self._on_language_model_guidance()
 
         # Tone / Format Style
         lbl_tone = QLabel("Writing & Transformation Mode:")
@@ -500,6 +507,26 @@ class SettingsDialog(QDialog):
             self.lbl_hotkey_status.setStyleSheet("color: #EF4444; font-weight: bold; font-size: 12px;")
             self.lbl_hotkey_status.setText(f"[CONFLICT/INVALID] {msg}")
         return avail
+
+    def _on_language_model_guidance(self, *_args):
+        """Make the bundled Indic model recommendation visible and one step away."""
+        language = self.combo_lang.currentData()
+        if language not in ("hi", "ta", "ml"):
+            self.lbl_model_guidance.setText("")
+            return
+        if (language != self.config.get("language") and not self._model_chosen_by_user
+                and self.combo_model.currentText().startswith("base")):
+            for index in range(self.combo_model.count()):
+                if self.combo_model.itemText(index).startswith("small"):
+                    self.combo_model.setCurrentIndex(index)
+                    break
+        selected_small = self.combo_model.currentText().startswith("small")
+        self.lbl_model_guidance.setText(
+            "The bundled small model is selected for this language. Recognition still needs a real voice check."
+            if selected_small else
+            "The bundled small model is recommended for Hindi, Tamil, and Malayalam. "
+            "Select small above; real voice accuracy is still being evaluated."
+        )
 
     # --- SAVE ---
 
