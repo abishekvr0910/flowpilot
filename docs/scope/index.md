@@ -29,6 +29,7 @@ This is the project scope, not a feature inventory or a promise that every curre
 | 26 | External transform safety repair | Next release | done |
 | 28 | Persistent microphone selection | Next release | in-progress |
 | 29 | Competitive outcome evaluation | Next release | in-progress |
+| 32 | Pilot reliability hardening | Next release | in-progress |
 | 14 | Consented Windows pilot | Next release | planned |
 | 15 | Real speaker language evaluation | Next release | planned |
 | 16 | Real application paste reliability | Next release | planned |
@@ -55,7 +56,7 @@ This is the project scope, not a feature inventory or a promise that every curre
 
 ## Order and boundaries
 
-The current source and RC4 candidate refuse unsupported external Replace and Revert operations. RC2 and RC3 do not acquire later repairs from source edits. The persistent microphone and independent delivery observer implementations are now present, with focused tests and a strict interactive gate. Physical microphone disconnect and reconnect behavior still needs validation on the new candidate. Next close the remaining spec 0001 live rows, collect real voice, real paste, and runtime evidence for the consented pilot (feature 14), and run paired competitive trials. Define build identity, thresholds, and failure reporting before trials. Product quality work can proceed separately without relabelling older release evidence.
+The current source and RC4 candidate refuse unsupported external Replace and Revert operations. RC2 and RC3 do not acquire later repairs from source edits. The persistent microphone and independent delivery observer implementations are now present, with focused tests and a strict interactive gate. Feature 32 is development work on a separate branch; its bounded microphone handling, integrity check, local metrics rotation, and Indic model guidance are not in RC4. Physical microphone disconnect and reconnect behavior still needs validation on a new candidate. Next close the remaining spec 0001 live rows, collect real voice, real paste, and runtime evidence for the consented pilot (feature 14), and run paired competitive trials. Define build identity, thresholds, and failure reporting before trials. Product quality work can proceed separately without relabelling older release evidence.
 
 The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the Gemini handoff; no claim of being "100% better" is authorized by a suite count or this scope.
 

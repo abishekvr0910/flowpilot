@@ -1,5 +1,5 @@
 """
-FlowPilot Native Desktop Application
+Feature 32: FlowPilot Native Desktop Application
 Native Windows desktop app with:
 - Win32 RegisterHotKey global shortcuts (user-selected dictation key)
 - Floating microphone HUD (Flow Pill with WS_EX_NOACTIVATE)
@@ -11,6 +11,7 @@ Native Windows desktop app with:
 import sys
 import os
 import signal
+import threading
 from pathlib import Path
 
 # Add project root to sys.path
@@ -93,11 +94,14 @@ class FlowPilotApp:
         # 1. Initialize Core Engine Orchestrator
         self.orchestrator = FlowOrchestrator(on_state_change=self._on_engine_state_change)
 
-        # 1b. Warm up audio capture stream for zero-latency pre-roll
-        try:
-            self.orchestrator.recorder.warmup_stream()
-        except Exception as e:
-            print(f"[FlowPilot Warning] Audio pre-roll warmup deferred: {e}")
+        # 1b. Warm up audio capture without blocking the Qt startup on a USB driver.
+        def warmup_microphone():
+            try:
+                self.orchestrator.recorder.warmup_stream()
+            except Exception as exc:
+                print(f"[FlowPilot Warning] Audio pre-roll warmup deferred: {exc}")
+
+        threading.Thread(target=warmup_microphone, daemon=True, name="FlowPilot-MicWarmup").start()
 
         # 2. Initialize UI Components
         self.hud = FloatingHUD()
