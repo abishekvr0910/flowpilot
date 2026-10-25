@@ -17,9 +17,6 @@ const wsStatusChip = document.getElementById("wsStatusChip");
 const wsStatusText = document.getElementById("wsStatusText");
 
 const toneCards = document.querySelectorAll(".tone-card");
-const cloudProviderSelect = document.getElementById("cloudProviderSelect");
-const groqApiKeyInput = document.getElementById("groqApiKeyInput");
-const openaiApiKeyInput = document.getElementById("openaiApiKeyInput");
 const localModelSizeSelect = document.getElementById("localModelSizeSelect");
 const languageSelect = document.getElementById("languageSelect");
 const codeSwitchingToggle = document.getElementById("codeSwitchingToggle");
@@ -138,14 +135,9 @@ function populateUIWithConfig(config) {
     card.classList.toggle("active", card.dataset.mode === mode);
   });
 
-  // Engine Mode
-  const engineMode = config.engine_mode || "cloud";
-  switchEngineTab(engineMode);
-
-  // Cloud API Keys
-  if (config.groq_api_key) groqApiKeyInput.value = config.groq_api_key;
-  if (config.openai_api_key) openaiApiKeyInput.value = config.openai_api_key;
-  if (config.cloud_provider) cloudProviderSelect.value = config.cloud_provider;
+  // Engine Mode: 100% Offline Local Faster-Whisper
+  currentConfig.engine_mode = "local";
+  if (engineModeTag) engineModeTag.textContent = "100% Offline";
 
   // Local Model Size
   if (config.local_model_size) localModelSizeSelect.value = config.local_model_size;
@@ -158,14 +150,10 @@ function populateUIWithConfig(config) {
   renderVocabTags(config.custom_vocabulary || []);
 }
 
-// Engine Tab Switcher (Cloud vs Local)
+// Engine Mode (100% Offline Local Invariant)
 window.switchEngineTab = function(mode) {
-  currentConfig.engine_mode = mode;
-  document.getElementById("tabCloud").classList.toggle("active", mode === "cloud");
-  document.getElementById("tabLocal").classList.toggle("active", mode === "local");
-  document.getElementById("cloudSettingsPanel").style.display = mode === "cloud" ? "block" : "none";
-  document.getElementById("localSettingsPanel").style.display = mode === "local" ? "block" : "none";
-  engineModeTag.textContent = mode === "cloud" ? "Cloud BYOK" : "100% Offline";
+  currentConfig.engine_mode = "local";
+  if (engineModeTag) engineModeTag.textContent = "100% Offline";
 };
 
 // Tone Mode Click Handler
@@ -312,9 +300,7 @@ hudMicBtn.addEventListener("click", () => {
 
 // Save Settings Button
 saveSettingsBtn.addEventListener("click", () => {
-  currentConfig.cloud_provider = cloudProviderSelect.value;
-  currentConfig.groq_api_key = groqApiKeyInput.value.trim();
-  currentConfig.openai_api_key = openaiApiKeyInput.value.trim();
+  currentConfig.engine_mode = "local";
   currentConfig.local_model_size = localModelSizeSelect.value;
   currentConfig.language = languageSelect.value;
   currentConfig.enable_code_switching = codeSwitchingToggle.checked;

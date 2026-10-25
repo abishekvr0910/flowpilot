@@ -23,7 +23,7 @@ python desktop_app.py
 # Offline self test (Windows only, synthesizes speech through SAPI)
 python desktop_app.py --self-test
 
-# Full audit suite, 57 suites; release promotion also requires --require-all
+# Full audit suite, 58 suites; release promotion also requires --require-all
 python -X utf8 tests/run_all_tests.py
 
 # One suite
@@ -51,15 +51,15 @@ Stored in `docs/specs/` as `NNNN-title.md`. Companion visibility is in progress 
 
 ## Agent skills
 
-- [audit](C:/Users/moham/.agents/skills/audit/): `jsmastery-pro/skills`, builds and keeps the project context current
-- [scope](C:/Users/moham/.agents/skills/scope/): `jsmastery-pro/skills`, plans the next slice of work
-- [architect](C:/Users/moham/.agents/skills/architect/): `jsmastery-pro/skills`, records load bearing decisions in docs/specs/
-- [develop](C:/Users/moham/.agents/skills/develop/): `jsmastery-pro/skills`, builds a feature against its spec
-- [check](C:/Users/moham/.agents/skills/check/): `jsmastery-pro/skills`, verify the real app and review code on a fresh model
-- [test](C:/Users/moham/.agents/skills/test/): `jsmastery-pro/skills`, writes suites for recent changes
-- [document](C:/Users/moham/.agents/skills/document/): `jsmastery-pro/skills`, writes PRs, changelogs, release notes from the real diff
-- [sync](C:/Users/moham/.agents/skills/sync/): `jsmastery-pro/skills`, reconciles docs and spec status after changes
-- [debug](C:/Users/moham/.agents/skills/debug/): `jsmastery-pro/skills`, finds and fixes root causes of broken behavior
+- `audit`: `jsmastery-pro/skills`, builds and keeps the project context current
+- `scope`: `jsmastery-pro/skills`, plans the next slice of work
+- `architect`: `jsmastery-pro/skills`, records load bearing decisions in docs/specs/
+- `develop`: `jsmastery-pro/skills`, builds a feature against its spec
+- `check`: `jsmastery-pro/skills`, verify the real app and review code on a fresh model
+- `test`: `jsmastery-pro/skills`, writes suites for recent changes
+- `document`: `jsmastery-pro/skills`, writes PRs, changelogs, release notes from the real diff
+- `sync`: `jsmastery-pro/skills`, reconciles docs and spec status after changes
+- `debug`: `jsmastery-pro/skills`, finds and fixes root causes of broken behavior
 
 ## Context files
 
