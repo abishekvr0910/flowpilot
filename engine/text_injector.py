@@ -91,11 +91,23 @@ class TextInjector:
         "slack.exe", "teams.exe", "ms-teams.exe", "discord.exe", "notion.exe",
         "outlook.exe", "winword.exe", "powerpnt.exe", "excel.exe", "whatsapp.exe",
         "code.exe", "cursor.exe", "devenv.exe", "pycharm64.exe", "idea64.exe",
-        "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "obsidian.exe"
+        "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "obsidian.exe",
+        "windowsterminal.exe", "wt.exe", "sublime_text.exe", "webstorm64.exe",
+        "clion64.exe", "rider64.exe", "goland64.exe", "datagrip64.exe",
+        "linear.exe", "superhuman.exe", "chatgpt.exe", "claude.exe", "telegram.exe",
+        "signal.exe", "todoist.exe", "craft.exe", "onenote.exe"
     }
 
     REMOTE_APP_PROCESSES = {
-        "mstsc.exe", "vncviewer.exe", "anydesk.exe", "teamviewer.exe", "vmware.exe", "virtualboxvm.exe"
+        "mstsc.exe", "vncviewer.exe", "anydesk.exe", "teamviewer.exe", "vmware.exe",
+        "virtualboxvm.exe", "putty.exe", "kitty.exe", "mobaxterm.exe", "wfica32.exe"
+    }
+
+    # Terminal emulators and shells requiring Shift+Insert to avoid raw Ctrl+V (^V) collisions
+    TERMINAL_APP_PROCESSES = {
+        "cmd.exe", "powershell.exe", "pwsh.exe", "windowsterminal.exe", "wt.exe",
+        "conhost.exe", "alacritty.exe", "wezterm-gui.exe", "kitty.exe", "mintty.exe",
+        "bash.exe", "wsl.exe"
     }
 
     @classmethod
@@ -337,7 +349,7 @@ class TextInjector:
         def enum_cb(child, _):
             try:
                 cname = win32gui.GetClassName(child).lower()
-                if any(x in cname for x in ("edit", "richedit", "document", "scintilla", "terminal", "textbox")):
+                if any(x in cname for x in ("edit", "richedit", "document", "scintilla", "terminal", "textbox", "console", "renderwidget")):
                     found.append(child)
             except Exception:
                 pass
@@ -498,15 +510,18 @@ class TextInjector:
             post_copy_seq = cls._get_clipboard_sequence_number()
             cls._last_copy_seq = post_copy_seq
 
-            # 4. Detect legacy console requiring Shift+Insert
-            is_legacy_console = False
-            if HAS_WIN32 and target_hwnd and sys.platform == "win32":
-                try:
-                    cls_name = win32gui.GetClassName(target_hwnd)
-                    if cls_name in ("ConsoleWindowClass",):
-                        is_legacy_console = True
-                except Exception:
-                    pass
+            # 4. Detect console/terminal requiring Shift+Insert instead of Ctrl+V
+            is_terminal = False
+            if HAS_WIN32 and sys.platform == "win32":
+                if target_proc in cls.TERMINAL_APP_PROCESSES:
+                    is_terminal = True
+                if not is_terminal and target_hwnd:
+                    try:
+                        cls_name = win32gui.GetClassName(target_hwnd)
+                        if cls_name and any(x in cls_name.lower() for x in ("consolewindowclass", "cascadia", "terminal", "mintty", "virtualconsoleclass")):
+                            is_terminal = True
+                    except Exception:
+                        pass
 
                 # Clipboard setup can yield long enough for another window to
                 # take focus. Never send Ctrl+V to that unrelated application or during activation changes.
@@ -534,7 +549,7 @@ class TextInjector:
             # 5. Keystroke dispatch (Ctrl+V / Shift+Insert)
             if HAS_WIN32 and sys.platform == "win32":
                 keys_dispatch_started = True
-                if is_legacy_console:
+                if is_terminal:
                     win32api.keybd_event(win32con.VK_SHIFT, 0, 0, 0)
                     win32api.keybd_event(win32con.VK_INSERT, 0, 0, 0)
                     time.sleep(key_dwell_sec)
@@ -546,7 +561,7 @@ class TextInjector:
                     time.sleep(key_dwell_sec)
                     win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
-                    time.sleep(post_paste_delay)
+                time.sleep(post_paste_delay)
             elif sys.platform == "darwin":
                 # macOS Cmd+V
                 try:
@@ -675,10 +690,14 @@ class TextInjector:
         if not chosen_target:
             # Safety invariant: Do not dispatch keystrokes to an unknown or FlowPilot window.
             # Safely place the text onto clipboard for user manual paste.
-            cls._safe_clipboard_copy(cls.last_injected_text)
+            copied = cls._safe_clipboard_copy(cls.last_injected_text)
             return InjectionResult(
                 status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
-                error_message="Intended editor window is not open. Last dictation copied to clipboard for safe manual paste (Ctrl+V).",
+                error_message=(
+                    "Intended editor window is not open. Last dictation copied to clipboard for safe manual paste (Ctrl+V)."
+                    if copied else
+                    "Intended editor window is not open. Last dictation remains in memory; use Copy Last to retry."
+                ),
                 recovery_available=True
             )
 

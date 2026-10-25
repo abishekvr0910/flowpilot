@@ -69,6 +69,7 @@ class FlowOrchestrator:
         self.state = AppState.IDLE
         self._current_session: Optional[DictationSession] = None
         self._state_lock = threading.RLock()
+        self._success_generation = 0
         self._stop_pending = False
         self.is_processing = False
         
@@ -602,20 +603,24 @@ class FlowOrchestrator:
                     active_session.transition_to(SessionState.SUCCESS)
                     self.state = AppState.SUCCESS
                     self.is_processing = False
-                self._notify(AppState.SUCCESS, {
-                    "text": formatted_text,
-                    "total_duration": total_duration,
-                    "history_entry": history_entry,
-                    "session_id": active_session.session_id,
-                    "injection_status": inj_res.status.value,
-                    "injection_confirmed": confirmed,
-                    "notice": notice_msg
-                })
+                    self._success_generation += 1
+                    success_generation = self._success_generation
+                    self._notify(AppState.SUCCESS, {
+                        "text": formatted_text,
+                        "total_duration": total_duration,
+                        "history_entry": history_entry,
+                        "session_id": active_session.session_id,
+                        "injection_status": inj_res.status.value,
+                        "injection_confirmed": confirmed,
+                        "notice": notice_msg
+                    })
 
                 # Show status briefly (0.8s), then transition to IDLE
                 time.sleep(0.8)
                 with self._state_lock:
-                    if self.state == AppState.SUCCESS:
+                    if (self.state == AppState.SUCCESS
+                            and self._success_generation == success_generation
+                            and active_session == self._current_session):
                         active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
@@ -767,30 +772,111 @@ class FlowOrchestrator:
         return True
 
     def re_copy_last(self) -> bool:
-        """Copies the last dictation text directly to clipboard."""
-        return TextInjector.re_copy_last()
+        """Copies the last dictation text directly to clipboard with UI feedback."""
+        success = TextInjector.re_copy_last()
+        text = TextInjector.last_injected_text or (self.last_dictation.get("formatted_text") if isinstance(self.last_dictation, dict) else "")
+        with self._state_lock:
+            current_state = self.state
+        active = current_state in (
+            AppState.STARTING_RECORDING, AppState.RECORDING,
+            AppState.STOPPING_RECORDING, AppState.TRANSCRIBING,
+            AppState.VALIDATING, AppState.INSERTING_TEXT,
+        )
+        if success:
+            # Clipboard copy is not another successful paste. Use neutral idle
+            # feedback outside an active session so an earlier unverified paste
+            # cannot be relabelled as confirmed by the UI's default.
+            self._notify(current_state if active else AppState.IDLE, {
+                "notice": "Copied last dictation to clipboard",
+                "text": text,
+                "recovery_action": True,
+            })
+        else:
+            self._notify(current_state if active else AppState.ERROR, {
+                "message": "No previous dictation text found in clipboard recovery buffer.",
+                "notice": "No previous dictation to copy",
+                "recovery_action": True,
+            })
+        return success
 
     def re_inject_last(self):
         """
         Re-injects the last dictation text into the currently active or last target window.
         Returns the structured InjectionResult (CONFIRMED_INSERTED, SENT_UNVERIFIED,
-        FAILED_RECOVERY_AVAILABLE, or ERROR).
+        FAILED_RECOVERY_AVAILABLE, or ERROR) and notifies UI/HUD.
         """
         from engine.text_injector import InjectionStatus, InjectionResult
-        text = self.last_dictation.get("formatted_text") or TextInjector.last_injected_text
-        if not text:
-            return InjectionResult(
-                status=InjectionStatus.ERROR,
-                error_message="No previous dictation text found in recovery buffer.",
-                recovery_available=False
-            )
-        cur_info = WindowInspector.get_active_window_info()
-        cur_hwnd = cur_info.get("hwnd", 0)
-        target = cur_hwnd if (cur_hwnd and not TextInjector._is_flowpilot_window(cur_hwnd)) else (self.target_window_info.get("hwnd") or TextInjector.last_target_hwnd)
-        res = TextInjector.inject_last(target_hwnd=target)
-        if isinstance(self.last_dictation, dict) and "injection_status" in self.last_dictation:
-            self.last_dictation["prior_injection_status"] = self.last_dictation.get("injection_status")
-            self.last_dictation["injection_status"] = res.status.value
+        with self._state_lock:
+            if self.state in (
+                AppState.RECORDING, AppState.STARTING_RECORDING,
+                AppState.STOPPING_RECORDING, AppState.TRANSCRIBING,
+                AppState.VALIDATING, AppState.INSERTING_TEXT,
+            ):
+                res = InjectionResult(
+                    status=InjectionStatus.ERROR,
+                    error_message="Cannot re-inject while dictation is in progress.",
+                    recovery_available=False
+                )
+                self._notify(self.state, {
+                    "message": res.error_message,
+                    "notice": "Dictation in progress — recovery postponed",
+                })
+                return res
+
+            # Keep the state lock through target resolution and dispatch. A new
+            # dictation must not start while a recovery paste is in flight.
+            text = TextInjector.last_injected_text
+            if not text:
+                res = InjectionResult(
+                    status=InjectionStatus.ERROR,
+                    error_message="No previous dictation text found in recovery buffer.",
+                    recovery_available=False,
+                )
+                self._notify(AppState.ERROR, {
+                    "message": res.error_message,
+                    "notice": "No previous dictation found to re-insert",
+                    "recovery_action": True,
+                })
+                return res
+
+            cur_info = WindowInspector.get_active_window_info()
+            cur_hwnd = cur_info.get("hwnd", 0)
+            target = cur_hwnd if (cur_hwnd and not TextInjector._is_flowpilot_window(cur_hwnd)) else (self.target_window_info.get("hwnd") or TextInjector.last_target_hwnd)
+            res = TextInjector.inject_last(target_hwnd=target)
+            if isinstance(self.last_dictation, dict) and "injection_status" in self.last_dictation:
+                self.last_dictation["prior_injection_status"] = self.last_dictation.get("injection_status")
+                self.last_dictation["injection_status"] = res.status.value
+
+            if res.status in (InjectionStatus.ERROR, InjectionStatus.FAILED_RECOVERY_AVAILABLE):
+                self._notify(AppState.ERROR, {
+                    "message": res.error_message or "Could not re-insert text",
+                    "notice": ("Text kept for manual recovery" if res.recovery_available
+                               else "Re-insertion failed"),
+                    "injection_status": res.status.value,
+                    "recovery_action": True,
+                })
+                return res
+
+            confirmed = res.is_confirmed()
+            self._success_generation += 1
+            generation = self._success_generation
+            self.state = AppState.SUCCESS
+            self._notify(AppState.SUCCESS, {
+                "text": text,
+                "injection_status": res.status.value,
+                "injection_confirmed": confirmed,
+                "notice": ("Re-inserted & confirmed" if confirmed
+                           else "Re-sent — unverified target (please check)"),
+                "recovery_action": True,
+            })
+
+        def _reset_idle():
+            time.sleep(0.8)
+            with self._state_lock:
+                if self.state == AppState.SUCCESS and self._success_generation == generation:
+                    self.state = AppState.IDLE
+                    self._notify(AppState.IDLE)
+        threading.Thread(target=_reset_idle, daemon=True).start()
         return res
 
     def start_hotkey_listener(self):
