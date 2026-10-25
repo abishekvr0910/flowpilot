@@ -314,13 +314,13 @@ class SetupWizardDialog(QDialog):
         h2.setStyleSheet("font-size: 15px; font-weight: bold; color: #F8FAFC;")
         layout.addWidget(h2)
 
-        desc = QLabel("FlowPilot runs an optimized local Faster-Whisper base model directly on your CPU using 8-bit quantization (INT8). No API keys, no network connections, and no cloud latency.")
+        desc = QLabel("FlowPilot runs bundled Faster-Whisper base or small model weights on your CPU using INT8. Speech transcription needs no API key or cloud connection.")
         desc.setWordWrap(True)
         desc.setStyleSheet("font-size: 12px; color: #94A3B8; line-height: 1.4;")
         layout.addWidget(desc)
 
         resolved_path = STTEngine.resolve_model_path("base")
-        exists = os.path.isdir(resolved_path) or os.path.isfile(os.path.join(resolved_path, "model.bin"))
+        exists = os.path.isfile(os.path.join(resolved_path, "model.bin"))
 
         info_box = QFrame()
         info_box.setStyleSheet("background-color: #1E293B; border-radius: 8px; padding: 12px;")
@@ -331,7 +331,7 @@ class SetupWizardDialog(QDialog):
         lbl_m1.setStyleSheet("font-size: 12px; color: #E2E8F0;")
         lbl_m2 = QLabel(f"• Resolved Location: {resolved_path}")
         lbl_m2.setStyleSheet("font-size: 11px; color: #94A3B8;")
-        lbl_m3 = QLabel(f"• Network Egress: 0 bytes outbound (Air-Gapped Invariant)")
+        lbl_m3 = QLabel("• Speech model runs locally; no network connection is required")
         lbl_m3.setStyleSheet("font-size: 12px; color: #10B981; font-weight: 600;")
         lbl_m4 = QLabel(f"• Offline Status: {'✓ Local Model Found & Verified' if exists else '⚠ Model Pending'}")
         lbl_m4.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {'#10B981' if exists else '#F59E0B'};")
@@ -372,6 +372,11 @@ class SetupWizardDialog(QDialog):
         if idx >= 0:
             self.combo_lang.setCurrentIndex(idx)
         layout.addWidget(self.combo_lang)
+        self.lbl_language_model = QLabel()
+        self.lbl_language_model.setWordWrap(True)
+        layout.addWidget(self.lbl_language_model)
+        self.combo_lang.currentIndexChanged.connect(self._on_language_model_guidance)
+        self._on_language_model_guidance()
 
         self.chk_translate = QCheckBox("Real-Time Translation: Translate foreign speech into English text")
         self.chk_translate.setStyleSheet("font-size: 13px; color: #E2E8F0; margin-top: 8px;")
@@ -380,6 +385,16 @@ class SetupWizardDialog(QDialog):
 
         layout.addStretch()
         return card
+
+    def _on_language_model_guidance(self, *_args):
+        language = self.combo_lang.currentData()
+        if language in ("hi", "ta", "ml"):
+            self.lbl_language_model.setText(
+                "FlowPilot will use the bundled small model for this language when the current model is base. "
+                "Tamil and Malayalam are experimental; test a short phrase before relying on the result."
+            )
+        else:
+            self.lbl_language_model.setText("")
 
     # --- Step 4: Dictation Hotkey Setup ---
     def _build_hotkey_step(self) -> QWidget:
@@ -496,7 +511,7 @@ class SetupWizardDialog(QDialog):
         h5.setStyleSheet("font-size: 15px; font-weight: bold; color: #F8FAFC;")
         layout.addWidget(h5)
 
-        desc = QLabel("FlowPilot injects text into any focused application (Notepad, VS Code, Word, Slack, Browser). If an app ever drops a paste, you can recover it instantly.")
+        desc = QLabel("FlowPilot attempts to paste into the focused editor. Elevated apps and some protected fields may refuse automated input; Copy Last lets you recover the text.")
         desc.setWordWrap(True)
         desc.setStyleSheet("font-size: 12px; color: #94A3B8;")
         layout.addWidget(desc)
@@ -611,6 +626,15 @@ class SetupWizardDialog(QDialog):
             self.config["audio_input_selection"] = build_device_selection(sel_mic)
         selected_lang = self.combo_lang.currentData()
         self.config["language"] = selected_lang or "auto"
+        if selected_lang in ("hi", "ta", "ml") and self.config.get("local_model_size", "base") == "base":
+            small_path = STTEngine.resolve_model_path("small")
+            if not os.path.isfile(os.path.join(small_path, "model.bin")):
+                QMessageBox.warning(
+                    self, "Local model unavailable",
+                    "The recommended small model is not installed locally. Install its weights or choose another language before finishing setup.",
+                )
+                return
+            self.config["local_model_size"] = "small"
         self.config["translate_to_english"] = self.chk_translate.isChecked()
 
         # Save chosen hotkey and trigger mode

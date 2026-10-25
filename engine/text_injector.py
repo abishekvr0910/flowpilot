@@ -1,10 +1,16 @@
+"""Feature 32: Verified text delivery and conservative recovery on Windows."""
+
 import os
 import sys
 import time
 import threading
+import logging
 from typing import Optional
 import pyperclip
 import psutil
+from engine.windows_integrity import target_has_higher_integrity
+
+logger = logging.getLogger("FlowPilot.TextInjector")
 
 from enum import Enum
 from dataclasses import dataclass
@@ -402,6 +408,20 @@ class TextInjector:
                     recovery_available=True
                 )
 
+            integrity = target_has_higher_integrity(target_hwnd or cur_fg)
+            if integrity is not False:
+                cls.last_injected_text = text
+                reason = (
+                    "Target is running as Administrator. Use Copy Last and paste manually."
+                    if integrity else "Target permissions could not be verified. Use Copy Last and paste manually."
+                )
+                return InjectionResult(
+                    status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+                    target_hwnd=target_hwnd or cur_fg,
+                    error_message=reason,
+                    recovery_available=True,
+                )
+
         # A token that was already in the document is not proof this paste
         # arrived. Record the target buffer before dispatch for comparison.
         before_buffer = (
@@ -440,6 +460,7 @@ class TextInjector:
         post_paste_delay = 0.15 if is_remote else (0.10 if is_slow else 0.06)
         clipboard_hold_sec = 5.0 if is_remote else (3.5 if is_slow else 1.8)
 
+        keys_dispatch_started = False
         try:
             # 3. Copy text to clipboard with lock retry
             if not cls._safe_clipboard_copy(text):
@@ -448,6 +469,7 @@ class TextInjector:
                 if edit_ctrl and edit_ctrl != target_hwnd:
                     try:
                         import ctypes
+                        keys_dispatch_started = True
                         ctypes.windll.user32.SendMessageW(edit_ctrl, 0x00C2, 1, text)
                         cls.last_injected_text = text
                         if verify_confirmation and target_hwnd:
@@ -459,8 +481,13 @@ class TextInjector:
                                     target_hwnd=target_hwnd
                                 )
                         return InjectionResult(status=InjectionStatus.SENT_UNVERIFIED, chars_sent=len(text), target_hwnd=target_hwnd)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        if keys_dispatch_started:
+                            logger.warning("Direct edit dispatch could not be confirmed: %s", exc)
+                            return InjectionResult(
+                                status=InjectionStatus.SENT_UNVERIFIED,
+                                chars_sent=len(text), target_hwnd=target_hwnd,
+                            )
 
                 print("[Injector Warning] Clipboard copy failed. Falling back to direct SendInput Unicode typing...")
                 typed_ok = cls.inject_unicode_sendinput(text, target_hwnd)
@@ -506,6 +533,7 @@ class TextInjector:
 
             # 5. Keystroke dispatch (Ctrl+V / Shift+Insert)
             if HAS_WIN32 and sys.platform == "win32":
+                keys_dispatch_started = True
                 if is_legacy_console:
                     win32api.keybd_event(win32con.VK_SHIFT, 0, 0, 0)
                     win32api.keybd_event(win32con.VK_INSERT, 0, 0, 0)
@@ -573,6 +601,13 @@ class TextInjector:
             )
 
         except Exception as e:
+            if keys_dispatch_started:
+                logger.warning("Paste dispatch may have reached target; refusing automatic retry: %s", e)
+                return InjectionResult(
+                    status=InjectionStatus.SENT_UNVERIFIED,
+                    chars_sent=len(text), target_hwnd=target_hwnd,
+                    error_message="Paste was sent but could not be confirmed. Check the target before retrying.",
+                )
             print(f"[Injector Warning] Standard clipboard paste failed ({e}). Attempting direct SendInput Unicode fallback...")
             typed_ok = cls.inject_unicode_sendinput(text, target_hwnd)
             if typed_ok:
@@ -680,6 +715,11 @@ class TextInjector:
         if not ok:
             cls.last_injected_text = text
             print(f"[Injector Security] {err_msg} SendInput fallback aborted; target unverified.")
+            return False
+
+        if target_has_higher_integrity(target_hwnd or cur_fg) is not False:
+            cls.last_injected_text = text
+            print("[Injector Security] Target integrity is higher or unknown. SendInput aborted.")
             return False
 
         try:

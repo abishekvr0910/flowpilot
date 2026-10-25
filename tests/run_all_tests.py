@@ -1,3 +1,5 @@
+"""Feature 32: Run the complete FlowPilot regression suite with honest skips."""
+
 import sys
 import subprocess
 import time
@@ -71,6 +73,7 @@ TESTS = [
     ("Release Integrity Regression Guards", "tests/test_release_integrity_fixes.py"),
     ("Persistent Audio Input Identity and Resolution", "tests/test_audio_devices.py"),
     ("Benchmark Visible Delivery Observer and Latency", "tests/test_delivery_observer.py"),
+    ("Pilot Capture, Integrity, and Local Metrics", "tests/test_pilot_reliability.py"),
 ]
 
 
