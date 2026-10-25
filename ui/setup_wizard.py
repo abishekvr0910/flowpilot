@@ -393,13 +393,13 @@ class SetupWizardDialog(QDialog):
             has_small = bool(small_path and os.path.isfile(os.path.join(small_path, "model.bin")))
             if has_small:
                 self.lbl_language_model.setText(
-                    "✓ FlowPilot will use the bundled small model for this language. "
+                    "✓ Local small model file found. FlowPilot will use it for this language. "
                     "Tamil and Malayalam are experimental; test a short phrase before relying on the result."
                 )
                 self.lbl_language_model.setStyleSheet("font-size: 11px; color: #10B981; margin-top: 4px;")
             else:
                 self.lbl_language_model.setText(
-                    "FlowPilot will use the bundled small model for this language when the current model is base. "
+                    "Local small model file was not found. Add the model before relying on this language. "
                     "Tamil and Malayalam are experimental; test a short phrase before relying on the result."
                 )
                 self.lbl_language_model.setStyleSheet("font-size: 11px; color: #F59E0B; margin-top: 4px;")

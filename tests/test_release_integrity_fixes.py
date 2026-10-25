@@ -19,6 +19,7 @@ from engine.text_injector import TextInjector
 from engine.writing_intelligence import WritingIntelligence
 from tests import run_all_tests
 from ui.notetaker_view import _parse_decision_lines
+from scripts.package_windows_release import REQUIRED_NOTICES, main as package_main
 
 
 def test_injector_process_detection_is_live():
@@ -159,6 +160,40 @@ def test_existing_profile_survives_packaged_launch():
                 assert actual.get(key) == value, (relative_path, key)
 
 
+def test_requested_signing_failure_never_creates_archive():
+    with tempfile.TemporaryDirectory(prefix="flowpilot-signing-check-") as folder:
+        bundle = Path(folder) / "bundle"
+        bundle.mkdir()
+        cert = Path(folder) / "signing.pfx"
+        cert.write_bytes(b"test certificate placeholder")
+        archive = Path(folder) / "candidate.zip"
+        with patch("scripts.package_windows_release.sign_executable", return_value={
+            "signed": False, "status": "SIGN_FAILED",
+        }), patch("scripts.package_windows_release.package") as package:
+            try:
+                package_main(["--bundle", str(bundle), "--archive", str(archive), "--cert", str(cert)])
+            except RuntimeError as exc:
+                assert "SIGN_FAILED" in str(exc)
+            else:
+                raise AssertionError("Requested signing did not fail closed")
+            package.assert_not_called()
+        assert not archive.exists()
+
+
+def test_packager_help_imports_cleanly():
+    result = subprocess.run(
+        [sys.executable, "-X", "utf8", str(PROJECT_ROOT / "scripts" / "package_windows_release.py"), "--help"],
+        cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--cert-password-env" in result.stdout
+
+
+def test_release_notices_exist_in_a_fresh_checkout():
+    for relative_path in REQUIRED_NOTICES:
+        assert (PROJECT_ROOT / relative_path).is_file(), relative_path
+
+
 if __name__ == "__main__":
     test_injector_process_detection_is_live()
     test_failed_config_write_keeps_last_good_file()
@@ -167,4 +202,7 @@ if __name__ == "__main__":
     test_strict_release_gate_rejects_skips()
     test_fresh_profile_keeps_history_disabled()
     test_existing_profile_survives_packaged_launch()
+    test_requested_signing_failure_never_creates_archive()
+    test_packager_help_imports_cleanly()
+    test_release_notices_exist_in_a_fresh_checkout()
     print("[RESULT] Release integrity regression guards PASSED.")

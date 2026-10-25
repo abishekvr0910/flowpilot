@@ -690,10 +690,14 @@ class TextInjector:
         if not chosen_target:
             # Safety invariant: Do not dispatch keystrokes to an unknown or FlowPilot window.
             # Safely place the text onto clipboard for user manual paste.
-            cls._safe_clipboard_copy(cls.last_injected_text)
+            copied = cls._safe_clipboard_copy(cls.last_injected_text)
             return InjectionResult(
                 status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
-                error_message="Intended editor window is not open. Last dictation copied to clipboard for safe manual paste (Ctrl+V).",
+                error_message=(
+                    "Intended editor window is not open. Last dictation copied to clipboard for safe manual paste (Ctrl+V)."
+                    if copied else
+                    "Intended editor window is not open. Last dictation remains in memory; use Copy Last to retry."
+                ),
                 recovery_available=True
             )
 

@@ -528,7 +528,7 @@ class SettingsDialog(QDialog):
         if selected_small:
             if has_small:
                 self.lbl_model_guidance.setText(
-                    "✓ Local small model verified offline. The bundled small model is selected for this language. Recognition still needs a real voice check."
+                    "✓ Local small model file found. The small model is selected for this language. Recognition still needs a real voice check."
                 )
                 self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #10B981;")
             else:

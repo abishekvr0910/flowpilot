@@ -3,7 +3,10 @@
 import argparse
 import hashlib
 import json
+import os
+import subprocess
 from pathlib import Path
+from typing import Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
@@ -107,7 +110,6 @@ def sign_executable(
     timestamp_url: str = "http://timestamp.digicert.com"
 ) -> dict:
     """Signs the Windows executable using signtool.exe if a certificate is provided."""
-    import subprocess
     if not cert_path or not cert_path.is_file():
         return {
             "signed": False,
@@ -129,7 +131,12 @@ def sign_executable(
     if cert_password:
         cmd.extend(["/p", cert_password])
     cmd.append(str(executable_path))
-    res = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
+    try:
+        res = subprocess.run(
+            cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return {"signed": False, "status": "SIGN_FAILED", "error": "signtool timed out"}
     if res.returncode == 0:
         return {
             "signed": True,
@@ -144,16 +151,34 @@ def sign_executable(
     }
 
 
-if __name__ == "__main__":
+def main(argv=None) -> dict:
+    """Package an unsigned pilot or fail closed when signing was requested."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--cert", type=Path, default=None, help="Path to Authenticode .pfx certificate")
-    parser.add_argument("--cert-password", type=str, default=None, help="Password for .pfx certificate")
+    parser.add_argument("--cert-password-env", metavar="NAME", help="Environment variable holding the .pfx password")
     parser.add_argument("--signtool", type=Path, default=None, help="Explicit path to signtool.exe")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.cert_password_env and not args.cert:
+        parser.error("--cert-password-env requires --cert")
+    cert_password = None
+    if args.cert_password_env:
+        cert_password = os.environ.get(args.cert_password_env)
+        if cert_password is None:
+            parser.error(f"Signing password environment variable {args.cert_password_env} is not set")
 
-    signing_info = sign_executable(args.bundle / "FlowPilot.exe", cert_path=args.cert, cert_password=args.cert_password, signtool_path=args.signtool)
+    signing_info = sign_executable(
+        args.bundle / "FlowPilot.exe", cert_path=args.cert,
+        cert_password=cert_password, signtool_path=args.signtool,
+    )
+    if args.cert and not signing_info["signed"]:
+        raise RuntimeError(f"Requested signing failed: {signing_info['status']}")
     result = package(args.bundle, args.archive)
     result["code_signing"] = signing_info
+    return result
+
+
+if __name__ == "__main__":
+    result = main()
     print(json.dumps(result, indent=2))

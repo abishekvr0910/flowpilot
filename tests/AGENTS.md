@@ -2,7 +2,7 @@
 
 ## Overview
 
-Fifty six standalone suites, listed in `tests/run_all_tests.py`, run sequentially as child processes; the runner judges return codes plus skip markers. Suites double as offline audit scripts, so each file can also run on its own without pytest. Release verification uses `--require-all` and rejects skipped suites.
+Fifty eight standalone suites, listed in `tests/run_all_tests.py`, run sequentially as child processes; the runner judges return codes plus skip markers. Suites double as offline audit scripts, so each file can also run on its own without pytest. Release verification uses `--require-all` and rejects skipped suites.
 
 ## Key files
 
