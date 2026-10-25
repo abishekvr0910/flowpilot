@@ -1,4 +1,4 @@
-// FlowPilot Frontend State & WebSocket Controller
+// Feature 11: Local web companion state and WebSocket controller.
 
 let ws = null;
 let apiToken = null;
@@ -20,7 +20,6 @@ const toneCards = document.querySelectorAll(".tone-card");
 const localModelSizeSelect = document.getElementById("localModelSizeSelect");
 const languageSelect = document.getElementById("languageSelect");
 const codeSwitchingToggle = document.getElementById("codeSwitchingToggle");
-const engineModeTag = document.getElementById("engineModeTag");
 
 const newVocabInput = document.getElementById("newVocabInput");
 const addVocabBtn = document.getElementById("addVocabBtn");
@@ -135,10 +134,6 @@ function populateUIWithConfig(config) {
     card.classList.toggle("active", card.dataset.mode === mode);
   });
 
-  // Engine Mode: 100% Offline Local Faster-Whisper
-  currentConfig.engine_mode = "local";
-  if (engineModeTag) engineModeTag.textContent = "100% Offline";
-
   // Local Model Size
   if (config.local_model_size) localModelSizeSelect.value = config.local_model_size;
 
@@ -149,12 +144,6 @@ function populateUIWithConfig(config) {
   // Vocabulary
   renderVocabTags(config.custom_vocabulary || []);
 }
-
-// Engine Mode (100% Offline Local Invariant)
-window.switchEngineTab = function(mode) {
-  currentConfig.engine_mode = "local";
-  if (engineModeTag) engineModeTag.textContent = "100% Offline";
-};
 
 // Tone Mode Click Handler
 toneCards.forEach(card => {
@@ -299,14 +288,12 @@ hudMicBtn.addEventListener("click", () => {
 });
 
 // Save Settings Button
-saveSettingsBtn.addEventListener("click", () => {
-  currentConfig.engine_mode = "local";
+saveSettingsBtn.addEventListener("click", async () => {
   currentConfig.local_model_size = localModelSizeSelect.value;
   currentConfig.language = languageSelect.value;
   currentConfig.enable_code_switching = codeSwitchingToggle.checked;
-  saveConfigToServer();
-
-  saveSettingsBtn.textContent = "Saved ✓";
+  const saved = await saveConfigToServer();
+  saveSettingsBtn.textContent = saved ? "Saved ✓" : "Save failed";
   setTimeout(() => {
     saveSettingsBtn.textContent = "Save Configuration";
   }, 1500);
@@ -315,15 +302,17 @@ saveSettingsBtn.addEventListener("click", () => {
 async function saveConfigToServer() {
   try {
     const token = getApiToken();
-    if (!token) return;
+    if (!token) return false;
     const response = await fetch("/api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(currentConfig)
     });
     if (!response.ok) throw new Error(`API rejected settings: ${response.status}`);
+    return true;
   } catch (e) {
     console.error("Failed to save config:", e);
+    return false;
   }
 }
 

@@ -44,6 +44,29 @@ def _qt_app():
 
 
 class PilotReliabilityTests(unittest.TestCase):
+    def test_legacy_cloud_settings_are_removed_without_losing_local_choices(self):
+        from engine.config import load_config, save_config
+
+        with tempfile.TemporaryDirectory() as temporary:
+            config_file = Path(temporary) / "config.json"
+            legacy = {
+                "engine_mode": "cloud", "cloud_provider": "groq",
+                "groq_api_key": "unused-secret", "openai_api_key": "unused-secret",
+                "language": "ta", "hotkey": "F9",
+            }
+            config_file.write_text(json.dumps(legacy), encoding="utf-8")
+            with patch("engine.config.get_config_file", return_value=config_file):
+                migrated = load_config()
+                self.assertEqual(migrated["engine_mode"], "local")
+                self.assertEqual(migrated["language"], "ta")
+                self.assertEqual(migrated["hotkey"], "F9")
+                for key in ("cloud_provider", "groq_api_key", "openai_api_key"):
+                    self.assertNotIn(key, migrated)
+                self.assertTrue(save_config({**migrated, "groq_api_key": "another-unused-secret"}))
+            persisted = config_file.read_text(encoding="utf-8")
+            self.assertNotIn("unused-secret", persisted)
+            self.assertNotIn("groq_api_key", persisted)
+
     def test_pilot_metrics_rotate_and_never_write_transcript_fields(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

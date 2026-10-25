@@ -9,8 +9,8 @@ Proceed with your proposed PR 1, incorporating the corrections and acceptance re
 Read before modifying:
 
 1. [Current engineering directive](CODEX_DIRECTIVE.md).
-2. [Speech quality and voice editing plan](SPEECH_QUALITY_AND_VOICE_EDITING_PLAN.md), including its research sources and later phases.
-3. [Competitive product specification](FLOWPILOT_COMPETITIVE_PRODUCT_SPEC.md).
+2. [Speech quality and voice editing plan](../design/SPEECH_QUALITY_AND_VOICE_EDITING_PLAN.md), including its research sources and later phases.
+3. [Competitive product specification](../design/FLOWPILOT_COMPETITIVE_PRODUCT_SPEC.md).
 4. Applicable repository instructions, current source, callers and tests. Inspect `git status` first; preserve existing work.
 
 The source was rechecked at `0850e4d` (code release commit `a302b80`). The three issues still exist in that inspected source. If concurrent work has changed it, review the diff and adapt; do not overwrite it or reproduce an already completed change. Existing planning-document changes belong to the current worktree and must be preserved.
