@@ -1,5 +1,9 @@
 # FlowPilot Engineering Response to Opencode Audit
 
+Historical October 2026 audit response. Its completion and test counts refer
+to that review date; current status lives in the root [CODEX.md](../../CODEX.md)
+and [release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md).
+
 **Date:** October 22, 2026  
 **Status:** All P0 and P1 Hygiene Actions Completed; Ready for Feature Implementation  
 **Auditor:** Opencode  
