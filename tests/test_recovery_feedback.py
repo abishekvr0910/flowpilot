@@ -129,5 +129,21 @@ class TestRecoveryFeedback(unittest.TestCase):
         self.assertEqual(orch.state, AppState.IDLE)
 
 
+    def test_hotkey_alias_normalization(self):
+        """Verify that Alt+Shift+Z/X and Shift+Alt+Z/X resolve to identical Win32 modifiers and VK codes."""
+        from engine.hotkey_service import parse_hotkey_string, MOD_ALT, MOD_SHIFT
+        mods_z1, vk_z1 = parse_hotkey_string("Alt+Shift+Z")
+        mods_z2, vk_z2 = parse_hotkey_string("Shift+Alt+Z")
+        self.assertEqual((mods_z1, vk_z1), (mods_z2, vk_z2))
+        self.assertEqual(mods_z1, MOD_ALT | MOD_SHIFT)
+        self.assertEqual(vk_z1, ord("Z"))
+
+        mods_x1, vk_x1 = parse_hotkey_string("Alt+Shift+X")
+        mods_x2, vk_x2 = parse_hotkey_string("Shift+Alt+X")
+        self.assertEqual((mods_x1, vk_x1), (mods_x2, vk_x2))
+        self.assertEqual(mods_x1, MOD_ALT | MOD_SHIFT)
+        self.assertEqual(vk_x1, ord("X"))
+
+
 if __name__ == "__main__":
     unittest.main()
