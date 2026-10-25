@@ -26,6 +26,10 @@ def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarra
     return np.interp(target_times, orig_times, audio).astype(np.float32)
 
 class AudioRecorder:
+    CAPTURE_STALL_SECONDS = 2.0
+    STREAM_CLOSE_SECONDS = 1.0
+    STREAM_OPEN_SECONDS = 8.0
+
     def __init__(self, sample_rate: int = 16000, channels: int = 1, device: Optional[int] = None, device_index: Optional[int] = None):
         self.sample_rate = sample_rate
         self.channels = channels
@@ -45,6 +49,10 @@ class AudioRecorder:
         self._pending_device: Optional[int] = None
         self._device_change_pending: bool = False
         self.is_synthetic_mode: bool = False
+        self._capture_error: Optional[str] = None
+        self._last_callback_at: float = 0.0
+        self._recording_started_at: float = 0.0
+        self._stream_cleanup_failed: bool = False
 
     def get_state(self) -> dict:
         """Returns the current state dictionary of the audio recorder."""
@@ -56,8 +64,10 @@ class AudioRecorder:
 
     def _audio_callback(self, indata, frames, time_info, status):
         try:
+            self._last_callback_at = time.monotonic()
             if status:
-                print(f"[Audio Warning] {status}")
+                if self.is_recording:
+                    self._capture_error = f"Microphone capture lost audio ({status}). Reconnect it and retry."
 
             if not self.is_recording:
                 # Maintain rolling pre-roll buffer while idle so first word is never clipped
@@ -73,10 +83,104 @@ class AudioRecorder:
                 rms = np.sqrt(np.mean(indata**2))
                 level = min(1.0, float(rms * 10.0))
                 self.level_callback(level)
-        except Exception:
-            pass
+        except Exception as exc:
+            self._capture_error = f"Microphone capture callback failed ({type(exc).__name__}). Reconnect it and retry."
+
+    def capture_health_error(self) -> Optional[str]:
+        """Read callback health without taking the recorder lock or calling the driver."""
+        if self._stream_cleanup_failed:
+            return "Microphone driver did not release its stream. Restart FlowPilot before recording again."
+        if not self.is_recording or self.is_synthetic_mode:
+            return None
+        if self._capture_error:
+            return self._capture_error
+        if self.stream is None:
+            return "Microphone stream disappeared during recording. Reconnect it and retry."
+        last_seen = max(self._recording_started_at, self._last_callback_at)
+        if last_seen and time.monotonic() - last_seen > self.CAPTURE_STALL_SECONDS:
+            return "Microphone stopped delivering audio. Reconnect it and retry."
+        return None
+
+    def _release_stream_bounded(self, stream) -> bool:
+        """Keep an unresponsive PortAudio driver off the Qt and dictation threads."""
+        finished = threading.Event()
+        close_failed = threading.Event()
+
+        def release():
+            try:
+                if hasattr(stream, "abort"):
+                    stream.abort()
+                else:
+                    stream.stop()
+            except Exception as exc:
+                logger.warning("Microphone stream abort failed: %s", exc)
+            try:
+                stream.close()
+            except Exception as exc:
+                close_failed.set()
+                logger.warning("Microphone stream close failed: %s", exc)
+            finally:
+                finished.set()
+
+        threading.Thread(target=release, daemon=True, name="FlowPilot-MicRelease").start()
+        if not finished.wait(self.STREAM_CLOSE_SECONDS):
+            self._stream_cleanup_failed = True
+            logger.error("Microphone driver did not release its stream within %.1f seconds", self.STREAM_CLOSE_SECONDS)
+            return False
+        if close_failed.is_set():
+            self._stream_cleanup_failed = True
+            return False
+        return True
+
+    def _open_stream_bounded(self, sample_rate: int):
+        """Open PortAudio outside the recorder lock's thread with a hard deadline."""
+        finished = threading.Event()
+        result_lock = threading.Lock()
+        result = {"stream": None, "error": None, "cancelled": False}
+
+        def open_stream():
+            stream = None
+            error = None
+            try:
+                stream = sd.InputStream(
+                    samplerate=sample_rate, channels=self.channels, dtype="float32",
+                    device=self.device, callback=self._audio_callback,
+                )
+                stream.start()
+            except Exception as exc:
+                error = exc
+            with result_lock:
+                if result["cancelled"] or error is not None:
+                    stale_stream = stream
+                else:
+                    stale_stream = None
+                    result["stream"] = stream
+                result["error"] = error
+            if stale_stream is not None:
+                self._release_stream_bounded(stale_stream)
+            finished.set()
+
+        threading.Thread(target=open_stream, daemon=True, name="FlowPilot-MicOpen").start()
+        if not finished.wait(self.STREAM_OPEN_SECONDS):
+            with result_lock:
+                result["cancelled"] = True
+                late_stream = result["stream"]
+                result["stream"] = None
+            if late_stream is not None:
+                self._release_stream_bounded(late_stream)
+            self._stream_cleanup_failed = True
+            raise RuntimeError(
+                f"Microphone driver did not open within {self.STREAM_OPEN_SECONDS:g} seconds. "
+                "Restart FlowPilot before recording again."
+            )
+        if result["error"] is not None:
+            raise result["error"]
+        return result["stream"]
 
     def _warmup_stream_locked(self):
+        if self._stream_cleanup_failed:
+            logger.warning("Microphone warmup refused after an unresponsive driver shutdown")
+            return
         if self.device is not None and self.device < 0:
             print(f"[Audio] Selected audio device is missing/disconnected (device={self.device}). Warmup stream skipped.")
             return
@@ -84,18 +188,14 @@ class AudioRecorder:
             return
         try:
             self.capture_sample_rate = self.sample_rate
-            self.stream = sd.InputStream(
-                samplerate=self.sample_rate,
-                channels=self.channels,
-                dtype="float32",
-                device=self.device,
-                callback=self._audio_callback
-            )
-            self.stream.start()
+            self.stream = self._open_stream_bounded(self.sample_rate)
             print(f"[Audio] Pre-roll stream warmed up and monitoring on device {self.device}.")
-        except Exception as e:
-            # Silently defer to on-demand start
-            pass
+        except Exception as exc:
+            failed_stream = self.stream
+            self.stream = None
+            if failed_stream:
+                self._release_stream_bounded(failed_stream)
+            logger.warning("Microphone warmup deferred: %s", exc)
 
     def warmup_stream(self):
         """Pre-arms the PortAudio stream at startup so recording starts with zero latency and hot pre-roll."""
@@ -124,6 +224,11 @@ class AudioRecorder:
             if self.device is not None and self.device < 0:
                 self.is_recording = False
                 raise RuntimeError(f"Selected audio input device is missing or disconnected (device={self.device}).")
+            if self._stream_cleanup_failed:
+                raise RuntimeError(self.capture_health_error())
+            self._capture_error = None
+            self._recording_started_at = time.monotonic()
+            self.is_synthetic_mode = False
 
             # 1. If stream is already hot and running, start recording immediately with pre-roll!
             if self.stream and getattr(self.stream, "active", False):
@@ -140,12 +245,10 @@ class AudioRecorder:
 
             # 2. Otherwise start a new stream
             if self.stream:
-                try:
-                    self.stream.stop()
-                    self.stream.close()
-                except Exception:
-                    pass
+                stale_stream = self.stream
                 self.stream = None
+                if not self._release_stream_bounded(stale_stream):
+                    raise RuntimeError(self.capture_health_error())
 
             if self.enable_preroll and self._preroll_buffer:
                 self.audio_frames = list(self._preroll_buffer)
@@ -158,16 +261,18 @@ class AudioRecorder:
 
             try:
                 # First attempt: Target sample rate (16000Hz)
-                self.stream = sd.InputStream(
-                    samplerate=self.sample_rate,
-                    channels=self.channels,
-                    dtype="float32",
-                    device=self.device,
-                    callback=self._audio_callback
-                )
-                self.stream.start()
+                self.stream = self._open_stream_bounded(self.sample_rate)
+                self._recording_started_at = time.monotonic()
                 print("[Audio] Recording started...")
             except Exception as e:
+                if self._stream_cleanup_failed:
+                    self.is_recording = False
+                    raise RuntimeError(self.capture_health_error()) from e
+                failed_stream = self.stream
+                self.stream = None
+                if failed_stream and not self._release_stream_bounded(failed_stream):
+                    self.is_recording = False
+                    raise RuntimeError(self.capture_health_error()) from e
                 # Fallback attempt: If hardware requires 44.1kHz or 48kHz, query native rate
                 fallback_success = False
                 try:
@@ -176,20 +281,22 @@ class AudioRecorder:
                     if native_sr != self.sample_rate and native_sr > 0:
                         print(f"[Audio] Target sample rate {self.sample_rate}Hz rejected. Falling back to native {native_sr}Hz with dynamic resampling.")
                         self.capture_sample_rate = native_sr
-                        self.stream = sd.InputStream(
-                            samplerate=native_sr,
-                            channels=self.channels,
-                            dtype="float32",
-                            device=self.device,
-                            callback=self._audio_callback
-                        )
-                        self.stream.start()
+                        self.stream = self._open_stream_bounded(native_sr)
+                        self._recording_started_at = time.monotonic()
                         fallback_success = True
                         print("[Audio] Recording started with native hardware sample rate fallback.")
                 except Exception:
                     pass
 
                 if not fallback_success:
+                    if self._stream_cleanup_failed:
+                        self.is_recording = False
+                        raise RuntimeError(self.capture_health_error()) from e
+                    failed_stream = self.stream
+                    self.stream = None
+                    if failed_stream and not self._release_stream_bounded(failed_stream):
+                        self.is_recording = False
+                        raise RuntimeError(self.capture_health_error()) from e
                     is_explicit_bad_device = (self.device is not None and self.device > 1000)
                     is_headless_test = (os.environ.get("FLOWPILOT_HEADLESS") == "1"
                                         or bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")))
@@ -206,17 +313,21 @@ class AudioRecorder:
 
     def stop_recording(self, keep_stream_alive: bool = True) -> Optional[bytes]:
         with self._lock:
+            health_error = None
             try:
                 if not self.is_recording and not self.stream:
                     return None
+                health_error = self.capture_health_error()
                 self.is_recording = False
-                if not keep_stream_alive and self.stream:
-                    try:
-                        self.stream.stop()
-                        self.stream.close()
-                    except Exception:
-                        pass
+                if (not keep_stream_alive or health_error) and self.stream:
+                    old_stream = self.stream
                     self.stream = None
+                    if not self._release_stream_bounded(old_stream):
+                        health_error = self.capture_health_error()
+                if health_error:
+                    self.audio_frames = []
+                    self.last_audio_array = None
+                    raise RuntimeError(health_error)
 
                 if not self.audio_frames:
                     # If running headless without physical audio capture, generate 0.5s synthetic PCM fixture
@@ -256,7 +367,8 @@ class AudioRecorder:
                 print(f"[Audio] Captured {duration:.2f}s of audio ({len(wav_bytes)} bytes)")
                 return wav_bytes
             finally:
-                if getattr(self, "_device_change_pending", False):
+                if (getattr(self, "_device_change_pending", False)
+                        and not self._stream_cleanup_failed and not health_error):
                     pending = self._pending_device
                     self._device_change_pending = False
                     self._pending_device = None
@@ -281,12 +393,10 @@ class AudioRecorder:
             was_recording = self.is_recording
             existing_frames = list(self.audio_frames) if was_recording else []
             if self.stream:
-                try:
-                    self.stream.stop()
-                    self.stream.close()
-                except Exception:
-                    pass
+                old_stream = self.stream
                 self.stream = None
+                if not self._release_stream_bounded(old_stream):
+                    raise RuntimeError(self.capture_health_error())
             self._preroll_buffer.clear()
             if self.device is not None and self.device < 0:
                 print(f"[Audio] Input device switched to missing/disconnected state (device={self.device}).")
@@ -308,12 +418,9 @@ class AudioRecorder:
             self._device_change_pending = False
             self._pending_device = None
             if self.stream:
-                try:
-                    self.stream.stop()
-                    self.stream.close()
-                except Exception:
-                    pass
+                old_stream = self.stream
                 self.stream = None
+                self._release_stream_bounded(old_stream)
             self._preroll_buffer.clear()
 
     def get_last_audio_array(self) -> Optional[np.ndarray]:

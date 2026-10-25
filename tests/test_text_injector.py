@@ -1,3 +1,5 @@
+"""Feature 32: Clipboard, focus, and text delivery regression checks."""
+
 import sys
 import time
 from pathlib import Path
@@ -125,6 +127,7 @@ def test_clipboard_is_not_physical_confirmation():
 def test_clipboard_copy_failure_and_unicode_fallback():
     """Verify that when clipboard copy fails, Unicode SendInput is invoked without raising UnboundLocalError."""
     with patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 12345, None)), \
+         patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
          patch.object(TextInjector, '_safe_clipboard_copy', return_value=False), \
          patch.object(TextInjector, '_find_edit_control', return_value=12345), \
          patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
@@ -153,6 +156,7 @@ def test_focus_loss_after_staging_preserves_clipboard_and_recovery():
     resolve_calls = [(True, 12345, None), (False, 99999, "Focus switched to 99999")]
 
     with patch.object(TextInjector, '_resolve_verified_foreground', side_effect=resolve_calls), \
+         patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
          patch.object(TextInjector, '_safe_clipboard_paste', side_effect=fake_paste), \
          patch.object(TextInjector, '_safe_clipboard_copy', side_effect=fake_copy), \
          patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
@@ -174,6 +178,7 @@ def test_slow_app_timing_and_dwell():
 
     # Verify behavioral hold and dwell resolution
     with patch.object(TextInjector, '_get_target_process_name', return_value="slack.exe"), \
+         patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
          patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 100, None)), \
          patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
          patch.object(TextInjector, '_safe_clipboard_paste', return_value="Existing clipboard fixture"), \
@@ -194,6 +199,7 @@ def test_slow_app_timing_and_dwell():
 
     # Verify remote desktop hold and dwell resolution (5.0s hold, 0.050s dwell)
     with patch.object(TextInjector, '_get_target_process_name', return_value="mstsc.exe"), \
+         patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
          patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 200, None)), \
          patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
          patch.object(TextInjector, '_safe_clipboard_paste', return_value="Existing clipboard fixture"), \
@@ -248,6 +254,7 @@ def test_focus_loss_with_newer_user_copy_preserves_user_copy():
     resolve_side_effect.calls = 0
 
     with patch.object(TextInjector, '_resolve_verified_foreground', side_effect=resolve_side_effect), \
+         patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
          patch.object(TextInjector, '_safe_clipboard_paste', side_effect=fake_paste), \
          patch.object(TextInjector, '_safe_clipboard_copy', side_effect=fake_copy), \
          patch.object(TextInjector, '_get_clipboard_sequence_number', side_effect=fake_seq), \

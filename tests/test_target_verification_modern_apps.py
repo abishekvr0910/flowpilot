@@ -69,6 +69,7 @@ def test_confirmation_requires_new_document_content():
         patch.object(TextInjector, "_safe_clipboard_copy", return_value=True),
         patch.object(TextInjector, "_is_flowpilot_window", return_value=False),
         patch.object(TextInjector, "_get_target_process_name", return_value=""),
+        patch("engine.text_injector.target_has_higher_integrity", return_value=False),
     )
 
     with ExitStack() as stack:

@@ -2,7 +2,6 @@
 import time
 import logging
 import threading
-import json
 from pathlib import Path
 from typing import Dict, Any, Callable, Optional, List
 from engine.config import load_config, save_config
@@ -17,6 +16,7 @@ from engine.hotkey_service import get_hotkey_service, Win32HotkeyService, dictat
 from engine.personalization import PersonalizationEngine, get_shared_personalization
 from engine.session import DictationSession, SessionState
 from engine.audio_devices import resolve_audio_input, build_device_selection, migrate_legacy_audio_config
+from engine.pilot_telemetry import append_local_event
 
 logger = logging.getLogger("FlowPilot.Orchestrator")
 
@@ -77,6 +77,7 @@ class FlowOrchestrator:
         self._auxiliary_hotkeys: Dict[str, Callable[[], None]] = {}
         self.last_dictation: Dict[str, Any] = {}
         self._auto_stop_timer: Optional[threading.Timer] = None
+        self._capture_watchdog_stop = threading.Event()
 
         # Silence auto-stop tracking (Wispr Flow behavior)
         self._last_speech_time: float = 0.0
@@ -143,6 +144,44 @@ class FlowOrchestrator:
     def _on_auto_stop(self):
         print("[Orchestrator] Maximum recording duration (120s) reached. Auto-stopping...")
         self.stop_dictation_and_process()
+
+    def _start_capture_watchdog(self, active_session: DictationSession) -> None:
+        """Stop a session when its microphone callback reports loss or goes quiet."""
+        self._capture_watchdog_stop.set()
+        stop_event = threading.Event()
+        self._capture_watchdog_stop = stop_event
+
+        def watch():
+            while not stop_event.wait(0.25):
+                error = self.recorder.capture_health_error()
+                if not error:
+                    continue
+                with self._state_lock:
+                    if active_session != self._current_session or self.state != AppState.RECORDING:
+                        return
+                    active_session.transition_to(SessionState.ERROR)
+                    self.state = AppState.ERROR
+                    self.is_processing = False
+                stop_event.set()
+                if self._auto_stop_timer:
+                    self._auto_stop_timer.cancel()
+                    self._auto_stop_timer = None
+                self.recorder.close()
+                threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
+                self.feedback.play_error()
+                self._notify(AppState.ERROR, {
+                    "message": error, "session_id": active_session.session_id,
+                    "notice": "Microphone stopped. No text was inserted.",
+                })
+                time.sleep(2.0)
+                with self._state_lock:
+                    if active_session == self._current_session and self.state == AppState.ERROR:
+                        active_session.transition_to(SessionState.IDLE)
+                        self.state = AppState.IDLE
+                        self._notify(AppState.IDLE)
+                return
+
+        threading.Thread(target=watch, daemon=True, name="FlowPilot-CaptureWatchdog").start()
 
     def start_dictation(self, translation_mode: Optional[bool] = None):
         with self._state_lock:
@@ -231,6 +270,7 @@ class FlowOrchestrator:
                     "target_app": self.target_window_info.get("process_name"),
                     "mode": self.config.get("active_tone_mode")
                 })
+                self._start_capture_watchdog(active_session)
             except Exception as e:
                 with self._state_lock:
                     if active_session.is_cancelled or self.state == AppState.CANCELLED:
@@ -252,6 +292,7 @@ class FlowOrchestrator:
 
     def cancel_dictation(self):
         """Emergency cancel: Discards recording immediately without transcribing or inserting."""
+        self._capture_watchdog_stop.set()
         with self._state_lock:
             if self.state == AppState.IDLE and (not self._current_session or not self._current_session.is_active()):
                 return
@@ -267,7 +308,10 @@ class FlowOrchestrator:
             self._auto_stop_timer = None
 
         if self.recorder.is_recording:
-            self.recorder.stop_recording()
+            try:
+                self.recorder.stop_recording()
+            except RuntimeError as exc:
+                logger.warning("Recording was discarded after capture failure: %s", exc)
 
         if hasattr(self, "_tap_latch") and self._tap_latch:
             self._tap_latch.reset()
@@ -302,6 +346,8 @@ class FlowOrchestrator:
             self.state = AppState.STOPPING_RECORDING
             session.transition_to(SessionState.FINALIZING)
             self.is_processing = True
+
+        self._capture_watchdog_stop.set()
 
         if self._auto_stop_timer:
             self._auto_stop_timer.cancel()
@@ -528,9 +574,9 @@ class FlowOrchestrator:
                 )
 
                 if not success or inj_res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE:
-                    err_msg = inj_res.error_message or "Paste failed (saved to clipboard)"
+                    err_msg = inj_res.error_message or "Paste failed; text held for recovery"
                     print(f"[Orchestrator Warning] {err_msg}")
-                    TextInjector._safe_clipboard_copy(formatted_text)
+                    TextInjector.last_injected_text = formatted_text
                     with self._state_lock:
                         active_session.transition_to(SessionState.ERROR)
                         self.state = AppState.ERROR
@@ -538,7 +584,7 @@ class FlowOrchestrator:
                     self.feedback.play_error()
                     self._notify(AppState.ERROR, {
                         "message": err_msg,
-                        "notice": "Target lost — text saved to clipboard",
+                        "notice": "Text held in recovery. Shift+Alt+X copies it.",
                         "session_id": active_session.session_id,
                         "recovery_available": True
                     })
@@ -832,6 +878,7 @@ class FlowOrchestrator:
 
     def stop(self):
         """Clean shutdown of all orchestrator services."""
+        self._capture_watchdog_stop.set()
         self.stop_hotkey_listener()
         try:
             self.ducker.stop_ducking()
@@ -891,14 +938,10 @@ class FlowOrchestrator:
         save_config(self.config)
 
     def _record_telemetry(self, data: Dict[str, Any]):
-        """Records local-only anonymous telemetry for pilot metrics. Zero network egress."""
+        """Records bounded, opt-in local metadata for pilot metrics."""
         if not self.config.get("telemetry_enabled", False):
             return
         try:
-            log_dir = Path.home() / ".flowpilot"
-            log_dir.mkdir(parents=True, exist_ok=True)
-            log_file = log_dir / "dictation_telemetry.log"
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(data) + "\n")
-        except Exception:
-            pass
+            append_local_event(data, Path.home() / ".flowpilot")
+        except Exception as exc:
+            logger.warning("Could not write opt-in pilot metrics: %s", exc)

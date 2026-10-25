@@ -32,6 +32,12 @@ This foundation row preserves the historical RC2 milestone. The current candidat
 
 ## Next release
 
+### 32. Pilot reliability hardening · in-progress
+
+The `feature/pilot-reliability-hardening` branch contains bounded microphone open and close handling, capture stall detection, fail-safe elevated-window insertion, bounded opt-in local metrics, and Indic model guidance. These changes are development source until a new exact-source package and physical USB and editor trials pass. RC4 remains unchanged. See the [pilot hardening review](../reviews/2026-10-25-pilot-reliability-and-competitive-position.md).
+
+**Done when:** the new candidate passes the full strict desktop gate, a real USB disconnect and reconnect trial, elevated and opaque editor safety trials, a fresh package smoke and offline self-test, and hosted CI from its source commit. Metrics and public copy must describe measured boundaries.
+
 ### 14. Consented Windows pilot · planned · needs a decision
 
 Let a small group use the exact candidate archive on their own Windows machines and report what happens during normal work. Keep sensitive transcript collection off by default.
