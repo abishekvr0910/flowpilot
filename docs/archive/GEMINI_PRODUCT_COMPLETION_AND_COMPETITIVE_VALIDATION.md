@@ -65,7 +65,7 @@ None implies the other two. A completed experiment can honestly conclude that Wi
 
 ## 2. Document authority and limits
 
-The living feature register is [scope/index.md](../scope/index.md). This handoff supplies the complete execution and evidence plan, not a replacement architecture specification. Existing [engineering boundaries](../architecture/CODEX_DIRECTIVE.md), `AGENTS.md`, and [spec 0001](../specs/0001-context-aware-companion-visibility.md) remain in force.
+The living feature register is [scope/index.md](../scope/index.md). This handoff supplies the complete execution and evidence plan, not a replacement architecture specification. Existing [engineering boundaries](CODEX_DIRECTIVE.md), `AGENTS.md`, and [spec 0001](../specs/0001-context-aware-companion-visibility.md) remain in force.
 
 Use this handoff to supersede stale completion and priority statements in earlier handoffs. Preserve dated measurements as historical records. Resolve architectural changes in `docs/specs/` before building them. Numerical gates below are proposed engineering targets, not achieved measurements or a change to an existing release tag. Freeze them in the evaluation specification before examining final results.
 

@@ -42,7 +42,7 @@ The existing eight tests in `tests/test_honest_transforms.py` passed during that
 
 ### 2. The scope omits existing release requirements
 
-The completion criterion for distribution in [release scope](../scope/release.md) omits mandatory requirements already recorded in the [engineering directive](../architecture/CODEX_DIRECTIVE.md), [release guide](../release/flowpilot_build_and_release.md), and [release evidence template](../release/RELEASE_EVIDENCE_TEMPLATE.md).
+The completion criterion for distribution in [release scope](../scope/release.md) omits mandatory requirements already recorded in the [engineering directive](CODEX_DIRECTIVE.md), [release guide](../release/flowpilot_build_and_release.md), and [release evidence template](../release/RELEASE_EVIDENCE_TEMPLATE.md).
 
 Those requirements include the strict regression gate, CI for the intended commit, physical Windows checks, verification after signing, preservation of existing profiles during upgrade, and documented rollback limits.
 

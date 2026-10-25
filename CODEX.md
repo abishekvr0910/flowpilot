@@ -4,8 +4,8 @@
 **Date:** 2026-10-19<br/>
 **Current verification note (2026-10-22):** The historical benchmark and feature descriptions below are not a release sign-off. The current working tree has 53 registered suites; `python -X utf8 tests/run_all_tests.py --require-all` passed 53/53 with no skips in 162.12 seconds on the available interactive desktop. A fresh build and remote CI verification remain separate gates. See [the release reassessment](docs/reviews/2026-10-22-release-reassessment.md).
 **Primary References:**
-- Architectural Handoff: [docs/architecture/CODEX_HANDOFF_DIRECTIVE.md](docs/architecture/CODEX_HANDOFF_DIRECTIVE.md)
-- Core Engineering Policy: [docs/architecture/CODEX_DIRECTIVE.md](docs/architecture/CODEX_DIRECTIVE.md)
+- Architectural Handoff: [docs/archive/CODEX_HANDOFF_DIRECTIVE.md](docs/archive/CODEX_HANDOFF_DIRECTIVE.md)
+- Core Engineering Policy: [docs/archive/CODEX_DIRECTIVE.md](docs/archive/CODEX_DIRECTIVE.md)
 - Empirical Benchmark Protocol & Observations: [docs/testing/WISPR_FLOW_HEAD_TO_HEAD.md](docs/testing/WISPR_FLOW_HEAD_TO_HEAD.md)
 - Tracked Benchmark Data: [docs/testing/vbcable_benchmark_results.json](docs/testing/vbcable_benchmark_results.json)
 - Privacy & Trust Boundaries: [PRIVACY.md](PRIVACY.md) and [TRUST.md](TRUST.md)

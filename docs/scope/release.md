@@ -5,7 +5,7 @@ This area distinguishes code, a local candidate, and a public download. The curr
 ## Release prerequisites and gates
 
 ### Mandatory release completion criteria
-Before promoting any candidate to public release, satisfy the [engineering directive](../architecture/CODEX_DIRECTIVE.md), [release guide](../release/flowpilot_build_and_release.md), and [release evidence template](../release/RELEASE_EVIDENCE_TEMPLATE.md):
+Before promoting any candidate to public release, satisfy the [engineering directive](../archive/CODEX_DIRECTIVE.md), [release guide](../release/flowpilot_build_and_release.md), and [release evidence template](../release/RELEASE_EVIDENCE_TEMPLATE.md):
 
 1. **Strict regression runner**: Execution of `python -X utf8 tests/run_all_tests.py --require-all` on an interactive desktop. Any failed or skipped suite prevents release promotion.
 2. **Hosted CI verification**: Green GitHub Actions CI for the exact intended source commit, including Node.js integration (`npm test`) and binary smoke validation. Hosted skips remain visible and require explicit physical desktop evidence before signoff.

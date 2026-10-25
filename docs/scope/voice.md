@@ -40,7 +40,7 @@ Prevent unsupported external replacements and revert attempts from dispatching i
 - [x] Verify backend refusal and Qt control behavior: `/check verify external transform safety`
 - [x] Protect dispatch, status, recovery, and scratchpad behavior: `/test external transform safety`
 
-Plan: [remediation directive](../design/GEMINI_SCOPE_AND_RELEASE_REMEDIATION.md). Code in `engine/transforms_engine.py`, `ui/transforms_view.py`, and `tests/test_honest_transforms.py`.
+Plan: [remediation directive](../archive/GEMINI_SCOPE_AND_RELEASE_REMEDIATION.md). Code in `engine/transforms_engine.py`, `ui/transforms_view.py`, and `tests/test_honest_transforms.py`.
 
 ### 28. Persistent microphone selection · in-progress
 

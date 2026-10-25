@@ -6,7 +6,7 @@
 
 ## Decision
 
-The four work packages in the [handoff directive](../design/GEMINI_SCOPE_AND_RELEASE_REMEDIATION.md) now have a source implementation and reviewable evidence. The external transform refusal is complete in source and in the isolated executable. Release promotion remains open because this is a dirty-tree development build, the current changes have no hosted CI run or final archive, and real-speaker, visible-delivery, sustained runtime, and broader upgrade evidence are still missing.
+The four work packages in the [handoff directive](../archive/GEMINI_SCOPE_AND_RELEASE_REMEDIATION.md) now have a source implementation and reviewable evidence. The external transform refusal is complete in source and in the isolated executable. Release promotion remains open because this is a dirty-tree development build, the current changes have no hosted CI run or final archive, and real-speaker, visible-delivery, sustained runtime, and broader upgrade evidence are still missing.
 
 The old v3.1.0-RC2 ZIP in `dist/` and its [manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) were preserved. Its hashes and CI results belong to the old bytes, not this repair. Local `master` is 31 commits ahead of `origin/master`; no remote state was changed here.
 

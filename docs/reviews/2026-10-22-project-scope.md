@@ -30,7 +30,7 @@ The scope gives a useful map of FlowPilot and usually distinguishes present code
 
 **Problem:** The completion criterion requires explained contents, offline startup, signature disclosure, and matching hashes. It omits the strict regression gate, CI for the exact source, verification of the final signed bytes, and preservation of existing user profiles during upgrade. There is no explicit link making the existing release guide a prerequisite.
 
-**Evidence:** `docs/architecture/CODEX_DIRECTIVE.md:18` requires `tests/run_all_tests.py --require-all` and says skipped or failed strict checks block promotion. `docs/release/flowpilot_build_and_release.md:32` requires CI for the intended commit and interactive hardware checks. Lines 44 and 46 require verification after signing or rebuilding. Line 54 requires upgrades from an existing profile with settings preserved; line 57 requires a rollback record with tested limitations.
+**Evidence:** `docs/archive/CODEX_DIRECTIVE.md:18` requires `tests/run_all_tests.py --require-all` and says skipped or failed strict checks block promotion. `docs/release/flowpilot_build_and_release.md:32` requires CI for the intended commit and interactive hardware checks. Lines 44 and 46 require verification after signing or rebuilding. Line 54 requires upgrades from an existing profile with settings preserved; line 57 requires a rollback record with tested limitations.
 
 **Impact:** The distribution item can satisfy its written scope while missing checks that the project already considers mandatory. A clean profile test also cannot establish that a returning user's privacy settings, vocabulary, or other saved data survive an upgrade.
 
