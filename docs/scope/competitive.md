@@ -15,7 +15,7 @@ Compare FlowPilot and Wispr Flow on the same speech and target tasks. Measure ti
 - [x] Protect against false positives (deletions, stray edits, typing dwell): `tests/test_delivery_observer.py` (17 tests passed on 24 October 2026)
 - [ ] Execute paired head-to-head live trials with consented speech corpus (Feature 15) and record outcome ledger.
 
-Build on the [existing comparison protocol](../testing/WISPR_FLOW_HEAD_TO_HEAD.md), [runtime protocol](../testing/RUNTIME_PERFORMANCE_PROTOCOL.md), and [real voice schema](../evaluation/REAL_VOICE_CORPUS_SCHEMA.md). The [complete Gemini handoff](../handoffs/GEMINI_PRODUCT_COMPLETION_AND_COMPETITIVE_VALIDATION.md) provides proposed thresholds, corpus stages, task coverage, and claim rules. Its proposals need to be frozen before final evaluation; they are not measured results.
+Build on the [existing comparison protocol](../testing/WISPR_FLOW_HEAD_TO_HEAD.md), [runtime protocol](../testing/RUNTIME_PERFORMANCE_PROTOCOL.md), and [real voice schema](../evaluation/REAL_VOICE_CORPUS_SCHEMA.md). The [complete Gemini handoff](../archive/GEMINI_PRODUCT_COMPLETION_AND_COMPETITIVE_VALIDATION.md) provides proposed thresholds, corpus stages, task coverage, and claim rules. Its proposals need to be frozen before final evaluation; they are not measured results.
 
 The language corpus, insertion safety, and runtime tools remain owned by scope features 15, 16, and 25. This feature owns comparison design and the resulting competitive decision, avoiding duplicate measurement engines.
 

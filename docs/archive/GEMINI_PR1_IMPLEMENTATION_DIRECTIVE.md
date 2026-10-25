@@ -8,7 +8,7 @@ Proceed with your proposed PR 1, incorporating the corrections and acceptance re
 
 Read before modifying:
 
-1. [Current engineering directive](../architecture/CODEX_DIRECTIVE.md).
+1. [Current engineering directive](CODEX_DIRECTIVE.md).
 2. [Speech quality and voice editing plan](SPEECH_QUALITY_AND_VOICE_EDITING_PLAN.md), including its research sources and later phases.
 3. [Competitive product specification](FLOWPILOT_COMPETITIVE_PRODUCT_SPEC.md).
 4. Applicable repository instructions, current source, callers and tests. Inspect `git status` first; preserve existing work.
