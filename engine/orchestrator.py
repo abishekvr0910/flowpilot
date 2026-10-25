@@ -764,23 +764,54 @@ class FlowOrchestrator:
         return True
 
     def re_copy_last(self) -> bool:
-        """Copies the last dictation text directly to clipboard."""
-        return TextInjector.re_copy_last()
+        """Copies the last dictation text directly to clipboard with UI feedback."""
+        success = TextInjector.re_copy_last()
+        text = TextInjector.last_injected_text or (self.last_dictation.get("formatted_text") if isinstance(self.last_dictation, dict) else "")
+        if success:
+            self._notify(AppState.IDLE, {
+                "notice": "Copied last dictation to clipboard",
+                "text": text
+            })
+        else:
+            self._notify(AppState.ERROR, {
+                "message": "No previous dictation text found in clipboard recovery buffer.",
+                "notice": "No previous dictation to copy"
+            })
+        return success
 
     def re_inject_last(self):
         """
         Re-injects the last dictation text into the currently active or last target window.
         Returns the structured InjectionResult (CONFIRMED_INSERTED, SENT_UNVERIFIED,
-        FAILED_RECOVERY_AVAILABLE, or ERROR).
+        FAILED_RECOVERY_AVAILABLE, or ERROR) and notifies UI/HUD.
         """
         from engine.text_injector import InjectionStatus, InjectionResult
+        with self._state_lock:
+            if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING):
+                res = InjectionResult(
+                    status=InjectionStatus.ERROR,
+                    error_message="Cannot re-inject while dictation is in progress.",
+                    recovery_available=False
+                )
+                self._notify(AppState.ERROR, {
+                    "message": res.error_message,
+                    "notice": "Dictation in progress — recovery postponed"
+                })
+                return res
+
         text = self.last_dictation.get("formatted_text") or TextInjector.last_injected_text
         if not text:
-            return InjectionResult(
+            res = InjectionResult(
                 status=InjectionStatus.ERROR,
                 error_message="No previous dictation text found in recovery buffer.",
                 recovery_available=False
             )
+            self._notify(AppState.ERROR, {
+                "message": res.error_message,
+                "notice": "No previous dictation found to re-insert"
+            })
+            return res
+
         cur_info = WindowInspector.get_active_window_info()
         cur_hwnd = cur_info.get("hwnd", 0)
         target = cur_hwnd if (cur_hwnd and not TextInjector._is_flowpilot_window(cur_hwnd)) else (self.target_window_info.get("hwnd") or TextInjector.last_target_hwnd)
@@ -788,6 +819,31 @@ class FlowOrchestrator:
         if isinstance(self.last_dictation, dict) and "injection_status" in self.last_dictation:
             self.last_dictation["prior_injection_status"] = self.last_dictation.get("injection_status")
             self.last_dictation["injection_status"] = res.status.value
+
+        confirmed = res.is_confirmed()
+        notice_msg = "Re-inserted & confirmed" if confirmed else "Re-sent — unverified target (please check)"
+        if res.status == InjectionStatus.ERROR:
+            self._notify(AppState.ERROR, {
+                "message": res.error_message or "Failed to re-insert text",
+                "notice": "Re-insertion failed"
+            })
+        else:
+            with self._state_lock:
+                self.state = AppState.SUCCESS
+            self._notify(AppState.SUCCESS, {
+                "text": text,
+                "injection_status": res.status.value,
+                "injection_confirmed": confirmed,
+                "notice": notice_msg
+            })
+            def _reset_idle():
+                time.sleep(0.8)
+                with self._state_lock:
+                    if self.state == AppState.SUCCESS:
+                        self.state = AppState.IDLE
+                        self._notify(AppState.IDLE)
+            threading.Thread(target=_reset_idle, daemon=True).start()
+
         return res
 
     def start_hotkey_listener(self):
