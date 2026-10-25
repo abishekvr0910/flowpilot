@@ -1,6 +1,26 @@
 # FlowPilot release artifact manifest
 
-Updated 2026-10-24. A locally verified candidate is not a published general release.
+Updated 2026-10-26. A locally verified candidate is not a published general release.
+
+## Release candidate: v3.1.0-RC5, Windows x64
+
+The application source was integrated and committed at `4b7bbca` after peer review of `feature/reviewed-v310`. RC5 includes generation counters for session-isolated dictation recovery, dashboard de-duplication, truthful model detection and guidance in settings/wizard, full model license notices (OpenAI Whisper MIT and Silero VAD MIT), and fail-closed Authenticode packaging.
+
+| Item | Measured value |
+|---|---|
+| Archive | `dist/FlowPilot-v3.1.0-RC5-win64.zip` |
+| Archive size | 770,701,235 bytes |
+| Archive SHA-256 | `8B57F3C74EB05874AE2C5839767567A33DBF2613E9873ECB4E6950AD6B276713` |
+| Archive checksum file | `dist/FlowPilot-v3.1.0-RC5-win64.zip.sha256` |
+| Embedded executable | `FlowPilot.exe`, 24,908,667 bytes |
+| Embedded SHA-256 | `AEB7F817B7E2482A18EE52123C3F1F24327D9779F9D79A2139E8FDAC32C5145C` |
+| Bundled assets | Faster-Whisper base and small models; Silero VAD v5 ONNX assets |
+| License notices | 93 license notices under `licenses/` included |
+| Signing | `NotSigned` developer candidate (Authenticode signing pending corporate certificate) |
+| Local automated audit | **53 passed, 5 skipped (hardware/physical desktop), 0 failed** in 176.34 s across all 58 audit suites (`python -X utf8 tests/run_all_tests.py`) |
+| Standalone smoke | Passed on packaged candidate (`tests/test_standalone_binary_smoke.py`) |
+| Dictation recovery tests | Passed (`tests/test_recovery_feedback.py`) |
+| Release integrity guards | Passed (`tests/test_release_integrity_fixes.py`) |
 
 ## Validation candidate: v3.1.0-RC4, Windows x64
 
