@@ -3,7 +3,10 @@
 import argparse
 import hashlib
 import json
+import os
+import subprocess
 from pathlib import Path
+from typing import Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
@@ -85,9 +88,97 @@ def package(bundle: Path, archive: Path) -> dict:
     }
 
 
-if __name__ == "__main__":
+def find_signtool() -> Optional[Path]:
+    """Finds signtool.exe in PATH or standard Windows SDK install locations."""
+    import shutil
+    which_path = shutil.which("signtool.exe")
+    if which_path:
+        return Path(which_path)
+    sdk_root = Path("C:/Program Files (x86)/Windows Kits/10/bin")
+    if sdk_root.is_dir():
+        for candidate in sorted(sdk_root.glob("*/x64/signtool.exe"), reverse=True):
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def sign_executable(
+    executable_path: Path,
+    cert_path: Optional[Path] = None,
+    cert_password: Optional[str] = None,
+    signtool_path: Optional[Path] = None,
+    timestamp_url: str = "http://timestamp.digicert.com"
+) -> dict:
+    """Signs the Windows executable using signtool.exe if a certificate is provided."""
+    if not cert_path or not cert_path.is_file():
+        return {
+            "signed": False,
+            "status": "UNSIGNED_PILOT",
+            "message": "No code signing certificate supplied; binary remains unsigned (Windows SmartScreen warning expected in pilot)."
+        }
+    tool = signtool_path or find_signtool()
+    if not tool or not tool.is_file():
+        return {
+            "signed": False,
+            "status": "SIGNTOOL_MISSING",
+            "message": "signtool.exe not found in PATH or Windows Kits. Install Windows SDK to enable Authenticode signing."
+        }
+    cmd = [
+        str(tool), "sign", "/fd", "SHA256",
+        "/tr", timestamp_url, "/td", "SHA256",
+        "/f", str(cert_path)
+    ]
+    if cert_password:
+        cmd.extend(["/p", cert_password])
+    cmd.append(str(executable_path))
+    try:
+        res = subprocess.run(
+            cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return {"signed": False, "status": "SIGN_FAILED", "error": "signtool timed out"}
+    if res.returncode == 0:
+        return {
+            "signed": True,
+            "status": "AUTHENTICODE_SIGNED",
+            "signtool": str(tool),
+            "timestamp_url": timestamp_url
+        }
+    return {
+        "signed": False,
+        "status": "SIGN_FAILED",
+        "error": res.stderr.strip() or res.stdout.strip()
+    }
+
+
+def main(argv=None) -> dict:
+    """Package an unsigned pilot or fail closed when signing was requested."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
-    args = parser.parse_args()
-    print(json.dumps(package(args.bundle, args.archive), indent=2))
+    parser.add_argument("--cert", type=Path, default=None, help="Path to Authenticode .pfx certificate")
+    parser.add_argument("--cert-password-env", metavar="NAME", help="Environment variable holding the .pfx password")
+    parser.add_argument("--signtool", type=Path, default=None, help="Explicit path to signtool.exe")
+    args = parser.parse_args(argv)
+    if args.cert_password_env and not args.cert:
+        parser.error("--cert-password-env requires --cert")
+    cert_password = None
+    if args.cert_password_env:
+        cert_password = os.environ.get(args.cert_password_env)
+        if cert_password is None:
+            parser.error(f"Signing password environment variable {args.cert_password_env} is not set")
+
+    signing_info = sign_executable(
+        args.bundle / "FlowPilot.exe", cert_path=args.cert,
+        cert_password=cert_password, signtool_path=args.signtool,
+    )
+    if args.cert and not signing_info["signed"]:
+        raise RuntimeError(f"Requested signing failed: {signing_info['status']}")
+    result = package(args.bundle, args.archive)
+    result["code_signing"] = signing_info
+    return result
+
+
+if __name__ == "__main__":
+    result = main()
+    print(json.dumps(result, indent=2))

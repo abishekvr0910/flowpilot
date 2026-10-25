@@ -239,7 +239,7 @@ class FlowPilotApp:
         if hasattr(self, 'dashboard') and self.dashboard:
             is_recording = state in ("listening", "recording")
             self.dashboard.scratchpad_view.set_recording_state(is_recording)
-            if state in ("pasted", "success"):
+            if state in ("pasted", "success") and not payload.get("recovery_action", False):
                 fmt_text = payload.get("text") or payload.get("formatted_text")
                 if fmt_text:
                     if self.dashboard.scratchpad_view.editor.hasFocus():

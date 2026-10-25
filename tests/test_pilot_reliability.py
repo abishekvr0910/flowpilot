@@ -248,7 +248,7 @@ class PilotReliabilityTests(unittest.TestCase):
 
             wizard = SetupWizardDialog(config={"language": "en", "local_model_size": "base"})
             wizard.combo_lang.setCurrentIndex(wizard.combo_lang.findData("ml"))
-            self.assertIn("bundled small model", wizard.lbl_language_model.text())
+            self.assertIn("Local small model file found", wizard.lbl_language_model.text())
             wizard._finish_setup()
             self.assertEqual(wizard.config["local_model_size"], "small")
             wizard.close()

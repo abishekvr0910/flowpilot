@@ -521,12 +521,27 @@ class SettingsDialog(QDialog):
                     self.combo_model.setCurrentIndex(index)
                     break
         selected_small = self.combo_model.currentText().startswith("small")
-        self.lbl_model_guidance.setText(
-            "The bundled small model is selected for this language. Recognition still needs a real voice check."
-            if selected_small else
-            "The bundled small model is recommended for Hindi, Tamil, and Malayalam. "
-            "Select small above; real voice accuracy is still being evaluated."
-        )
+        import os
+        from engine.stt_engine import STTEngine
+        small_path = STTEngine.resolve_model_path("small")
+        has_small = bool(small_path and os.path.isfile(os.path.join(small_path, "model.bin")))
+        if selected_small:
+            if has_small:
+                self.lbl_model_guidance.setText(
+                    "✓ Local small model file found. The small model is selected for this language. Recognition still needs a real voice check."
+                )
+                self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #10B981;")
+            else:
+                self.lbl_model_guidance.setText(
+                    "The bundled small model is selected for this language. Recognition still needs a real voice check."
+                )
+                self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #94A3B8;")
+        else:
+            self.lbl_model_guidance.setText(
+                "The bundled small model is recommended for Hindi, Tamil, and Malayalam. "
+                "Select small above; real voice accuracy is still being evaluated."
+            )
+            self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
 
     # --- SAVE ---
 

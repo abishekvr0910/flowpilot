@@ -74,6 +74,7 @@ TESTS = [
     ("Persistent Audio Input Identity and Resolution", "tests/test_audio_devices.py"),
     ("Benchmark Visible Delivery Observer and Latency", "tests/test_delivery_observer.py"),
     ("Pilot Capture, Integrity, and Local Metrics", "tests/test_pilot_reliability.py"),
+    ("Transparent Dictation Recovery & Visual Feedback", "tests/test_recovery_feedback.py"),
 ]
 
 
