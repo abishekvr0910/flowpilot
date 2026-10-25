@@ -37,7 +37,7 @@ Development tests cover bounded open/close, callback loss, stalled capture, elev
 
 The rebuilt development executable at `dist/FlowPilot/FlowPilot.exe` is 24,905,329 bytes with SHA-256 `CE8431C632981D0B1893847E9D5688282A4471B0448D437036B20974CBA8C4F4`; its Authenticode status is `NotSigned`. The packaged smoke test passed the bundled model, VAD, mutex, and process lifecycle checks. An offline self-test loaded the bundled base model and transcribed the SAPI fixture with an isolated empty Hugging Face cache, exit code 0 and zero cache files. This unpacked development build is not a new release archive or a replacement for RC4. The published RC4 ZIP still hashes to `55918EB873499001A34E85F6F636DB701D4F5937B340C3A051BAC332DB8F8C88`.
 
-No physical USB, live elevated-window, native-speaker, or paired Wispr trial has been completed on this branch. The five headless skips cannot be counted as passes. Hosted CI also has not run for this branch.
+No physical USB, live elevated-window, native-speaker, or paired Wispr trial has been completed on this branch. The five local headless skips cannot be counted as passes. [Hosted CI run 40146674989](https://github.com/abishekvr0910/flowpilot/actions/runs/40146674989) built the Windows binary, passed the Node integration and standalone smoke checks, and reported 48 passed, 9 skipped, 0 failed across 57 suites. Its hardware and desktop skips also require physical validation.
 
 ## Next decision
 
