@@ -6,6 +6,7 @@ Validates Three-Tier Guard Protocol, Slot-Locker, FactGuard Veto, and Fallbacks.
 import sys
 import time
 import unittest
+import multiprocessing as mp
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -19,6 +20,18 @@ from engine.local_text_repair import (
     RepairStatus,
     RepairResult
 )
+
+
+def _hanging_worker_target(pipe):
+    """Helper target for testing process-level worker termination."""
+    pipe.send({"status": "ready"})
+    while True:
+        try:
+            if pipe.poll(timeout=0.1):
+                pipe.recv()
+                time.sleep(10.0)  # Simulate hung C++ native thread
+        except Exception:
+            break
 
 
 class TestLocalTextRepair(unittest.TestCase):
@@ -84,12 +97,11 @@ class TestLocalTextRepair(unittest.TestCase):
     def test_model_load_failure_during_init_falls_back_safely(self):
         """Simulate llama-cpp import or initialization exception."""
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "corrupt.gguf"})
-        with patch("builtins.__import__", side_effect=ImportError("No module named 'llama_cpp'")):
+        with patch.object(repairer, "_ensure_worker_process", return_value=False):
             res = repairer.repair("Test import error fallback")
             self.assertEqual(res.status, RepairStatus.FALLBACK_UNPROVISIONED)
             self.assertEqual(res.text, "Test import error fallback")
             self.assertTrue(res.fallback_used)
-            self.assertTrue(repairer._init_failed)
 
     def test_tier3_factguard_vetoes_dropped_negation(self):
         """Simulate an SLM that drops a negation: FactGuard must VETO and return raw input."""
@@ -153,7 +165,7 @@ class TestLocalTextRepair(unittest.TestCase):
         repairer.shutdown()
 
     def test_timeout_falls_back_to_raw_transcript(self):
-        """Simulate inference exceeding the 400ms deadline."""
+        """Simulate inference exceeding the 400ms deadline in mock/thread mode."""
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
         repairer.MAX_LATENCY_MS = 15.0 # Strict 15ms deadline for test
 
@@ -186,6 +198,35 @@ class TestLocalTextRepair(unittest.TestCase):
         self.assertEqual(res.text, "Test non-blocking timeout abort")
         self.assertLess(caller_duration_ms, 150.0, f"Caller was blocked for {caller_duration_ms} ms, expected < 150 ms")
         repairer.shutdown(wait=False)
+
+    def test_process_worker_hard_termination_on_timeout(self):
+        """Verify that a hanging process worker is forcibly terminated at OS level on timeout."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        repairer.MAX_LATENCY_MS = 30.0
+
+        ctx = mp.get_context("spawn")
+        p_conn, c_conn = ctx.Pipe(duplex=True)
+        worker = ctx.Process(target=_hanging_worker_target, args=(c_conn,), daemon=True)
+        worker.start()
+        self.assertTrue(worker.is_alive())
+
+        # Wire running worker into repairer
+        repairer._worker_process = worker
+        repairer._parent_pipe = p_conn
+
+        t0 = time.perf_counter()
+        res = repairer.repair("Test process worker timeout termination")
+        caller_duration_ms = (time.perf_counter() - t0) * 1000.0
+
+        self.assertEqual(res.status, RepairStatus.FALLBACK_TIMEOUT)
+        self.assertEqual(res.text, "Test process worker timeout termination")
+        self.assertTrue(res.fallback_used)
+        self.assertLess(caller_duration_ms, 150.0)
+
+        # Confirm OS-level termination happened
+        self.assertFalse(worker.is_alive())
+        self.assertIsNone(repairer._worker_process)
+        repairer.shutdown()
 
 
 if __name__ == "__main__":
