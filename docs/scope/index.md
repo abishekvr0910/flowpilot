@@ -22,7 +22,7 @@ FlowPilot is a Windows-first, 100% offline dictation and private writing tool. T
 | 12 | Local storage and privacy controls | Foundation | existing |
 | 13 | Windows RC8 pilot candidate | Foundation | existing |
 | 26 | External transform safety repair | Next release | done |
-| 28 | Persistent microphone selection | Next release | done |
+| 28 | Persistent microphone selection | Next release | in-progress (3.5mm hot-plug verified; USB bus pending) |
 | 29 | Competitive outcome evaluation | Next release | in-progress |
 | 32 | Pilot reliability hardening | Next release | in-progress |
 | 14 | Consented Windows pilot | Next release | planned |
@@ -51,7 +51,7 @@ FlowPilot is a Windows-first, 100% offline dictation and private writing tool. T
 
 ## Order and boundaries
 
-The current source and RC8 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Candidate and physical unplug/reconnect hardware behavior have been verified via `scripts/verify_audio_device_gate.py` and `scripts/interactive_physical_mic_test.py` ([physical integrity receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md)); broad first-attempt paste reliability across heavy applications, diverse human speech, paired competitor outcomes, and signed distribution remain open evidence gates. The 30-clip diagnostic is a warning about Indic quality, not pilot language approval. Feature 30 is a sandbox proposal, not a shipped post processor. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
+The current source, RC8, and RC9 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Candidate hardware behavior and physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect have been verified via `scripts/verify_audio_device_gate.py` and `scripts/interactive_physical_mic_test.py` ([physical integrity receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md), `is_usb_bus_device=false`); dedicated USB bus audio device (`USB\VID_...`) hot-plug confirmation, broad first-attempt paste reliability across heavy applications, diverse human speech, paired competitor outcomes, and signed distribution remain open evidence gates. The 30-clip diagnostic is a warning about Indic quality, not pilot language approval. Feature 30 is a sandbox proposal, not a shipped post processor. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
 
 The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the [Gemini handoff](GEMINI_SCOPE_EXECUTION_HANDOFF_2026-10-26.md); no claim of being "100% better" is authorized by a suite count or this scope.
 

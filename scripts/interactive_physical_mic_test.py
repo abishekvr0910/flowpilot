@@ -52,6 +52,21 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest().upper()
 
 
+def classify_hardware_bus(dev_name: str) -> dict:
+    """Distinguish USB bus audio devices from 3.5mm analog jack-sensed HD Audio endpoints."""
+    name_l = (dev_name or "").lower()
+    is_usb = any(k in name_l for k in ("usb", "yeti", "hyperx", "rode", "shure", "samson", "focusrite", "wireless controller"))
+    if is_usb:
+        return {
+            "hardware_bus_class": "usb_audio_device",
+            "is_usb_bus_device": True,
+        }
+    return {
+        "hardware_bus_class": "analog_jack_hd_audio_endpoint",
+        "is_usb_bus_device": False,
+    }
+
+
 def find_external_candidates(devices):
     """Finds pluggable USB or jack-detected headset/headphone microphones (excluding built-in array/virtual)."""
     candidates = []
@@ -327,6 +342,8 @@ def run_test(simulated: bool = False, auto_confirm: bool = False):
     receipt_filename = f"{mode_str}_USB_UNPLUG_RECEIPT_{ts}.md"
     receipt_file = receipt_dir / receipt_filename
 
+    bus_info = classify_hardware_bus(target_dev["name"])
+    bus_info = classify_hardware_bus(target_dev["name"])
     canonical_manifest = {
         "schema_version": "1.0.0",
         "receipt_type": "cryptographic_integrity_receipt_sha256_unsigned",
@@ -339,6 +356,8 @@ def run_test(simulated: bool = False, auto_confirm: bool = False):
             "python": sys.version.split()[0],
         },
         "target_endpoint": selection,
+        "hardware_bus": bus_info,
+        "hardware_bus": bus_info,
         "hardware_indices": {
             "initial_index": target_dev["index"],
             "reconnected_index": reconnect_idx,
@@ -370,6 +389,7 @@ def run_test(simulated: bool = False, auto_confirm: bool = False):
 **Host Machine:** `{platform.node()}` ({platform.system()} {platform.release()})
 **Target Device Name:** `{target_dev['name']}`
 **Host API:** `{target_dev['host_api']}`
+**Hardware Bus Class:** `{bus_info['hardware_bus_class']}` (`is_usb_bus_device={bus_info['is_usb_bus_device']}`)
 **Canonical Manifest SHA-256 Integrity Digest:** `{integrity_digest}`
 
 > **Integrity Note:** This receipt provides a tamper-evident SHA-256 cryptographic digest over the captured PCM audio buffers and canonical test manifest. It is an integrity receipt, not an asymmetric private-key digital signature.
