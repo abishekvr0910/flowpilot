@@ -79,6 +79,15 @@ The engine enforces a **Hard Non-Blocking Fallback Contract**:
 
 Under no circumstances may a failure in text repair block, corrupt, or stall the text injection pipeline.
 
+### 3.3 Process Isolation Requirement for Production Promotion
+
+While the initial sandbox prototype uses bounded executor threads for development and fast unit testing, Python threads executing native C/C++ `llama.cpp` inference cannot be forcibly stopped on Windows if native code stalls.
+
+Before promoting Feature 30 from the sandbox prototype to release integration:
+1. **Persistent Worker Process**: Model loading and infilling must execute in a separate persistent background worker process (`ProcessWorker`) communicating via IPC (`multiprocessing.Pipe` or socket).
+2. **Hard Termination on Timeout**: If inference exceeds the 400 ms latency budget, the host process must execute `worker.terminate()`, instantly killing the stalled native execution, freeing CPU/GPU handles, and spawning a fresh worker asynchronously while returning the raw Whisper fallback in $\le 5\text{ ms}$.
+3. **Decoupled Model Loading**: Model loading must occur during application startup or background warm-up; it must never run synchronously inside the real-time dictation injection path.
+
 ---
 
 ## 4. Hardware Profiles & Model Specifications

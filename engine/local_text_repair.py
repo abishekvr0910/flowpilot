@@ -161,6 +161,10 @@ class LocalTextRepair:
             self._init_failed = True
             return False
 
+    def warmup(self) -> bool:
+        """Pre-load model weights in the background so repair() never stalls on disk I/O."""
+        return self._lazy_init_llm()
+
     def repair(self, raw_transcript: str, language: str = "en") -> RepairResult:
         """
         Executes the Three-Tier Guard Protocol on the input transcript:
