@@ -418,9 +418,9 @@ class SetupWizardDialog(QDialog):
             if has_small:
                 self.lbl_language_model.setText(
                     "✓ Local small model file found. FlowPilot will use it for this language. "
-                    "Tamil and Malayalam are experimental; test a short phrase before relying on the result."
+                    "Hindi, Tamil, and Malayalam are experimental; test a short phrase before relying on the result."
                 )
-                self.lbl_language_model.setStyleSheet("font-size: 11px; color: #10B981; margin-top: 4px;")
+                self.lbl_language_model.setStyleSheet("font-size: 11px; color: #F59E0B; margin-top: 4px;")
                 if hasattr(self, "btn_download_model"):
                     self.btn_download_model.setVisible(False)
                 if hasattr(self, "progress_model"):
@@ -430,7 +430,7 @@ class SetupWizardDialog(QDialog):
             else:
                 self.lbl_language_model.setText(
                     "Local small model file was not found. Download or install the model before relying on this language. "
-                    "Tamil and Malayalam are experimental; test a short phrase before relying on the result."
+                    "Hindi, Tamil, and Malayalam are experimental; test a short phrase before relying on the result."
                 )
                 self.lbl_language_model.setStyleSheet("font-size: 11px; color: #F59E0B; margin-top: 4px;")
                 if hasattr(self, "btn_download_model"):

@@ -1,5 +1,5 @@
 """
-Unit and Concurrency Tests for STTEngine Model Lifecycle & Orchestrator Ownership (Track B)
+Feature 5: Unit and Concurrency Tests for STTEngine Model Lifecycle & Orchestrator Ownership
 """
 
 import sys
@@ -7,6 +7,7 @@ import time
 import threading
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -239,6 +240,24 @@ def test_lazy_segment_consumption_pins_active_inferences():
         assert active_during_consumption == 1, "Model ownership must be active during lazy segment iteration"
         assert stt._active_inferences == 0, "Active inferences counter must return to 0 after transcription"
 
+
+def test_short_speech_has_bounded_single_pass_decode():
+    """Short clips must not enter Whisper's costly temperature retry loop."""
+    observed = []
+
+    class RecordingModel(MockWhisperModel):
+        def transcribe(self, audio_input, **kwargs):
+            observed.append(kwargs)
+            return super().transcribe(audio_input, **kwargs)
+
+    with patch("engine.stt_engine.WhisperModel", side_effect=RecordingModel):
+        stt = STTEngine({"local_model_size": "base", "cpu_threads": 4})
+        stt.transcribe(np.zeros(3 * 16000, dtype=np.float32), language="ml")
+        stt.transcribe(np.zeros(30 * 16000, dtype=np.float32), language="en")
+
+    assert [call["temperature"] for call in observed] == [0.0, 0.0]
+    assert observed[0]["max_new_tokens"] < observed[1]["max_new_tokens"] <= 256
+
 def test_env_dir_base_weights_cannot_masquerade_as_small(tmp_path):
     """A FLOWPILOT_MODEL_DIR with faster-whisper-base weights must not resolve as small."""
     base_dir = tmp_path / "faster-whisper-base"
@@ -267,6 +286,7 @@ if __name__ == "__main__":
     test_concurrent_preload_and_transcribe_loads_once()
     test_orchestrator_defers_model_switch_during_recording()
     test_lazy_segment_consumption_pins_active_inferences()
+    test_short_speech_has_bounded_single_pass_decode()
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         test_env_dir_base_weights_cannot_masquerade_as_small(Path(td))

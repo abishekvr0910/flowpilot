@@ -1,10 +1,10 @@
 """
-FlowPilot Multilingual Language Registry & Dialect Engine
+Feature 5: FlowPilot Multilingual Language Registry & Dialect Engine
 Provides:
 - Complete registry of supported languages with ISO codes, native names, and scripts.
 - Text direction metadata (LTR / RTL) for accurate UI and text injection.
 - Dialect and regional spelling rules (e.g., British/US English, Swiss German ss vs ß, French punctuation spacing).
-- Phonetic vocabulary bias prompts for priming local and cloud Whisper decoders.
+- Phonetic vocabulary bias prompts for priming local Whisper decoders.
 - Automatic language detection verification and fallback resolution.
 """
 
@@ -198,6 +198,7 @@ class LanguageRegistry:
             direction="ltr",
             recommended_model="small",
             accents=["Standard Delhi", "Mumbai"],
+            quality_status="experimental",
             default_bias_prompt="शुद्ध मानक हिन्दी, सही विराम चिह्न और तकनीकी शब्दावली।"
         ),
         "tr": LanguageInfo(
