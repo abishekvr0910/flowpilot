@@ -2,6 +2,27 @@
 
 Updated 2026-10-26. A locally verified candidate is not a published general release.
 
+## Pilot release candidate: v3.1.0-RC6, Windows x64
+
+Application code was built from `74c00e5`; packaging used the same code and the release neutral README committed at `c77bae7`. The later manifest commit changes documentation only. This is a pilot prerelease candidate, not a general release. The executable is unsigned.
+
+| Item | Measured value |
+|---|---|
+| Archive | `dist/FlowPilot-v3.1.0-RC6-win64.zip` |
+| Archive size | 770,717,389 bytes |
+| Archive SHA-256 | `7AEF6EAA9DE42454CDA7E8606E54B540C117502DDD604B178D26DCCC0DAD6D68` |
+| Embedded executable | `FlowPilot.exe`, 24,924,752 bytes |
+| Embedded executable SHA-256 | `39551B718BFBEB02C1D08AAD3F931F7295D4F9F2F9296D07BDE2E7AD18781487` |
+| Archive integrity | 1,297 members, CRC passed; embedded executable hash matches the smoke tested file |
+| License notices | 93 files under `licenses/` |
+| Authenticode | `NotSigned`, pilot only |
+| Local automated audit | 54 passed, 5 honest physical desktop skips, 0 failed across 59 suites in 121.75 s |
+| Full stack Node integration | `npm test` passed |
+| Packaged smoke | Named mutex, duplicate instance handling, bundled model and Silero assets, and clean termination passed |
+| Offline packaged self test | Bundled base model transcribed the SAPI fixture; exit 0 with an empty isolated Hugging Face cache and offline flags |
+
+The changed direct Unicode fallback, model download lifecycle, and signing failures have focused automated tests. The five skipped physical desktop suites were not counted as passes. The archive filename scan found no `wispr_renderer`, `wispr_bridge`, `flow.sqlite`, `access_token`, `.env`, or `private/` entries. This does not prove byte level rights clearance, whole process network isolation, real speaker accuracy, or broad paste reliability. See the [review](../reviews/2026-10-26-ad3dce9-release-review.md).
+
 ## Release candidate: v3.1.0-RC5, Windows x64
 
 The application source was integrated and committed at `4b7bbca` after peer review of `feature/reviewed-v310`. RC5 includes generation counters for session-isolated dictation recovery, dashboard de-duplication, truthful model detection and guidance in settings/wizard, full model license notices (OpenAI Whisper MIT and Silero VAD MIT), and fail-closed Authenticode packaging.
