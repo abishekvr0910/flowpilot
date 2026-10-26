@@ -1,4 +1,4 @@
-# Audio Hardware Disconnect & Reconnect Cryptographic Integrity Receipt
+# Physical Audio Endpoint Hot-Plug (3.5mm Realtek WASAPI) Cryptographic Integrity Receipt
 
 **Verification Mode:** `PHYSICAL`
 **Receipt Classification:** `Cryptographic Integrity Receipt (SHA-256 Digest, Non-Signed)`
@@ -6,9 +6,10 @@
 **Host Machine:** `LAPTOP-5KASE5RO` (Windows 10)
 **Target Device Name:** `Microphone (Realtek(R) Audio)`
 **Host API:** `Windows WASAPI`
-**Canonical Manifest SHA-256 Integrity Digest:** `F7F73918189FEB374AB1CFA05CFF1B5124E6AD26843370B493D724425B1998F1`
+**Hardware Bus Class:** `analog_jack_hd_audio_endpoint` (`is_usb_bus_device=False`; Realtek ALC287 HD Audio jack-sensed MMDevice `SWD\MMDEVAPI\{0.0.1.00000000}.{0512B5B8-8E0F-40A7-A89E-6041F681608D}` on `INTELAUDIO\FUNC_01&VEN_10EC&DEV_0287&SUBSYS_1025159C`)
+**Canonical Manifest SHA-256 Integrity Digest:** `080F72FBF841FD6CF75513854B6DADDA295AC12986A08933B90F3E493A899890`
 
-> **Integrity Note:** This receipt provides a tamper-evident SHA-256 cryptographic digest over the captured PCM audio buffers and canonical test manifest. It is an integrity receipt, not an asymmetric private-key digital signature.
+> **Integrity & Hardware Scope Note:** This receipt provides a tamper-evident SHA-256 cryptographic digest over the captured PCM audio buffers and canonical test manifest (it is an integrity receipt, not an asymmetric private-key digital signature). The physical device tested here is a 3.5mm analog headphone/headset connected to the Realtek HD Audio jack-sense WASAPI endpoint (`is_usb_bus_device=False`), not a USB PnP bus audio device (`USB\VID_...`). Physical USB bus audio device unplug/reconnect remains a separate pilot hardware test item.
 
 ---
 
@@ -31,6 +32,12 @@
 ```json
 {
   "execution_mode": "PHYSICAL",
+  "hardware_bus": {
+    "codec_pnp_instance_id": "INTELAUDIO\\FUNC_01&VEN_10EC&DEV_0287&SUBSYS_1025159C",
+    "hardware_bus_class": "analog_jack_hd_audio_endpoint",
+    "is_usb_bus_device": false,
+    "mmdevice_endpoint_id": "SWD\\MMDEVAPI\\{0.0.1.00000000}.{0512B5B8-8E0F-40A7-A89E-6041F681608D}"
+  },
   "hardware_indices": {
     "initial_index": 25,
     "reconnected_index": 25
@@ -68,7 +75,7 @@
 ```
 
 **SHA-256 Integrity Digest of Canonical Manifest:**
-`F7F73918189FEB374AB1CFA05CFF1B5124E6AD26843370B493D724425B1998F1`
+`080F72FBF841FD6CF75513854B6DADDA295AC12986A08933B90F3E493A899890`
 
 ---
 
@@ -77,5 +84,6 @@
 - **Zero Silent Fallback:** Verified. Capture was refused with `RuntimeError` while the designated endpoint was detached.
 - **Bounded Cleanup:** Verified. The unresponsive stream discarded partial audio and released without blocking caller threads or leaking OS handles.
 - **Persistent Identity:** Verified. PortAudio re-enumeration restored the hardware endpoint by name and host API contract.
+- **Hardware Bus Boundary:** Verified on physical 3.5mm Realtek HD Audio WASAPI jack-sense hardware (`analog_jack_hd_audio_endpoint`, `is_usb_bus_device=False`). External USB bus audio (`USB\VID_...`) hot-plug verification remains scheduled for USB hardware pilot intake.
 
-**Overall Verdict:** **PHYSICAL AUDIO HARDWARE GATE PASSED**
+**Overall Verdict:** **PHYSICAL AUDIO ENDPOINT HOT-PLUG GATE PASSED (3.5MM REALTEK WASAPI)**
