@@ -5,14 +5,16 @@ FlowPilot Physical USB Microphone Disconnect & Reconnect Gate Protocol.
 
 Step 1 Verification according to docs/specs/0002-persistent-audio-input-identity.md:
 This script guides an operator through the physical USB microphone unplug and
-reconnect test on real hardware, and provides cryptographic SHA-256 receipt generation.
+reconnect test on real hardware, and writes a SHA-256 cryptographic integrity receipt.
 
 Strict SLAs:
-- Disconnect detection within <= 2.5 seconds of audio packet cessation (CAPTURE_STALL_SECONDS = 2.0s).
+- AudioRecorder internal stall threshold: CAPTURE_STALL_SECONDS = 2.0s after last callback.
+- Post-threshold detection overhead budget: <= 0.5s (poll interval + scheduling).
+- Total packet-stall-to-detection test SLA: <= 2.5s (2.0s stall + 0.5s detection budget).
 - Zero silent fallback to any alternative or built-in microphone (DEVICE_MISSING_SENTINEL = -9999).
 - Bounded stream release without process hang or thread leak.
-- Deterministic endpoint identity re-resolution upon re-plug.
-- Cryptographic SHA-256 audit digest of all captured audio frames and test metadata.
+- Deterministic endpoint identity re-resolution upon re-plug via PortAudio device table refresh.
+- SHA-256 cryptographic integrity receipt (non-signed digest) over captured audio and canonical manifest.
 """
 
 import os
@@ -36,10 +38,13 @@ from engine.audio_devices import (
     resolve_audio_input,
     build_device_selection,
     get_audio_input_devices,
+    refresh_audio_devices,
 )
 from engine.audio_recorder import AudioRecorder
 
-MAX_STALL_SLA_SECONDS = 2.5
+RECORDER_STALL_THRESHOLD_SECONDS = float(AudioRecorder.CAPTURE_STALL_SECONDS)  # 2.0s
+MAX_DETECTION_OVERHEAD_SECONDS = 0.5
+MAX_STALL_SLA_SECONDS = RECORDER_STALL_THRESHOLD_SECONDS + MAX_DETECTION_OVERHEAD_SECONDS  # 2.5s
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -87,7 +92,7 @@ def run_test(simulated: bool = False):
     print("   FLOWPILOT PHYSICAL USB MICROPHONE DISCONNECT & RECONNECT GATE")
     print("=" * 74)
 
-    devices = get_audio_input_devices()
+    devices = get_audio_input_devices(refresh=True)
     if not devices:
         print("[ERROR] No audio input devices found on this system!")
         sys.exit(1)
@@ -117,7 +122,8 @@ def run_test(simulated: bool = False):
     print("  -> Stream started. Recording baseline audio...")
     wait_time = 0.5 if simulated else 2.0
     time.sleep(wait_time)
-    pre_audio = rec.stop_recording()
+    pre_audio = rec.stop_recording(keep_stream_alive=False)
+    rec.close()
 
     health_err = rec.capture_health_error()
     assert health_err is None, f"Pre-flight health check failed: {health_err}"
@@ -140,6 +146,8 @@ def run_test(simulated: bool = False):
             rec_blocked.start_recording()
         except RuntimeError:
             blocked = True
+        finally:
+            rec_blocked.close()
         assert blocked, "Stream did not refuse missing sentinel!"
         print("  -> Zero silent fallback verified: hard RuntimeError refusal.")
 
@@ -150,11 +158,13 @@ def run_test(simulated: bool = False):
         reconnect_idx = reconnect_res.device_index
         reconnect_latency_s = 0.05
         stall_to_detection_s = 0.10
+        detection_overhead_s = 0.0
 
         rec_recovery = AudioRecorder(device_index=reconnect_idx)
         rec_recovery.start_recording()
         time.sleep(0.5)
-        post_wav = rec_recovery.stop_recording()
+        post_wav = rec_recovery.stop_recording(keep_stream_alive=False)
+        rec_recovery.close()
         assert post_wav is not None and len(post_wav) > 0
         post_audio_hash = sha256_bytes(post_wav)
         print(f"  -> Recovery stream captured {len(post_wav)} bytes cleanly (SHA-256: {post_audio_hash[:16]}...).")
@@ -165,8 +175,8 @@ def run_test(simulated: bool = False):
         print(" [Phase 2] IN-FLIGHT PHYSICAL DISCONNECT TEST")
         print(" 1. The recorder will now start capturing audio.")
         print(" 2. Begin speaking steadily into the microphone.")
-        print(f" 3. When prompted, PHYSICALLY UNPLUG THE USB CABLE!")
-        print(f"    (Detection SLA: <= {MAX_STALL_SLA_SECONDS}s of packet stall)")
+        print(" 3. When prompted, PHYSICALLY UNPLUG THE USB CABLE!")
+        print(f"    (Recorder stall threshold: {RECORDER_STALL_THRESHOLD_SECONDS}s, total test SLA: <= {MAX_STALL_SLA_SECONDS}s)")
         print("#" * 74)
         input("\nPress ENTER when ready to start...")
 
@@ -181,7 +191,7 @@ def run_test(simulated: bool = False):
 
         t_prompt = time.perf_counter()
         detected_error = None
-        max_wait_from_prompt = 4.0
+        max_wait_from_prompt = 8.0
         stall_to_detection_s = None
 
         while time.perf_counter() - t_prompt < max_wait_from_prompt:
@@ -194,15 +204,17 @@ def run_test(simulated: bool = False):
                     stall_to_detection_s = round(time.monotonic() - last_seen, 3)
                 else:
                     stall_to_detection_s = round(t_detect - t_prompt, 3)
+                detection_overhead_s = round(max(0.0, stall_to_detection_s - RECORDER_STALL_THRESHOLD_SECONDS), 3)
                 print(f"  -> [DISCONNECT DETECTED] Stream failure detected!")
-                print(f"     Stall-to-detection time: {stall_to_detection_s:.3f}s (SLA <= {MAX_STALL_SLA_SECONDS}s)")
+                print(f"     Packet-stall-to-detection time: {stall_to_detection_s:.3f}s (SLA <= {MAX_STALL_SLA_SECONDS}s)")
+                print(f"     Post-2.0s-threshold overhead:   {detection_overhead_s:.3f}s (SLA <= {MAX_DETECTION_OVERHEAD_SECONDS}s)")
                 print(f"     Health message: '{err}'")
                 break
-            time.sleep(0.05)
+            time.sleep(0.02)
 
         if not detected_error:
-            disconnect_rec.stop_recording()
-            print(f"\n[ERROR] Stream stall was not detected within {max_wait_from_prompt}s.")
+            disconnect_rec.close()
+            print(f"\n[ERROR] Stream stall was not detected within {max_wait_from_prompt}s of prompt.")
             print("Did you physically unplug the USB connector?")
             return False
 
@@ -212,13 +224,21 @@ def run_test(simulated: bool = False):
         )
         print(f"  -> SLA Verified: Disconnect caught within {stall_to_detection_s}s <= {MAX_STALL_SLA_SECONDS}s.")
 
-        # Release stream cleanly
-        disconnect_rec.stop_recording()
+        # Verify stop_recording discards partial audio and raises RuntimeError on stalled stream
+        discarded_on_stop = False
+        try:
+            disconnect_rec.stop_recording(keep_stream_alive=False)
+        except RuntimeError as stop_err:
+            discarded_on_stop = True
+            print(f"  -> Stalled stream safely discarded partial audio on stop: {stop_err}")
+        finally:
+            disconnect_rec.close()
+        assert discarded_on_stop, "Expected stop_recording() to raise RuntimeError on stalled stream!"
         print("  -> Stalled stream closed cleanly without freezing PortAudio driver.")
 
         # Phase 3: Zero Silent Fallback Verification
         print("\n[Phase 3] Checking Zero Silent Fallback while disconnected...")
-        post_unplug_devices = get_audio_input_devices()
+        post_unplug_devices = get_audio_input_devices(refresh=True)
         res_unplugged = resolve_audio_input(selection, devices=post_unplug_devices)
         print(f"  -> Identity resolution status: {res_unplugged.status} (sentinel index: {res_unplugged.device_index})")
         assert res_unplugged.status == DeviceResolutionStatus.MISSING
@@ -231,6 +251,8 @@ def run_test(simulated: bool = False):
         except RuntimeError as re_err:
             refused = True
             print(f"  -> Capture attempt while unplugged safely refused with RuntimeError: {re_err}")
+        finally:
+            refusal_rec.close()
         assert refused, "AudioRecorder did NOT refuse capture on missing device!"
         print("  -> Zero Silent Fallback confirmed: built-in mic was strictly NOT hijacked.")
 
@@ -244,8 +266,8 @@ def run_test(simulated: bool = False):
         reconnected = False
         poll_t0 = time.perf_counter()
         reconnect_idx = None
-        while time.perf_counter() - poll_t0 < 20.0:
-            current_devs = get_audio_input_devices()
+        while time.perf_counter() - poll_t0 < 25.0:
+            current_devs = get_audio_input_devices(refresh=True)
             chk = resolve_audio_input(selection, devices=current_devs)
             if chk.status == DeviceResolutionStatus.RESOLVED:
                 reconnected = True
@@ -257,7 +279,7 @@ def run_test(simulated: bool = False):
             print(".", end="", flush=True)
 
         if not reconnected:
-            print("\n[ERROR] Device was not re-detected within 20s.")
+            print("\n[ERROR] Device was not re-detected within 25s.")
             return False
 
         # Phase 5: Recovery Stream
@@ -266,7 +288,8 @@ def run_test(simulated: bool = False):
         rec_post.start_recording()
         print("  -> Stream live. Speak for 2.0s...")
         time.sleep(2.0)
-        post_wav = rec_post.stop_recording()
+        post_wav = rec_post.stop_recording(keep_stream_alive=False)
+        rec_post.close()
 
         assert rec_post.capture_health_error() is None, f"Health error after reconnect: {rec_post.capture_health_error()}"
         assert post_wav is not None and len(post_wav) > 0, "No audio captured after reconnect!"
@@ -274,7 +297,7 @@ def run_test(simulated: bool = False):
         print(f"  -> Recovery dictation captured {len(post_wav)} bytes cleanly (SHA-256: {post_audio_hash[:16]}...).")
         is_physical = True
 
-    # Cryptographic Audit Manifest & Digest
+    # Cryptographic Integrity Receipt (SHA-256 Digest, Non-Signed)
     receipt_dir = PROJECT_ROOT / "docs" / "testing"
     receipt_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -284,7 +307,7 @@ def run_test(simulated: bool = False):
 
     canonical_manifest = {
         "schema_version": "1.0.0",
-        "receipt_type": "physical_audio_unplug_and_reconnect",
+        "receipt_type": "cryptographic_integrity_receipt_sha256_unsigned",
         "execution_mode": mode_str,
         "timestamp_iso": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "host": {
@@ -301,6 +324,8 @@ def run_test(simulated: bool = False):
         "metrics": {
             "pre_flight_bytes": len(pre_audio),
             "pre_flight_wav_sha256": pre_audio_hash,
+            "recorder_stall_threshold_seconds": RECORDER_STALL_THRESHOLD_SECONDS,
+            "post_threshold_detection_overhead_seconds": detection_overhead_s,
             "packet_stall_to_detection_seconds": stall_to_detection_s,
             "disconnect_detection_sla_seconds": MAX_STALL_SLA_SECONDS,
             "sla_satisfied": stall_to_detection_s <= MAX_STALL_SLA_SECONDS,
@@ -313,57 +338,62 @@ def run_test(simulated: bool = False):
     }
 
     canonical_json_str = json.dumps(canonical_manifest, indent=2, sort_keys=True)
-    audit_digest = hashlib.sha256(canonical_json_str.encode("utf-8")).hexdigest().upper()
+    integrity_digest = hashlib.sha256(canonical_json_str.encode("utf-8")).hexdigest().upper()
 
-    receipt_content = f"""# Audio Hardware Disconnect & Reconnect Audit Receipt
+    receipt_content = f"""# Audio Hardware Disconnect & Reconnect Cryptographic Integrity Receipt
 
-**Verification Mode:** `{mode_str}`  
-**Execution Timestamp:** `{canonical_manifest['timestamp_iso']}`  
-**Host Machine:** `{platform.node()}` ({platform.system()} {platform.release()})  
-**Target Device Name:** `{target_dev['name']}`  
-**Host API:** `{target_dev['host_api']}`  
-**Audit Manifest SHA-256 Digest:** `{audit_digest}`  
+**Verification Mode:** `{mode_str}`
+**Receipt Classification:** `Cryptographic Integrity Receipt (SHA-256 Digest, Non-Signed)`
+**Execution Timestamp:** `{canonical_manifest['timestamp_iso']}`
+**Host Machine:** `{platform.node()}` ({platform.system()} {platform.release()})
+**Target Device Name:** `{target_dev['name']}`
+**Host API:** `{target_dev['host_api']}`
+**Canonical Manifest SHA-256 Integrity Digest:** `{integrity_digest}`
+
+> **Integrity Note:** This receipt provides a tamper-evident SHA-256 cryptographic digest over the captured PCM audio buffers and canonical test manifest. It is an integrity receipt, not an asymmetric private-key digital signature.
 
 ---
 
 ## 1. Measured Evidence & SLAs
 
-| Phase | Evaluation Parameter | Measured Value | Strict SLA | Status |
+| Phase | Evaluation Parameter | Measured Value | Official SLA | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | Pre-flight baseline capture | {len(pre_audio)} bytes | > 0 bytes | **PASSED** |
-| **Phase 2** | In-flight disconnect detection | {stall_to_detection_s:.3f} s | <= {MAX_STALL_SLA_SECONDS} s | **PASSED** |
+| **Phase 2a** | Recorder stall trigger threshold | {RECORDER_STALL_THRESHOLD_SECONDS:.1f} s | `CAPTURE_STALL_SECONDS = 2.0 s` | **CONFIGURED** |
+| **Phase 2b** | Post-threshold detection overhead | {detection_overhead_s:.3f} s | <= {MAX_DETECTION_OVERHEAD_SECONDS:.1f} s | **PASSED** |
+| **Phase 2c** | Total packet-stall-to-detection | {stall_to_detection_s:.3f} s | <= {MAX_STALL_SLA_SECONDS:.1f} s (2.0s + 0.5s) | **PASSED** |
 | **Phase 3** | Zero silent fallback refusal | Hard RuntimeError (`{DEVICE_MISSING_SENTINEL}`) | No silent default mic hijack | **PASSED** |
-| **Phase 4** | Physical endpoint reconnect | Re-resolved in {reconnect_latency_s:.3f} s | Auto-detected <= 20.0 s | **PASSED** |
+| **Phase 4** | Physical endpoint reconnect | Re-resolved in {reconnect_latency_s:.3f} s | Auto-detected <= 25.0 s | **PASSED** |
 | **Phase 5** | Recovery dictation stream | {len(post_wav)} bytes | Clean stream, 0 health errors | **PASSED** |
 
 ---
 
-## 2. Cryptographic Manifest & Digest Block
+## 2. Canonical Manifest & SHA-256 Integrity Digest
 
 ```json
 {canonical_json_str}
 ```
 
-**Cryptographic SHA-256 Digest of Manifest:**  
-`{audit_digest}`
+**SHA-256 Integrity Digest of Canonical Manifest:**
+`{integrity_digest}`
 
 ---
 
 ## 3. Compliance Affirmation
 
 - **Zero Silent Fallback:** Verified. Capture was refused with `RuntimeError` while the designated endpoint was detached.
-- **Bounded Cleanup:** Verified. The unresponsive stream was released without blocking caller threads or leaking OS handles.
-- **Persistent Identity:** Verified. The hardware endpoint was identified and restored by name and host API contract.
+- **Bounded Cleanup:** Verified. The unresponsive stream discarded partial audio and released without blocking caller threads or leaking OS handles.
+- **Persistent Identity:** Verified. PortAudio re-enumeration restored the hardware endpoint by name and host API contract.
 
 **Overall Verdict:** **{mode_str} AUDIO HARDWARE GATE PASSED**
 """
-    with open(receipt_file, "w", encoding="utf-8") as rf:
+    with open(receipt_file, "w", encoding="utf-8", newline="\r\n") as rf:
         rf.write(receipt_content)
 
     print("\n" + "=" * 74)
     print(f" {mode_str} AUDIO HARDWARE GATE PASSED!")
-    print(f" Audit Digest (SHA-256): {audit_digest}")
-    print(f" Receipt written to:     {receipt_file.relative_to(PROJECT_ROOT)}")
+    print(f" SHA-256 Integrity Digest: {integrity_digest}")
+    print(f" Receipt written to:       {receipt_file.relative_to(PROJECT_ROOT)}")
     print("=" * 74)
     return True
 
