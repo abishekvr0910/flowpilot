@@ -2,6 +2,28 @@
 
 Updated 2026-10-26. A locally verified candidate is not a published general release.
 
+## Pilot release candidate: v3.1.0-RC8, Windows x64
+
+**Local verification complete; hosted CI and publication status are recorded in the GitHub Release when available.** The executable was built from application source commit `b48128c` with PyInstaller 6.22.3 and Python 3.11.15. The archive includes the release neutral README from commit `c85e680`. RC8 fixes a reproduced Windows Terminal `Shift+Insert` delivery failure by using guarded Unicode input for verified console window classes, bounds local Whisper decoding, and marks Hindi, Tamil, and Malayalam experimental after a [30-clip real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md). RC7 remains the prior published pilot until RC8 is actually published.
+
+| Item | Measured value |
+|---|---|
+| Archive | `dist/FlowPilot-v3.1.0-RC8-win64.zip` |
+| Archive size | 770,715,767 bytes |
+| Archive SHA-256 | `2DFB83BCC98068389E6962FCC7A0A25131C90F7D546B8CD3ABDBC6E54A43F69F` |
+| Embedded executable | `FlowPilot.exe`, 24,924,132 bytes |
+| Embedded executable SHA-256 | `67C93341837DBD2D317633DC3B2AAA15136A76BB0C887D019F0EC6AFD23FF156` |
+| Archive integrity | 1,297 members, CRC passed; extracted executable hash matched the tested bundle |
+| License notices | 93 files under `licenses/` |
+| Authenticode | `NotSigned`, unsigned pilot only |
+| Strict interactive audit | 59 passed, 0 skipped, 0 failed in 136.69 s on the new bundle |
+| Repeated physical delivery | 10/10 final document confirmations each in Notepad, Windows Terminal Command Prompt, and Qt editor; [bounded log](../testing/RC8_TERMINAL_DELIVERY_2026-10-26.md) |
+| Packaged smoke | Named mutex, duplicate instance handling, bundled model and Silero assets, and clean termination passed |
+| Offline ZIP extraction self test | Extracted executable transcribed the SAPI fixture, exited 0, and left isolated empty model cache empty |
+| Full stack | `npm test` passed REST and WebSocket lifecycle |
+
+The 30 Common Voice clips revealed severe Hindi, Tamil, and Malayalam recognition errors with the bundled models, even after the decoder latency repair. These languages are explicitly experimental. No paired Wispr Flow trial, broad paste reliability percentage, publisher signing, or general release approval is claimed from these checks.
+
 ## Pilot release candidate: v3.1.0-RC7, Windows x64
 
 The application binary was built from committed source at `c47bfb6`. The later test-only commit `85baccd` declares a virtual microphone in the pre-roll test, so hosted CI does not depend on physical audio hardware. RC7 removes the recorder's CI-only synthetic audio fallback: a failed stream now raises, and an empty capture returns no WAV. The unsigned archive was published as a [pilot prerelease](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.0-RC7) after [hosted CI passed](https://github.com/abishekvr0910/flowpilot/actions/runs/40297008381) on tagged master commit `2935e1b`. The earlier RC6 package is superseded and must not be distributed.
