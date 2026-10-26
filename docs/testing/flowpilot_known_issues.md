@@ -52,8 +52,8 @@
 
 - **Root Cause:** Legacy terminal emulators (vintage `cmd.exe` without QuickEdit mode, PuTTY, Mintty, or terminal applications running inside `tmux`/`vim`) interpret synthetic `Ctrl + V` keystrokes as ASCII control code `0x16` (`^V`) rather than a clipboard paste command.
 - **Mitigation:**
-  - In Windows Terminal, `Ctrl + Shift + V` or `Ctrl + V` works out of the box.
-  - In vintage terminals, FlowPilot preserves the transcribed text on the system clipboard. The user can press `Shift + Insert` (standard Unix terminal paste) or right-click to paste.
+  - FlowPilot types into verified Windows Terminal and legacy console windows using Unicode `SendInput`, because this workstation's Windows Terminal ignored `Shift + Insert`. It reports the delivery as unverified unless the document can be read. Newlines are refused so dictation cannot submit a command.
+  - Other terminal emulators still use their configured paste shortcut. If delivery is unconfirmed, check the target before retrying to avoid duplicate text.
   - The latest dictation is retrievable from **"Copy Last Dictation"** while it remains in the process's recovery buffer. It is replaced by later dictations and does not survive app exit.
 
 ---

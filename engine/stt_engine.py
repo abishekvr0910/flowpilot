@@ -1,3 +1,5 @@
+"""Feature 1: Offline Faster-Whisper inference with bounded local decoding."""
+
 import io
 import os
 import sys
@@ -179,7 +181,7 @@ class STTEngine:
 
     def _get_local_model(self):
         if not HAS_FASTER_WHISPER:
-            raise RuntimeError("faster-whisper is not installed. Please use cloud mode or install faster-whisper.")
+            raise RuntimeError("faster-whisper is not installed. Install the local speech dependencies.")
 
         with self._model_lock:
             if self._shutdown:
@@ -421,6 +423,12 @@ class STTEngine:
             beam_size = self.config.get("beam_size", 1)
             # Pre-gated dictation audio does not require redundant VAD chunking overhead (~480ms saved)
             vad_filter = self.config.get("vad_filter", False)
+            # Whisper's default temperature list retries low-confidence segments.
+            # On short Indic speech this can repeatedly generate nonsense for tens
+            # of seconds. Keep dictation deterministic and bound generated tokens
+            # to the recorded duration, with room for subword-heavy scripts.
+            duration_sec = len(audio_input) / 16000 if isinstance(audio_input, np.ndarray) else 30.0
+            max_new_tokens = min(256, max(48, int(duration_sec * 12)))
 
             try:
                 segments, info = model.transcribe(
@@ -429,6 +437,8 @@ class STTEngine:
                     language=whisper_lang,
                     task=task,
                     initial_prompt=initial_prompt,
+                    temperature=0.0,
+                    max_new_tokens=max_new_tokens,
                     vad_filter=vad_filter,
                     vad_parameters=dict(min_silence_duration_ms=400) if vad_filter else None,
                     hotwords=hotwords
@@ -445,6 +455,8 @@ class STTEngine:
                         language=whisper_lang,
                         task=task,
                         initial_prompt=initial_prompt,
+                        temperature=0.0,
+                        max_new_tokens=max_new_tokens,
                         vad_filter=False,
                         hotwords=hotwords
                     )

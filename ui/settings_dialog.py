@@ -567,9 +567,9 @@ class SettingsDialog(QDialog):
         if selected_small:
             if has_small:
                 self.lbl_model_guidance.setText(
-                    "✓ Local small model file found. The small model is selected for this language. Recognition still needs a real voice check."
+                    "✓ Local small model file found. The small model is selected for this language. This language is experimental; test your own speech before relying on it."
                 )
-                self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #10B981;")
+                self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
                 if hasattr(self, "btn_download_small"):
                     self.btn_download_small.setVisible(False)
                 if hasattr(self, "progress_download_small"):
@@ -578,7 +578,7 @@ class SettingsDialog(QDialog):
                     self.lbl_download_status.setVisible(False)
             else:
                 self.lbl_model_guidance.setText(
-                    "Local small model file was not found. Download or install the model before relying on this language. Recognition still needs a real voice check."
+                    "Local small model file was not found. Download or install the model before relying on this language. This language is experimental; test your own speech before relying on it."
                 )
                 self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
                 if hasattr(self, "btn_download_small"):
@@ -586,7 +586,7 @@ class SettingsDialog(QDialog):
         else:
             self.lbl_model_guidance.setText(
                 "The bundled small model is recommended for Hindi, Tamil, and Malayalam. "
-                "Select small above; real voice accuracy is still being evaluated."
+                "Select small above; these languages are experimental and need your own voice check."
             )
             self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
             if hasattr(self, "btn_download_small"):

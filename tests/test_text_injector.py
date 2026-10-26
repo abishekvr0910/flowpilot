@@ -298,14 +298,14 @@ def test_clipboard_change_during_hold_prevents_overwrite():
         mock_copy.assert_not_called()
 
 def test_terminal_shift_insert_routing():
-    """Verify that terminal emulators route to Shift+Insert to prevent raw Ctrl+V (^V) collisions."""
+    """Verify that other terminal emulators still route to Shift+Insert."""
     assert "wt.exe" in TextInjector.TERMINAL_APP_PROCESSES
     assert "cmd.exe" in TextInjector.TERMINAL_APP_PROCESSES
     assert "powershell.exe" in TextInjector.TERMINAL_APP_PROCESSES
     assert "alacritty.exe" in TextInjector.TERMINAL_APP_PROCESSES
 
-    # Target is Windows Terminal (wt.exe): should dispatch VK_SHIFT + VK_INSERT
-    with patch.object(TextInjector, '_get_target_process_name', return_value="wt.exe"), \
+    # Mintty is outside the direct Unicode console classes.
+    with patch.object(TextInjector, '_get_target_process_name', return_value="mintty.exe"), \
          patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
          patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 300, None)), \
          patch.object(TextInjector, '_safe_clipboard_copy', return_value=True), \
@@ -313,7 +313,7 @@ def test_terminal_shift_insert_routing():
          patch.object(TextInjector, '_original_clipboard', None), \
          patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
          patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=300), \
-         patch('engine.text_injector.win32gui.GetClassName', return_value="CASCADIA_HOSTING_WINDOW_CLASS"), \
+         patch('engine.text_injector.win32gui.GetClassName', return_value="mintty"), \
          patch('engine.text_injector.win32api.keybd_event') as mock_keybd, \
          patch('engine.text_injector.threading.Timer'), \
          patch('engine.text_injector.time.sleep'):
@@ -348,6 +348,36 @@ def test_terminal_shift_insert_routing():
         assert ord('V') in called_vks2
         assert win32con.VK_INSERT not in called_vks2
 
+
+def test_console_hosts_use_direct_unicode_without_clipboard():
+    """Conhost and Windows Terminal must not rely on Shift+Insert delivery."""
+    for window_class in ('ConsoleWindowClass', 'CASCADIA_HOSTING_WINDOW_CLASS'):
+        with patch('engine.text_injector.win32gui.IsWindow', return_value=True), \
+             patch('engine.text_injector.win32gui.GetForegroundWindow', return_value=500), \
+             patch('engine.text_injector.win32gui.GetClassName', return_value=window_class), \
+             patch('engine.text_injector.win32gui.GetWindowText', return_value='Isolated console'), \
+             patch('engine.text_injector.target_has_higher_integrity', return_value=False), \
+             patch.object(TextInjector, '_resolve_verified_foreground', return_value=(True, 500, None)), \
+             patch.object(TextInjector, '_safe_clipboard_copy') as clipboard_copy, \
+             patch.object(TextInjector, 'inject_unicode_sendinput', return_value=True) as unicode_send:
+            result = TextInjector.inject_with_status('echo hello', target_hwnd=500)
+            assert result.status == InjectionStatus.SENT_UNVERIFIED
+            unicode_send.assert_called_once_with('echo hello', 500)
+            clipboard_copy.assert_not_called()
+
+            newline_result = TextInjector.inject_with_status('echo hello\n', target_hwnd=500)
+            assert newline_result.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE
+            assert TextInjector.last_injected_text == 'echo hello\n'
+            unicode_send.assert_called_once()
+            clipboard_copy.assert_not_called()
+
+            unicode_send.return_value = False
+            uncertain_result = TextInjector.inject_with_status('echo uncertain', target_hwnd=500)
+            assert uncertain_result.status == InjectionStatus.SENT_UNVERIFIED
+            assert uncertain_result.recovery_available is True
+            assert TextInjector.last_injected_text == 'echo uncertain'
+            clipboard_copy.assert_not_called()
+
 def test_terminal_dual_mode_routing():
     """Verify terminal dual-mode injector chooses direct typing or clipboard paste correctly."""
     with patch.object(TextInjector, 'inject_unicode_sendinput', return_value=True) as mock_direct:
@@ -369,6 +399,7 @@ def test_text_injection():
     test_focus_loss_with_newer_user_copy_preserves_user_copy()
     test_slow_app_timing_and_dwell()
     test_terminal_shift_insert_routing()
+    test_console_hosts_use_direct_unicode_without_clipboard()
     test_clipboard_change_during_hold_prevents_overwrite()
     test_find_edit_control_when_editor_is_not_first_child()
     test_find_edit_control_resolves_leaf_editor_when_wrapped_by_container()

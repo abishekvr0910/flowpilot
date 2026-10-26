@@ -28,13 +28,13 @@ New profiles default to no persisted dictation history (`save_history_text: fals
 
 ### 13. Windows RC2 candidate · existing
 
-This foundation row preserves the historical RC2 milestone. The current candidate is RC4, built from committed packaging source at `2baa2f9`, with bundled base and small models. Hosted CI [run 40116350311](https://github.com/abishekvr0910/flowpilot/actions/runs/40116350311) passed with 47 suites and 9 honest hardware or desktop skips. An initial exact-candidate local run passed 55 suites and failed one physical Notepad focus suite; the targeted suite and full strict interactive rerun then passed against the same executable, ending at 56 passed, 0 skipped, 0 failed. The first failure remains in the release record. RC4 is unsigned and remains a pilot candidate; RC2 and RC3 results and hashes are historical, and hosted skips are not physical desktop passes. See the [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md).
+This row preserves the historical RC2 milestone. The current published pilot prerelease is RC7, built from committed source and verified by [hosted CI](https://github.com/abishekvr0910/flowpilot/actions/runs/40297008381). It is unsigned. The [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) records its exact hashes and the 54 passed, 5 skipped local gate. Earlier candidate results remain historical; hosted skips do not prove physical desktop behavior.
 
 ## Next release
 
 ### 32. Pilot reliability hardening · in-progress
 
-The `feature/pilot-reliability-hardening` branch contains bounded microphone open and close handling, capture stall detection, fail-safe elevated-window insertion, bounded opt-in local metrics, and Indic model guidance. These changes are development source until a new exact-source package and physical USB and editor trials pass. RC4 remains unchanged. See the [pilot hardening review](../reviews/2026-10-25-pilot-reliability-and-competitive-position.md).
+Current source contains bounded microphone open and close handling, capture stall detection, fail-safe elevated-window insertion, bounded opt-in local metrics, and Indic model guidance. RC7 includes the reviewed pilot hardening code, but physical USB disconnect and reconnect, broad editor reliability, and the new real speech quality gate remain open. Later terminal delivery and decoder changes require a fresh candidate package and CI. See the [pilot hardening review](../reviews/2026-10-25-pilot-reliability-and-competitive-position.md) and [real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md).
 
 **Done when:** the new candidate passes the full strict desktop gate, a real USB disconnect and reconnect trial, elevated and opaque editor safety trials, a fresh package smoke and offline self-test, and hosted CI from its source commit. Metrics and public copy must describe measured boundaries.
 

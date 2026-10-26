@@ -1,0 +1,382 @@
+[
+  {
+    "item_id": "en-cv-006",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "The examples included above are by no means comprehensive.",
+    "formatted_reference": "The examples included above are by no means comprehensive.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-006.wav",
+    "duration_sec": 5.81,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-007",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "No one else could claim that.",
+    "formatted_reference": "No one else could claim that.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-007.wav",
+    "duration_sec": 3.71,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-008",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "I cannot understand it.",
+    "formatted_reference": "I cannot understand it.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-008.wav",
+    "duration_sec": 4.898,
+    "critical_entities": [
+      "cannot"
+    ]
+  },
+  {
+    "item_id": "en-cv-009",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "It's not a ghost, it was probably a Hologram.",
+    "formatted_reference": "It's not a ghost, it was probably a Hologram.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-009.wav",
+    "duration_sec": 5.138,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-010",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "No intact examples of native vegetation survive in the area immediately around Yea.",
+    "formatted_reference": "No intact examples of native vegetation survive in the area immediately around Yea.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-010.wav",
+    "duration_sec": 6.41,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-001",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Slip anchor returned to the track in the September stakes at Kempton park.",
+    "formatted_reference": "Slip anchor returned to the track in the September stakes at Kempton park.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-001.wav",
+    "duration_sec": 7.778,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-002",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "He stood at stud at fair chance farms in Washington court house, Ohio.",
+    "formatted_reference": "He stood at stud at fair chance farms in Washington court house, Ohio.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-002.wav",
+    "duration_sec": 8.498,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-003",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "For centuries, it was the location of the Spanish colonial mint.",
+    "formatted_reference": "For centuries, it was the location of the Spanish colonial mint.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-003.wav",
+    "duration_sec": 7.85,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-004",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "He was commonly referred to as the \"blacksmith of Ballinalee\".",
+    "formatted_reference": "He was commonly referred to as the \"blacksmith of Ballinalee\".",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-004.wav",
+    "duration_sec": 5.87,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-005",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "As the population of Beitar Illit is Haredi, the schools are all Haredi schools.",
+    "formatted_reference": "As the population of Beitar Illit is Haredi, the schools are all Haredi schools.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-005.wav",
+    "duration_sec": 8.066,
+    "critical_entities": []
+  },
+  {
+    "item_id": "hi-cv-006",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "यह नियम कभी मत भूलिएगा।",
+    "formatted_reference": "यह नियम कभी मत भूलिएगा।",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-006.wav",
+    "duration_sec": 3.242,
+    "critical_entities": [
+      "मत"
+    ]
+  },
+  {
+    "item_id": "hi-cv-007",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "वर्ल्ड कप की सबसे 'बदकिस्मत टीम' का इस बार पलटेगा भाग्य!",
+    "formatted_reference": "वर्ल्ड कप की सबसे 'बदकिस्मत टीम' का इस बार पलटेगा भाग्य!",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-007.wav",
+    "duration_sec": 4.97,
+    "critical_entities": [
+      "मत"
+    ]
+  },
+  {
+    "item_id": "hi-cv-008",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "विश्व बैंक के आर्थिक आउटलुक में संशोधन से गिरी कच्चे तेल की कीमतें",
+    "formatted_reference": "विश्व बैंक के आर्थिक आउटलुक में संशोधन से गिरी कच्चे तेल की कीमतें",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-008.wav",
+    "duration_sec": 5.15,
+    "critical_entities": [
+      "मत"
+    ]
+  },
+  {
+    "item_id": "hi-cv-009",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "अंग्रेज़ी बोलने के समय ग़लतियों से मत डरा करो।",
+    "formatted_reference": "अंग्रेज़ी बोलने के समय ग़लतियों से मत डरा करो।",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-009.wav",
+    "duration_sec": 4.862,
+    "critical_entities": [
+      "मत"
+    ]
+  },
+  {
+    "item_id": "hi-cv-010",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "मंत्री बोले- प्याज की कीमतों में उछाल के कारण गोवा में पर्यटन में गिरावट",
+    "formatted_reference": "मंत्री बोले- प्याज की कीमतों में उछाल के कारण गोवा में पर्यटन में गिरावट",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-010.wav",
+    "duration_sec": 7.382,
+    "critical_entities": [
+      "मत"
+    ]
+  },
+  {
+    "item_id": "hi-cv-001",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "अक्षय कुमार कर रहे हैं केरल में मेडिटेशन",
+    "formatted_reference": "अक्षय कुमार कर रहे हैं केरल में मेडिटेशन",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-001.wav",
+    "duration_sec": 4.538,
+    "critical_entities": []
+  },
+  {
+    "item_id": "hi-cv-002",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "कांग्रेस को सरकार में बने रहने का नैतिक अधिकार नहीं: बागी विधायक",
+    "formatted_reference": "कांग्रेस को सरकार में बने रहने का नैतिक अधिकार नहीं: बागी विधायक",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-002.wav",
+    "duration_sec": 5.582,
+    "critical_entities": []
+  },
+  {
+    "item_id": "hi-cv-003",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "मुंबई पर हमले में पाकिस्तान का हाथ: प्रणब",
+    "formatted_reference": "मुंबई पर हमले में पाकिस्तान का हाथ: प्रणब",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-003.wav",
+    "duration_sec": 4.034,
+    "critical_entities": []
+  },
+  {
+    "item_id": "hi-cv-004",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "कैसा होगा रणवीर-दीपिका का फर्स्ट दिवाली सेलिब्रेशन? एक्ट्रेस ने बताए प्लान्स",
+    "formatted_reference": "कैसा होगा रणवीर-दीपिका का फर्स्ट दिवाली सेलिब्रेशन? एक्ट्रेस ने बताए प्लान्स",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-004.wav",
+    "duration_sec": 7.058,
+    "critical_entities": []
+  },
+  {
+    "item_id": "hi-cv-005",
+    "language": "hi",
+    "group": "clean",
+    "spoken_reference": "‘अंतरराष्ट्रीय खलनायक’ हैं ओबामा: लारीजानी",
+    "formatted_reference": "‘अंतरराष्ट्रीय खलनायक’ हैं ओबामा: लारीजानी",
+    "speaker_id": "cv-anon-hi",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/hi/hi-cv-005.wav",
+    "duration_sec": 5.258,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ta-cv-001",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "பாலாஜி என்பது பாலன் என்ற பொருளுடையது.",
+    "formatted_reference": "பாலாஜி என்பது பாலன் என்ற பொருளுடையது.",
+    "speaker_id": "cv-anon-ta",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ta/ta-cv-001.wav",
+    "duration_sec": 6.698,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ta-cv-002",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "சீக்கிரத்தில் ஐநூறு ரூபாய் செலவழித்து அவரது முழு உருவப்படமொன்று சபையில் வைத்தோம்.",
+    "formatted_reference": "சீக்கிரத்தில் ஐநூறு ரூபாய் செலவழித்து அவரது முழு உருவப்படமொன்று சபையில் வைத்தோம்.",
+    "speaker_id": "cv-anon-ta",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ta/ta-cv-002.wav",
+    "duration_sec": 7.382,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ta-cv-003",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "பகலில் இயங்கிக் கொண்டே இருப்பர்.",
+    "formatted_reference": "பகலில் இயங்கிக் கொண்டே இருப்பர்.",
+    "speaker_id": "cv-anon-ta",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ta/ta-cv-003.wav",
+    "duration_sec": 3.962,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ta-cv-004",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "மிகுதியும் பயன் விளையும்.",
+    "formatted_reference": "மிகுதியும் பயன் விளையும்.",
+    "speaker_id": "cv-anon-ta",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ta/ta-cv-004.wav",
+    "duration_sec": 3.458,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ta-cv-005",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "புதுப்புனலில் பாய்ந்து நீந்தி விளையாடுகிறாள்.",
+    "formatted_reference": "புதுப்புனலில் பாய்ந்து நீந்தி விளையாடுகிறாள்.",
+    "speaker_id": "cv-anon-ta",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ta/ta-cv-005.wav",
+    "duration_sec": 4.43,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ml-cv-001",
+    "language": "ml",
+    "group": "clean",
+    "spoken_reference": "വിവരങ്ങളെല്ലാം ഇമെയിൽ ചെയ്യണം",
+    "formatted_reference": "വിവരങ്ങളെല്ലാം ഇമെയിൽ ചെയ്യണം",
+    "speaker_id": "cv-anon-ml",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ml/ml-cv-001.wav",
+    "duration_sec": 2.954,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ml-cv-002",
+    "language": "ml",
+    "group": "clean",
+    "spoken_reference": "മാക്സിമിലിയന് നീയാ വലിയ ശബ്ദം കേട്ടോ",
+    "formatted_reference": "മാക്സിമിലിയന് നീയാ വലിയ ശബ്ദം കേട്ടോ",
+    "speaker_id": "cv-anon-ml",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ml/ml-cv-002.wav",
+    "duration_sec": 4.394,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ml-cv-003",
+    "language": "ml",
+    "group": "clean",
+    "spoken_reference": "അനുബന്ധമാണെങ്കിലും, ഇതിൽ നിന്നും മനസ്സിലാക്കിയെടുക്കുവാനുള്ളൊരു പ്രധാനകാര്യം കൂടിയുണ്ട്.",
+    "formatted_reference": "അനുബന്ധമാണെങ്കിലും, ഇതിൽ നിന്നും മനസ്സിലാക്കിയെടുക്കുവാനുള്ളൊരു പ്രധാനകാര്യം കൂടിയുണ്ട്.",
+    "speaker_id": "cv-anon-ml",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ml/ml-cv-003.wav",
+    "duration_sec": 5.906,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ml-cv-004",
+    "language": "ml",
+    "group": "clean",
+    "spoken_reference": "നാം ഇവിടെ അകപ്പെട്ടു പോയിരിക്കുന്നു",
+    "formatted_reference": "നാം ഇവിടെ അകപ്പെട്ടു പോയിരിക്കുന്നു",
+    "speaker_id": "cv-anon-ml",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ml/ml-cv-004.wav",
+    "duration_sec": 3.35,
+    "critical_entities": []
+  },
+  {
+    "item_id": "ml-cv-005",
+    "language": "ml",
+    "group": "clean",
+    "spoken_reference": "അല്ല ഞാന് ചൂടിലാണ്",
+    "formatted_reference": "അല്ല ഞാന് ചൂടിലാണ്",
+    "speaker_id": "cv-anon-ml",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/ml/ml-cv-005.wav",
+    "duration_sec": 2.918,
+    "critical_entities": []
+  }
+]

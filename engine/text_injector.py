@@ -441,6 +441,43 @@ class TextInjector:
             if verify_confirmation and target_hwnd else None
         )
 
+        # Command Prompt hosted by conhost or Windows Terminal may ignore
+        # Shift+Insert even though the key events were accepted. Send Unicode
+        # text directly for these verified terminal window classes.
+        direct_terminal = False
+        if HAS_WIN32 and sys.platform == "win32" and target_hwnd:
+            try:
+                direct_terminal = win32gui.GetClassName(target_hwnd).lower() in {
+                    "consolewindowclass", "cascadia_hosting_window_class",
+                }
+            except Exception:
+                pass
+        if direct_terminal:
+            cls.last_injected_text = text
+            cls.last_target_hwnd = target_hwnd
+            try:
+                cls.last_target_title = win32gui.GetWindowText(target_hwnd)
+            except Exception:
+                pass
+            if "\n" in text or "\r" in text:
+                return InjectionResult(
+                    status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+                    target_hwnd=target_hwnd,
+                    error_message="Terminal text contains a newline. Copy Last and paste it manually.",
+                    recovery_available=True,
+                )
+            if cls.inject_unicode_sendinput(text, target_hwnd):
+                return InjectionResult(
+                    status=InjectionStatus.SENT_UNVERIFIED,
+                    chars_sent=len(text), target_hwnd=target_hwnd,
+                )
+            return InjectionResult(
+                status=InjectionStatus.SENT_UNVERIFIED,
+                target_hwnd=target_hwnd,
+                error_message="Terminal typing could not be confirmed. Check the target before retrying.",
+                recovery_available=True,
+            )
+
         # 2. Coordinate clipboard backup without race conditions
         with cls._restore_lock:
             if cls._restore_timer is not None:
