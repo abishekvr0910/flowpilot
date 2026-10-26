@@ -23,7 +23,7 @@ Unlike browser-wrapper prototypes or cloud-dependent competitors (such as Wispr 
 FlowPilot is structured into modular subsystems under `engine/`, `ui/`, and `tests/`:
 
 ```
-S:\APPs\New folder\
+<workspace-root>\
 ├── desktop_app.py               # Main PySide6 application orchestrator & lifecycle manager
 ├── desktop.py                   # PySide6 application launcher
 ├── run.py                       # Headless / web-service development launcher

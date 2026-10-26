@@ -1,33 +1,28 @@
-# Scope: FlowPilot
+# FlowPilot Scope and Roadmap
 
-FlowPilot is a local voice workstation for Windows users who want to dictate, revise, and recover text without sending their speech to a cloud service. Developers are the first audience. Privacy conscious writers and professionals are a second audience, but regulated use needs its own evidence and review.
-
-**Build approach:** Journey (prove setup, dictation, correction, insertion, recovery, and safe exit on real Windows machines before adding more breadth).
-**Workflow:** Beta (verify the real behavior, then test it). Release and security work uses the GA tier.
-
-This is the project scope, not a feature inventory or a promise that every current feature is field proven. `existing` means code is present. A release claim needs separate user and artifact evidence. The public general release is v3.0.2; v3.1.0 RC8 is the current published pilot prerelease. Later source changes require a new build and verification.
-
-**Reviewed baseline:** The published RC8 artifact remains tied to tag `6527025`, with [hosted CI](https://github.com/abishekvr0910/flowpilot/actions/runs/40348691736) passing 50 suites, 9 honest hardware or desktop skips, and 0 failures. Current `master` is `1043ac5`, a documentation and specification descendant of that release. On this checkout, compilation passed, all 59 registered suites passed with 0 skips and 0 failures in 220.75 seconds, the Node and WebSocket integration passed, and `git diff --check` passed. The exact RC8 bundle remains unsigned and pilot only. A 30-clip [real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md) found substantial Hindi, Tamil, and Malayalam recognition errors. Feature 30 has a design specification and an isolated branch, but no repair implementation is part of the release. These checks do not establish a universal competitive win or close every live desktop and language gate. The [current release review](../reviews/2026-10-26-ad3dce9-release-review.md) records the evidence limits and open gates; a written plan is not evidence that those gates are complete.
+Current status and boundaries for the FlowPilot desktop dictation and writing project.
 
 ## At a glance
 
-| # | Feature | Phase | Status |
+FlowPilot is a Windows-first, 100% offline dictation and private writing tool. This index tracks verified software capabilities and the planned path through the current release cycle. The published pilot prerelease is **RC8** (v3.1.0-RC8). See the [release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) for artifact hashes, test evidence, and open gates.
+
+| ID | Capability or milestone | Area | Status |
 |---|---|---|---|
-| 1 | Offline capture and speech engine | Foundation | existing |
-| 2 | Dictation controls and session lifecycle | Foundation | existing |
-| 3 | Writing quality and personal vocabulary | Foundation | existing |
-| 4 | Text insertion and recovery | Foundation | existing |
-| 5 | Multilingual modes and translation | Foundation | existing |
-| 6 | Bounded voice commands and editing | Foundation | existing |
-| 7 | Setup, settings, and dashboard | Foundation | existing |
-| 8 | Scratchpad, history, and insights | Foundation | existing |
-| 9 | Meeting notes and deliberation | Foundation | existing |
+| 01 | Dictate into normal Windows applications | Foundation | existing |
+| 02 | Keyboard focus safety (no focus stealing) | Foundation | existing |
+| 03 | Verified text insertion via Win32 and UI Automation | Foundation | existing |
+| 04 | Windows audio ducking and restore | Foundation | existing |
+| 05 | Global hotkey with Win32 message pump | Foundation | existing |
+| 06 | Dual Whisper models: base and small | Foundation | existing |
+| 07 | Silero VAD voice activity detection | Foundation | existing |
+| 08 | FactGuard critical fact and negation preservation | Foundation | existing |
+| 09 | Spoken self correction resolution | Foundation | existing |
 | 10 | Native companions and creator | Foundation | existing |
 | 11 | Optional local API | Foundation | existing |
 | 12 | Local storage and privacy controls | Foundation | existing |
 | 13 | Windows RC8 pilot candidate | Foundation | existing |
 | 26 | External transform safety repair | Next release | done |
-| 28 | Persistent microphone selection | Next release | in-progress |
+| 28 | Persistent microphone selection | Next release | in-progress (candidate-verified) |
 | 29 | Competitive outcome evaluation | Next release | in-progress |
 | 32 | Pilot reliability hardening | Next release | in-progress |
 | 14 | Consented Windows pilot | Next release | planned |
@@ -56,14 +51,15 @@ This is the project scope, not a feature inventory or a promise that every curre
 
 ## Order and boundaries
 
-The current source and RC8 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Physical microphone disconnect and reconnect, broad first-attempt paste reliability, diverse human speech, paired competitor outcomes, and signed distribution remain open evidence gates. The 30-clip diagnostic is a warning about Indic quality, not pilot language approval. Feature 30 is a sandbox proposal, not a shipped post processor. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
+The current source and RC8 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Candidate hardware behavior has been verified via `scripts/verify_audio_device_gate.py`; physical unplug and reconnect confirmation with live USB hardware, broad first-attempt paste reliability across heavy applications, diverse human speech, paired competitor outcomes, and signed distribution remain open evidence gates. The 30-clip diagnostic is a warning about Indic quality, not pilot language approval. Feature 30 is a sandbox proposal, not a shipped post processor. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
 
-The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the Gemini handoff; no claim of being "100% better" is authorized by a suite count or this scope.
+The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the [Gemini handoff](GEMINI_SCOPE_EXECUTION_HANDOFF_2026-10-26.md); no claim of being "100% better" is authorized by a suite count or this scope.
 
 FlowPilot stays local first. The normal desktop path does not depend on a cloud model. Optional localhost integrations have their own trust boundary. A green automated suite is not proof of universal paste reliability, zero risk, regulatory compliance, or superiority over Wispr Flow. Character art and interface work must be original or properly licensed. We are not planning a competitor code clone.
 
 Mobile apps, broad Linux and macOS release support, automatic actions in arbitrary applications, and automatic recognition of every windowed video are outside the current release scope. They can be revisited after the Windows journey works reliably for pilot users.
 
+
 ## Legend
 
-`existing` means implemented before this scope, not fully validated on customer hardware. `planned` means not complete. `needs a decision` means you may ask `/architect` to settle behavior and tests before building. The first unticked box in a feature section is the suggested next step. This scope can be reconciled after each real milestone without treating a proposed spec as shipped code.
+\existing\ means implemented before this scope, not fully validated on customer hardware. \candidate-verified\ means verified on candidate hardware during pilot testing. \planned\ means not complete. eeds a decision\ means you may ask \/architect\ to settle behavior and tests before building. The first unticked box in a feature section is the suggested next step. This scope can be reconciled after each real milestone without treating a proposed spec as shipped code.
