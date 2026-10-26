@@ -53,17 +53,74 @@ def sha256_bytes(data: bytes) -> str:
 
 
 def classify_hardware_bus(dev_name: str) -> dict:
-    """Distinguish USB bus audio devices from 3.5mm analog jack-sensed HD Audio endpoints."""
-    name_l = (dev_name or "").lower()
-    is_usb = any(k in name_l for k in ("usb", "yeti", "hyperx", "rode", "shure", "samson", "focusrite", "wireless controller"))
-    if is_usb:
-        return {
-            "hardware_bus_class": "usb_audio_device",
-            "is_usb_bus_device": True,
-        }
+    """Authoritatively resolve Windows PnP MMDevice endpoint and parent bus InstanceId via Win32 CfgMgr32."""
+    target_norm = (dev_name or "").strip().lower()
+    mmdevice_id = ""
+    parent_pnp_id = ""
+
+    if sys.platform == "win32" and target_norm:
+        try:
+            import ctypes
+            import winreg
+
+            cfg = ctypes.windll.cfgmgr32
+            key_path = r"SYSTEM\CurrentControlSet\Enum\SWD\MMDEVAPI"
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as key:
+                idx = 0
+                while True:
+                    try:
+                        sub = winreg.EnumKey(key, idx)
+                        idx += 1
+                    except OSError:
+                        break
+                    # Capture endpoints under MMDEVAPI start with {0.0.1.00000000}.
+                    if not sub.lower().startswith("{0.0.1."):
+                        continue
+                    try:
+                        with winreg.OpenKey(key, sub) as sk:
+                            fn, _ = winreg.QueryValueEx(sk, "FriendlyName")
+                    except OSError:
+                        continue
+                    fn_norm = str(fn).strip().lower()
+                    if fn_norm != target_norm and not fn_norm.startswith(target_norm):
+                        continue
+                    inst_id = f"SWD\\MMDEVAPI\\{sub}"
+                    devinst = ctypes.c_ulong()
+                    # CM_LOCATE_DEVNODE_NORMAL (0) only succeeds for currently active/present hardware nodes
+                    if cfg.CM_Locate_DevNodeW(ctypes.byref(devinst), inst_id, 0) == 0:
+                        parent = ctypes.c_ulong()
+                        if cfg.CM_Get_Parent(ctypes.byref(parent), devinst, 0) == 0:
+                            buf = ctypes.create_unicode_buffer(512)
+                            if cfg.CM_Get_Device_IDW(parent, buf, 512, 0) == 0:
+                                mmdevice_id = inst_id
+                                parent_pnp_id = buf.value
+                                break
+        except Exception:
+            pass
+
+    parent_upper = parent_pnp_id.upper()
+    if parent_upper.startswith("USB\\"):
+        bus_class = "usb_audio_device"
+        is_usb = True
+    elif parent_upper.startswith(("INTELAUDIO\\", "HDAUDIO\\")):
+        bus_class = "analog_jack_hd_audio_endpoint"
+        is_usb = False
+    elif parent_upper.startswith(("BTHENUM\\", "BTHHFENUM\\", "BTHLEDEVICE\\")):
+        bus_class = "bluetooth_audio_endpoint"
+        is_usb = False
+    elif parent_upper.startswith(("ROOT\\", "SWD\\")):
+        bus_class = "virtual_or_software_audio_endpoint"
+        is_usb = False
+    else:
+        bus_class = "unverified_non_usb_endpoint"
+        is_usb = False
+
     return {
-        "hardware_bus_class": "analog_jack_hd_audio_endpoint",
-        "is_usb_bus_device": False,
+        "hardware_bus_class": bus_class,
+        "is_usb_bus_device": is_usb,
+        "mmdevice_endpoint_id": mmdevice_id or "UNRESOLVED",
+        "parent_pnp_instance_id": parent_pnp_id or "UNRESOLVED",
+        "resolution_authority": "win32_cfgmgr32_devnode" if parent_pnp_id else "unverified_fallback",
     }
 
 
