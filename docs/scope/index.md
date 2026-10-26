@@ -41,7 +41,7 @@ This is the project scope, not a feature inventory or a promise that every curre
 | 27 | Media audio aware hiding | Product quality | in-progress |
 | 21 | Original character quality and rights | Product quality | planned |
 | 22 | Safe editing beyond the scratchpad | Product quality | planned |
-| 30 | Optional local writing context | Product quality | planned |
+| 30 | Optional local text repair | Product quality | in-progress (sandbox) |
 | 31 | Approved local correction learning | Product quality | planned |
 | 23 | Optional editor presence | Later | planned |
 | 24 | Windowed media and screen share behavior | Later | closed (manual app rules) |
