@@ -3,6 +3,8 @@ import logging
 import io
 import time
 import threading
+import ctypes
+import sys
 import collections
 import numpy as np
 import sounddevice as sd
@@ -115,6 +117,13 @@ class AudioRecorder:
         close_failed = threading.Event()
 
         def release():
+            com_initialized = False
+            if sys.platform == "win32":
+                try:
+                    ctypes.windll.ole32.CoInitializeEx(None, 0)
+                    com_initialized = True
+                except Exception:
+                    pass
             try:
                 if hasattr(stream, "abort"):
                     stream.abort()
@@ -128,6 +137,11 @@ class AudioRecorder:
                 close_failed.set()
                 logger.warning("Microphone stream close failed: %s", exc)
             finally:
+                if com_initialized:
+                    try:
+                        ctypes.windll.ole32.CoUninitialize()
+                    except Exception:
+                        pass
                 finished.set()
 
         threading.Thread(target=release, daemon=True, name="FlowPilot-MicRelease").start()
@@ -140,18 +154,26 @@ class AudioRecorder:
             return False
         return True
 
-    def _open_stream_bounded(self, sample_rate: int):
+    def _open_stream_bounded(self, sample_rate: int, channels: Optional[int] = None):
         """Open PortAudio outside the recorder lock's thread with a hard deadline."""
         finished = threading.Event()
         result_lock = threading.Lock()
         result = {"stream": None, "error": None, "cancelled": False}
+        stream_channels = self.channels if channels is None else channels
 
         def open_stream():
+            com_initialized = False
+            if sys.platform == "win32":
+                try:
+                    ctypes.windll.ole32.CoInitializeEx(None, 0)
+                    com_initialized = True
+                except Exception:
+                    pass
             stream = None
             error = None
             try:
                 stream = sd.InputStream(
-                    samplerate=sample_rate, channels=self.channels, dtype="float32",
+                    samplerate=sample_rate, channels=stream_channels, dtype="float32",
                     device=self.device, callback=self._audio_callback,
                 )
                 stream.start()
@@ -166,6 +188,11 @@ class AudioRecorder:
                 result["error"] = error
             if stale_stream is not None:
                 self._release_stream_bounded(stale_stream)
+            if com_initialized:
+                try:
+                    ctypes.windll.ole32.CoUninitialize()
+                except Exception:
+                    pass
             finished.set()
 
         threading.Thread(target=open_stream, daemon=True, name="FlowPilot-MicOpen").start()
@@ -266,18 +293,29 @@ class AudioRecorder:
                 if failed_stream and not self._release_stream_bounded(failed_stream):
                     self.is_recording = False
                     raise RuntimeError(self.capture_health_error()) from e
-                # Fallback attempt: If hardware requires 44.1kHz or 48kHz, query native rate
+                # Fallback attempt: If hardware requires 44.1kHz/48kHz or stereo WASAPI mix format, query native format
                 fallback_success = False
                 try:
                     dev_info = sd.query_devices(self.device, "input")
                     native_sr = int(dev_info.get("default_samplerate", 44100))
-                    if native_sr != self.sample_rate and native_sr > 0:
-                        print(f"[Audio] Target sample rate {self.sample_rate}Hz rejected. Falling back to native {native_sr}Hz with dynamic resampling.")
-                        self.capture_sample_rate = native_sr
-                        self.stream = self._open_stream_bounded(native_sr)
-                        self._recording_started_at = time.monotonic()
-                        fallback_success = True
-                        print("[Audio] Recording started with native hardware sample rate fallback.")
+                    max_ch = int(dev_info.get("max_input_channels", self.channels) or self.channels)
+                    candidate_formats = []
+                    if native_sr > 0 and native_sr != self.sample_rate:
+                        candidate_formats.append((native_sr, self.channels))
+                    if max_ch > self.channels:
+                        candidate_formats.append((native_sr if native_sr > 0 else self.sample_rate, min(2, max_ch)))
+                    for cand_sr, cand_ch in candidate_formats:
+                        try:
+                            print(f"[Audio] Target format ({self.sample_rate}Hz, {self.channels}ch) rejected. Falling back to native ({cand_sr}Hz, {cand_ch}ch) with dynamic resampling.")
+                            self.capture_sample_rate = cand_sr
+                            self.stream = self._open_stream_bounded(cand_sr, channels=cand_ch)
+                            self._recording_started_at = time.monotonic()
+                            fallback_success = True
+                            print("[Audio] Recording started with native hardware format fallback.")
+                            break
+                        except Exception:
+                            if self._stream_cleanup_failed:
+                                break
                 except Exception:
                     pass
 
@@ -317,9 +355,11 @@ class AudioRecorder:
                     self.last_audio_array = None
                     return None
 
-                # Concatenate frames
+                # Concatenate frames and downmix multi-channel WASAPI capture to mono if needed
                 recording = np.concatenate(self.audio_frames, axis=0)
                 self.audio_frames = []
+                if recording.ndim == 2 and recording.shape[1] > 1 and self.channels == 1:
+                    recording = np.mean(recording, axis=1, keepdims=True).astype(np.float32)
 
                 # Check duration
                 duration = len(recording) / self.capture_sample_rate
