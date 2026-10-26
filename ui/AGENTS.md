@@ -40,5 +40,3 @@ PySide6 windows for the whole desktop experience: dashboard, tray, floating comp
 ## Related specs
 
 Companion visibility uses [spec 0001](../docs/specs/0001-context-aware-companion-visibility.md). The microphone picker follows [spec 0002](../docs/specs/0002-persistent-audio-input-identity.md).
-
-_Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

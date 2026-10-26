@@ -19,11 +19,11 @@ Keep the companion out of fullscreen viewing and presentations. Let users choose
 - [x] Design it (spec): `/architect context aware companion visibility`
 - [x] Build the native policy, migration, controller, tray, dashboard, Studio and app rule controls.
 - [x] Measure the automatable portion of the interactive gate on a live desktop: borderless fullscreen hide 0.203 s and 0.516 s, restore 0.610 s and 0.625 s, a maximized plain window holds the companion, and a full context sample stays under half a millisecond per call. Details in [the gate results note](../testing/COMPANION_VISIBILITY_INTERACTIVE_GATE_RESULTS.md). The probe needs a quiet desktop and reports unmeasurable rather than a pass when the operator keeps working.
-- [x] Record RC3 packaged live checks for Edge F11, a real PowerPoint slideshow, F9 text delivery while Hidden, and primary/secondary display frame fit. Evidence: [media validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md). This does not verify every tray state or every target app.
+- [x] Record the historical RC3 packaged live checks for Edge F11, a real PowerPoint slideshow, F9 text delivery while Hidden, and primary or secondary display frame fit. Evidence: [media validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md). This does not verify every tray state or every target app or the later RC8 bytes.
 - [ ] Complete the remaining live rows: Chrome F11 specifically, restart persistence, Studio app rule edits, reduced motion after hide/restore, tray states during hidden dictation, and fullscreen video on one monitor while editing on another. Record outcomes on the exact candidate rather than inferring them from unit tests.
 - [ ] Decide release promotion after measured window transitions and pilot review.
 
-Active implementation contract: [spec 0001](../specs/0001-context-aware-companion-visibility.md). Automated checks do not replace the interactive desktop gate, and RC2 remains unchanged.
+Active implementation contract: [spec 0001](../specs/0001-context-aware-companion-visibility.md). Automated checks do not replace the interactive desktop gate, and the published RC8 archive remains unchanged until a new candidate is built.
 
 ### 27. Media audio aware hiding · in-progress
 
@@ -33,7 +33,7 @@ The audio session query runs in a background sampler so a slow COM call cannot s
 
 **Done when:** audible media hides the companion in smart mode, silence restores it, dictation states win over the hide, manual modes and app rules are untouched by the hide, and the probe fails soft without breaking the visibility tick.
 
-- [x] Record audible, muted, unmuted, and paused local video behavior in Edge on RC3 with measured hide and restore times.
+- [x] Record the historical RC3 audible, muted, unmuted, and paused local video behavior in Edge with measured hide and restore times.
 - [ ] Extend the live check to the intended browser playback workflow, music, notification sounds, quiet gaps, and interactions with manual modes and app rules. Do not label audio presence as video recognition.
 
 Source and package evidence: [media audio validation note](../testing/MEDIA_AUDIO_PRESENCE_VALIDATION_2026-10-23.md).

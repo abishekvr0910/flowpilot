@@ -96,7 +96,7 @@ Total Test Time: 25.38s | Overall Verdict: ALL TESTS PASSED
 ## 4. Operational Instructions
 
 To launch the native desktop application:
-* Double-click [`start_desktop.bat`](../../start_desktop.bat), or
+* Double-click [`FlowPilot.bat`](../../FlowPilot.bat), or
 * Run `python desktop_app.py`.
 
 The Flow Pill will float at the bottom center of your screen. Pressing **`Ctrl + Shift + Space`** or **`F9`** or clicking the mic icon starts recording and mutes background audio; pressing it again pastes the transcribed text into Notepad, VS Code, Word, or Chrome.

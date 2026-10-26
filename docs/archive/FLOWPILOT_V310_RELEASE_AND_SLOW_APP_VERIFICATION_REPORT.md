@@ -125,4 +125,4 @@ To prevent UI threads under heavy rendering load from coalescing or dropping key
 - [`tests/test_text_injector.py`](../../tests/test_text_injector.py): Added unit test `test_slow_app_timing_and_dwell()`.
 - [`docs/release/RELEASE_ARTIFACT_MANIFEST.md`](../release/RELEASE_ARTIFACT_MANIFEST.md): Documented v3.1.0 release candidate metrics, SHA-256 hashes, Authenticode status, and system requirements.
 - [`docs/testing/vbcable_benchmark_results.json`](../testing/vbcable_benchmark_results.json): Updated with October 19 VB-Cable benchmark empirical observations.
-- [`CODEX.md`](../../CODEX.md): Updated comparison table with v3.1.0 numbers, honest measurement boundaries, and slow-app adaptive injection capabilities.
+- `CODEX.md`: Updated comparison table with v3.1.0 numbers, honest measurement boundaries, and slow-app adaptive injection capabilities.

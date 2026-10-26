@@ -284,7 +284,7 @@ Required presentation states: idle, listening, processing, verified completion, 
 
 | Worker | Owns | Does not own |
 | --- | --- | --- |
-| Gemini A: core reliability | The bounded [PR 1 directive](../archive/GEMINI_PR1_IMPLEMENTATION_DIRECTIVE.md): language registration, model lifecycle, truthful transforms and their callers/tests | Companion renderer, sprites or appearance changes |
+| Gemini A: core reliability | The bounded PR 1 core reliability plan: language registration, model lifecycle, truthful transforms and their callers/tests | Companion renderer, sprites or appearance changes |
 | Gemini B: companion prototype | Original concept assets, isolated deterministic preview, companion-specific tests; renderer/HUD integration only after an agreed review | STT, orchestrator, text injector, live microphone, hotkeys, release manifests |
 | Codex: review and integration | Inspect diffs, challenge tests, review visual evidence, run independent checks when available, coordinate shared-file ownership and the combined gate | Unreviewed automatic merges, publishing or claiming success from a worker's summary |
 

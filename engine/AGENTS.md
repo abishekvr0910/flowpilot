@@ -50,5 +50,3 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 ## Related specs
 
 Persistent audio identity uses [spec 0002](../docs/specs/0002-persistent-audio-input-identity.md). Visible delivery observation uses [spec 0003](../docs/specs/0003-visible-delivery-benchmark-observer.md).
-
-_Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

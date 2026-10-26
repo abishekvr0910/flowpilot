@@ -14,7 +14,7 @@
 FlowPilot runs as a native Windows desktop application with a floating microphone HUD (Flow Pill) and system tray presence:
 
 1. **Option A (Desktop Batch File — Recommended):**
-   * Double-click [`start_desktop.bat`](../../start_desktop.bat) in the repository root.
+   * Double-click [`FlowPilot.bat`](../../FlowPilot.bat) in the repository root.
    * The floating microphone pill will appear at the bottom center of your screen, and the FlowPilot icon will appear in the Windows System Tray (notification area).
 
 2. **Option B (PowerShell / Command Prompt):**

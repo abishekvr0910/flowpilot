@@ -52,5 +52,3 @@ pytest tests/test_factguard_v2.py -q
 ## Related specs
 
 Audio identity tests follow [spec 0002](../docs/specs/0002-persistent-audio-input-identity.md). The delivery observer tests follow [spec 0003](../docs/specs/0003-visible-delivery-benchmark-observer.md).
-
-_Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
