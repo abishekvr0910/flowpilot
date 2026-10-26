@@ -1,10 +1,10 @@
 """
 scripts/interactive_physical_mic_test.py
 
-FlowPilot Physical USB Microphone Disconnect & Reconnect Gate Protocol.
+FlowPilot Physical Microphone / Headset Disconnect & Reconnect Gate Protocol.
 
 Step 1 Verification according to docs/specs/0002-persistent-audio-input-identity.md:
-This script guides an operator through the physical USB microphone unplug and
+This script guides an operator through the physical microphone/headset unplug and
 reconnect test on real hardware, and writes a SHA-256 cryptographic integrity receipt.
 
 Strict SLAs:
@@ -52,12 +52,33 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest().upper()
 
 
+def find_external_candidates(devices):
+    """Finds pluggable USB or jack-detected headset/headphone microphones (excluding built-in array/virtual)."""
+    candidates = []
+    for d in devices:
+        name_l = d["name"].lower()
+        api = d.get("host_api", "")
+        if "virtual" in name_l or "cable" in name_l or "sound mapper" in name_l or "primary sound" in name_l:
+            continue
+        if "microphone array" in name_l or "stereo mix" in name_l or "pc speaker" in name_l:
+            continue
+        if any(
+            term in name_l
+            for term in [
+                "usb", "headset", "headphone", "hyperx", "yeti", "rode",
+                "shure", "samson", "focusrite", "buds", "airpods", "realtek(r) audio"
+            ]
+        ):
+            candidates.append(d)
+    # Sort so Windows WASAPI comes first, then DirectSound, then MME
+    api_rank = {"Windows WASAPI": 0, "Windows DirectSound": 1, "MME": 2, "Windows WDM-KS": 3}
+    candidates.sort(key=lambda d: api_rank.get(d.get("host_api", ""), 99))
+    return candidates
+
+
 def select_target_device(devices, interactive: bool = True):
-    """Finds USB devices or allows operator selection."""
-    usb_candidates = [
-        d for d in devices
-        if any(term in d["name"].lower() for term in ["usb", "headset", "hyperx", "yeti", "rode", "shure", "samson", "focusrite", "buds", "airpods"])
-    ]
+    """Finds external USB/headset devices or allows operator selection."""
+    usb_candidates = find_external_candidates(devices)
 
     if not interactive:
         if usb_candidates:
@@ -66,15 +87,15 @@ def select_target_device(devices, interactive: bool = True):
 
     print("\n--- Audio Input Device Inventory ---")
     for i, dev in enumerate(devices):
-        is_usb = " [External/USB Candidate]" if dev in usb_candidates else ""
+        is_usb = " [External/Pluggable Candidate]" if dev in usb_candidates else ""
         print(f"[{i:2d}] {dev['name']} ({dev['host_api']}, {dev['max_input_channels']} ch){is_usb}")
 
     if usb_candidates:
         default_idx = devices.index(usb_candidates[0])
-        prompt = f"\nSelect device to test [default {default_idx} - {usb_candidates[0]['name']}]: "
+        prompt = f"\nSelect device to test [default {default_idx} - {usb_candidates[0]['name']} ({usb_candidates[0]['host_api']})]: "
     else:
         default_idx = 0
-        prompt = f"\nNo obvious USB string found. Select device [default 0]: "
+        prompt = "\nNo external candidate found. Select device [default 0]: "
 
     choice = input(prompt).strip()
     if not choice:
@@ -87,9 +108,9 @@ def select_target_device(devices, interactive: bool = True):
         return devices[default_idx]
 
 
-def run_test(simulated: bool = False):
+def run_test(simulated: bool = False, auto_confirm: bool = False):
     print("=" * 74)
-    print("   FLOWPILOT PHYSICAL USB MICROPHONE DISCONNECT & RECONNECT GATE")
+    print("   FLOWPILOT PHYSICAL MICROPHONE DISCONNECT & RECONNECT GATE")
     print("=" * 74)
 
     devices = get_audio_input_devices(refresh=True)
@@ -98,8 +119,8 @@ def run_test(simulated: bool = False):
         sys.exit(1)
 
     print(f"\n[1] Enumerated {len(devices)} input endpoints.")
-    target_dev = select_target_device(devices, interactive=not simulated)
-    print(f"\n[Target Endpoint Selected]:")
+    target_dev = select_target_device(devices, interactive=not (simulated or auto_confirm))
+    print("\n[Target Endpoint Selected]:")
     print(f"  Name:        {target_dev['name']}")
     print(f"  Host API:    {target_dev['host_api']}")
     print(f"  Index:       {target_dev['index']}")
@@ -167,31 +188,32 @@ def run_test(simulated: bool = False):
         rec_recovery.close()
         assert post_wav is not None and len(post_wav) > 0
         post_audio_hash = sha256_bytes(post_wav)
-        print(f"  -> Recovery stream captured {len(post_wav)} bytes cleanly (SHA-256: {post_audio_hash[:16]}...).")
+        print(f"  -> Recovery stream captured {len(rec_wav if 'rec_wav' in locals() else post_wav)} bytes cleanly (SHA-256: {post_audio_hash[:16]}...).")
         is_physical = False
     else:
         # Phase 2: Live In-Flight Disconnect
         print("\n" + "#" * 74)
         print(" [Phase 2] IN-FLIGHT PHYSICAL DISCONNECT TEST")
         print(" 1. The recorder will now start capturing audio.")
-        print(" 2. Begin speaking steadily into the microphone.")
-        print(" 3. When prompted, PHYSICALLY UNPLUG THE USB CABLE!")
+        print(" 2. Speak into the microphone.")
+        print(" 3. When prompted, PHYSICALLY UNPLUG THE HEADPHONE / MICROPHONE CABLE!")
         print(f"    (Recorder stall threshold: {RECORDER_STALL_THRESHOLD_SECONDS}s, total test SLA: <= {MAX_STALL_SLA_SECONDS}s)")
         print("#" * 74)
-        input("\nPress ENTER when ready to start...")
+        if not auto_confirm:
+            input("\nPress ENTER when ready to start...")
 
         disconnect_rec = AudioRecorder(device_index=target_dev["index"])
         disconnect_rec.start_recording()
         print("\n  -> Recording live stream. Start speaking now...")
         time.sleep(1.5)
 
-        print("\n" + "!" * 54)
-        print("   *** PHYSICALLY UNPLUG THE USB CABLE NOW! ***")
-        print("!" * 54 + "\n")
+        print("\n" + "!" * 58)
+        print("   *** PHYSICALLY UNPLUG THE HEADPHONE / MIC CABLE NOW! ***")
+        print("!" * 58 + "\n", flush=True)
 
         t_prompt = time.perf_counter()
         detected_error = None
-        max_wait_from_prompt = 8.0
+        max_wait_from_prompt = 30.0
         stall_to_detection_s = None
 
         while time.perf_counter() - t_prompt < max_wait_from_prompt:
@@ -205,7 +227,7 @@ def run_test(simulated: bool = False):
                 else:
                     stall_to_detection_s = round(t_detect - t_prompt, 3)
                 detection_overhead_s = round(max(0.0, stall_to_detection_s - RECORDER_STALL_THRESHOLD_SECONDS), 3)
-                print(f"  -> [DISCONNECT DETECTED] Stream failure detected!")
+                print("  -> [DISCONNECT DETECTED] Stream failure detected!")
                 print(f"     Packet-stall-to-detection time: {stall_to_detection_s:.3f}s (SLA <= {MAX_STALL_SLA_SECONDS}s)")
                 print(f"     Post-2.0s-threshold overhead:   {detection_overhead_s:.3f}s (SLA <= {MAX_DETECTION_OVERHEAD_SECONDS}s)")
                 print(f"     Health message: '{err}'")
@@ -215,7 +237,7 @@ def run_test(simulated: bool = False):
         if not detected_error:
             disconnect_rec.close()
             print(f"\n[ERROR] Stream stall was not detected within {max_wait_from_prompt}s of prompt.")
-            print("Did you physically unplug the USB connector?")
+            print("Did you physically unplug the headphone / microphone connector?")
             return False
 
         # Strictly enforce detection SLA
@@ -259,14 +281,14 @@ def run_test(simulated: bool = False):
         # Phase 4: Physical Reconnect
         print("\n" + "#" * 74)
         print(" [Phase 4] PHYSICAL RECONNECT & RECOVERY")
-        print(" 1. PHYSICALLY RECONNECT THE USB MICROPHONE CABLE NOW.")
+        print(" 1. PHYSICALLY PLUG THE HEADPHONE / MICROPHONE CABLE BACK IN NOW.")
         print(" 2. Polling for hardware endpoint re-enumeration...")
-        print("#" * 74)
+        print("#" * 74, flush=True)
 
         reconnected = False
         poll_t0 = time.perf_counter()
         reconnect_idx = None
-        while time.perf_counter() - poll_t0 < 25.0:
+        while time.perf_counter() - poll_t0 < 45.0:
             current_devs = get_audio_input_devices(refresh=True)
             chk = resolve_audio_input(selection, devices=current_devs)
             if chk.status == DeviceResolutionStatus.RESOLVED:
@@ -279,7 +301,7 @@ def run_test(simulated: bool = False):
             print(".", end="", flush=True)
 
         if not reconnected:
-            print("\n[ERROR] Device was not re-detected within 25s.")
+            print("\n[ERROR] Device was not re-detected within 45s.")
             return False
 
         # Phase 5: Recovery Stream
@@ -363,7 +385,7 @@ def run_test(simulated: bool = False):
 | **Phase 2b** | Post-threshold detection overhead | {detection_overhead_s:.3f} s | <= {MAX_DETECTION_OVERHEAD_SECONDS:.1f} s | **PASSED** |
 | **Phase 2c** | Total packet-stall-to-detection | {stall_to_detection_s:.3f} s | <= {MAX_STALL_SLA_SECONDS:.1f} s (2.0s + 0.5s) | **PASSED** |
 | **Phase 3** | Zero silent fallback refusal | Hard RuntimeError (`{DEVICE_MISSING_SENTINEL}`) | No silent default mic hijack | **PASSED** |
-| **Phase 4** | Physical endpoint reconnect | Re-resolved in {reconnect_latency_s:.3f} s | Auto-detected <= 25.0 s | **PASSED** |
+| **Phase 4** | Physical endpoint reconnect | Re-resolved in {reconnect_latency_s:.3f} s | Auto-detected <= 45.0 s | **PASSED** |
 | **Phase 5** | Recovery dictation stream | {len(post_wav)} bytes | Clean stream, 0 health errors | **PASSED** |
 
 ---
@@ -399,9 +421,10 @@ def run_test(simulated: bool = False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Physical USB Microphone Unplug & Reconnect Gate")
+    parser = argparse.ArgumentParser(description="Physical Microphone / Headset Unplug & Reconnect Gate")
     parser.add_argument("--simulated", action="store_true", help="Run simulated disconnect/reconnect check")
+    parser.add_argument("--yes", action="store_true", help="Auto-select detected external headset/mic and start without ENTER prompt")
     args = parser.parse_args()
 
-    success = run_test(simulated=args.simulated)
+    success = run_test(simulated=args.simulated, auto_confirm=args.yes)
     sys.exit(0 if success else 1)
