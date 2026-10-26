@@ -20,3 +20,7 @@ The hosted Windows CI run for `ad3dce9` passed. After the repairs in this review
 ## Remaining release limits
 
 The new code paths have automated coverage, but the five skipped physical desktop suites must not be counted as passes. Real microphone unplug behavior, broad target app insertion rates, and human speaker accuracy for Hindi, Tamil, and Malayalam remain pilot measurements. An unsigned archive is suitable only as a clearly labeled pilot prerelease. No current evidence supports a claim that FlowPilot is universally faster or more accurate than Wispr Flow.
+
+## Merge commit CI follow-up
+
+Hosted CI run `40268460008` failed the API WebSocket suite. The virtual microphone produced one 0.1 second frame, then the test waited for more audio packets until the production 1.5 second capture watchdog correctly reported a stalled microphone. The test now supplies 0.5 seconds of virtual callback audio, stops after receiving its first level packet, and drains any queued level event before checking the stop state. The production watchdog was not weakened. A direct rerun of the API suite passed. This failure remains part of the release evidence alongside the later replacement hosted run.
