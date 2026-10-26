@@ -1,6 +1,6 @@
 # FlowPilot v3.1.0 RC8, Windows pilot prerelease
 
-RC8 replaces RC7 for pilot testing after hosted CI passes. It keeps offline dictation and local text processing. The optional model setup download is user initiated and uses HTTPS; normal speech recognition uses bundled local weights.
+RC8 replaces RC7 for pilot testing. [Hosted Windows CI](https://github.com/abishekvr0910/flowpilot/actions/runs/40348691736) passed with 50 suites passed, 9 honest hardware or desktop skips, and 0 failures. It keeps offline dictation and local text processing. The optional model setup download is user initiated and uses HTTPS; normal speech recognition uses bundled local weights.
 
 ## Changes
 
