@@ -1,0 +1,127 @@
+"""
+Tests for Local Text Repair (Spec 0004: Feature 30 Sandbox)
+Validates Three-Tier Guard Protocol, Slot-Locker, FactGuard Veto, and Fallbacks.
+"""
+
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from engine.local_text_repair import (
+    SlotLocker,
+    LocalTextRepair,
+    RepairStatus,
+    RepairResult
+)
+
+
+class TestLocalTextRepair(unittest.TestCase):
+
+    def test_slot_locker_numbers_and_currency(self):
+        text = "Please transfer $12,500 to account 589 by 2026-10-26."
+        locked, slots = SlotLocker.lock(text)
+        self.assertNotIn("$12,500", locked)
+        self.assertNotIn("589", locked)
+        self.assertIn("<SLOT_", locked)
+        self.assertGreaterEqual(len(slots), 2)
+
+        # Test exact restoration
+        restored = SlotLocker.restore(locked, slots)
+        self.assertEqual(restored, text)
+
+    def test_slot_locker_critical_negations(self):
+        text = "Do not deploy the patch, we cannot afford downtime and will never recover."
+        locked, slots = SlotLocker.lock(text)
+        self.assertNotIn("not", locked.lower().split())
+        self.assertNotIn("cannot", locked.lower().split())
+        self.assertNotIn("never", locked.lower().split())
+
+        restored = SlotLocker.restore(locked, slots)
+        self.assertEqual(restored, text)
+
+    def test_slot_locker_code_identifiers(self):
+        text = "Invoke getUserProfile and verify connection_string_db."
+        locked, slots = SlotLocker.lock(text)
+        self.assertNotIn("getUserProfile", locked)
+        self.assertNotIn("connection_string_db", locked)
+
+        restored = SlotLocker.restore(locked, slots)
+        self.assertEqual(restored, text)
+
+    def test_disabled_engine_returns_unprovisioned_fallback(self):
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": False})
+        res = repairer.repair("Hello world this is a test")
+        self.assertEqual(res.status, RepairStatus.FALLBACK_UNPROVISIONED)
+        self.assertEqual(res.text, "Hello world this is a test")
+        self.assertTrue(res.fallback_used)
+        self.assertLess(res.latency_ms, 15.0)
+
+    def test_unprovisioned_model_falls_back_safely(self):
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": None})
+        res = repairer.repair("Test transcription without model path")
+        self.assertEqual(res.status, RepairStatus.FALLBACK_UNPROVISIONED)
+        self.assertEqual(res.text, "Test transcription without model path")
+        self.assertTrue(res.fallback_used)
+
+    def test_tier3_factguard_vetoes_dropped_negation(self):
+        """Simulate an SLM that drops a negation: FactGuard must VETO and return raw input."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+
+        raw = "Do not delete the production database."
+
+        # Mock LLM output that stripped the negation slot
+        mock_llm = MagicMock()
+        mock_llm.return_value = {
+            "choices": [{"text": "Do delete the production database."}]
+        }
+        repairer._llm = mock_llm
+
+        res = repairer.repair(raw)
+        self.assertEqual(res.status, RepairStatus.VETOED_FACT_MISMATCH)
+        self.assertEqual(res.text, raw) # Must fall back to raw input containing 'not'
+        self.assertTrue(res.fallback_used)
+        self.assertIn("FactGuard veto", res.veto_reason)
+
+    def test_tier3_factguard_approves_safe_cleaned_text(self):
+        """Simulate an SLM that cleans punctuation while preserving slots."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+
+        raw = "we should like deploy <SLOT_0> to cluster <SLOT_1>"
+
+        # Mock LLM that cleans up and keeps slots
+        mock_llm = MagicMock()
+        mock_llm.return_value = {
+            "choices": [{"text": "We should deploy <SLOT_0> to cluster <SLOT_1>."}]
+        }
+        repairer._llm = mock_llm
+
+        res = repairer.repair("we should like deploy not to cluster 42")
+        self.assertEqual(res.status, RepairStatus.REPAIRED)
+        self.assertFalse(res.fallback_used)
+        self.assertIn("not", res.text)
+        self.assertIn("42", res.text)
+
+    def test_timeout_falls_back_to_raw_transcript(self):
+        """Simulate inference exceeding the 400ms deadline."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        repairer.MAX_LATENCY_MS = 10.0 # Strict 10ms deadline for test
+
+        def slow_llm(*args, **kwargs):
+            import time
+            time.sleep(0.025) # 25ms > 10ms
+            return {"choices": [{"text": "Slow response"}]}
+
+        repairer._llm = slow_llm
+        res = repairer.repair("Test timeout handling in local repair engine")
+        self.assertEqual(res.status, RepairStatus.FALLBACK_TIMEOUT)
+        self.assertEqual(res.text, "Test timeout handling in local repair engine")
+        self.assertTrue(res.fallback_used)
+
+
+if __name__ == "__main__":
+    unittest.main()
