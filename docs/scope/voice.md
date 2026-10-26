@@ -53,7 +53,7 @@ Keep the chosen physical input stable when Windows device enumeration changes. S
 - [x] Guard missing devices against silent fallback: `engine/audio_recorder.py` and `engine/orchestrator.py`
 - [x] Expose host API and disconnected indicators in UI: `ui/settings_dialog.py` and `ui/setup_wizard.py`
 - [x] Regression tests: `tests/test_audio_devices.py` (20 tests passed on 24 October 2026)
-- [x] Confirm disconnect, reconnect, default changes, and index renumbering on physical hardware with the exact candidate.
+- [ ] Physical unplug and reconnect confirmation with a live USB device (candidate hardware behavior verified via `scripts/verify_audio_device_gate.py`).
 
 Code in `engine/audio_devices.py`, `engine/audio_recorder.py`, `engine/orchestrator.py`, `engine/config.py`, `ui/settings_dialog.py`, `ui/setup_wizard.py`, and `ui/scratchpad_view.py`.
 
