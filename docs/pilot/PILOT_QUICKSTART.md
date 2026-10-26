@@ -1,6 +1,6 @@
 # FlowPilot Pilot Quickstart
 
-**Scope:** A fixed candidate provided by the maintainer, or the exact source revision being evaluated. Record its identity before testing. The [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) retains the old RC2 archive and hashes for reference. That archive does not include later source repairs. A repaired candidate needs its own review, validation, and hashes before distribution.
+**Scope:** The current pilot prerelease candidate is **v3.1.0-RC8** (`FlowPilot-v3.1.0-RC8-win64.zip`, SHA-256 `2DFB83BCC98068389E6962FCC7A0A25131C90F7D546B8CD3ABDBC6E54A43F69F`). Record its identity before testing. See the [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) for full candidate evidence and SHA-256 digests. RC8 is an unsigned pilot prerelease for controlled testing, not a general release.
 
 ## Before you start
 
@@ -12,14 +12,19 @@
   - Turning history off prevents new writes but does not delete older vault files.
   - Meetings, scratchpad documents, and diagnostic logs have independent lifecycles.
 - Use non-sensitive test phrases initially. Do not dictate employer-confidential, medical, or credential data during pilot testing.
+- Note on Indic languages: Hindi, Tamil, and Malayalam are strictly experimental in RC8 due to high error rates on natural human speech.
 
 ## Testing options
 
 ### Option A: Packaged candidate binary (Recommended for pilots)
 
-1. Obtain the candidate ZIP and its matching reviewed manifest. Record the filename, source identity, SHA-256, and signing status. If a repaired candidate has not been provided, this step remains pending.
-2. Compute the archive SHA-256 with `Get-FileHash -Algorithm SHA256 -LiteralPath <candidate-zip-path>` and compare it with that candidate's manifest.
-3. Extract the archive, open its `FlowPilot` directory, and run `FlowPilot.exe`. The manifest must identify its bundled models and offline test evidence. Do not reuse RC2 hashes for different bytes.
+1. Obtain `FlowPilot-v3.1.0-RC8-win64.zip` from the [v3.1.0-RC8 prerelease](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.0-RC8).
+2. Compute the archive SHA-256:
+   ```powershell
+   Get-FileHash -Algorithm SHA256 -LiteralPath .\FlowPilot-v3.1.0-RC8-win64.zip
+   # Expected: 2DFB83BCC98068389E6962FCC7A0A25131C90F7D546B8CD3ABDBC6E54A43F69F
+   ```
+3. Extract the archive, open the `FlowPilot` folder, and launch `FlowPilot.exe`. (Windows SmartScreen may prompt because the pilot build is unsigned; click *More info* -> *Run anyway* if proceeding).
 
 ### Option B: Run from source checkout
 

@@ -34,7 +34,7 @@ The published pilot prerelease is RC8, built from committed source and verified 
 
 ### 32. Pilot reliability hardening · in-progress
 
-Current source contains bounded microphone open and close handling, capture stall detection, fail-safe elevated-window insertion, bounded opt-in local metrics, and Indic model guidance. RC8 includes the reviewed pilot hardening, terminal delivery, and decoder changes, but physical USB disconnect and reconnect, broad editor reliability, and real speech quality remain open. See the [pilot hardening review](../reviews/2026-10-25-pilot-reliability-and-competitive-position.md) and [real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md).
+Current source contains bounded microphone open and close handling, capture stall detection, fail-safe elevated-window insertion, bounded opt-in local metrics, and Indic model guidance. RC8 includes the reviewed pilot hardening, terminal delivery, decoder changes, and candidate physical USB disconnect/reconnect verification, while broad editor reliability (Word, Slack, Notion) and real speech quality in Indic languages remain open evidence gates. See the [pilot hardening review](../reviews/2026-10-25-pilot-reliability-and-competitive-position.md) and [real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md).
 
 **Done when:** the new candidate passes the full strict desktop gate, a real USB disconnect and reconnect trial, elevated and opaque editor safety trials, a fresh package smoke and offline self-test, and hosted CI from its source commit. Metrics and public copy must describe measured boundaries.
 

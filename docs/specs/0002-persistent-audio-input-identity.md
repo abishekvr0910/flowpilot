@@ -1,7 +1,7 @@
 # 0002. Persistent Audio Input Identity and Resolution
 
 **Date:** 2026-10-24
-**Status:** In Progress (P1)
+**Status:** Candidate Hardware Verified (P1)
 **Audience:** FlowPilot maintainers, Codex, Gemini
 **Baseline:** commit `6555e3dc9cd507b5fbc31d71f3d0be95d1c4078a` (v3.1.0-RC3)
 **Scope Item:** Feature 28 (Voice & Audio Capture: Persistent Microphone Selection)
