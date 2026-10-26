@@ -42,7 +42,7 @@ Prevent unsupported external replacements and revert attempts from dispatching i
 
 Plan and evidence: [remediation and release gate review](../reviews/2026-10-24-remediation-and-release-gate.md). Code in `engine/transforms_engine.py`, `ui/transforms_view.py`, and `tests/test_honest_transforms.py`.
 
-### 28. Persistent microphone selection · done
+### 28. Persistent microphone selection · in-progress (3.5mm hot-plug verified; USB bus pending)
 
 Keep the chosen physical input stable when Windows device enumeration changes. Settings currently persists a persistent endpoint contract (`name`, `host_api`, `max_channels`), and dynamic runtime resolution disambiguates host APIs (WASAPI, DirectSound, MME). Disconnected devices resolve to an explicit sentinel (`DEVICE_MISSING_SENTINEL = -9999`) preventing silent fallback to internal default mics, and `refresh_audio_devices()` re-enumerates PortAudio endpoints on hot-plug.
 
@@ -53,7 +53,8 @@ Keep the chosen physical input stable when Windows device enumeration changes. S
 - [x] Guard missing devices against silent fallback: `engine/audio_recorder.py` and `engine/orchestrator.py`
 - [x] Expose host API and disconnected indicators in UI: `ui/settings_dialog.py` and `ui/setup_wizard.py`
 - [x] Regression tests: `tests/test_audio_devices.py` (24 tests passed on 27 October 2026)
-- [x] Physical unplug and reconnect confirmation with a live audio device: verified via `scripts/interactive_physical_mic_test.py` (`Verification Mode: PHYSICAL`, [receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md), SHA-256 integrity digest `F7F73918189FEB374AB1CFA05CFF1B5124E6AD26843370B493D724425B1998F1`) alongside `scripts/verify_audio_device_gate.py`.
+- [x] Physical 3.5mm analog jack-sense WASAPI hot-plug unplug and reconnect confirmation: verified via `scripts/interactive_physical_mic_test.py` (`Verification Mode: PHYSICAL`, `analog_jack_hd_audio_endpoint`, `is_usb_bus_device=false`, [receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md), SHA-256 integrity digest `080F72FBF841FD6CF75513854B6DADDA295AC12986A08933B90F3E493A899890`) alongside `scripts/verify_audio_device_gate.py`.
+- [ ] Physical USB bus audio device (`USB\VID_...`) unplug and reconnect confirmation on external USB microphone hardware.
 
 Code in `engine/audio_devices.py`, `engine/audio_recorder.py`, `engine/orchestrator.py`, `engine/config.py`, `ui/settings_dialog.py`, `ui/setup_wizard.py`, and `ui/scratchpad_view.py`.
 
