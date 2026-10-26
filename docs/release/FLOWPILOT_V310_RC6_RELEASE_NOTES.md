@@ -8,7 +8,7 @@ RC6 is for Windows pilot testing. Speech recognition and text processing run loc
 - Direct Unicode fallback now uses the correct 64 bit Windows input layout and supports characters outside the basic multilingual plane. Multiline fallback into a terminal refuses to type Enter automatically.
 - Model downloads use unique temporary files and atomic replacement. Closing Setup or Settings cancels the download without destroying its running thread.
 - Requested Authenticode signing fails the package step if the certificate is invalid or signature verification fails.
-- Public source documentation no longer includes reports derived from a local competitor user database.
+- Public source documentation no longer includes reports derived from a local competitor user database or the generated audit pages with stale measurements.
 
 ## Verification and limits
 
