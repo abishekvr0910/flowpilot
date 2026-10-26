@@ -2,9 +2,29 @@
 
 Updated 2026-10-26. A locally verified candidate is not a published general release.
 
+## Pilot release candidate: v3.1.0-RC7, Windows x64
+
+The application binary was built from committed source at `c47bfb6`. The later test-only commit `85baccd` declares a virtual microphone in the pre-roll test, so hosted CI does not depend on physical audio hardware. RC7 removes the recorder's CI-only synthetic audio fallback: a failed stream now raises, and an empty capture returns no WAV. The unsigned archive is a pilot candidate pending hosted CI and release promotion. The earlier RC6 package is superseded and must not be distributed.
+
+| Item | Measured value |
+|---|---|
+| Archive | `dist/FlowPilot-v3.1.0-RC7-win64.zip` |
+| Archive size | 770,715,805 bytes |
+| Archive SHA-256 | `005B15F0777266EB0F8BA242F637D3827555279EF22063FA15AC24624B9DCABF` |
+| Embedded executable | `FlowPilot.exe`, 24,923,496 bytes |
+| Embedded executable SHA-256 | `92A0F62B509DC49CB1DD6D4C7CFCCD3FE2A9DEF13D01A08A41025674F568BA7B` |
+| Archive integrity | 1,297 members, CRC passed; embedded executable hash matches the smoke tested file |
+| License notices | 93 files under `licenses/` |
+| Authenticode | `NotSigned`, pilot only |
+| Local automated audit | 54 passed, 5 honest physical desktop skips, 0 failed across 59 suites in 133.23 s with CI environment flags |
+| Packaged smoke | Named mutex, duplicate instance handling, bundled model and Silero assets, and clean termination passed on the RC7 executable |
+| Offline packaged self test | Bundled base model transcribed the SAPI fixture; exit 0 with an empty isolated Hugging Face cache and offline flags |
+
+The five skipped local suites were not counted as passes. The package test does not establish real speaker accuracy or broad paste reliability. Hosted CI must pass on the final source before pilot publication.
+
 ## Pilot release candidate: v3.1.0-RC6, Windows x64
 
-Application code was built from `74c00e5`; packaging used the same code and the release neutral README committed at `c77bae7`. The later manifest commit changes documentation only. This is a pilot prerelease candidate, not a general release. The executable is unsigned.
+**Superseded. Do not distribute this package.** Application code was built from `74c00e5`; packaging used the same code and the release neutral README committed at `c77bae7`. Hosted CI on the RC6 merge commit [failed](https://github.com/abishekvr0910/flowpilot/actions/runs/40268460008) in the API test. Further review found a CI-only synthetic audio fallback. RC7 contains the corrections. The executable is unsigned.
 
 | Item | Measured value |
 |---|---|
