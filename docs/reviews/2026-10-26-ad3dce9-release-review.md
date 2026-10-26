@@ -15,6 +15,7 @@ The hosted Windows CI run for `ad3dce9` passed. After the repairs in this review
 | Medium | The model downloader deleted an existing model file before renaming the new file. A rename failure could leave neither file available. | Download to a unique temporary file and use one atomic replacement. A regression test proves an existing file survives replacement failure. |
 | Medium | The downloader's `QThread` was owned by a settings or setup widget that could close during an HTTPS read, risking destruction of a running thread. | Keep active workers independent of dialog lifetime, cancel them on close, keep a process level reference until they finish, and report worker exceptions to the UI. A focused Qt test closes the parent while a worker completes. |
 | Documentation | Two public reports used aggregate data from a local Wispr user database and stated unverified competitor internals as certain facts. | Preserve local copies under ignored `private/review/` and remove those reports from the current public source tree. Their prior Git commits remain reachable in repository history; this change does not erase that history. |
+| Documentation | Nine generated audit pages mixed useful code maps with stale suite counts, unsupported latency measurements, and absolute reliability claims. | Preserve private copies and replace the public folder with a short evidence map that names the open gates. |
 
 ## Remaining release limits
 
