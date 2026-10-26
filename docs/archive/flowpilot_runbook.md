@@ -4,7 +4,7 @@
 
 **Version:** 2.0.0-verified  
 **Author:** FlowPilot Engineering  
-**Working Directory:** `S:\APPs\New folder`
+**Working Directory:** `<workspace-root>`
 
 ---
 
@@ -19,7 +19,7 @@ FlowPilot runs as a native Windows desktop application with a floating microphon
 
 2. **Option B (PowerShell / Command Prompt):**
    ```powershell
-   cd "S:\APPs\New folder"
+   cd "<workspace-root>"
    python desktop_app.py
    ```
 
@@ -86,7 +86,7 @@ With FlowPilot running anywhere in the background:
 If you want to verify that every hardware and software component is operating properly:
 
 ```powershell
-cd "S:\APPs\New folder"
+cd "<workspace-root>"
 python tests/run_all_tests.py
 ```
 
