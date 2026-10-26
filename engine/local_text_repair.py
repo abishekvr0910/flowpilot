@@ -10,9 +10,11 @@ STRICT INVARIANTS:
 4. 100% offline, zero cloud egress.
 """
 
+import os
 import re
 import time
 import logging
+import concurrent.futures
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List, Tuple
@@ -119,7 +121,23 @@ class LocalTextRepair:
         self.enabled: bool = bool(self.config.get("local_text_repair_enabled", False))
         self.model_path: Optional[str] = self.config.get("local_text_repair_model_path")
         self._llm = None
+        self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         self._init_failed: bool = False
+
+    def _get_executor(self) -> concurrent.futures.ThreadPoolExecutor:
+        """Get or lazily create bounded worker pool for SLM inference."""
+        if self._executor is None:
+            self._executor = concurrent.futures.ThreadPoolExecutor(
+                max_workers=1,
+                thread_name_prefix="FlowPilot.LocalTextRepair"
+            )
+        return self._executor
+
+    def shutdown(self, wait: bool = False):
+        """Cleanly terminate worker threads if initialized."""
+        if self._executor is not None:
+            self._executor.shutdown(wait=wait)
+            self._executor = None
 
     def _lazy_init_llm(self) -> bool:
         """Lazy loader for local GGUF engine via llama-cpp-python."""
@@ -147,7 +165,7 @@ class LocalTextRepair:
         """
         Executes the Three-Tier Guard Protocol on the input transcript:
         Tier 1: Slot-lock numbers, dates, negations, identifiers.
-        Tier 2: Bounded infilling via local SLM.
+        Tier 2: Bounded infilling via local SLM with hard async deadline enforcement.
         Tier 3: Slot restoration & FactGuard verification.
 
         Guarantees <= 5 ms fallback to raw_transcript on any error, timeout, or veto.
@@ -183,10 +201,11 @@ class LocalTextRepair:
         if not self._lazy_init_llm():
             return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_UNPROVISIONED, t_start)
 
-        # Tier 2: Bounded Local SLM Infilling
+        # Tier 2: Bounded Local SLM Infilling with Strict Timeout Enforcement
         try:
-            # Check elapsed time before calling LLM
-            if (time.perf_counter() - t_start) * 1000.0 > self.MAX_LATENCY_MS:
+            time_spent_ms = (time.perf_counter() - t_start) * 1000.0
+            remaining_ms = self.MAX_LATENCY_MS - time_spent_ms
+            if remaining_ms <= 5.0:
                 return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_TIMEOUT, t_start)
 
             system_prompt = (
@@ -196,14 +215,20 @@ class LocalTextRepair:
             )
             prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{locked_text}<|im_end|>\n<|im_start|>assistant\n"
 
-            res = self._llm(
+            executor = self._get_executor()
+            future = executor.submit(
+                self._llm,
                 prompt,
                 max_tokens=self.MAX_TOKENS,
                 stop=["<|im_end|>", "\n\n"],
                 temperature=0.1
             )
+            res = future.result(timeout=remaining_ms / 1000.0)
             raw_generated = res["choices"][0]["text"].strip()
 
+        except concurrent.futures.TimeoutError:
+            logger.warning("Tier 2 SLM inference exceeded latency budget (%.1f ms); returning safe fallback", self.MAX_LATENCY_MS)
+            return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_TIMEOUT, t_start)
         except Exception as e:
             logger.warning("Tier 2 SLM inference failed: %s", e)
             return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_ERROR, t_start)
