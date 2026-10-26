@@ -15,7 +15,7 @@ from engine.audio_feedback import AudioFeedback
 from engine.hotkey_service import get_hotkey_service, Win32HotkeyService, dictation_hotkey_conflict, parse_hotkey_string
 from engine.personalization import PersonalizationEngine, get_shared_personalization
 from engine.session import DictationSession, SessionState
-from engine.audio_devices import resolve_audio_input, build_device_selection, migrate_legacy_audio_config
+from engine.audio_devices import resolve_audio_input, build_device_selection, migrate_legacy_audio_config, refresh_audio_devices
 from engine.pilot_telemetry import append_local_event
 
 logger = logging.getLogger("FlowPilot.Orchestrator")
@@ -229,6 +229,9 @@ class FlowOrchestrator:
         def start_worker(active_session: DictationSession):
             try:
                 # Enumeration can change since startup or the last settings save.
+                if not self.recorder.has_healthy_hot_stream():
+                    self.recorder.close()
+                    refresh_audio_devices()
                 resolution = resolve_audio_input(self._device_selection)
                 previous = self._last_device_resolution
                 if resolution.device_index != self.recorder.device:

@@ -99,6 +99,16 @@ class AudioRecorder:
             return "Microphone stopped delivering audio. Reconnect it and retry."
         return None
 
+    def has_healthy_hot_stream(self) -> bool:
+        """Return True only if an open pre-roll stream is active and not stalled."""
+        if not self.stream or not getattr(self.stream, "active", False):
+            return False
+        if self._stream_cleanup_failed or self._capture_error:
+            return False
+        if self._last_callback_at > 0 and (time.monotonic() - self._last_callback_at) > self.CAPTURE_STALL_SECONDS:
+            return False
+        return True
+
     def _release_stream_bounded(self, stream) -> bool:
         """Keep an unresponsive PortAudio driver off the Qt and dictation threads."""
         finished = threading.Event()
@@ -214,8 +224,8 @@ class AudioRecorder:
             self._capture_error = None
             self._recording_started_at = time.monotonic()
 
-            # 1. If stream is already hot and running, start recording immediately with pre-roll!
-            if self.stream and getattr(self.stream, "active", False):
+            # 1. If stream is already hot and running (and not stalled by an idle unplug), start immediately!
+            if self.has_healthy_hot_stream():
                 if self.enable_preroll and self._preroll_buffer:
                     self.audio_frames = list(self._preroll_buffer)
                     self._preroll_buffer.clear()
@@ -383,6 +393,8 @@ class AudioRecorder:
             self.is_recording = False
             self._device_change_pending = False
             self._pending_device = None
+            self._last_callback_at = 0.0
+            self._capture_error = None
             if self.stream:
                 old_stream = self.stream
                 self.stream = None
