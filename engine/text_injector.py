@@ -748,6 +748,13 @@ class TextInjector:
         if not HAS_WIN32 or sys.platform != "win32":
             return False
 
+        # Enter submits commands in terminals. A multiline transcript must never
+        # execute a command as a side effect of the clipboard fallback.
+        target_proc = cls._get_target_process_name(target_hwnd)
+        if target_proc in cls.TERMINAL_APP_PROCESSES and ("\n" in text or "\r" in text):
+            cls.last_injected_text = text
+            return False
+
         if target_hwnd and win32gui.IsWindow(target_hwnd):
             cls._safe_set_foreground(target_hwnd)
             time.sleep(0.06)
@@ -776,12 +783,25 @@ class TextInjector:
                     ('wScan', wintypes.WORD),
                     ('dwFlags', wintypes.DWORD),
                     ('time', wintypes.DWORD),
-                    ('dwExtraInfo', ctypes.c_ulong)
+                    ('dwExtraInfo', ctypes.c_size_t)
+                ]
+
+            class MOUSEINPUT(ctypes.Structure):
+                _fields_ = [
+                    ('dx', wintypes.LONG), ('dy', wintypes.LONG),
+                    ('mouseData', wintypes.DWORD), ('dwFlags', wintypes.DWORD),
+                    ('time', wintypes.DWORD), ('dwExtraInfo', ctypes.c_size_t),
+                ]
+
+            class HARDWAREINPUT(ctypes.Structure):
+                _fields_ = [
+                    ('uMsg', wintypes.DWORD), ('wParamL', wintypes.WORD),
+                    ('wParamH', wintypes.WORD),
                 ]
 
             class INPUT(ctypes.Structure):
                 class _INPUT(ctypes.Union):
-                    _fields_ = [('ki', KEYBDINPUT)]
+                    _fields_ = [('mi', MOUSEINPUT), ('ki', KEYBDINPUT), ('hi', HARDWAREINPUT)]
                 _anonymous_ = ('_input',)
                 _fields_ = [('type', wintypes.DWORD), ('_input', _INPUT)]
 
@@ -801,14 +821,19 @@ class TextInjector:
                     inp_up.ki.dwFlags = KEYEVENTF_KEYUP
                     inputs.extend([inp_down, inp_up])
                 else:
-                    code = ord(ch)
-                    inp_down = INPUT(type=1)
-                    inp_down.ki.wScan = code
-                    inp_down.ki.dwFlags = KEYEVENTF_UNICODE
-                    inp_up = INPUT(type=1)
-                    inp_up.ki.wScan = code
-                    inp_up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
-                    inputs.extend([inp_down, inp_up])
+                    # KEYBDINPUT.wScan is a UTF-16 code unit. Astral Unicode
+                    # characters need a surrogate pair, not a truncated code point.
+                    encoded = ch.encode("utf-16-le")
+                    code_units = [int.from_bytes(encoded[i:i + 2], "little")
+                                  for i in range(0, len(encoded), 2)]
+                    for code in code_units:
+                        inp_down = INPUT(type=1)
+                        inp_down.ki.wScan = code
+                        inp_down.ki.dwFlags = KEYEVENTF_UNICODE
+                        inp_up = INPUT(type=1)
+                        inp_up.ki.wScan = code
+                        inp_up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+                        inputs.extend([inp_down, inp_up])
 
             if not inputs:
                 return True
