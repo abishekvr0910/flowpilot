@@ -97,15 +97,24 @@ Let a user explicitly teach a recurring correction and review its language and a
 
 Current foundations: `engine/personalization.py`, `engine/preference_learning.py`, `engine/context_processor.py`, `ui/dictionary_view.py`, and `ui/companion_studio.py`. This enhancement follows the core device, delivery, and real speech evaluation work. See section 16.5 of the complete Gemini handoff for the existing versus proposed boundary.
 
-### 30. Optional local writing context · planned · needs a decision · GA
+### 30. Optional local text repair and infilling · in-progress (sandbox) · needs a decision · GA
 
-Evaluate whether narrowly scoped, explicitly enabled field context improves capitalization, terminology, or writing quality. App category profiles already exist; focused field context is a separate capability and privacy boundary.
+Evaluate whether an isolated, quantized small language model (e.g. Qwen2.5-0.5B-Instruct in 4-bit GGUF via llama-cpp-python or onnxruntime-genai) can perform bounded sentence repair, punctuation restoration, disfluency removal, and backtracking cleanup on already-transcribed text without cloud egress.
 
-**Done when:** a declared supported field supplies only bounded necessary context, secure or unsupported fields refuse, acquisition respects a total 500 ms budget without blocking the UI, nothing is persisted or sent outside the machine, and a held out comparison shows enough benefit to justify the added access. On failure, ordinary dictation continues without context.
+**Strict boundary:** This is a text-generation infilling transform, **not** an acoustic speech recognizer (ASR). It cannot fix raw phonetic or acoustic errors in Indic languages (Hindi, Tamil, Malayalam) or English accents; acoustic accuracy is evaluated separately under Feature 15. The primary runtime baseline is CPU (AVX2/AVX-512); DirectML is exploratory and experimental.
 
-- [ ] Design it (spec): `/architect optional local writing context`
+**Done when:**
+- Operates strictly within branch feature/local-slm-repair-sandbox without blocking the RC8 pilot intake.
+- Enforces a Three-Tier Guard Protocol: Tier 1 slot-locks numbers, dates, negations, and identifiers; Tier 2 performs bounded infilling; Tier 3 executes FactGuard verification. Any altered or missing entity immediately vetoes the repair.
+- Execution deadline is <= 400 ms; failures, timeouts, or FactGuard vetoes immediately fall back to raw Whisper output within <= 5 ms.
+- P50 latency <= 300 ms on CPU for 30-word utterances.
+- Zero entity hallucinations or mutations across the 150-case adversarial corpus.
 
-This follows the core pilot and a measured context related error category. No general screenshot collection, workspace scanning, or passive clipboard monitoring is included. It is not a prerequisite for the initial offline developer comparison.
+- [x] Design it (spec): [spec 0004](../specs/0004-local-text-repair-sandbox.md)
+- [ ] Implement bounded prototype in sandbox: feature/local-slm-repair-sandbox
+- [ ] Benchmark CPU latency, memory delta, and FactGuard veto rate: /test local text repair sandbox
+
+This follows the core pilot intake and runs in branch isolation. No general screenshot collection, workspace scanning, or cloud egress is permitted. Raw Whisper dictation remains the primary path.
 
 ### 22. Safe editing beyond the scratchpad · planned · needs a decision
 
