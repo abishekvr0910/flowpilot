@@ -35,7 +35,7 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 - All shared personalization state flows through `get_shared_personalization`; do not add new singletons silently.
 - Transform delivery methods return `InjectionResult` and refuse external Replace and Revert without dispatch. Do not add a typing fallback or accept a transaction merely because its `target_type` says verified.
 - Orchestrator timing ends at the injection result. Keep visible-delivery latency unmeasured until a target document observer records actual text appearance; never graph dispatch completion as visible delivery.
-- A saved missing or ambiguous microphone resolves to `DEVICE_MISSING_SENTINEL = -9999`. Only a verified explicit system default may use `device=None`; normal sessions must not enter synthetic capture after a hardware failure.
+- A saved missing or ambiguous microphone resolves to `DEVICE_MISSING_SENTINEL = -9999`. Only a verified explicit system default may use `device=None`; capture failures must never create synthetic frames or return a fabricated WAV, including in CI.
 
 ## Gotchas
 

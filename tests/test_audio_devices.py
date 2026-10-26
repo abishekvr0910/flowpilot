@@ -196,7 +196,7 @@ class TestAudioRecorderDeviceLifecycle(unittest.TestCase):
         import numpy as np
         recorder = AudioRecorder(sample_rate=16000, device=1)
         recorder.is_recording = True
-        recorder.is_synthetic_mode = True  # This fixture has frames but no hardware stream.
+        recorder.stream = MagicMock(active=True)
         recorder.audio_frames = [np.zeros((8000, 1), dtype=np.float32)]
 
         # Request device change while recording with defer_if_recording=True
@@ -240,6 +240,27 @@ class TestAudioRecorderDeviceLifecycle(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 recorder.start_recording()
             mock_stream.assert_not_called()
+
+    def test_ci_without_captured_frames_returns_no_audio(self):
+        recorder = AudioRecorder(sample_rate=16000, device=1)
+        stream = MagicMock(active=True)
+        with patch.dict(os.environ, {"CI": "1", "GITHUB_ACTIONS": "1"}), \
+             patch.object(recorder, "_open_stream_bounded", return_value=stream):
+            recorder.start_recording()
+            self.assertIsNone(recorder.stop_recording(keep_stream_alive=False))
+            self.assertIsNone(recorder.last_audio_array)
+        recorder.close()
+
+    def test_ci_stream_failure_does_not_fabricate_audio(self):
+        recorder = AudioRecorder(sample_rate=16000, device=1)
+        with patch.dict(os.environ, {"CI": "1", "GITHUB_ACTIONS": "1", "FLOWPILOT_HEADLESS": "1"}), \
+             patch.object(recorder, "_open_stream_bounded", side_effect=RuntimeError("device unavailable")), \
+             patch("engine.audio_recorder.sd.query_devices", side_effect=RuntimeError("device unavailable")):
+            with self.assertRaisesRegex(RuntimeError, "device unavailable"):
+                recorder.start_recording()
+            self.assertFalse(recorder.is_recording)
+            self.assertIsNone(recorder.stream)
+        recorder.close()
 
 
 class TestAudioInputSafetyIntegration(unittest.TestCase):
@@ -366,13 +387,10 @@ class TestAudioInputSafetyIntegration(unittest.TestCase):
         self.addCleanup(recorder.close)
         with patch.dict(os.environ, {"FLOWPILOT_HEADLESS": "", "CI": "", "GITHUB_ACTIONS": ""}), \
              patch.object(audio_recorder.sd, "InputStream", side_effect=RuntimeError("device unavailable")), \
-             patch.object(audio_recorder.sd, "query_devices", side_effect=RuntimeError("device unavailable")), \
-             patch.object(recorder, "_synthetic_audio_loop") as synthetic_loop:
+             patch.object(audio_recorder.sd, "query_devices", side_effect=RuntimeError("device unavailable")):
             with self.assertRaisesRegex(RuntimeError, "device unavailable"):
                 recorder.start_recording()
             self.assertFalse(recorder.is_recording)
-            self.assertFalse(recorder.is_synthetic_mode)
-            synthetic_loop.assert_not_called()
 
     def test_reselecting_active_microphone_cancels_queued_switch(self):
         import json

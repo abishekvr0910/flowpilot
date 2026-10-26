@@ -1,6 +1,8 @@
 # FlowPilot v3.1.0 RC6, Windows pilot prerelease
 
-RC6 is for Windows pilot testing. Speech recognition and text processing run locally. The archive includes base and small Whisper models. A model can also be downloaded on demand only after the user requests it in Setup or Settings.
+**Superseded by RC7. Do not distribute this candidate.** Hosted CI failed on the RC6 merge commit, and later review found a CI-only synthetic audio fallback. See [RC7 release notes](FLOWPILOT_V310_RC7_RELEASE_NOTES.md).
+
+RC6 was prepared for Windows pilot testing. Speech recognition and text processing run locally. The archive includes base and small Whisper models. A model can also be downloaded on demand only after the user requests it in Setup or Settings.
 
 ## Changes from RC4
 

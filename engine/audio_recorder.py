@@ -1,5 +1,4 @@
 """Feature 28: Buffered capture with safe deferred microphone changes."""
-import os
 import logging
 import io
 import time
@@ -48,7 +47,6 @@ class AudioRecorder:
         self._preroll_buffer: collections.deque = collections.deque()
         self._pending_device: Optional[int] = None
         self._device_change_pending: bool = False
-        self.is_synthetic_mode: bool = False
         self._capture_error: Optional[str] = None
         self._last_callback_at: float = 0.0
         self._recording_started_at: float = 0.0
@@ -90,7 +88,7 @@ class AudioRecorder:
         """Read callback health without taking the recorder lock or calling the driver."""
         if self._stream_cleanup_failed:
             return "Microphone driver did not release its stream. Restart FlowPilot before recording again."
-        if not self.is_recording or self.is_synthetic_mode:
+        if not self.is_recording:
             return None
         if self._capture_error:
             return self._capture_error
@@ -202,19 +200,6 @@ class AudioRecorder:
         with self._lock:
             self._warmup_stream_locked()
 
-    def _synthetic_audio_loop(self):
-        """Simulates periodic audio frames and RMS levels when physical hardware is absent."""
-        chunk_samples = int(self.sample_rate * 0.05)
-        fake_chunk = np.zeros((chunk_samples, self.channels), dtype=np.float32)
-        while self.is_recording and self.stream is None:
-            self.audio_frames.append(fake_chunk)
-            if self.level_callback:
-                try:
-                    self.level_callback(0.05)
-                except Exception:
-                    pass
-            time.sleep(0.05)
-
     def start_recording(self):
         with self._lock:
             if self.is_recording:
@@ -228,7 +213,6 @@ class AudioRecorder:
                 raise RuntimeError(self.capture_health_error())
             self._capture_error = None
             self._recording_started_at = time.monotonic()
-            self.is_synthetic_mode = False
 
             # 1. If stream is already hot and running, start recording immediately with pre-roll!
             if self.stream and getattr(self.stream, "active", False):
@@ -238,7 +222,6 @@ class AudioRecorder:
                 else:
                     self.audio_frames = []
                 self.last_audio_array = None
-                self.is_synthetic_mode = False
                 self.is_recording = True
                 print(f"[Audio] Recording started with hot stream (pre-roll: {len(self.audio_frames)} chunks)...")
                 return
@@ -297,16 +280,6 @@ class AudioRecorder:
                     if failed_stream and not self._release_stream_bounded(failed_stream):
                         self.is_recording = False
                         raise RuntimeError(self.capture_health_error()) from e
-                    is_explicit_bad_device = (self.device is not None and self.device > 1000)
-                    is_headless_test = (os.environ.get("FLOWPILOT_HEADLESS") == "1"
-                                        or bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")))
-                    if not is_explicit_bad_device and is_headless_test:
-                        print(f"[Audio Headless Mode] Physical microphone unavailable in headless environment ({e}). Operating in synthetic audio mode.")
-                        self.is_recording = True
-                        self.is_synthetic_mode = True
-                        self.stream = None
-                        threading.Thread(target=self._synthetic_audio_loop, daemon=True).start()
-                        return
                     self.is_recording = False
                     print(f"[Audio Error] Failed to start stream: {e}")
                     raise e
@@ -330,13 +303,6 @@ class AudioRecorder:
                     raise RuntimeError(health_error)
 
                 if not self.audio_frames:
-                    # If running headless without physical audio capture, generate 0.5s synthetic PCM fixture
-                    is_ci = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
-                    if is_ci:
-                        silence = np.zeros(int(self.sample_rate * 0.5), dtype=np.float32)
-                        buf = io.BytesIO()
-                        sf.write(buf, silence, self.sample_rate, format="WAV", subtype="PCM_16")
-                        return buf.getvalue()
                     print("[Audio] No audio frames captured.")
                     self.last_audio_array = None
                     return None
