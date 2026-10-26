@@ -4,7 +4,7 @@
 **Version**: 3.1.0 (Pilot / Prerelease Pipeline)  
 **Target Environment**: Windows 10/11 64-bit (Native pywin32, WASAPI/MME, CTranslate2 int8 CPU)  
 **Date**: 2026-10-25  
-**Core Invariant**: Zero Cloud Egress — Dictation, VAD, ASR, formatting, and history never leave `127.0.0.1`.
+**Core Invariant**: Dictation, VAD, ASR, formatting, and history run locally without cloud requests. A user initiated model download is a separate HTTPS setup action.
 
 ---
 
@@ -80,7 +80,7 @@
 ### 2.3 Local Speech-to-Text (`engine.stt_engine.STTEngine`)
 - **Backend**: CTranslate2 int8 execution on CPU with multi-threading (default: 8 threads).
 - **Bundled Models**: Faster-Whisper `base` (74M parameters) and `small` (244M parameters) bundled locally under `_internal/models/`.
-- **Egress Guarantee**: Verified by `tests/test_network_egress.py`: Zero socket connections outside `127.0.0.1`.
+- **Egress Evidence**: `tests/test_network_egress.py` blocks non loopback sockets in selected dictation paths. It does not measure every runtime path or the explicit model download flow.
 
 ### 2.4 Text Post-Processing & Entity Protection (`engine.writing_intelligence`, `engine.correction_intent`)
 - **Correction Intent Resolver** (`engine.correction_intent.CorrectionIntentResolver`):
@@ -159,7 +159,7 @@
 | Subsystem / Feature | Module / Source File | Truth Status | Verification Evidence |
 |---|---|---|---|
 | **Local Speech-to-Text** | `engine/stt_engine.py` | Implemented & Behaviorally Verified | `tests/test_stt.py`, bundled faster-whisper models int8 CPU. |
-| **Zero Cloud Egress** | `engine/stt_engine.py`, `engine/orchestrator.py` | Implemented & Behaviorally Verified | `tests/test_network_egress.py` (strict socket binding check). |
+| **Local Dictation Path** | `engine/stt_engine.py`, `engine/orchestrator.py` | Implemented and tested in selected paths | `tests/test_network_egress.py` blocks non loopback sockets in those paths; setup model downloads are separate. |
 | **Audio Capture & Ducking** | `engine/audio_recorder.py`, `engine/audio_ducker.py` | Implemented & Behaviorally Verified | `tests/test_audio.py`, `tests/test_audio_ducker.py`. |
 | **Persistent Mic Identity** | `engine/audio_devices.py` | Implemented & Behaviorally Verified | `tests/test_audio_devices.py` (sentinel -9999, name matching). |
 | **Bounded Stream Safety** | `engine/audio_recorder.py` | Implemented & Behaviorally Verified | `tests/test_pilot_reliability.py` (PR #1 timeout tests). |
@@ -174,7 +174,7 @@
 | **Context Aware Companion Hide**| `ui/companion_visibility_controller.py`| Implemented & Behaviorally Verified | `tests/test_companion_visibility.py` (fullscreen & peak polling).|
 | **Local Dictation History** | `engine/history_vault.py` | Implemented & Behaviorally Verified | `tests/test_transforms_and_history.py`. |
 | **Meeting Notetaker Engine** | `engine/meeting_notetaker.py` | Implemented & Behaviorally Verified | `tests/test_meeting_notetaker.py`, `tests/test_meeting_notetaker_v2.py`. |
-| **Offline Indic ASR** | `ui/settings_dialog.py`, `ui/setup_wizard.py` | Implemented & Behaviorally Verified | `tests/test_pilot_reliability.py` (download notice validation). |
+| **Indic Model Selection** | `ui/settings_dialog.py`, `ui/setup_wizard.py`, `engine/model_downloader.py` | Implemented; human speech accuracy unverified | `tests/test_model_downloader.py` checks model integrity and download behavior. Real speaker evaluation is pending. |
 | **Benchmark Delivery Observer**| `benchmarks/delivery_observer.py` | Implemented & Behaviorally Verified | `tests/test_delivery_observer.py` (monotonic deadline observer). |
 | **Selected-Text Transforms** | `engine/transforms_engine.py` | Partially Implemented | Scratchpad text edits supported; external window replace/revert disabled until selection adapter is built. |
 | **External Window In-Place Revert**| `engine/transforms_engine.py` | Documented but Not Implemented | Stored as spec; requires native accessibility caret selection. |

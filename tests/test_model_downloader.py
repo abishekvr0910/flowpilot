@@ -24,6 +24,7 @@ from engine.model_downloader import (
     get_target_model_dir,
     verify_model_integrity,
     download_model,
+    ModelDownloadWorker,
 )
 
 
@@ -73,6 +74,34 @@ class TestModelDownloader(unittest.TestCase):
                 target = get_target_model_dir("small")
                 self.assertEqual(target, Path(tmp_dir) / "faster-whisper-small")
 
+    def test_frozen_app_downloads_to_user_profile(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            user_models = Path(tmp_dir) / ".flowpilot" / "models"
+            with patch.dict(os.environ, {"FLOWPILOT_MODEL_DIR": ""}), \
+                 patch.object(sys, "frozen", True, create=True), \
+                 patch("engine.model_downloader.os.path.expanduser", return_value=str(user_models)):
+                self.assertEqual(get_target_model_dir("small"), user_models / "faster-whisper-small")
+
+    def test_failed_atomic_replace_preserves_existing_model_file(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            dest = Path(tmp_dir)
+            prior = dest / "config.json"
+            prior.write_bytes(b"wrong!!")
+            payload = b"correct"
+            spec = ModelFileSpec("config.json", "https://example.invalid/config.json", len(payload), hashlib.sha256(payload).hexdigest())
+            response = MagicMock()
+            response.headers = {"content-length": str(len(payload))}
+            response.read.side_effect = [payload, b""]
+            response.__enter__.return_value = response
+            with patch("engine.model_downloader.get_model_specs", return_value=[spec]), \
+                 patch("urllib.request.urlopen", return_value=response), \
+                 patch.object(Path, "replace", side_effect=OSError("file locked")):
+                success, message, _ = download_model(size="small", target_dir=dest)
+            self.assertFalse(success)
+            self.assertIn("file locked", message)
+            self.assertEqual(prior.read_bytes(), b"wrong!!")
+            self.assertEqual(list(dest.glob("*.tmp")), [])
+
     def test_mock_download_success(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             dest = Path(tmp_dir)
@@ -118,6 +147,37 @@ class TestModelDownloader(unittest.TestCase):
             success, msg, out_dir = download_model(size="small", target_dir=dest, cancel_check=cancel_checker)
             self.assertFalse(success)
             self.assertIn("cancelled", msg.lower())
+
+    def test_qt_download_worker_is_independent_of_closing_dialog(self):
+        if ModelDownloadWorker is None:
+            self.skipTest("PySide6 is not installed")
+        from PySide6.QtCore import QCoreApplication, QObject
+        app = QCoreApplication.instance() or QCoreApplication([])
+        dialog = QObject()
+        worker = ModelDownloadWorker(size="small", parent=dialog)
+        self.assertIsNone(worker.parent())
+        events = []
+        worker.download_finished.connect(lambda success, message, dest: events.append((success, message, dest)))
+        with patch("engine.model_downloader.download_model", return_value=(False, "cancelled", Path("unused"))):
+            worker.start()
+            self.assertTrue(worker.wait(2000))
+            app.processEvents()
+        self.assertEqual(events, [(False, "cancelled", "unused")])
+        del dialog
+
+    def test_qt_download_worker_reports_setup_error(self):
+        if ModelDownloadWorker is None:
+            self.skipTest("PySide6 is not installed")
+        from PySide6.QtCore import QCoreApplication
+        app = QCoreApplication.instance() or QCoreApplication([])
+        worker = ModelDownloadWorker(size="small")
+        events = []
+        worker.download_finished.connect(lambda success, message, dest: events.append((success, message)))
+        with patch("engine.model_downloader.download_model", side_effect=OSError("disk full")):
+            worker.start()
+            self.assertTrue(worker.wait(2000))
+            app.processEvents()
+        self.assertEqual(events, [(False, "Model download failed: disk full")])
 
 
 if __name__ == "__main__":

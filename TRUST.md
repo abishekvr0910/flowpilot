@@ -2,7 +2,7 @@
 
 FlowPilot is an open-source Windows dictation app with speech recognition on your CPU. This page connects product claims to their implementation, test coverage, and remaining limits so you can decide whether it fits your workflow.
 
-**Scope:** current source, reviewed October 19, 2026. The published [v3.0.2 artifact](docs/release/RELEASE_ARTIFACT_MANIFEST.md) is a different build. A source commit and a passing local test run do not update an existing download.
+**Scope:** current source and the separately listed build records in the [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md). A source commit and a passing local test run do not update an existing download; use the release notes for the exact archive you install.
 
 ## What you can check
 

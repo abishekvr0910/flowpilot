@@ -3,12 +3,13 @@
 import json
 import io
 import os
+import ctypes
 import subprocess
 import sys
 import tempfile
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -19,7 +20,7 @@ from engine.text_injector import TextInjector
 from engine.writing_intelligence import WritingIntelligence
 from tests import run_all_tests
 from ui.notetaker_view import _parse_decision_lines
-from scripts.package_windows_release import REQUIRED_NOTICES, main as package_main
+from scripts.package_windows_release import REQUIRED_NOTICES, main as package_main, sign_executable
 
 
 def test_injector_process_detection_is_live():
@@ -178,6 +179,69 @@ def test_requested_signing_failure_never_creates_archive():
                 raise AssertionError("Requested signing did not fail closed")
             package.assert_not_called()
         assert not archive.exists()
+
+
+def test_failed_authenticode_verification_is_not_reported_as_signed():
+    with tempfile.TemporaryDirectory(prefix="flowpilot-sign-verify-") as folder:
+        tool = Path(folder) / "signtool.exe"
+        tool.write_bytes(b"stub")
+        executable = Path(folder) / "FlowPilot.exe"
+        executable.write_bytes(b"stub")
+        sign_result = subprocess.CompletedProcess([], 0, "signed", "")
+        verify_result = subprocess.CompletedProcess([], 1, "", "bad signature")
+        with patch("scripts.package_windows_release.subprocess.run", side_effect=[sign_result, verify_result]):
+            result = sign_executable(executable, thumbprint="A" * 40, signtool_path=tool)
+        assert result["signed"] is False
+        assert result["status"] == "SIGN_VERIFY_FAILED"
+
+
+def test_invalid_ci_signing_secret_does_not_publish_unsigned_archive():
+    with tempfile.TemporaryDirectory(prefix="flowpilot-invalid-cert-") as folder:
+        bundle = Path(folder) / "bundle"
+        bundle.mkdir()
+        archive = Path(folder) / "candidate.zip"
+        with patch.dict(os.environ, {"FLOWPILOT_SIGN_CERT_BASE64": "not base64!!!", "FLOWPILOT_SIGN_PFX_PATH": ""}), \
+             patch("scripts.package_windows_release.package") as package:
+            try:
+                package_main(["--bundle", str(bundle), "--archive", str(archive)])
+            except RuntimeError as exc:
+                assert "certificate could not be decoded" in str(exc)
+            else:
+                raise AssertionError("Invalid CI certificate silently fell back to unsigned")
+            package.assert_not_called()
+        assert not archive.exists()
+
+
+def test_unicode_sendinput_uses_native_pointer_layout_and_surrogate_pair():
+    sent = {}
+
+    def capture(count, events, size):
+        sent["size"] = size
+        sent["scan_codes"] = [events[i].ki.wScan for i in range(count)]
+        return count
+
+    user32 = MagicMock()
+    user32.SendInput.side_effect = capture
+    with patch("engine.text_injector.HAS_WIN32", True), \
+         patch("engine.text_injector.sys.platform", "win32"), \
+         patch("engine.text_injector.win32gui.IsWindow", return_value=False), \
+         patch.object(TextInjector, "_get_target_process_name", return_value="notepad.exe"), \
+         patch.object(TextInjector, "_resolve_verified_foreground", return_value=(True, 123, "")), \
+         patch("engine.text_injector.target_has_higher_integrity", return_value=False), \
+         patch.object(ctypes.windll, "user32", user32):
+        assert TextInjector.inject_unicode_sendinput("A😀", target_hwnd=123)
+
+    assert sent["size"] == (40 if ctypes.sizeof(ctypes.c_void_p) == 8 else 28)
+    assert sent["scan_codes"] == [0x0041, 0x0041, 0xD83D, 0xD83D, 0xDE00, 0xDE00]
+
+
+def test_unicode_fallback_refuses_terminal_newline_without_dispatch():
+    with patch("engine.text_injector.HAS_WIN32", True), \
+         patch("engine.text_injector.sys.platform", "win32"), \
+         patch.object(TextInjector, "_get_target_process_name", return_value="cmd.exe"), \
+         patch.object(ctypes.windll, "user32") as user32:
+        assert TextInjector.inject_unicode_sendinput("echo hello\n", target_hwnd=123) is False
+        user32.SendInput.assert_not_called()
 
 
 def test_packager_help_imports_cleanly():

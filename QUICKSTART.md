@@ -2,7 +2,7 @@
 
 FlowPilot turns speech into text using a local CPU model. You need a Windows PC, a microphone, and locally installed model weights. VB-Cable and traffic-capture tools are only for benchmarks.
 
-The recorded published download is [v3.0.2](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release). Current source contains newer features and fixes. This guide labels those separately; check the release notes for the build you install.
+The [release page](https://github.com/abishekvr0910/flowpilot/releases) lists stable downloads and separately labeled pilot prereleases. Check the notes for the exact build you install.
 
 ## Install a published build
 
