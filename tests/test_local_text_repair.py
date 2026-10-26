@@ -4,6 +4,7 @@ Validates Three-Tier Guard Protocol, Slot-Locker, FactGuard Veto, and Fallbacks.
 """
 
 import sys
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -86,6 +87,7 @@ class TestLocalTextRepair(unittest.TestCase):
         self.assertEqual(res.text, raw) # Must fall back to raw input containing 'not'
         self.assertTrue(res.fallback_used)
         self.assertIn("FactGuard veto", res.veto_reason)
+        repairer.shutdown()
 
     def test_tier3_factguard_approves_safe_cleaned_text(self):
         """Simulate an SLM that cleans punctuation while preserving slots."""
@@ -105,15 +107,15 @@ class TestLocalTextRepair(unittest.TestCase):
         self.assertFalse(res.fallback_used)
         self.assertIn("not", res.text)
         self.assertIn("42", res.text)
+        repairer.shutdown()
 
     def test_timeout_falls_back_to_raw_transcript(self):
         """Simulate inference exceeding the 400ms deadline."""
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
-        repairer.MAX_LATENCY_MS = 10.0 # Strict 10ms deadline for test
+        repairer.MAX_LATENCY_MS = 15.0 # Strict 15ms deadline for test
 
         def slow_llm(*args, **kwargs):
-            import time
-            time.sleep(0.025) # 25ms > 10ms
+            time.sleep(0.035) # 35ms > 15ms
             return {"choices": [{"text": "Slow response"}]}
 
         repairer._llm = slow_llm
@@ -121,6 +123,26 @@ class TestLocalTextRepair(unittest.TestCase):
         self.assertEqual(res.status, RepairStatus.FALLBACK_TIMEOUT)
         self.assertEqual(res.text, "Test timeout handling in local repair engine")
         self.assertTrue(res.fallback_used)
+        repairer.shutdown()
+
+    def test_async_worker_aborts_without_blocking_caller(self):
+        """Verify that an extremely slow worker (e.g. 1s) does NOT block caller beyond deadline."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        repairer.MAX_LATENCY_MS = 25.0
+
+        def hanging_llm(*args, **kwargs):
+            time.sleep(1.0)
+            return {"choices": [{"text": "Late"}]}
+
+        repairer._llm = hanging_llm
+        t0 = time.perf_counter()
+        res = repairer.repair("Test non-blocking timeout abort")
+        caller_duration_ms = (time.perf_counter() - t0) * 1000.0
+
+        self.assertEqual(res.status, RepairStatus.FALLBACK_TIMEOUT)
+        self.assertEqual(res.text, "Test non-blocking timeout abort")
+        self.assertLess(caller_duration_ms, 150.0, f"Caller was blocked for {caller_duration_ms} ms, expected < 150 ms")
+        repairer.shutdown(wait=False)
 
 
 if __name__ == "__main__":
