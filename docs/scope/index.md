@@ -7,7 +7,7 @@ FlowPilot is a local voice workstation for Windows users who want to dictate, re
 
 This is the project scope, not a feature inventory or a promise that every current feature is field proven. `existing` means code is present. A release claim needs separate user and artifact evidence. The public general release is v3.0.2; v3.1.0 RC8 is the current published pilot prerelease. Later source changes require a new build and verification.
 
-**Reviewed baseline:** RC8 was published from tag `6527025` after [hosted CI](https://github.com/abishekvr0910/flowpilot/actions/runs/40348691736) passed with 50 suites and 9 honest hardware or desktop skips. The exact local candidate passed the strict 59-suite interactive gate with no skips, packaged smoke, offline self-test, and ten repeated cross-app delivery checks. A 30-clip [real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md) found substantial Hindi, Tamil, and Malayalam recognition errors. These checks do not close every acceptance criterion in spec 0001 or establish a competitive win. The [complete Gemini handoff](../archive/GEMINI_PRODUCT_COMPLETION_AND_COMPETITIVE_VALIDATION.md) maps the whole product to evidence, remaining work, delivery order, and proposed comparison gates. Writing that plan does not complete its work.
+**Reviewed baseline:** The published RC8 artifact remains tied to tag `6527025`, with [hosted CI](https://github.com/abishekvr0910/flowpilot/actions/runs/40348691736) passing 50 suites, 9 honest hardware or desktop skips, and 0 failures. Current `master` is `1043ac5`, a documentation and specification descendant of that release. On this checkout, compilation passed, all 59 registered suites passed with 0 skips and 0 failures in 220.75 seconds, the Node and WebSocket integration passed, and `git diff --check` passed. The exact RC8 bundle remains unsigned and pilot only. A 30-clip [real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md) found substantial Hindi, Tamil, and Malayalam recognition errors. Feature 30 has a design specification and an isolated branch, but no repair implementation is part of the release. These checks do not establish a universal competitive win or close every live desktop and language gate. The [current release review](../reviews/2026-10-26-ad3dce9-release-review.md) records the evidence limits and open gates; a written plan is not evidence that those gates are complete.
 
 ## At a glance
 
@@ -25,7 +25,7 @@ This is the project scope, not a feature inventory or a promise that every curre
 | 10 | Native companions and creator | Foundation | existing |
 | 11 | Optional local API | Foundation | existing |
 | 12 | Local storage and privacy controls | Foundation | existing |
-| 13 | Windows RC2 candidate | Foundation | existing |
+| 13 | Windows RC8 pilot candidate | Foundation | existing |
 | 26 | External transform safety repair | Next release | done |
 | 28 | Persistent microphone selection | Next release | in-progress |
 | 29 | Competitive outcome evaluation | Next release | in-progress |
@@ -41,7 +41,7 @@ This is the project scope, not a feature inventory or a promise that every curre
 | 27 | Media audio aware hiding | Product quality | in-progress |
 | 21 | Original character quality and rights | Product quality | planned |
 | 22 | Safe editing beyond the scratchpad | Product quality | planned |
-| 30 | Optional local text repair | Product quality | in-progress (sandbox) |
+| 30 | Optional local text repair and infilling | Product quality | in-progress (sandbox) |
 | 31 | Approved local correction learning | Product quality | planned |
 | 23 | Optional editor presence | Later | planned |
 | 24 | Windowed media and screen share behavior | Later | closed (manual app rules) |
@@ -56,7 +56,7 @@ This is the project scope, not a feature inventory or a promise that every curre
 
 ## Order and boundaries
 
-The current source and RC8 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, and pilot capture guards are present. Physical microphone disconnect and reconnect, broad first-attempt paste reliability, diverse human speech, and paired competitor outcomes remain open evidence gates. The 30-clip diagnostic is a warning about Indic quality, not pilot language approval. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
+The current source and RC8 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Physical microphone disconnect and reconnect, broad first-attempt paste reliability, diverse human speech, paired competitor outcomes, and signed distribution remain open evidence gates. The 30-clip diagnostic is a warning about Indic quality, not pilot language approval. Feature 30 is a sandbox proposal, not a shipped post processor. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
 
 The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the Gemini handoff; no claim of being "100% better" is authorized by a suite count or this scope.
 
