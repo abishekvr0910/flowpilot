@@ -39,7 +39,7 @@ Stored in `docs/specs/` as `NNNN-title.md`. Companion visibility is in progress 
 
 ## Rules
 
-- Zero cloud egress: dictation never leaves the device. Only loopback traffic exists (local LLM ports, the opt in server on 127.0.0.1).
+- Zero cloud egress during dictation: audio and transcripts stay on the device. The optional integration API and local LLM use loopback. A user initiated model download is a separate HTTPS setup action and must never start from the dictation path.
 - Truthful status: never report a paste as succeeded unless the target window was really verified; InjectionStatus wording drives the UI.
 - External transform Replace and Revert are unavailable until a real revision and selection adapter exists; caller supplied labels do not authorize input. Scratchpad edits use VoiceEditor transactions.
 - Windows first, cross platform adapters second: win32 code first, then pactl, osascript, or xdotool fallbacks.

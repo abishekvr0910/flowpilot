@@ -12,6 +12,7 @@ import sys
 import time
 import hashlib
 import logging
+import tempfile
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,6 +117,7 @@ def get_target_model_dir(size: str = "small") -> Path:
     3. User profile ~/.flowpilot/models/ directory (always user-writable)
     """
     size_clean = str(size).strip().lower()
+    get_model_specs(size_clean)
 
     env_dir = os.environ.get("FLOWPILOT_MODEL_DIR")
     if env_dir:
@@ -126,7 +128,7 @@ def get_target_model_dir(size: str = "small") -> Path:
 
     proj_root = Path(__file__).resolve().parent.parent
     dev_models = proj_root / "models"
-    if dev_models.is_dir() and os.access(dev_models, os.W_OK):
+    if not (getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS")) and dev_models.is_dir() and os.access(dev_models, os.W_OK):
         target = dev_models / f"faster-whisper-{size_clean}"
         return target
 
@@ -204,10 +206,9 @@ def download_model(
     Returns:
         (success, status_message, target_directory)
     """
+    specs = get_model_specs(size)
     dest = Path(target_dir) if target_dir else get_target_model_dir(size)
     dest.mkdir(parents=True, exist_ok=True)
-
-    specs = get_model_specs(size)
     total_bytes = sum(s.size for s in specs)
     bytes_completed_prior = 0
 
@@ -225,7 +226,7 @@ def download_model(
             return False, "Download cancelled by user.", dest
 
         file_dest = dest / spec.name
-        temp_dest = dest / f"{spec.name}.tmp"
+        temp_dest = None
 
         # Check if this individual file is already complete and verified
         if file_dest.is_file() and file_dest.stat().st_size == spec.size:
@@ -239,6 +240,10 @@ def download_model(
         # Download to temporary file
         logger.info("Downloading %s (%d bytes) from %s", spec.name, spec.size, spec.url)
         try:
+            with tempfile.NamedTemporaryFile(
+                prefix=f".{spec.name}.", suffix=".tmp", dir=dest, delete=False
+            ) as temp_file:
+                temp_dest = Path(temp_file.name)
             req = urllib.request.Request(
                 spec.url,
                 headers={"User-Agent": "FlowPilot-Model-Downloader/3.1 (Windows; OfflineDictation)"},
@@ -277,13 +282,11 @@ def download_model(
                 return False, err_msg, dest
 
             # Atomic replace
-            if file_dest.exists():
-                file_dest.unlink()
-            temp_dest.rename(file_dest)
+            temp_dest.replace(file_dest)
             bytes_completed_prior += spec.size
 
         except Exception as e:
-            if temp_dest.exists():
+            if temp_dest is not None and temp_dest.exists():
                 temp_dest.unlink(missing_ok=True)
             err_msg = f"Failed to download {spec.name}: {e}"
             logger.error(err_msg)
@@ -302,19 +305,44 @@ def download_model(
 
 # Optional Qt Worker for background execution in GUI
 try:
-    from PySide6.QtCore import QThread, Signal
+    from PySide6.QtCore import QCoreApplication, QThread, Signal
+
+    _ACTIVE_DOWNLOAD_WORKERS = set()
+    _SHUTDOWN_HOOK_INSTALLED = False
+
+    def _stop_active_downloads():
+        workers = tuple(_ACTIVE_DOWNLOAD_WORKERS)
+        for worker in workers:
+            worker.cancel()
+        for worker in workers:
+            worker.wait(11000)
 
     class ModelDownloadWorker(QThread):
         """Asynchronous background worker for downloading Whisper models in PySide6."""
 
         progress = Signal(int, int, int, str)  # percent, downloaded_bytes, total_bytes, filename
-        finished = Signal(bool, str, str)       # success, message, target_dir
+        download_finished = Signal(bool, str, str)  # success, message, target_dir
 
         def __init__(self, size: str = "small", target_dir: Optional[Union[str, Path]] = None, parent=None):
-            super().__init__(parent)
+            # The dialog can close while an HTTPS read is in progress.
+            super().__init__(None)
             self.size = size
             self.target_dir = target_dir
             self._cancelled = False
+            self.finished.connect(lambda: _ACTIVE_DOWNLOAD_WORKERS.discard(self))
+
+        def start(self, priority=QThread.InheritPriority):
+            global _SHUTDOWN_HOOK_INSTALLED
+            _ACTIVE_DOWNLOAD_WORKERS.add(self)
+            app = QCoreApplication.instance()
+            if app is not None and not _SHUTDOWN_HOOK_INSTALLED:
+                app.aboutToQuit.connect(_stop_active_downloads)
+                _SHUTDOWN_HOOK_INSTALLED = True
+            try:
+                super().start(priority)
+            except Exception:
+                _ACTIVE_DOWNLOAD_WORKERS.discard(self)
+                raise
 
         def cancel(self):
             self._cancelled = True
@@ -326,13 +354,18 @@ try:
             def on_progress(pct, done, total, fname):
                 self.progress.emit(pct, done, total, fname)
 
-            success, message, dest = download_model(
-                size=self.size,
-                target_dir=self.target_dir,
-                progress_callback=on_progress,
-                cancel_check=cancel_check,
-            )
-            self.finished.emit(success, message, str(dest))
+            try:
+                success, message, dest = download_model(
+                    size=self.size,
+                    target_dir=self.target_dir,
+                    progress_callback=on_progress,
+                    cancel_check=cancel_check,
+                    timeout=10,
+                )
+            except Exception as exc:
+                logger.exception("Model download worker failed")
+                success, message, dest = False, f"Model download failed: {exc}", self.target_dir or ""
+            self.download_finished.emit(success, message, str(dest))
 
 except ImportError:
     ModelDownloadWorker = None
