@@ -15,6 +15,7 @@ import numpy as np
 import soundfile as sf
 import pytest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -46,14 +47,16 @@ def test_preroll_audio_buffer():
     assert len(rec._preroll_buffer) > 0, "Pre-roll buffer should accumulate idle audio chunks"
     buffered_count = len(rec._preroll_buffer)
 
-    # Now trigger start_recording; it must transfer the pre-roll frames
-    rec.start_recording()
-    assert rec.is_recording is True
-    assert len(rec.audio_frames) >= buffered_count, "Recording frames must be seeded with pre-roll buffer"
-    assert len(rec._preroll_buffer) == 0, "Pre-roll buffer must be cleared once transferred"
-
-    # Clean up
-    rec.close()
+    # A declared virtual stream exercises start without requiring CI hardware.
+    stream = MagicMock(active=True)
+    with patch.object(rec, "_open_stream_bounded", return_value=stream):
+        try:
+            rec.start_recording()
+            assert rec.is_recording is True
+            assert len(rec.audio_frames) >= buffered_count, "Recording frames must be seeded with pre-roll buffer"
+            assert len(rec._preroll_buffer) == 0, "Pre-roll buffer must be cleared once transferred"
+        finally:
+            rec.close()
     assert rec.is_recording is False
 
 def test_tap_latch_state_machine():

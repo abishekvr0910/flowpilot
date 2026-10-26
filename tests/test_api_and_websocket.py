@@ -157,7 +157,9 @@ async def client_test():
         # A known in-process frame drives the recorder callback in both local
         # and CI runs. The virtual stream never opens a physical microphone.
         from engine.server import orchestrator
-        frame = np.full((1600, 1), 0.05, dtype=np.float32)
+        # Supply enough real callback frames for the recorder's minimum duration.
+        # The mock stream deliberately has no background callback thread.
+        frame = np.full((int(orchestrator.recorder.capture_sample_rate * 0.5), 1), 0.05, dtype=np.float32)
         orchestrator.recorder._audio_callback(frame, len(frame), None, None)
         received_levels = 0
         for _ in range(5):
@@ -167,6 +169,7 @@ async def client_test():
                 if data.get("state") == "audio_level":
                     received_levels += 1
                     print(f"  RMS Level packet: {data.get('level')}")
+                    break
             except asyncio.TimeoutError:
                 break
 
@@ -177,11 +180,18 @@ async def client_test():
         print("\n[Step 6] Sending WebSocket action: 'stop'...")
         await ws.send(json.dumps({"action": "stop"}))
 
-        # Expect stopping or transcribing/processing event
-        proc_msg = await asyncio.wait_for(ws.recv(), timeout=5.0)
-        proc_data = json.loads(proc_msg)
-        print(f"  Received event: '{proc_data.get('state')}'")
-        assert proc_data.get("state") in ("stopping", "processing", "transcribing"), f"Unexpected stop event: {proc_data.get('state')}"
+        # A queued audio-level packet may precede the stop event. Consume it
+        # without waiting long enough to trip the microphone stall watchdog.
+        stop_state = None
+        for _ in range(5):
+            proc_msg = await asyncio.wait_for(ws.recv(), timeout=5.0)
+            proc_data = json.loads(proc_msg)
+            stop_state = proc_data.get("state")
+            print(f"  Received event: '{stop_state}'")
+            if stop_state == "audio_level":
+                continue
+            break
+        assert stop_state in ("stopping", "processing", "transcribing"), f"Unexpected stop event: {stop_state}"
 
     print("\n[RESULT] UI-to-backend REST API & WebSocket pipeline PASSED.")
     return True
