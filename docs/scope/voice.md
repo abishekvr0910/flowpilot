@@ -42,9 +42,9 @@ Prevent unsupported external replacements and revert attempts from dispatching i
 
 Plan and evidence: [remediation and release gate review](../reviews/2026-10-24-remediation-and-release-gate.md). Code in `engine/transforms_engine.py`, `ui/transforms_view.py`, and `tests/test_honest_transforms.py`.
 
-### 28. Persistent microphone selection · in-progress
+### 28. Persistent microphone selection · done
 
-Keep the chosen physical input stable when Windows device enumeration changes. Settings currently persists a persistent endpoint contract (`name`, `host_api`, `max_channels`), and dynamic runtime resolution disambiguates host APIs (WASAPI, DirectSound, MME). Disconnected devices resolve to an explicit sentinel (`DEVICE_MISSING_SENTINEL = -9999`) preventing silent fallback to internal default mics.
+Keep the chosen physical input stable when Windows device enumeration changes. Settings currently persists a persistent endpoint contract (`name`, `host_api`, `max_channels`), and dynamic runtime resolution disambiguates host APIs (WASAPI, DirectSound, MME). Disconnected devices resolve to an explicit sentinel (`DEVICE_MISSING_SENTINEL = -9999`) preventing silent fallback to internal default mics, and `refresh_audio_devices()` re-enumerates PortAudio endpoints on hot-plug.
 
 **Done when:** a saved device is resolved by a persistent identity, duplicate names remain distinguishable, a missing input is reported honestly, explicit system default selection works, and reconnect or restart cannot silently select a different device. Existing deferred switching and recorded frames remain safe.
 
@@ -52,8 +52,8 @@ Keep the chosen physical input stable when Windows device enumeration changes. S
 - [x] Implement the persistent endpoint contract and resolver: `engine/audio_devices.py`
 - [x] Guard missing devices against silent fallback: `engine/audio_recorder.py` and `engine/orchestrator.py`
 - [x] Expose host API and disconnected indicators in UI: `ui/settings_dialog.py` and `ui/setup_wizard.py`
-- [x] Regression tests: `tests/test_audio_devices.py` (20 tests passed on 24 October 2026)
-- [ ] Physical unplug and reconnect confirmation with a live USB device (candidate hardware behavior verified via `scripts/verify_audio_device_gate.py`).
+- [x] Regression tests: `tests/test_audio_devices.py` (24 tests passed on 27 October 2026)
+- [x] Physical unplug and reconnect confirmation with a live audio device: verified via `scripts/interactive_physical_mic_test.py` (`Verification Mode: PHYSICAL`, [receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md), SHA-256 integrity digest `F7F73918189FEB374AB1CFA05CFF1B5124E6AD26843370B493D724425B1998F1`) alongside `scripts/verify_audio_device_gate.py`.
 
 Code in `engine/audio_devices.py`, `engine/audio_recorder.py`, `engine/orchestrator.py`, `engine/config.py`, `ui/settings_dialog.py`, `ui/setup_wizard.py`, and `ui/scratchpad_view.py`.
 
