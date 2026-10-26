@@ -106,11 +106,19 @@ def sign_executable(
     executable_path: Path,
     cert_path: Optional[Path] = None,
     cert_password: Optional[str] = None,
+    thumbprint: Optional[str] = None,
+    subject: Optional[str] = None,
+    cert_store: str = "My",
+    use_machine_store: bool = False,
     signtool_path: Optional[Path] = None,
     timestamp_url: str = "http://timestamp.digicert.com"
 ) -> dict:
-    """Signs the Windows executable using signtool.exe if a certificate is provided."""
-    if not cert_path or not cert_path.is_file():
+    """Signs the Windows executable using signtool.exe if a certificate or thumbprint is provided."""
+    has_cert_file = bool(cert_path and cert_path.is_file())
+    has_thumbprint = bool(thumbprint and thumbprint.strip())
+    has_subject = bool(subject and subject.strip())
+
+    if not (has_cert_file or has_thumbprint or has_subject):
         return {
             "signed": False,
             "status": "UNSIGNED_PILOT",
@@ -126,10 +134,20 @@ def sign_executable(
     cmd = [
         str(tool), "sign", "/fd", "SHA256",
         "/tr", timestamp_url, "/td", "SHA256",
-        "/f", str(cert_path)
     ]
-    if cert_password:
-        cmd.extend(["/p", cert_password])
+    if has_cert_file:
+        cmd.extend(["/f", str(cert_path)])
+        if cert_password:
+            cmd.extend(["/p", cert_password])
+    elif has_thumbprint:
+        cmd.extend(["/sha1", thumbprint.strip(), "/s", cert_store])
+        if use_machine_store:
+            cmd.append("/sm")
+    elif has_subject:
+        cmd.extend(["/n", subject.strip(), "/s", cert_store])
+        if use_machine_store:
+            cmd.append("/sm")
+
     cmd.append(str(executable_path))
     try:
         res = subprocess.run(
@@ -138,11 +156,21 @@ def sign_executable(
     except subprocess.TimeoutExpired:
         return {"signed": False, "status": "SIGN_FAILED", "error": "signtool timed out"}
     if res.returncode == 0:
+        verify_cmd = [str(tool), "verify", "/pa", "/v", str(executable_path)]
+        try:
+            res_v = subprocess.run(
+                verify_cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=30,
+            )
+            verified = (res_v.returncode == 0)
+        except Exception:
+            verified = False
+
         return {
             "signed": True,
             "status": "AUTHENTICODE_SIGNED",
             "signtool": str(tool),
-            "timestamp_url": timestamp_url
+            "timestamp_url": timestamp_url,
+            "verified": verified
         }
     return {
         "signed": False,
@@ -158,25 +186,71 @@ def main(argv=None) -> dict:
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--cert", type=Path, default=None, help="Path to Authenticode .pfx certificate")
     parser.add_argument("--cert-password-env", metavar="NAME", help="Environment variable holding the .pfx password")
+    parser.add_argument("--thumbprint", type=str, default=None, help="SHA-1 thumbprint of certificate in Windows Certificate Store or HSM")
+    parser.add_argument("--subject", type=str, default=None, help="Subject name substring of certificate in Windows Certificate Store")
+    parser.add_argument("--cert-store", type=str, default="My", help="Certificate store name (default 'My')")
+    parser.add_argument("--use-machine-store", action="store_true", help="Use Local Machine certificate store instead of Current User")
     parser.add_argument("--signtool", type=Path, default=None, help="Explicit path to signtool.exe")
+    parser.add_argument("--timestamp-url", type=str, default="http://timestamp.digicert.com", help="RFC 3161 timestamp server URL")
     args = parser.parse_args(argv)
+
     if args.cert_password_env and not args.cert:
         parser.error("--cert-password-env requires --cert")
+
+    cert_path = args.cert
     cert_password = None
     if args.cert_password_env:
         cert_password = os.environ.get(args.cert_password_env)
         if cert_password is None:
             parser.error(f"Signing password environment variable {args.cert_password_env} is not set")
+    elif not cert_password and os.environ.get("FLOWPILOT_SIGN_PASSWORD"):
+        cert_password = os.environ.get("FLOWPILOT_SIGN_PASSWORD")
 
-    signing_info = sign_executable(
-        args.bundle / "FlowPilot.exe", cert_path=args.cert,
-        cert_password=cert_password, signtool_path=args.signtool,
-    )
-    if args.cert and not signing_info["signed"]:
-        raise RuntimeError(f"Requested signing failed: {signing_info['status']}")
-    result = package(args.bundle, args.archive)
-    result["code_signing"] = signing_info
-    return result
+    temp_cert_file = None
+    if not cert_path and os.environ.get("FLOWPILOT_SIGN_PFX_PATH"):
+        env_pfx = Path(os.environ["FLOWPILOT_SIGN_PFX_PATH"])
+        if env_pfx.is_file():
+            cert_path = env_pfx
+    elif not cert_path and os.environ.get("FLOWPILOT_SIGN_CERT_BASE64"):
+        import base64
+        import tempfile
+        try:
+            cert_bytes = base64.b64decode(os.environ["FLOWPILOT_SIGN_CERT_BASE64"])
+            temp_cert_file = tempfile.NamedTemporaryFile(suffix=".pfx", delete=False)
+            temp_cert_file.write(cert_bytes)
+            temp_cert_file.close()
+            cert_path = Path(temp_cert_file.name)
+        except Exception:
+            pass
+
+    thumbprint = args.thumbprint or os.environ.get("FLOWPILOT_SIGN_THUMBPRINT")
+    subject = args.subject or os.environ.get("FLOWPILOT_SIGN_SUBJECT")
+
+    signing_requested = bool(args.cert or cert_path or thumbprint or subject)
+
+    try:
+        signing_info = sign_executable(
+            args.bundle / "FlowPilot.exe",
+            cert_path=cert_path,
+            cert_password=cert_password,
+            thumbprint=thumbprint,
+            subject=subject,
+            cert_store=args.cert_store,
+            use_machine_store=args.use_machine_store,
+            signtool_path=args.signtool,
+            timestamp_url=args.timestamp_url,
+        )
+        if signing_requested and not signing_info["signed"]:
+            raise RuntimeError(f"Requested signing failed: {signing_info['status']}")
+        result = package(args.bundle, args.archive)
+        result["code_signing"] = signing_info
+        return result
+    finally:
+        if temp_cert_file and os.path.exists(temp_cert_file.name):
+            try:
+                os.unlink(temp_cert_file.name)
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

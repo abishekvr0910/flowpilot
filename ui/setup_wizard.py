@@ -375,6 +375,30 @@ class SetupWizardDialog(QDialog):
         self.lbl_language_model = QLabel()
         self.lbl_language_model.setWordWrap(True)
         layout.addWidget(self.lbl_language_model)
+
+        self.btn_download_model = QPushButton("Download Multilingual Model (461 MB)")
+        self.btn_download_model.setStyleSheet(
+            "background-color: #2563EB; color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px; margin-top: 6px;"
+        )
+        self.btn_download_model.setVisible(False)
+        self.btn_download_model.clicked.connect(self._start_model_download)
+        layout.addWidget(self.btn_download_model)
+
+        self.progress_model = QProgressBar()
+        self.progress_model.setRange(0, 100)
+        self.progress_model.setValue(0)
+        self.progress_model.setStyleSheet(
+            "QProgressBar { background-color: #1E293B; border: 1px solid #334155; border-radius: 4px; height: 14px; text-align: center; color: white; font-size: 10px; }"
+            "QProgressBar::chunk { background-color: #10B981; border-radius: 3px; }"
+        )
+        self.progress_model.setVisible(False)
+        layout.addWidget(self.progress_model)
+
+        self.lbl_download_status = QLabel()
+        self.lbl_download_status.setStyleSheet("font-size: 11px; color: #94A3B8; margin-top: 2px;")
+        self.lbl_download_status.setVisible(False)
+        layout.addWidget(self.lbl_download_status)
+
         self.combo_lang.currentIndexChanged.connect(self._on_language_model_guidance)
         self._on_language_model_guidance()
 
@@ -397,14 +421,69 @@ class SetupWizardDialog(QDialog):
                     "Tamil and Malayalam are experimental; test a short phrase before relying on the result."
                 )
                 self.lbl_language_model.setStyleSheet("font-size: 11px; color: #10B981; margin-top: 4px;")
+                if hasattr(self, "btn_download_model"):
+                    self.btn_download_model.setVisible(False)
+                if hasattr(self, "progress_model"):
+                    self.progress_model.setVisible(False)
+                if hasattr(self, "lbl_download_status"):
+                    self.lbl_download_status.setVisible(False)
             else:
                 self.lbl_language_model.setText(
-                    "Local small model file was not found. Add the model before relying on this language. "
+                    "Local small model file was not found. Download or install the model before relying on this language. "
                     "Tamil and Malayalam are experimental; test a short phrase before relying on the result."
                 )
                 self.lbl_language_model.setStyleSheet("font-size: 11px; color: #F59E0B; margin-top: 4px;")
+                if hasattr(self, "btn_download_model"):
+                    self.btn_download_model.setVisible(True)
         else:
             self.lbl_language_model.setText("")
+            if hasattr(self, "btn_download_model"):
+                self.btn_download_model.setVisible(False)
+            if hasattr(self, "progress_model"):
+                self.progress_model.setVisible(False)
+            if hasattr(self, "lbl_download_status"):
+                self.lbl_download_status.setVisible(False)
+
+    def _start_model_download(self):
+        try:
+            from engine.model_downloader import ModelDownloadWorker
+        except ImportError:
+            ModelDownloadWorker = None
+
+        if not ModelDownloadWorker:
+            QMessageBox.warning(self, "Download Unavailable", "Background download worker is unavailable.")
+            return
+
+        self.btn_download_model.setEnabled(False)
+        self.btn_download_model.setText("Downloading model...")
+        self.progress_model.setVisible(True)
+        self.progress_model.setValue(0)
+        self.lbl_download_status.setVisible(True)
+        self.lbl_download_status.setText("Connecting to Hugging Face model repository...")
+
+        self._download_worker = ModelDownloadWorker(size="small", parent=self)
+        self._download_worker.progress.connect(self._on_download_progress)
+        self._download_worker.finished.connect(self._on_download_finished)
+        self._download_worker.start()
+
+    def _on_download_progress(self, pct, done, total, fname):
+        self.progress_model.setValue(pct)
+        mb_done = done / (1024 * 1024)
+        mb_total = total / (1024 * 1024)
+        self.lbl_download_status.setText(f"Downloading {fname}: {mb_done:.1f} MB / {mb_total:.1f} MB ({pct}%)")
+
+    def _on_download_finished(self, success, message, dest):
+        self.btn_download_model.setEnabled(True)
+        if success:
+            self.btn_download_model.setVisible(False)
+            self.progress_model.setVisible(False)
+            self.lbl_download_status.setVisible(False)
+            self.config["local_model_size"] = "small"
+            self._on_language_model_guidance()
+        else:
+            self.btn_download_model.setText("Retry Download")
+            self.lbl_download_status.setText(f"Download error: {message}")
+            self.lbl_download_status.setStyleSheet("font-size: 11px; color: #EF4444;")
 
     # --- Step 4: Dictation Hotkey Setup ---
     def _build_hotkey_step(self) -> QWidget:

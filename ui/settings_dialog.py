@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QLabel, QComboBox, QCheckBox, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QLineEdit,
     QTextEdit, QFileDialog, QSplitter, QRadioButton, QButtonGroup, QScrollArea,
-    QSizePolicy
+    QSizePolicy, QProgressBar
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -161,6 +161,30 @@ class SettingsDialog(QDialog):
         self.lbl_model_guidance = QLabel()
         self.lbl_model_guidance.setWordWrap(True)
         vbox.addWidget(self.lbl_model_guidance)
+
+        self.btn_download_small = QPushButton("Download Multilingual Model (461 MB)")
+        self.btn_download_small.setStyleSheet(
+            "background-color: #2563EB; color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px; margin-top: 6px;"
+        )
+        self.btn_download_small.setVisible(False)
+        self.btn_download_small.clicked.connect(self._start_model_download)
+        vbox.addWidget(self.btn_download_small)
+
+        self.progress_download_small = QProgressBar()
+        self.progress_download_small.setRange(0, 100)
+        self.progress_download_small.setValue(0)
+        self.progress_download_small.setStyleSheet(
+            "QProgressBar { background-color: #1E293B; border: 1px solid #334155; border-radius: 4px; height: 14px; text-align: center; color: white; font-size: 10px; }"
+            "QProgressBar::chunk { background-color: #10B981; border-radius: 3px; }"
+        )
+        self.progress_download_small.setVisible(False)
+        vbox.addWidget(self.progress_download_small)
+
+        self.lbl_download_status = QLabel()
+        self.lbl_download_status.setStyleSheet("font-size: 11px; color: #94A3B8; margin-top: 2px;")
+        self.lbl_download_status.setVisible(False)
+        vbox.addWidget(self.lbl_download_status)
+
         self.combo_lang.currentIndexChanged.connect(self._on_language_model_guidance)
         self._on_language_model_guidance()
 
@@ -513,6 +537,12 @@ class SettingsDialog(QDialog):
         language = self.combo_lang.currentData()
         if language not in ("hi", "ta", "ml"):
             self.lbl_model_guidance.setText("")
+            if hasattr(self, "btn_download_small"):
+                self.btn_download_small.setVisible(False)
+            if hasattr(self, "progress_download_small"):
+                self.progress_download_small.setVisible(False)
+            if hasattr(self, "lbl_download_status"):
+                self.lbl_download_status.setVisible(False)
             return
         if (language != self.config.get("language") and not self._model_chosen_by_user
                 and self.combo_model.currentText().startswith("base")):
@@ -531,17 +561,67 @@ class SettingsDialog(QDialog):
                     "✓ Local small model file found. The small model is selected for this language. Recognition still needs a real voice check."
                 )
                 self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #10B981;")
+                if hasattr(self, "btn_download_small"):
+                    self.btn_download_small.setVisible(False)
+                if hasattr(self, "progress_download_small"):
+                    self.progress_download_small.setVisible(False)
+                if hasattr(self, "lbl_download_status"):
+                    self.lbl_download_status.setVisible(False)
             else:
                 self.lbl_model_guidance.setText(
-                    "The bundled small model is selected for this language. Recognition still needs a real voice check."
+                    "Local small model file was not found. Download or install the model before relying on this language. Recognition still needs a real voice check."
                 )
-                self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #94A3B8;")
+                self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
+                if hasattr(self, "btn_download_small"):
+                    self.btn_download_small.setVisible(True)
         else:
             self.lbl_model_guidance.setText(
                 "The bundled small model is recommended for Hindi, Tamil, and Malayalam. "
                 "Select small above; real voice accuracy is still being evaluated."
             )
             self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
+            if hasattr(self, "btn_download_small"):
+                self.btn_download_small.setVisible(not has_small)
+
+    def _start_model_download(self):
+        try:
+            from engine.model_downloader import ModelDownloadWorker
+        except ImportError:
+            ModelDownloadWorker = None
+
+        if not ModelDownloadWorker:
+            QMessageBox.warning(self, "Download Unavailable", "Background download worker is unavailable.")
+            return
+
+        self.btn_download_small.setEnabled(False)
+        self.btn_download_small.setText("Downloading model...")
+        self.progress_download_small.setVisible(True)
+        self.progress_download_small.setValue(0)
+        self.lbl_download_status.setVisible(True)
+        self.lbl_download_status.setText("Connecting to Hugging Face model repository...")
+
+        self._download_worker = ModelDownloadWorker(size="small", parent=self)
+        self._download_worker.progress.connect(self._on_download_progress)
+        self._download_worker.finished.connect(self._on_download_finished)
+        self._download_worker.start()
+
+    def _on_download_progress(self, pct, done, total, fname):
+        self.progress_download_small.setValue(pct)
+        mb_done = done / (1024 * 1024)
+        mb_total = total / (1024 * 1024)
+        self.lbl_download_status.setText(f"Downloading {fname}: {mb_done:.1f} MB / {mb_total:.1f} MB ({pct}%)")
+
+    def _on_download_finished(self, success, message, dest):
+        self.btn_download_small.setEnabled(True)
+        if success:
+            self.btn_download_small.setVisible(False)
+            self.progress_download_small.setVisible(False)
+            self.lbl_download_status.setVisible(False)
+            self._on_language_model_guidance()
+        else:
+            self.btn_download_small.setText("Retry Download")
+            self.lbl_download_status.setText(f"Download error: {message}")
+            self.lbl_download_status.setStyleSheet("font-size: 11px; color: #EF4444;")
 
     # --- SAVE ---
 

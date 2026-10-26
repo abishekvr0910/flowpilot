@@ -40,7 +40,7 @@ jobs:
         run: |
           python -m PyInstaller flowpilot.spec --noconfirm
 
-      - name: Run Python Automated Master Regression Suite (58 Suites)
+      - name: Run Python Automated Master Regression Suite (59 Suites)
         run: |
           python -X utf8 tests/run_all_tests.py
 
@@ -51,3 +51,11 @@ jobs:
       - name: Validate Standalone Windows Binary Smoke Test
         run: |
           python -X utf8 tests/test_standalone_binary_smoke.py
+
+      - name: Package Windows Release Candidate Archive
+        env:
+          FLOWPILOT_SIGN_CERT_BASE64: ${{ secrets.FLOWPILOT_SIGN_CERT_BASE64 }}
+          FLOWPILOT_SIGN_PASSWORD: ${{ secrets.FLOWPILOT_SIGN_PASSWORD }}
+          FLOWPILOT_SIGN_THUMBPRINT: ${{ secrets.FLOWPILOT_SIGN_THUMBPRINT }}
+        run: |
+          python -X utf8 scripts/package_windows_release.py --bundle dist/FlowPilot --archive dist/FlowPilot-CI-win64.zip

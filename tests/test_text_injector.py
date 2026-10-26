@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import win32gui
 import win32con
-from engine.text_injector import TextInjector, InjectionStatus
+from engine.text_injector import TextInjector, InjectionStatus, InjectionResult
 from tests.notepad_harness import (
     focus_notepad_document, is_interactive_desktop,
     open_test_notepad, cleanup_test_fixture,
@@ -348,7 +348,20 @@ def test_terminal_shift_insert_routing():
         assert ord('V') in called_vks2
         assert win32con.VK_INSERT not in called_vks2
 
+def test_terminal_dual_mode_routing():
+    """Verify terminal dual-mode injector chooses direct typing or clipboard paste correctly."""
+    with patch.object(TextInjector, 'inject_unicode_sendinput', return_value=True) as mock_direct:
+        res = TextInjector.inject_terminal_dual_mode("git status", target_hwnd=500, prefer_direct_typing=True)
+        assert res.status == InjectionStatus.SENT_UNVERIFIED
+        mock_direct.assert_called_once_with("git status", 500)
+
+    with patch.object(TextInjector, 'inject_with_status', return_value=InjectionResult(status=InjectionStatus.SENT_UNVERIFIED, chars_sent=10)) as mock_paste:
+        res2 = TextInjector.inject_terminal_dual_mode("git commit -m 'test'", target_hwnd=500, prefer_direct_typing=False)
+        assert res2.status == InjectionStatus.SENT_UNVERIFIED
+        mock_paste.assert_called_once_with("git commit -m 'test'", 500, preserve_clipboard=True)
+
 def test_text_injection():
+    test_terminal_dual_mode_routing()
     test_active_window_focus_is_preserved()
     test_clipboard_is_not_physical_confirmation()
     test_clipboard_copy_failure_and_unicode_fallback()
