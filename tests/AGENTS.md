@@ -41,6 +41,7 @@ pytest tests/test_factguard_v2.py -q
 
 ## Gotchas
 
+- Packaging-dependent suites (`test_standalone_binary_smoke.py`, `test_release_integrity_fixes.py`, and scenario 18 of `test_final_specification_e2e.py`) strictly require the packaged binary at `dist/FlowPilot/FlowPilot.exe` (or staged via `FLOWPILOT_TEST_EXE`). In a fresh git worktree or isolated clone where `dist/` is omitted, these three suites fail; full 60-suite validation must be run with the packaged binary present.
 - Notepad and SAPI suites launch real Windows processes and need desktop access; they skip silently when the desktop test cannot be held, never schedule them in parallel.
 - The physical state machine suite skips honestly when no default microphone exists. The API protocol suite uses a declared virtual input and sends a known frame through the recorder callback.
 - The Node integration test launches `tests/virtual_api_server.py` with virtual microphone and hotkey boundaries. This exercises REST and WebSocket transitions on CI without weakening production missing-device refusal.
