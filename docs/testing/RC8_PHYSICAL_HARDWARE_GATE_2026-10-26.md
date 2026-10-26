@@ -4,7 +4,7 @@
 **Artifact Executable:** `dist/FlowPilot/FlowPilot.exe` (SHA-256: `67C93341837DBD2D317633DC3B2AAA15136A76BB0C887D019F0EC6AFD23FF156`)  
 **Artifact Archive:** `dist/FlowPilot-v3.1.0-RC8-win64.zip` (SHA-256: `2DFB83BCC98068389E6962FCC7A0A25131C90F7D546B8CD3ABDBC6E54A43F69F`)  
 **Host Environment:** Windows 11 x64, physical Intel Smart Sound Technology Digital Microphone Array + VB-Audio Virtual Cable (18 PortAudio endpoints enumerated across MME, DirectSound, WASAPI, WDM-KS).  
-**Status:** **Candidate hardware behavior verified; physical unplug and reconnect confirmation still required.**
+**Status:** **Physical unplug and reconnect gate verified (`PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md`); automated endpoint/index-shift gate verified (`scripts/verify_audio_device_gate.py`).**
 
 ---
 
@@ -73,6 +73,7 @@ In accordance with [Spec 0002](../specs/0002-persistent-audio-input-identity.md)
 1. **Zero Silent Fallback**: When an unplugged USB microphone is targeted, FlowPilot strictly refuses to capture audio, returning status `MISSING` and raising `RuntimeError`. At no point was room audio captured from an unexpected default microphone.
 2. **Dynamic Resolution Across Shifts**: When device enumeration indices shifted by +50 positions, `resolve_audio_input` matched the name and host API contract, mapping to the new index rather than reading whatever occupied the old index.
 3. **Clean Reconnect**: After clearing the missing device condition, audio stream creation succeeded on the active hardware endpoint without leaking PortAudio handles or wedging the recording state machine.
+4. **Physical Unplug and Reconnect Confirmation (`PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md`)**: Executed interactively via [`scripts/interactive_physical_mic_test.py`](../../scripts/interactive_physical_mic_test.py) (`Verification Mode: PHYSICAL`) on `Microphone (Realtek(R) Audio)` (`Windows WASAPI`, index `25`). Confirmed pre-flight capture (`63,724` bytes, SHA-256 `EEBC200B66FB9602...`), in-flight physical unplug detection in `2.015 s` (`2.0 s` recorder stall threshold + `0.015 s` post-threshold overhead, within the `<= 2.5 s` SLA), Zero Silent Fallback refusal (`RuntimeError`, sentinel `-9999`), PortAudio hot-plug re-enumeration in `12.585 s` via `refresh_audio_devices()`, and clean post-reconnect recovery capture (`63,724` bytes, SHA-256 `CC78B6447AE3BBFD...`). Cryptographic Integrity Receipt (SHA-256 Digest, Non-Signed): `F7F73918189FEB374AB1CFA05CFF1B5124E6AD26843370B493D724425B1998F1`.
 
 ### What Remains
-- **Physical Unplug and Reconnect Confirmation**: A human operator physically disconnecting a physical USB microphone cable in the middle of an in-flight recording, confirming the UI notification banner appears, and then physically reconnecting the USB cable to confirm that the next dictation picks up the reconnected hardware automatically. This must be confirmed on real pilot user machines.
+- **Broad Customer Pilot Confirmation**: Broader third-party USB headset and interface diversity remains part of Step 2 consented pilot intake across external pilot machines.
