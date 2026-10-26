@@ -4,7 +4,7 @@ Updated 2026-10-26. A locally verified candidate is not a published general rele
 
 ## Pilot release candidate: v3.1.0-RC7, Windows x64
 
-The application binary was built from committed source at `c47bfb6`. The later test-only commit `85baccd` declares a virtual microphone in the pre-roll test, so hosted CI does not depend on physical audio hardware. RC7 removes the recorder's CI-only synthetic audio fallback: a failed stream now raises, and an empty capture returns no WAV. The unsigned archive is a pilot candidate pending hosted CI and release promotion. The earlier RC6 package is superseded and must not be distributed.
+The application binary was built from committed source at `c47bfb6`. The later test-only commit `85baccd` declares a virtual microphone in the pre-roll test, so hosted CI does not depend on physical audio hardware. RC7 removes the recorder's CI-only synthetic audio fallback: a failed stream now raises, and an empty capture returns no WAV. The unsigned archive was published as a [pilot prerelease](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.0-RC7) after [hosted CI passed](https://github.com/abishekvr0910/flowpilot/actions/runs/40297008381) on tagged master commit `2935e1b`. The earlier RC6 package is superseded and must not be distributed.
 
 | Item | Measured value |
 |---|---|
@@ -20,7 +20,7 @@ The application binary was built from committed source at `c47bfb6`. The later t
 | Packaged smoke | Named mutex, duplicate instance handling, bundled model and Silero assets, and clean termination passed on the RC7 executable |
 | Offline packaged self test | Bundled base model transcribed the SAPI fixture; exit 0 with an empty isolated Hugging Face cache and offline flags |
 
-The five skipped local suites were not counted as passes. The package test does not establish real speaker accuracy or broad paste reliability. Hosted CI must pass on the final source before pilot publication.
+The five skipped local suites were not counted as passes. The package test does not establish real speaker accuracy or broad paste reliability. The published ZIP's GitHub asset digest matches the archive SHA-256 above.
 
 ## Pilot release candidate: v3.1.0-RC6, Windows x64
 
