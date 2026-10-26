@@ -23,7 +23,7 @@ CPU speech recognition, cursor insertion, and a native PySide6 desktop interface
 
 FlowPilot transcribes speech on the user's machine and inserts text at the active cursor. [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) lists the stable download and separately labeled pilot prereleases. Check the notes for the exact build you install and read [PRIVACY.md](PRIVACY.md) for current source behavior.
 
-The current Windows pilot build is [v3.1.0-RC7](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.0-RC7). It is an unsigned prerelease for pilot testing; the stable release remains separately listed on GitHub.
+The current Windows pilot build is listed under [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases). Pilot builds are unsigned prereleases; verify the version and SHA-256 in the [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md) before testing. The stable release remains separately listed on GitHub.
 
 ---
 
