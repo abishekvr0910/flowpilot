@@ -9,7 +9,9 @@ STRICT INVARIANTS:
 3. Hard execution deadline (400 ms). Fallback to raw Whisper on ANY error or veto in <= 5 ms.
 4. Process Isolation: SLM runs in an isolated worker process that can be forcibly
    terminated (SIGTERM/kill) if native C++ inference hangs, eliminating thread leakage.
-5. 100% offline, zero cloud egress.
+5. Asynchronous Non-Blocking Warmup: Model preloading executes asynchronously without
+   stalling application startup or real-time dictation.
+6. 100% offline, zero cloud egress.
 """
 
 import os
@@ -187,21 +189,40 @@ class LocalTextRepair:
         # Process worker state
         self._worker_process: Optional[mp.Process] = None
         self._parent_pipe: Optional[Connection] = None
+        self._is_ready: bool = False
         self._init_failed: bool = False
+        
+        # Asynchronous warmup state
+        self._warmup_future: Optional[concurrent.futures.Future] = None
+        self._warmup_in_progress: bool = False
 
     def _get_executor(self) -> concurrent.futures.ThreadPoolExecutor:
         """Get or lazily create bounded worker pool for in-process LLM inference."""
         if self._executor is None:
             self._executor = concurrent.futures.ThreadPoolExecutor(
-                max_workers=1,
+                max_workers=2,
                 thread_name_prefix="FlowPilot.LocalTextRepair"
             )
         return self._executor
 
-    def _ensure_worker_process(self) -> bool:
+    def _ensure_worker_process(self, timeout_sec: float = 3.0) -> bool:
         """Spawns and initializes dedicated worker process if not already running."""
         if self._worker_process is not None and self._worker_process.is_alive():
-            return True
+            if self._is_ready:
+                return True
+            # Worker process is starting; check for ready signal up to timeout_sec
+            if self._parent_pipe is not None and self._parent_pipe.poll(timeout=timeout_sec):
+                msg = self._parent_pipe.recv()
+                if msg.get("status") == "ready":
+                    self._is_ready = True
+                    return True
+                else:
+                    logger.warning("Worker process reported init error: %s", msg.get("error"))
+                    self._terminate_worker_process()
+                    self._init_failed = True
+                    return False
+            return False
+
         if self._init_failed or not self.model_path:
             return False
 
@@ -218,11 +239,13 @@ class LocalTextRepair:
             p.start()
             self._worker_process = p
             self._parent_pipe = parent_conn
+            self._is_ready = False
 
-            # Bounded wait for ready signal (max 3.0s startup budget)
-            if parent_conn.poll(timeout=3.0):
+            # Bounded wait for ready signal
+            if parent_conn.poll(timeout=timeout_sec):
                 msg = parent_conn.recv()
                 if msg.get("status") == "ready":
+                    self._is_ready = True
                     return True
                 else:
                     logger.warning("Worker process reported init error: %s", msg.get("error"))
@@ -230,9 +253,11 @@ class LocalTextRepair:
                     self._init_failed = True
                     return False
             else:
-                logger.warning("Worker process startup timed out.")
-                self._terminate_worker_process()
-                self._init_failed = True
+                logger.warning("Worker process startup timed out after %.2f s.", timeout_sec)
+                # If timeout was long (>=2s), mark as failed; if short (cold start check), leave running
+                if timeout_sec >= 2.0:
+                    self._terminate_worker_process()
+                    self._init_failed = True
                 return False
 
         except Exception as e:
@@ -243,6 +268,7 @@ class LocalTextRepair:
 
     def _terminate_worker_process(self):
         """Hard-terminates the worker process and frees all OS handles."""
+        self._is_ready = False
         if self._worker_process is not None:
             try:
                 if self._worker_process.is_alive():
@@ -262,10 +288,32 @@ class LocalTextRepair:
             self._parent_pipe = None
 
     def warmup(self) -> bool:
-        """Pre-load model weights in the background process so repair() never stalls on disk I/O."""
+        """Synchronously pre-loads model weights in the worker process."""
         if self._llm is not None:
             return True
-        return self._ensure_worker_process()
+        return self._ensure_worker_process(timeout_sec=3.0)
+
+    def warmup_async(self) -> concurrent.futures.Future:
+        """
+        Initiates asynchronous worker spawn and model pre-loading on a background thread.
+        Does not block application startup or the GUI event loop.
+        """
+        if self._warmup_future is not None and not self._warmup_future.done():
+            return self._warmup_future
+
+        executor = self._get_executor()
+        self._warmup_in_progress = True
+
+        def _task():
+            try:
+                ready = self.warmup()
+                self._is_ready = bool(ready)
+                return ready
+            finally:
+                self._warmup_in_progress = False
+
+        self._warmup_future = executor.submit(_task)
+        return self._warmup_future
 
     def shutdown(self, wait: bool = False):
         """Cleanly terminate worker process and executor."""
@@ -303,7 +351,7 @@ class LocalTextRepair:
             return res["choices"][0]["text"].strip()
 
         # Mode B: Process-isolated worker (production baseline)
-        if not self._ensure_worker_process():
+        if not self._ensure_worker_process(timeout_sec=min(0.2, remaining_sec)):
             raise RuntimeError("SLM worker process unavailable")
 
         self._parent_pipe.send({
@@ -362,7 +410,18 @@ class LocalTextRepair:
 
         # Check model availability
         if self._llm is None:
-            if not self.model_path or not self._ensure_worker_process():
+            if not self.model_path:
+                return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_UNPROVISIONED, t_start)
+
+            time_spent_ms = (time.perf_counter() - t_start) * 1000.0
+            remaining_ms = self.MAX_LATENCY_MS - time_spent_ms
+            if remaining_ms <= 5.0:
+                return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_TIMEOUT, t_start)
+
+            # Cold-start safety: bounded check (at most 50 ms if cold)
+            cold_check_sec = min(0.05, remaining_ms / 1000.0)
+            if not self._ensure_worker_process(timeout_sec=cold_check_sec):
+                # Return raw fallback immediately without waiting for cold start
                 return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_UNPROVISIONED, t_start)
 
         # Tier 2: Bounded Local SLM Infilling with Process-Isolated Hard Timeout

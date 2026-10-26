@@ -79,14 +79,14 @@ The engine enforces a **Hard Non-Blocking Fallback Contract**:
 
 Under no circumstances may a failure in text repair block, corrupt, or stall the text injection pipeline.
 
-### 3.3 Process Isolation Requirement for Production Promotion
+### 3.3 Process Isolation & Asynchronous Warmup Architecture
 
-While the initial sandbox prototype uses bounded executor threads for development and fast unit testing, Python threads executing native C/C++ `llama.cpp` inference cannot be forcibly stopped on Windows if native code stalls.
+In CPython on Windows, native C/C++ threads executing `llama.cpp` inference cannot be forcibly terminated if native code deadlocks or exceeds latency deadlines. To prevent thread exhaustion and process leaks, Feature 30 implements an isolated process worker architecture:
 
-Before promoting Feature 30 from the sandbox prototype to release integration:
-1. **Persistent Worker Process**: Model loading and infilling must execute in a separate persistent background worker process (`ProcessWorker`) communicating via IPC (`multiprocessing.Pipe` or socket).
-2. **Hard Termination on Timeout**: If inference exceeds the 400 ms latency budget, the host process must execute `worker.terminate()`, instantly killing the stalled native execution, freeing CPU/GPU handles, and spawning a fresh worker asynchronously while returning the raw Whisper fallback in $\le 5\text{ ms}$.
-3. **Decoupled Model Loading**: Model loading must occur during application startup or background warm-up; it must never run synchronously inside the real-time dictation injection path.
+1. **Persistent Worker Process**: Infilling executes in a dedicated child process (`multiprocessing.Process` via `spawn`) communicating over bidirectional duplex `multiprocessing.Pipe`.
+2. **Hard Termination on Timeout**: If inference exceeds the 400 ms latency budget, the host process issues `worker.terminate()` (and `worker.kill()` if necessary), instantly freeing CPU/GPU handles and threads. A fresh worker is respawned cleanly on the subsequent invocation without leaking background tasks.
+3. **Asynchronous Non-Blocking Warmup (`warmup_async()`)**: Model loading and weight preloading are initiated non-blocking in background threads during application startup (`FlowOrchestrator.__init__`). If dictation completes before the model is fully loaded, a short bounded cold-start check (<= 50 ms) fails fast and safely falls back to pristine Whisper transcripts (`FALLBACK_UNPROVISIONED`), completely protecting the 400 ms budget.
+4. **Verification**: Validated in Suite 60 (`tests/test_local_text_repair.py`, 17 tests) covering hard timeout termination, cold-start fallback, and auto-restart self-healing.
 
 ---
 

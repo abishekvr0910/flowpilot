@@ -94,6 +94,17 @@ class FlowOrchestrator:
         # Asynchronously preload model in background to eliminate cold start
         threading.Thread(target=self.stt.preload_model, daemon=True, name="FlowPilot-ModelPreload").start()
 
+        # Tier 2 Local Text Repair (process-isolated SLM sandbox)
+        self.text_repair: Optional[Any] = None
+        if self.config.get("local_text_repair_enabled", False):
+            try:
+                from engine.local_text_repair import LocalTextRepair
+                self.text_repair = LocalTextRepair(self.config)
+                self.text_repair.warmup_async()
+                logger.info("LocalTextRepair initialized; non-blocking background warmup started.")
+            except Exception as e:
+                logger.warning("LocalTextRepair initialization failed: %s", e)
+
     def _notify(self, state: str, extra: Optional[Dict[str, Any]] = None):
         legacy_map = {
             AppState.IDLE: "idle",
@@ -448,6 +459,24 @@ class FlowOrchestrator:
                     if trigger:
                         print("[Orchestrator] Expanded voice snippet trigger matched.")
                         formatted_text = expanded_text
+                # 4b. Optional Tier 2 Local Text Repair (process-isolated SLM sandbox)
+                if self.text_repair is not None and self.config.get("local_text_repair_enabled", False):
+                    try:
+                        t_repair_start = time.perf_counter()
+                        repair_res = self.text_repair.repair(formatted_text, language=format_lang)
+                        t_repair_end = time.perf_counter()
+                        repair_ms = round((t_repair_end - t_repair_start) * 1000, 2)
+                        active_session.record_timing("local_repair_ms", repair_ms)
+                        logger.info(
+                            "LocalTextRepair finished: %s (%.2f ms, fallback=%s)",
+                            repair_res.status.value,
+                            repair_ms,
+                            repair_res.fallback_used
+                        )
+                        formatted_text = repair_res.text
+                    except Exception as e:
+                        logger.warning("LocalTextRepair execution failed, retaining Whisper text: %s", e)
+
                 t_clean_end = time.perf_counter()
                 format_duration = round(t_clean_end - t_clean_start, 3)
                 active_session.candidate_text = formatted_text
@@ -969,6 +998,11 @@ class FlowOrchestrator:
         """Clean shutdown of all orchestrator services."""
         self._capture_watchdog_stop.set()
         self.stop_hotkey_listener()
+        if self.text_repair is not None:
+            try:
+                self.text_repair.shutdown()
+            except Exception as e:
+                logger.warning("LocalTextRepair shutdown error: %s", e)
         try:
             self.ducker.stop_ducking()
         except Exception:
