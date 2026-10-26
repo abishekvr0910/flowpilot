@@ -52,13 +52,34 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest().upper()
 
 
-def classify_hardware_bus(dev_name: str) -> dict:
-    """Authoritatively resolve Windows PnP MMDevice endpoint and parent bus InstanceId via Win32 CfgMgr32."""
-    target_norm = (dev_name or "").strip().lower()
-    mmdevice_id = ""
-    parent_pnp_id = ""
+def _classify_parent_pnp_id(parent_pnp_id: str) -> tuple[str, bool]:
+    """Map an authoritative parent PnP InstanceId prefix to a hardware bus class."""
+    parent_upper = (parent_pnp_id or "").upper()
+    if parent_upper.startswith("USB\\"):
+        return "usb_audio_device", True
+    if parent_upper.startswith(("INTELAUDIO\\", "HDAUDIO\\")):
+        return "analog_jack_hd_audio_endpoint", False
+    if parent_upper.startswith(("BTHENUM\\", "BTHHFENUM\\", "BTHLEDEVICE\\")):
+        return "bluetooth_audio_endpoint", False
+    if parent_upper.startswith(("ROOT\\", "SWD\\")):
+        return "virtual_or_software_audio_endpoint", False
+    return "unverified_non_usb_endpoint", False
 
-    if sys.platform == "win32" and target_norm:
+
+def classify_hardware_bus(dev_name: str, host_api: str = "", mmdevice_endpoint_id: str = "") -> dict:
+    """Authoritatively resolve Windows PnP MMDevice endpoint and parent bus InstanceId via Win32 CfgMgr32.
+
+    Collects all active capture DevNodes matching either an explicit mmdevice_endpoint_id
+    or the endpoint FriendlyName (allowing 31-char prefix matching only for MME). If multiple
+    active capture endpoints share the same FriendlyName without an explicit mmdevice_endpoint_id,
+    fails closed (is_usb_bus_device=False) rather than guessing the first match.
+    """
+    target_norm = (dev_name or "").strip().lower()
+    explicit_id_norm = (mmdevice_endpoint_id or "").strip().lower()
+    allow_mme_prefix = (host_api or "").strip().upper() == "MME" and len(target_norm) >= 31
+    matches = []
+
+    if sys.platform == "win32" and (target_norm or explicit_id_norm):
         try:
             import ctypes
             import winreg
@@ -73,18 +94,22 @@ def classify_hardware_bus(dev_name: str) -> dict:
                         idx += 1
                     except OSError:
                         break
-                    # Capture endpoints under MMDEVAPI start with {0.0.1.00000000}.
                     if not sub.lower().startswith("{0.0.1."):
                         continue
-                    try:
-                        with winreg.OpenKey(key, sub) as sk:
-                            fn, _ = winreg.QueryValueEx(sk, "FriendlyName")
-                    except OSError:
-                        continue
-                    fn_norm = str(fn).strip().lower()
-                    if fn_norm != target_norm and not fn_norm.startswith(target_norm):
-                        continue
                     inst_id = f"SWD\\MMDEVAPI\\{sub}"
+                    if explicit_id_norm:
+                        if inst_id.lower() != explicit_id_norm and sub.lower() != explicit_id_norm:
+                            continue
+                    else:
+                        try:
+                            with winreg.OpenKey(key, sub) as sk:
+                                fn, _ = winreg.QueryValueEx(sk, "FriendlyName")
+                        except OSError:
+                            continue
+                        fn_norm = str(fn).strip().lower()
+                        if fn_norm != target_norm and not (allow_mme_prefix and fn_norm.startswith(target_norm)):
+                            continue
+
                     devinst = ctypes.c_ulong()
                     # CM_LOCATE_DEVNODE_NORMAL (0) only succeeds for currently active/present hardware nodes
                     if cfg.CM_Locate_DevNodeW(ctypes.byref(devinst), inst_id, 0) == 0:
@@ -92,35 +117,49 @@ def classify_hardware_bus(dev_name: str) -> dict:
                         if cfg.CM_Get_Parent(ctypes.byref(parent), devinst, 0) == 0:
                             buf = ctypes.create_unicode_buffer(512)
                             if cfg.CM_Get_Device_IDW(parent, buf, 512, 0) == 0:
-                                mmdevice_id = inst_id
-                                parent_pnp_id = buf.value
-                                break
+                                matches.append((inst_id, buf.value))
         except Exception:
             pass
 
-    parent_upper = parent_pnp_id.upper()
-    if parent_upper.startswith("USB\\"):
-        bus_class = "usb_audio_device"
-        is_usb = True
-    elif parent_upper.startswith(("INTELAUDIO\\", "HDAUDIO\\")):
-        bus_class = "analog_jack_hd_audio_endpoint"
-        is_usb = False
-    elif parent_upper.startswith(("BTHENUM\\", "BTHHFENUM\\", "BTHLEDEVICE\\")):
-        bus_class = "bluetooth_audio_endpoint"
-        is_usb = False
-    elif parent_upper.startswith(("ROOT\\", "SWD\\")):
-        bus_class = "virtual_or_software_audio_endpoint"
-        is_usb = False
-    else:
-        bus_class = "unverified_non_usb_endpoint"
-        is_usb = False
+    if len(matches) == 1:
+        mmdevice_id, parent_pnp_id = matches[0]
+        bus_class, is_usb = _classify_parent_pnp_id(parent_pnp_id)
+        authority = "win32_cfgmgr32_explicit_endpoint" if explicit_id_norm else "win32_cfgmgr32_unique_devnode"
+        return {
+            "ambiguous_endpoint_match": False,
+            "hardware_bus_class": bus_class,
+            "host_api": host_api or "UNSPECIFIED",
+            "is_usb_bus_device": is_usb,
+            "matched_active_endpoint_count": 1,
+            "mmdevice_endpoint_id": mmdevice_id,
+            "parent_pnp_instance_id": parent_pnp_id,
+            "resolution_authority": authority,
+        }
+
+    if len(matches) > 1:
+        # Fail closed when multiple active capture endpoints share the same FriendlyName
+        return {
+            "ambiguous_endpoint_match": True,
+            "candidate_mmdevice_endpoint_ids": [m[0] for m in matches],
+            "candidate_parent_pnp_instance_ids": [m[1] for m in matches],
+            "hardware_bus_class": "ambiguous_multiple_active_endpoints",
+            "host_api": host_api or "UNSPECIFIED",
+            "is_usb_bus_device": False,
+            "matched_active_endpoint_count": len(matches),
+            "mmdevice_endpoint_id": "AMBIGUOUS",
+            "parent_pnp_instance_id": "AMBIGUOUS",
+            "resolution_authority": "ambiguous_multiple_active_devnodes_fail_closed",
+        }
 
     return {
-        "hardware_bus_class": bus_class,
-        "is_usb_bus_device": is_usb,
-        "mmdevice_endpoint_id": mmdevice_id or "UNRESOLVED",
-        "parent_pnp_instance_id": parent_pnp_id or "UNRESOLVED",
-        "resolution_authority": "win32_cfgmgr32_devnode" if parent_pnp_id else "unverified_fallback",
+        "ambiguous_endpoint_match": False,
+        "hardware_bus_class": "unverified_non_usb_endpoint",
+        "host_api": host_api or "UNSPECIFIED",
+        "is_usb_bus_device": False,
+        "matched_active_endpoint_count": 0,
+        "mmdevice_endpoint_id": "UNRESOLVED",
+        "parent_pnp_instance_id": "UNRESOLVED",
+        "resolution_authority": "unverified_fallback",
     }
 
 
@@ -180,7 +219,7 @@ def select_target_device(devices, interactive: bool = True):
         return devices[default_idx]
 
 
-def run_test(simulated: bool = False, auto_confirm: bool = False):
+def run_test(simulated: bool = False, auto_confirm: bool = False, mmdevice_id: str = ""):
     print("=" * 74)
     print("   FLOWPILOT PHYSICAL MICROPHONE DISCONNECT & RECONNECT GATE")
     print("=" * 74)
@@ -399,8 +438,11 @@ def run_test(simulated: bool = False, auto_confirm: bool = False):
     receipt_filename = f"{mode_str}_USB_UNPLUG_RECEIPT_{ts}.md"
     receipt_file = receipt_dir / receipt_filename
 
-    bus_info = classify_hardware_bus(target_dev["name"])
-    bus_info = classify_hardware_bus(target_dev["name"])
+    bus_info = classify_hardware_bus(
+        target_dev["name"],
+        host_api=target_dev.get("host_api", ""),
+        mmdevice_endpoint_id=mmdevice_id,
+    )
     canonical_manifest = {
         "schema_version": "1.0.0",
         "receipt_type": "cryptographic_integrity_receipt_sha256_unsigned",
@@ -413,7 +455,6 @@ def run_test(simulated: bool = False, auto_confirm: bool = False):
             "python": sys.version.split()[0],
         },
         "target_endpoint": selection,
-        "hardware_bus": bus_info,
         "hardware_bus": bus_info,
         "hardware_indices": {
             "initial_index": target_dev["index"],
@@ -501,7 +542,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Physical Microphone / Headset Unplug & Reconnect Gate")
     parser.add_argument("--simulated", action="store_true", help="Run simulated disconnect/reconnect check")
     parser.add_argument("--yes", action="store_true", help="Auto-select detected external headset/mic and start without ENTER prompt")
+    parser.add_argument("--mmdevice-id", type=str, default="", help="Optional exact SWD\\MMDEVAPI\\{0.0.1...} endpoint ID to disambiguate identically named microphones")
     args = parser.parse_args()
 
-    success = run_test(simulated=args.simulated, auto_confirm=args.yes)
+    success = run_test(simulated=args.simulated, auto_confirm=args.yes, mmdevice_id=args.mmdevice_id)
     sys.exit(0 if success else 1)
