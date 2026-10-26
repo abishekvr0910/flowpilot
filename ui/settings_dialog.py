@@ -94,10 +94,19 @@ class SettingsDialog(QDialog):
         guard_wheel_events(self)
 
     def reject(self):
+        worker = getattr(self, "_download_worker", None)
+        if worker is not None and worker.isRunning():
+            worker.cancel()
         if self.embedded:
             self.rejected.emit()
         else:
             super().reject()
+
+    def closeEvent(self, event):
+        worker = getattr(self, "_download_worker", None)
+        if worker is not None and worker.isRunning():
+            worker.cancel()
+        super().closeEvent(event)
 
     def _build_general_tab(self) -> QWidget:
         widget = QWidget()
@@ -600,9 +609,9 @@ class SettingsDialog(QDialog):
         self.lbl_download_status.setVisible(True)
         self.lbl_download_status.setText("Connecting to Hugging Face model repository...")
 
-        self._download_worker = ModelDownloadWorker(size="small", parent=self)
+        self._download_worker = ModelDownloadWorker(size="small")
         self._download_worker.progress.connect(self._on_download_progress)
-        self._download_worker.finished.connect(self._on_download_finished)
+        self._download_worker.download_finished.connect(self._on_download_finished)
         self._download_worker.start()
 
     def _on_download_progress(self, pct, done, total, fname):

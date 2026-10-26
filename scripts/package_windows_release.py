@@ -165,12 +165,18 @@ def sign_executable(
         except Exception:
             verified = False
 
+        if not verified:
+            return {
+                "signed": False,
+                "status": "SIGN_VERIFY_FAILED",
+                "error": "signtool signed the executable but Authenticode verification failed",
+            }
         return {
             "signed": True,
             "status": "AUTHENTICODE_SIGNED",
             "signtool": str(tool),
             "timestamp_url": timestamp_url,
-            "verified": verified
+            "verified": True,
         }
     return {
         "signed": False,
@@ -209,19 +215,25 @@ def main(argv=None) -> dict:
     temp_cert_file = None
     if not cert_path and os.environ.get("FLOWPILOT_SIGN_PFX_PATH"):
         env_pfx = Path(os.environ["FLOWPILOT_SIGN_PFX_PATH"])
-        if env_pfx.is_file():
-            cert_path = env_pfx
+        if not env_pfx.is_file():
+            raise RuntimeError("Configured signing certificate file does not exist")
+        cert_path = env_pfx
     elif not cert_path and os.environ.get("FLOWPILOT_SIGN_CERT_BASE64"):
         import base64
         import tempfile
         try:
-            cert_bytes = base64.b64decode(os.environ["FLOWPILOT_SIGN_CERT_BASE64"])
+            cert_bytes = base64.b64decode(os.environ["FLOWPILOT_SIGN_CERT_BASE64"], validate=True)
+            if not cert_bytes:
+                raise ValueError("empty certificate")
             temp_cert_file = tempfile.NamedTemporaryFile(suffix=".pfx", delete=False)
             temp_cert_file.write(cert_bytes)
             temp_cert_file.close()
             cert_path = Path(temp_cert_file.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            if temp_cert_file is not None:
+                temp_cert_file.close()
+                Path(temp_cert_file.name).unlink(missing_ok=True)
+            raise RuntimeError("Configured signing certificate could not be decoded") from exc
 
     thumbprint = args.thumbprint or os.environ.get("FLOWPILOT_SIGN_THUMBPRINT")
     subject = args.subject or os.environ.get("FLOWPILOT_SIGN_SUBJECT")

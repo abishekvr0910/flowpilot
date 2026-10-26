@@ -28,7 +28,7 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 
 ## Conventions
 
-- No network in production code except loopback. `local_llm.py` pins `ProxyHandler({})` and blocks redirects on purpose; keep that.
+- Dictation and local text processing must not contact external hosts. `model_downloader.py` is the explicit, user initiated setup exception for downloading verified model weights over HTTPS. `local_llm.py` pins `ProxyHandler({})` and blocks redirects on purpose; keep that.
 - Cross platform tiering: implement the win32 way first, then the pactl, osascript, or xdotool adapter, each behind a guarded import.
 - Orchestrator state changes are the single source of UI truth; emit them through `StateBridge`, never through direct widget calls from engine code.
 - Companion context sampling reads foreground executable identity, geometry, and Windows notification state only. It never reads window titles, URLs, screen pixels, clipboard, or transcript content.
