@@ -213,7 +213,7 @@ def run_test(simulated: bool = False, auto_confirm: bool = False):
 
         t_prompt = time.perf_counter()
         detected_error = None
-        max_wait_from_prompt = 30.0
+        max_wait_from_prompt = 180.0
         stall_to_detection_s = None
 
         while time.perf_counter() - t_prompt < max_wait_from_prompt:
@@ -288,7 +288,7 @@ def run_test(simulated: bool = False, auto_confirm: bool = False):
         reconnected = False
         poll_t0 = time.perf_counter()
         reconnect_idx = None
-        while time.perf_counter() - poll_t0 < 45.0:
+        while time.perf_counter() - poll_t0 < 180.0:
             current_devs = get_audio_input_devices(refresh=True)
             chk = resolve_audio_input(selection, devices=current_devs)
             if chk.status == DeviceResolutionStatus.RESOLVED:
@@ -301,7 +301,7 @@ def run_test(simulated: bool = False, auto_confirm: bool = False):
             print(".", end="", flush=True)
 
         if not reconnected:
-            print("\n[ERROR] Device was not re-detected within 45s.")
+            print("\n[ERROR] Device was not re-detected within 180s.")
             return False
 
         # Phase 5: Recovery Stream
