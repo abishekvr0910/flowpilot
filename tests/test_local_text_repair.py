@@ -62,12 +62,34 @@ class TestLocalTextRepair(unittest.TestCase):
         self.assertTrue(res.fallback_used)
         self.assertLess(res.latency_ms, 15.0)
 
+    def test_empty_or_whitespace_transcript_returns_unchanged(self):
+        """Empty or whitespace input must bypass SLM infilling and return immediately."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        res_empty = repairer.repair("")
+        self.assertEqual(res_empty.status, RepairStatus.REPAIRED)
+        self.assertEqual(res_empty.text, "")
+        self.assertEqual(res_empty.latency_ms, 0.0)
+
+        res_space = repairer.repair("   \n\t  ")
+        self.assertEqual(res_space.status, RepairStatus.REPAIRED)
+        self.assertEqual(res_space.text, "   \n\t  ")
+
     def test_unprovisioned_model_falls_back_safely(self):
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": None})
         res = repairer.repair("Test transcription without model path")
         self.assertEqual(res.status, RepairStatus.FALLBACK_UNPROVISIONED)
         self.assertEqual(res.text, "Test transcription without model path")
         self.assertTrue(res.fallback_used)
+
+    def test_model_load_failure_during_init_falls_back_safely(self):
+        """Simulate llama-cpp import or initialization exception."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "corrupt.gguf"})
+        with patch("builtins.__import__", side_effect=ImportError("No module named 'llama_cpp'")):
+            res = repairer.repair("Test import error fallback")
+            self.assertEqual(res.status, RepairStatus.FALLBACK_UNPROVISIONED)
+            self.assertEqual(res.text, "Test import error fallback")
+            self.assertTrue(res.fallback_used)
+            self.assertTrue(repairer._init_failed)
 
     def test_tier3_factguard_vetoes_dropped_negation(self):
         """Simulate an SLM that drops a negation: FactGuard must VETO and return raw input."""
@@ -107,6 +129,27 @@ class TestLocalTextRepair(unittest.TestCase):
         self.assertFalse(res.fallback_used)
         self.assertIn("not", res.text)
         self.assertIn("42", res.text)
+        repairer.shutdown()
+
+    def test_malformed_llm_output_falls_back_safely(self):
+        """Simulate an SLM returning malformed structure or raising an exception."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+
+        # 1. Output missing 'choices' key
+        mock_broken = MagicMock(return_value={"error": "syntax"})
+        repairer._llm = mock_broken
+        res1 = repairer.repair("Testing malformed LLM response")
+        self.assertEqual(res1.status, RepairStatus.FALLBACK_ERROR)
+        self.assertEqual(res1.text, "Testing malformed LLM response")
+        self.assertTrue(res1.fallback_used)
+
+        # 2. LLM raising runtime exception
+        mock_throwing = MagicMock(side_effect=RuntimeError("DirectML out of memory"))
+        repairer._llm = mock_throwing
+        res2 = repairer.repair("Testing runtime exception handling")
+        self.assertEqual(res2.status, RepairStatus.FALLBACK_ERROR)
+        self.assertEqual(res2.text, "Testing runtime exception handling")
+        self.assertTrue(res2.fallback_used)
         repairer.shutdown()
 
     def test_timeout_falls_back_to_raw_transcript(self):
