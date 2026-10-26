@@ -58,7 +58,29 @@ PREFERRED_HOST_APIS = [
 ]
 
 
-def get_audio_input_devices(sd_module=None) -> List[Dict[str, Any]]:
+def refresh_audio_devices(sd_module=None) -> bool:
+    """
+    Re-initializes PortAudio so newly connected or disconnected USB audio
+    devices are reflected in subsequent query_devices() calls.
+    Only call when no PortAudio streams are actively running.
+    """
+    target_sd = sd_module if sd_module is not None else (sd if HAS_SOUNDDEVICE else None)
+    if target_sd is None:
+        return False
+    term = getattr(target_sd, "_terminate", None)
+    init = getattr(target_sd, "_initialize", None)
+    if not callable(term) or not callable(init):
+        return False
+    try:
+        term()
+        init()
+        return True
+    except Exception as e:
+        logger.warning(f"Could not refresh PortAudio device table: {e}")
+        return False
+
+
+def get_audio_input_devices(sd_module=None, refresh: bool = False) -> List[Dict[str, Any]]:
     """
     Enumerates all input devices from SoundDevice, enriching each with
     its host API name, channel count, and PortAudio integer index.
@@ -66,6 +88,9 @@ def get_audio_input_devices(sd_module=None) -> List[Dict[str, Any]]:
     target_sd = sd_module if sd_module is not None else (sd if HAS_SOUNDDEVICE else None)
     if target_sd is None:
         return []
+
+    if refresh:
+        refresh_audio_devices(target_sd)
 
     try:
         raw_devices = target_sd.query_devices()

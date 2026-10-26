@@ -410,6 +410,22 @@ class TestAudioInputSafetyIntegration(unittest.TestCase):
                          ["audio_input_selection"]["max_channels"], 1)
         orch.recorder.is_recording = False
 
+    def test_refresh_audio_devices_reinitializes_portaudio(self):
+        from engine.audio_devices import refresh_audio_devices
+        mock_sd = MagicMock()
+        self.assertTrue(refresh_audio_devices(sd_module=mock_sd))
+        mock_sd._terminate.assert_called_once()
+        mock_sd._initialize.assert_called_once()
+
+    def test_stalled_idle_preroll_stream_is_not_treated_as_healthy_hot_stream(self):
+        import time
+        recorder = AudioRecorder(device=4)
+        self.addCleanup(recorder.close)
+        recorder.stream = MagicMock(active=True)
+        self.assertTrue(recorder.has_healthy_hot_stream())
+        recorder._last_callback_at = time.monotonic() - (recorder.CAPTURE_STALL_SECONDS + 0.5)
+        self.assertFalse(recorder.has_healthy_hot_stream())
+
 
 if __name__ == "__main__":
     unittest.main()
