@@ -21,7 +21,7 @@ CPU speech recognition, cursor insertion, and a native PySide6 desktop interface
 
 **FlowPilot** is an open-source, local-first desktop voice dictation assistant built for power users, developers, and privacy-conscious professionals.
 
-FlowPilot transcribes speech on the user's machine and inserts text at the active cursor. The published download is [v3.0.2 for Windows](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release); the current `master` source contains newer pilot features that are not part of that release. For the current source's local storage behavior, read [PRIVACY.md](PRIVACY.md) before use.
+FlowPilot transcribes speech on the user's machine and inserts text at the active cursor. [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) lists the stable download and separately labeled pilot prereleases. Check the notes for the exact build you install and read [PRIVACY.md](PRIVACY.md) for current source behavior.
 
 ---
 
@@ -38,7 +38,7 @@ FlowPilot transcribes speech on the user's machine and inserts text at the activ
 | 🔄 **Continuous Pre-Roll Ring Buffer** | A 350 ms sliding float32 buffer and background stream warmup are designed to reduce first-syllable clipping; microphone and system timing still vary. |
 | 📋 **Clipboard restoration & recovery** | Windows sequence checks help preserve newer user copies during delayed text restoration. Rich clipboard formats are not fully preserved; **Alt+Shift+Z** requests recovery. |
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
-| 📝 **Meeting Notetaker & History Vault** | Current `master` includes meeting notes and an opt-in dictation vault for local transcripts and `.wav` audio. Meeting-note storage is separate. These features are newer than the published v3.0.2 release. |
+| 📝 **Meeting Notetaker & History Vault** | Current `master` includes meeting notes and an opt-in dictation vault for local transcripts and `.wav` audio. Meeting-note storage is separate. Check each release's notes for its included features. |
 | 🐾 **Customizable Desktop Companions** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **SondeR-Cat Pixel Kitty** (with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Retro Pixel Companions (Fox, Dino, Ghost, Bunny)**, and custom pixel art. Uses `WS_EX_NOACTIVATE` to preserve editor focus; validate behavior in your target apps. |
 
 ---
@@ -50,10 +50,10 @@ FlowPilot transcribes speech on the user's machine and inserts text at the activ
 ### Method A: Standalone Packaged Release (Windows)
 *No Python or compiler required.*
 
-- **Distribution Archive:** ~240 MB compressed ZIP ([GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.0.2-release))
+- **Distribution Archive:** Compressed Windows ZIP; size varies with bundled models ([GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases)).
 - **Primary Executable:** `FlowPilot.exe` inside the extracted Windows archive.
 
-1. Download **`FlowPilot-v3.0.2-win64.zip`** from the release page and extract it.
+1. Download the Windows ZIP for the release you intend to use and extract it. Pilot prereleases are labeled separately.
 2. Run **`FlowPilot.exe`** from the extracted folder.
 3. The **Pilot Companion** appears on your desktop (draggable anywhere, snaps to any corner), and the FlowPilot icon will sit in your System Tray.
 
