@@ -716,6 +716,29 @@ class TextInjector:
         return bool(res)
 
     @classmethod
+    def inject_terminal_dual_mode(
+        cls,
+        text: str,
+        target_hwnd: Optional[int] = None,
+        prefer_direct_typing: bool = False,
+        preserve_clipboard: bool = True
+    ) -> InjectionResult:
+        """
+        Dual-mode terminal injector:
+        Mode 1: Direct SendInput Unicode keystrokes (ideal for short commands, raw shells, or when clipboard is locked).
+        Mode 2: Shift+Insert terminal-safe paste with verified clipboard state preservation.
+        """
+        if prefer_direct_typing:
+            typed = cls.inject_unicode_sendinput(text, target_hwnd)
+            if typed:
+                return InjectionResult(
+                    status=InjectionStatus.SENT_UNVERIFIED,
+                    chars_sent=len(text),
+                    target_hwnd=target_hwnd,
+                )
+        return cls.inject_with_status(text, target_hwnd, preserve_clipboard=preserve_clipboard)
+
+    @classmethod
     def inject_unicode_sendinput(cls, text: str, target_hwnd: Optional[int] = None) -> bool:
         """
         Direct-typing fallback via Windows SendInput with KEYEVENTF_UNICODE.
@@ -825,6 +848,40 @@ class TextInjector:
             elem = uia.ElementFromHandle(target_hwnd)
             if not elem:
                 return None
+
+            # 1. Focused element fast-path: query active focused control first (O(1) optimization)
+            try:
+                focused = uia.GetFocusedElement()
+                if focused:
+                    f_hwnd = getattr(focused, "CurrentNativeWindowHandle", 0)
+                    is_match = (f_hwnd == target_hwnd)
+                    if not is_match and f_hwnd and win32gui.IsWindow(f_hwnd):
+                        try:
+                            if win32gui.GetAncestor(f_hwnd, win32con.GA_ROOT) == target_hwnd:
+                                is_match = True
+                        except Exception:
+                            pass
+                    if is_match:
+                        try:
+                            tp = focused.GetCurrentPattern(mod.UIA_TextPatternId)
+                            if tp:
+                                t_obj = tp.QueryInterface(mod.IUIAutomationTextPattern)
+                                txt = t_obj.DocumentRange.GetText(100000)
+                                if txt and txt.strip():
+                                    return txt
+                        except Exception:
+                            pass
+                        try:
+                            vp = focused.GetCurrentPattern(mod.UIA_ValuePatternId)
+                            if vp:
+                                v_obj = vp.QueryInterface(mod.IUIAutomationValuePattern)
+                                val = v_obj.CurrentValue
+                                if val and val.strip() and val.strip() != "python":
+                                    return val
+                        except Exception:
+                            pass
+            except Exception:
+                pass
 
             walker = uia.RawViewWalker
 

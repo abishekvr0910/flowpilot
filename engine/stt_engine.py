@@ -157,6 +157,12 @@ class STTEngine:
             str(proj_root / "models" / size_clean),
         ])
 
+        user_models = Path(os.path.expanduser("~/.flowpilot/models"))
+        candidates.extend([
+            str(user_models / f"faster-whisper-{size_clean}"),
+            str(user_models / size_clean),
+        ])
+
         for c in candidates:
             if os.path.isdir(c) and os.path.isfile(os.path.join(c, "model.bin")):
                 return c
