@@ -4,22 +4,22 @@ Updated 2026-10-27. A locally verified candidate is not a published general rele
 
 ## Pilot release candidate: v3.1.0-RC9, Windows x64
 
-Built locally from clean committed source `e656f96` with PyInstaller 6.22.3 and Python 3.11.15. RC9 incorporates PortAudio hot-plug re-enumeration (`refresh_audio_devices()`), pre-roll stream stall verification (`has_healthy_hot_stream()`), worker-thread Win32 COM initialization (`CoInitializeEx`) and stereo-to-mono downmix for Windows WASAPI endpoints, and the verified physical microphone unplug/reconnect gate ([`PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md`](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md)). The local text repair prototype (`feature/local-slm-repair-sandbox`) remains strictly isolated outside `master` and RC9.
+**Published as an [unsigned pilot prerelease](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.0-RC9).** Built locally from clean committed source `00fff03` with PyInstaller 6.22.3 and Python 3.11.15. RC9 incorporates PortAudio hot-plug re-enumeration (`refresh_audio_devices()`), pre-roll stream stall verification (`has_healthy_hot_stream()`), worker-thread Win32 COM initialization (`CoInitializeEx`) and stereo-to-mono downmix for Windows WASAPI endpoints, and the verified physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect gate ([`PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md`](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md), `analog_jack_hd_audio_endpoint`, `is_usb_bus_device=false`). Dedicated USB PnP bus audio device (`USB\VID_...`) hot-plug confirmation remains part of pilot hardware testing. The local text repair prototype (`feature/local-slm-repair-sandbox`) remains strictly isolated outside `master` and RC9.
 
 | Item | Measured value |
 |---|---|
-| Source commit | `e656f96` (`master`) |
+| Source commit | `00fff03` (`master`) |
 | Archive | `dist/FlowPilot-v3.1.0-RC9-win64.zip` |
-| Archive size | 770,718,502 bytes |
-| Archive SHA-256 | `E0282DF101BF1AE3744978B67A56B9985EE6C480A7A5BD254182B39B90FAA6C7` |
+| Archive size | 770,719,087 bytes |
+| Archive SHA-256 | `B53368E076726D8CF860F4D2EC725040659C16A456A8297727E5F9FA7597E829` |
 | Embedded executable | `FlowPilot.exe`, 24,926,036 bytes |
-| Embedded executable SHA-256 | `58C51CD3CA0D4EC798051BD667DAECDF7346103D6E416FD664DEF95C35E2CE19` |
+| Embedded executable SHA-256 | `EE91EDDC93CAD1A3A63DAE24218DD7D740008AE548E5F24AC05E616CC90DF217` |
 | Archive integrity | 1,297 members, CRC passed; embedded executable hash matched the tested bundle |
 | License notices | 93 files under `licenses/` |
 | Authenticode | `NotSigned`, unsigned pilot candidate only |
-| Physical audio unplug/reconnect gate | `PASSED` (`Verification Mode: PHYSICAL` on `Microphone (Realtek(R) Audio) [Windows WASAPI]`, index 25; `2.015 s` stall-to-detection `<= 2.5 s` SLA; SHA-256 integrity digest `F7F73918189FEB374AB1CFA05CFF1B5124E6AD26843370B493D724425B1998F1`) |
+| Physical 3.5mm WASAPI hot-plug gate | `PASSED` (`Verification Mode: PHYSICAL` on `Microphone (Realtek(R) Audio) [Windows WASAPI]`, index 25, `analog_jack_hd_audio_endpoint`, `is_usb_bus_device=false`; `2.015 s` stall-to-detection `<= 2.5 s` SLA; SHA-256 integrity digest `080F72FBF841FD6CF75513854B6DADDA295AC12986A08933B90F3E493A899890`; external USB bus `USB\VID_...` hot-plug pending) |
 | Local automated audit (`exebox` desktop) | 54 passed, 5 honest interactive-desktop skips, 0 failed across 59 suites in 138.15 s (complete 59/59 `--require-all` requires execution from the Windows `Default` interactive desktop) |
-| Packaged smoke | Named mutex, duplicate instance handling, bundled model and Silero assets, and clean termination passed (`tests/test_standalone_binary_smoke.py` and `tests/test_release_integrity_fixes.py`) |
+| Packaged smoke | Named mutex, duplicate instance handling, bundled model and Silero assets, and clean termination passed with zero source-timestamp warnings (`tests/test_standalone_binary_smoke.py` and `tests/test_release_integrity_fixes.py`) |
 | Offline packaged self test | `dist\FlowPilot\FlowPilot.exe --self-test` exited `0` |
 | Full stack | `npm test` passed REST and WebSocket lifecycle |
 
