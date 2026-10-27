@@ -66,7 +66,13 @@ def _classify_parent_pnp_id(parent_pnp_id: str) -> tuple[str, bool]:
     return "unverified_non_usb_endpoint", False
 
 
-def classify_hardware_bus(dev_name: str, host_api: str = "", mmdevice_endpoint_id: str = "") -> dict:
+def classify_hardware_bus(
+    dev_name: str,
+    host_api: str = "",
+    mmdevice_endpoint_id: str = "",
+    winreg_module=None,
+    cfgmgr32_lib=None,
+) -> dict:
     """Authoritatively resolve Windows PnP MMDevice endpoint and parent bus InstanceId via Win32 CfgMgr32.
 
     Collects all active capture DevNodes matching either an explicit mmdevice_endpoint_id
@@ -79,18 +85,18 @@ def classify_hardware_bus(dev_name: str, host_api: str = "", mmdevice_endpoint_i
     allow_mme_prefix = (host_api or "").strip().upper() == "MME" and len(target_norm) >= 31
     matches = []
 
-    if sys.platform == "win32" and (target_norm or explicit_id_norm):
+    if (sys.platform == "win32" or (winreg_module is not None and cfgmgr32_lib is not None)) and (target_norm or explicit_id_norm):
         try:
             import ctypes
-            import winreg
-
-            cfg = ctypes.windll.cfgmgr32
+            if winreg_module is None:
+                import winreg as winreg_module
+            cfg = cfgmgr32_lib if cfgmgr32_lib is not None else ctypes.windll.cfgmgr32
             key_path = r"SYSTEM\CurrentControlSet\Enum\SWD\MMDEVAPI"
-            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as key:
+            with winreg_module.OpenKey(winreg_module.HKEY_LOCAL_MACHINE, key_path) as key:
                 idx = 0
                 while True:
                     try:
-                        sub = winreg.EnumKey(key, idx)
+                        sub = winreg_module.EnumKey(key, idx)
                         idx += 1
                     except OSError:
                         break
@@ -102,8 +108,8 @@ def classify_hardware_bus(dev_name: str, host_api: str = "", mmdevice_endpoint_i
                             continue
                     else:
                         try:
-                            with winreg.OpenKey(key, sub) as sk:
-                                fn, _ = winreg.QueryValueEx(sk, "FriendlyName")
+                            with winreg_module.OpenKey(key, sub) as sk:
+                                fn, _ = winreg_module.QueryValueEx(sk, "FriendlyName")
                         except OSError:
                             continue
                         fn_norm = str(fn).strip().lower()
