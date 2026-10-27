@@ -122,18 +122,47 @@ def resolve_gguf_model(explicit_path: Path | None) -> Path:
     raise FileNotFoundError("Could not locate qwen2.5-0.5b-instruct-q4_k_m.gguf; pass --model <path>.")
 
 
+def ensure_windows_mic_unmuted(keyword: str = "array") -> bool:
+    """Uses pycaw to verify and enforce unmuted status and 100% volume for the target microphone."""
+    try:
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+        from ctypes import cast, POINTER
+        from comtypes import CLSCTX_ALL
+        for d in AudioUtilities.GetAllDevices():
+            name = getattr(d, 'FriendlyName', '') or ''
+            if keyword.lower() in name.lower() and hasattr(d, '_dev') and d._dev:
+                ep = d._dev.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                vol = cast(ep, POINTER(IAudioEndpointVolume))
+                if vol.GetMute():
+                    vol.SetMute(0, None)
+                    print(f"[Windows Audio] Unmuted {name}", flush=True)
+                if vol.GetMasterVolumeLevelScalar() < 0.95:
+                    vol.SetMasterVolumeLevelScalar(1.0, None)
+                    print(f"[Windows Audio] Set {name} volume to 100%", flush=True)
+                return True
+    except Exception as exc:
+        print(f"[Windows Audio] pycaw inspection note: {exc}", flush=True)
+    return False
+
+
 def run_live_test(
     model_path: Path,
     duration_sec: float,
     out_receipt: Path,
     min_rms: float = 0.002,
     interactive: bool = False,
+    target_mic: str = "array",
 ) -> int:
     print("=" * 74, flush=True)
     print("  FLOWPILOT SPONTANEOUS LIVE MICROPHONE + LOCAL SLM REPAIR GATE", flush=True)
     print("=" * 74, flush=True)
 
-    candidates = get_physical_wasapi_mics()
+    ensure_windows_mic_unmuted(target_mic)
+
+    all_candidates = get_physical_wasapi_mics()
+    array_candidates = [d for d in all_candidates if target_mic.lower() in (d.get("name") or "").lower()]
+    candidates = array_candidates if array_candidates else all_candidates
+
     for d in candidates:
         b_info = classify_hardware_bus(d.get("name") or "", host_api=d.get("host_api") or "Windows WASAPI")
         print(
@@ -326,6 +355,7 @@ if __name__ == "__main__":
         default=PROJECT_ROOT / "docs" / "evaluation" / "LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json",
     )
     parser.add_argument("--interactive", action="store_true", help="Prompt Enter key in terminal before each trial")
+    parser.add_argument("--target-mic", type=str, default="array", help="Microphone name filter keyword (default: array)")
     args = parser.parse_args()
     sys.exit(
         run_live_test(
@@ -333,5 +363,6 @@ if __name__ == "__main__":
             args.duration_sec,
             args.out_receipt,
             interactive=args.interactive,
+            target_mic=args.target_mic,
         )
     )
