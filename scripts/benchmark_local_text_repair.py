@@ -33,8 +33,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from engine.evaluation_metrics import verify_critical_facts
-from engine.local_text_repair import LocalTextRepair, RepairStatus
+from engine.evaluation_metrics import calculate_wer, verify_critical_facts
+from engine.local_text_repair import LocalTextRepair, RepairStatus, SpanDiffEditor, SlotLocker
 
 
 def build_150_adversarial_corpus_with_gold() -> list[tuple[str, str]]:
@@ -247,6 +247,7 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
     engine.MAX_LATENCY_MS = unbounded_ceiling_ms
     latencies_all = []
     latencies_repaired = []
+    phase_a_records = []
     status_counts = {s.value: 0 for s in RepairStatus}
     within_400ms_count = 0
     gold_exact_matches = 0
@@ -265,6 +266,16 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
 
             res = engine.repair(raw_text, language="en")
             latencies_all.append(res.latency_ms)
+            locked_tmp, _ = SlotLocker.lock(raw_text)
+            head_tmp, _, _ = SpanDiffEditor.extract_span(locked_tmp)
+            phase_a_records.append({
+                "index": idx,
+                "latency_ms": round(res.latency_ms, 2),
+                "head_span": head_tmp,
+                "max_tokens": SpanDiffEditor.estimate_max_tokens(head_tmp),
+                "status": res.status.value,
+                "gold_exact_match": res.text == expected_gold,
+            })
             if res.latency_ms <= strict_deadline_ms:
                 within_400ms_count += 1
             status_counts[res.status.value] = status_counts.get(res.status.value, 0) + 1
@@ -304,6 +315,8 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
                     "latency_ms": round(res.latency_ms, 2),
                     "slots_locked": res.slots_locked,
                 })
+
+        top_slowest_cases = sorted(phase_a_records, key=lambda r: r["latency_ms"], reverse=True)[:5]
 
         # Phase B: 30-Case Hard Semantic & Edge-Case Gold Suite under strict 400 ms deadline
         print(
@@ -380,6 +393,138 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             if missing or added:
                 strict_fact_leaks += 1
 
+        # Phase D: Real Acoustic Speech (Common Voice 17.0 Human WAV + SAPI Disfluent WAV -> STTEngine -> LocalTextRepair)
+        print(
+            f"[6] Phase D: Running end-to-end Acoustic Speech -> STTEngine (Whisper CPU) -> LocalTextRepair (GGUF)..."
+        )
+        from engine.stt_engine import STTEngine
+        stt = STTEngine({"engine_mode": "local", "local_model_size": "base", "cpu_threads": min(8, os.cpu_count() or 4)})
+        stt.preload_model()
+
+        manifest_path = PROJECT_ROOT / "docs" / "evaluation" / "EN_HI_TA_ML_REAL_VOICE_MANIFEST.json"
+        manifest_items = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else []
+        en_cv_items = [m for m in manifest_items if m.get("language") == "en"]
+
+        cv_results = []
+        cv_repair_latencies = []
+        cv_within_400ms = 0
+        cv_fact_leaks = 0
+        cv_wer_before = []
+        cv_wer_after = []
+
+        fallback_corpus_root = Path(r"S:\APPs\New folder\private\corpus\en")
+        for m in en_cv_items:
+            rel_wav = (manifest_path.parent / m["audio_file"]).resolve()
+            if not rel_wav.is_file():
+                rel_wav = fallback_corpus_root / Path(m["audio_file"]).name
+            if not rel_wav.is_file():
+                continue
+            wav_bytes = rel_wav.read_bytes()
+            t_stt0 = time.perf_counter()
+            stt_out = stt.transcribe(wav_bytes, language="en")
+            stt_ms = (time.perf_counter() - t_stt0) * 1000.0
+            stt_text = stt_out.get("text", "").strip() if isinstance(stt_out, dict) else str(stt_out).strip()
+
+            rep_res = engine.repair(stt_text, language="en")
+            cv_repair_latencies.append(rep_res.latency_ms)
+            if rep_res.latency_ms <= strict_deadline_ms:
+                cv_within_400ms += 1
+
+            facts = verify_critical_facts(stt_text, rep_res.text, language="en")
+            missing = facts["missing_numbers"] + facts["missing_negations"] + facts["missing_identifiers"]
+            added = [v for vals in facts["added_entities"].values() for v in vals]
+            if missing or added:
+                cv_fact_leaks += 1
+
+            wer_pre = calculate_wer(m["spoken_reference"], stt_text, "en")
+            wer_post = calculate_wer(m["spoken_reference"], rep_res.text, "en")
+            cv_wer_before.append(wer_pre)
+            cv_wer_after.append(wer_post)
+
+            cv_results.append({
+                "item_id": m["item_id"],
+                "spoken_reference": m["spoken_reference"],
+                "whisper_hypothesis": stt_text,
+                "slm_repaired": rep_res.text,
+                "status": rep_res.status.value,
+                "stt_decode_ms": round(stt_ms, 2),
+                "slm_repair_ms": round(rep_res.latency_ms, 2),
+                "wer_before_repair": round(wer_pre, 4),
+                "wer_after_repair": round(wer_post, 4),
+                "fact_leak": bool(missing or added),
+            })
+            print(
+                f"    [Phase D1 Human CV {m['item_id']}] stt={stt_ms:5.1f} ms | "
+                f"slm={rep_res.latency_ms:5.1f} ms ({rep_res.status.value}) | "
+                f"WER {wer_pre:.3f} -> {wer_post:.3f}"
+            )
+
+        # Sub-phase D2: 10 Acoustic Disfluent Spoken Utterances via Windows SAPI WAV -> STTEngine -> LocalTextRepair
+        sapi_utterances = [
+            "um we must not deploy commit 104 to production before 3 pm",
+            "uh please do not charge more than 25 dollars for invoice 5010",
+            "um the latency target is 170 milliseconds and cannot exceed 400 milliseconds",
+            "uh we did not approve the 500 dollar transfer on 2026 10 27",
+            "um neither node 1 nor node 2 should accept port 8080 today",
+            "uh the discount rate is 15 percent so do not apply the surcharge",
+            "um I said do not delete table 5 until backup 90 finishes with 0 errors",
+            "uh the battery dropped to 12 percent after 4 hours so we cannot run the worker",
+            "um there are 60 suites and we must not skip suite 14 during validation",
+            "uh why did the status check return 404 instead of 200 today",
+        ]
+        sapi_results = []
+        sapi_repair_latencies = []
+        sapi_within_400ms = 0
+        sapi_fact_leaks = 0
+        if sys.platform == "win32":
+            import tempfile
+            import win32com.client
+
+            sp = win32com.client.Dispatch("SAPI.SpVoice")
+            fs = win32com.client.Dispatch("SAPI.SpFileStream")
+            for idx, spoken_prompt in enumerate(sapi_utterances):
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                    tmp_wav = tf.name
+                try:
+                    fs.Open(tmp_wav, 3)
+                    sp.AudioOutputStream = fs
+                    sp.Speak(spoken_prompt)
+                    fs.Close()
+                    wav_bytes = Path(tmp_wav).read_bytes()
+                finally:
+                    Path(tmp_wav).unlink(missing_ok=True)
+
+                t_stt0 = time.perf_counter()
+                stt_out = stt.transcribe(wav_bytes, language="en")
+                stt_ms = (time.perf_counter() - t_stt0) * 1000.0
+                stt_text = stt_out.get("text", "").strip() if isinstance(stt_out, dict) else str(stt_out).strip()
+
+                rep_res = engine.repair(stt_text, language="en")
+                sapi_repair_latencies.append(rep_res.latency_ms)
+                if rep_res.latency_ms <= strict_deadline_ms:
+                    sapi_within_400ms += 1
+
+                facts = verify_critical_facts(stt_text, rep_res.text, language="en")
+                missing = facts["missing_numbers"] + facts["missing_negations"] + facts["missing_identifiers"]
+                added = [v for vals in facts["added_entities"].values() for v in vals]
+                if missing or added:
+                    sapi_fact_leaks += 1
+
+                sapi_results.append({
+                    "index": idx,
+                    "spoken_prompt": spoken_prompt,
+                    "whisper_hypothesis": stt_text,
+                    "slm_repaired": rep_res.text,
+                    "status": rep_res.status.value,
+                    "stt_decode_ms": round(stt_ms, 2),
+                    "slm_repair_ms": round(rep_res.latency_ms, 2),
+                    "fact_leak": bool(missing or added),
+                })
+                print(
+                    f"    [Phase D2 Acoustic SAPI {idx + 1:2d}/10] stt={stt_ms:5.1f} ms | "
+                    f"slm={rep_res.latency_ms:5.1f} ms ({rep_res.status.value})"
+                )
+
         if engine._worker_process and engine._worker_process.is_alive():
             curr_rss = psutil.Process(engine._worker_process.pid).memory_info().rss / (1024 * 1024)
             worker_peak_rss_mb = max(worker_peak_rss_mb, curr_rss)
@@ -406,7 +551,10 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             "sha256": model_sha256,
             "quantization": "Q4_K_M",
             "parameters": "0.5B",
-            "repair_strategy": "span_diff (3-word opening span + @N compact slot encoding + post-call gc.collect)",
+            "repair_strategy": (
+                "span_diff (adaptive 2/3-word opening span + dynamic max_tokens + "
+                "@N compact slots + gen-0 gc.collect(0) + ABOVE_NORMAL_PRIORITY_CLASS)"
+            ),
             "n_ctx": 256,
             "n_batch": 128,
             "n_threads": min(4, os.cpu_count() or 2),
@@ -435,6 +583,7 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             "factguard_veto_rate_pct": round((status_counts["VETOED_FACT_MISMATCH"] / len(corpus)) * 100.0, 2),
             "latency_all_ms": percentiles(latencies_all),
             "latency_repaired_only_ms": percentiles(latencies_repaired),
+            "top_slowest_cases": top_slowest_cases,
             "post_delivery_fact_leaks": fact_leaks,
             "repaired_samples": repaired_samples,
         },
@@ -457,6 +606,28 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             "gold_exact_match_pct": round((strict_gold_matches / 25) * 100.0, 2),
             "caller_latency_ms": percentiles(strict_latencies),
             "post_delivery_fact_leaks": strict_fact_leaks,
+        },
+        "phase_d_real_speech_stt_to_slm_evaluation": {
+            "d1_common_voice_17_human_speech": {
+                "source": "Mozilla Common Voice 17.0 (en-cv-001..010, consented real human recordings)",
+                "sample_size": len(cv_results),
+                "completed_within_400ms_count": cv_within_400ms,
+                "completed_within_400ms_pct": round((cv_within_400ms / max(1, len(cv_results))) * 100.0, 2),
+                "slm_repair_latency_ms": percentiles(cv_repair_latencies),
+                "mean_wer_before_repair": round(statistics.mean(cv_wer_before), 4) if cv_wer_before else None,
+                "mean_wer_after_repair": round(statistics.mean(cv_wer_after), 4) if cv_wer_after else None,
+                "post_delivery_fact_leaks": cv_fact_leaks,
+                "samples": cv_results,
+            },
+            "d2_acoustic_sapi_disfluent_speech": {
+                "source": "Windows SAPI WAV synthesis -> STTEngine (faster-whisper base int8 CPU) -> LocalTextRepair",
+                "sample_size": len(sapi_results),
+                "completed_within_400ms_count": sapi_within_400ms,
+                "completed_within_400ms_pct": round((sapi_within_400ms / max(1, len(sapi_results))) * 100.0, 2),
+                "slm_repair_latency_ms": percentiles(sapi_repair_latencies),
+                "post_delivery_fact_leaks": sapi_fact_leaks,
+                "samples": sapi_results,
+            },
         },
     }
     return summary

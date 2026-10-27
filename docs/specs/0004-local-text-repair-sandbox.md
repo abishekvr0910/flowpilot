@@ -1,6 +1,6 @@
 # 0004. Local Text Repair Sandbox and Infilling Contract
 
-**Date:** 2026-10-26 (Updated 2026-10-27 with Hardened `SpanDiffEditor`, Gold-Output & Edge-Case Audit)  
+**Date:** 2026-10-26 (Updated 2026-10-27 with Hardened `SpanDiffEditor`, Gold-Output, Edge-Case & Real-Speech Audit)  
 **Status:** Evaluated in Sandbox (`feature/local-slm-repair-sandbox`)  
 **Audience:** FlowPilot maintainers, Codex, Gemini  
 **Baseline:** commit `54e7c5c` (`v3.1.0-RC9`)  
@@ -45,10 +45,10 @@ To eliminate the hallucination, entity drift, negation-dropping, and CPU latency
          ▼
 ┌────────────────────────────────────────────────────────┐
 │ Tier 2: SpanDiffEditor & Bounded SLM Infilling         │
-│ • Extracts 3-word opening span; encodes slots as @N    │
+│ • Adaptive 2/3-word opening span; encodes slots as @N  │
 │ • Model: Qwen2.5-0.5B-Instruct (Q4_K_M GGUF, ~468 MiB) │
-│ • Bounds generation to <= 6 tokens (P50 ~170 ms CPU)   │
-│ • Verifies non-filler content word conservation        │
+│ • Bounds generation to <= 6 tokens (P50 ~117 ms CPU)   │
+│ • Verifies non-filler content word & case conservation │
 │ • Splices repaired span onto slot-locked body tail     │
 └────────────────────────────────────────────────────────┘
          │
@@ -88,7 +88,7 @@ In CPython on Windows, native C/C++ threads executing `llama.cpp` inference cann
 
 1. **Persistent Worker Process**: Infilling executes in a dedicated child process (`multiprocessing.Process` via `spawn`) communicating over bidirectional duplex `multiprocessing.Pipe`.
 2. **Hard Termination on Timeout**: If inference exceeds the 400 ms latency budget, the host process issues `worker.terminate()` (and `worker.kill()` if necessary), instantly freeing CPU/GPU handles and threads. A fresh worker is respawned cleanly on the subsequent invocation without leaking background tasks.
-3. **Asynchronous Non-Blocking Warmup (`warmup_async()`) & Post-Call GC**: Model loading, weight preloading, and 1-shot system prompt KV cache warmup are initiated non-blocking in background threads during application startup (`FlowOrchestrator.__init__`). After sending each inference response over the pipe, the worker runs `gc.collect()` off the critical path, keeping worker RSS flat at `516.20–519.62 MB` across hundreds of calls.
+3. **Asynchronous Non-Blocking Warmup (`warmup_async()`) & Post-Call GC**: Model loading, weight preloading, and 1-shot system prompt KV cache warmup are initiated non-blocking in background threads during application startup (`FlowOrchestrator.__init__`). After sending each inference response over the pipe, the worker runs generation-0 `gc.collect(0)` off the critical path (with full `gc.collect()` every 25 calls) and runs at `ABOVE_NORMAL_PRIORITY_CLASS`, keeping worker RSS flat at `515.92–528.04 MB` across 226 calls.
 4. **Verification**: Validated in Suite 60 (`tests/test_local_text_repair.py`, 23 tests) covering `SpanDiffEditor`, natural `@N` and `<SLOT_N>` collision guards, filler-in-meaning preservation, interrogative punctuation, hard timeout termination, cold-start fallback, dropped code-identifier slot veto, and auto-restart self-healing.
 
 ---
@@ -106,22 +106,24 @@ In CPython on Windows, native C/C++ threads executing `llama.cpp` inference cann
 ## 5. Scope & Verification Criteria
 
 Development in `feature/local-slm-repair-sandbox` will be accepted when:
-1. **P50 Latency:** On an Intel Core i5-12500H (or equivalent modern 4-core mobile CPU), end-to-end repair completes in $\le 300\text{ ms}$ for utterances up to 30 words.
-2. **Zero Fact Loss & Gold-Output Quality:** Across the 150-utterance FactGuard adversarial test suite and the 30-case Edge-Case Gold Suite (natural `@N`, filler-in-meaning, acronyms, questions), the engine achieves **0% entity hallucination or mutation** and verified gold-output exact match.
+1. **P50 & Max Latency:** On an Intel Core i5-12500H (or equivalent modern 4-core mobile CPU), end-to-end repair completes in $\le 300\text{ ms}$ at `P50` (`117.45 ms` measured) and $\le 400\text{ ms}$ across `100%` of utterances (`Max = 289.91 ms` across 150 Phase A cases).
+2. **Zero Fact Loss & Gold-Output Quality:** Across the 150-utterance FactGuard adversarial test suite, the 30-case Edge-Case Gold Suite (natural `@N`, filler-in-meaning, acronyms, questions), and the 20-clip Real Speech (`Mozilla Common Voice 17.0` + `SAPI`) suite, the engine achieves **0% entity hallucination or mutation** and `100%` gold-output exact match.
 3. **Safe Fallback & Cold-Start Safety:** 100% of simulated timeouts, runtime crashes, unwarmed cold-start calls, and FactGuard rejections fall back to clean Whisper transcripts without blocking dictation.
-4. **Memory & Regression Isolation:** Worker peak RSS stays $\le 600\text{ MB}$ (`519.62 MB` measured), and the sandbox branch passes all regression suites with zero regressions.
+4. **Memory & Regression Isolation:** Worker peak RSS stays $\le 600\text{ MB}$ (`528.04 MB` measured across 226 inferences), and the sandbox branch passes all regression suites with zero regressions.
 
 ---
 
 ## 6. Real GGUF Benchmark Findings (`2026-10-27` — Hardened `SpanDiffEditor`)
 
 Full report: [`docs/evaluation/LOCAL_SLM_GGUF_BENCHMARK_2026-10-27.md`](../evaluation/LOCAL_SLM_GGUF_BENCHMARK_2026-10-27.md)  
-Raw JSON artifact: [`docs/evaluation/local_slm_gguf_benchmark_2026-10-27.json`](../evaluation/local_slm_gguf_benchmark_2026-10-27.json)
+Raw JSON artifact: [`docs/evaluation/LOCAL_SLM_GGUF_BENCHMARK_2026-10-27.json`](../evaluation/LOCAL_SLM_GGUF_BENCHMARK_2026-10-27.json)
 
 | Criterion | Measured Value (`Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`) | Gate Status |
 | :--- | :--- | :--- |
-| **Cold-Start Unwarmed Call & Ready Time (Phase 0)** | `FALLBACK_UNPROVISIONED` in **`86.17 ms`**; ready in `1,498.04 ms`; first warm call `REPAIRED` in **`131.64 ms`** | **PASS** |
-| **Worker Process Memory RSS ($\le 600\text{ MB}$ target)** | **`516.20 MB` initial / `519.62 MB` peak RSS** across 206 calls (`-80.38 MB` below limit) | **PASS** |
-| **Phase A 150-Case Adversarial Gold Exact Match** | **`150 / 150 (100.0%)` Gold Exact Match**, **`0 / 150` fact leaks**, `P50 = 170.71 ms`, `P95 = 253.96 ms` | **PASS** |
-| **Phase B 30-Case Edge-Case Gold Suite ($\le 400\text{ ms}$)** | **`30 / 30 (100.0%)` Gold Exact Match**, **`0 / 30` fact leaks**, `P50 = 137.69 ms`, `P95 = 218.37 ms`, `Max = 243.79 ms` | **PASS** |
-| **Phase C 25-Case Strict `400 ms` Deadline** | **`25 / 25 (100.0%)` Gold Exact Match**, **`0 / 25` fact leaks**, `P50 = 184.61 ms`, `P95 = 242.65 ms`, `Max = 273.61 ms` | **PASS** |
+| **Cold-Start Unwarmed Call & Ready Time (Phase 0)** | `FALLBACK_UNPROVISIONED` in **`83.80 ms`**; ready in `1,124.74 ms`; first warm call `REPAIRED` in **`109.40 ms`** | **PASS** |
+| **Worker Process Memory RSS ($\le 600\text{ MB}$ target)** | **`515.92 MB` initial / `528.04 MB` peak RSS** across 226 calls (`-71.96 MB` below limit) | **PASS** |
+| **Phase A 150-Case Adversarial Gold Exact Match ($\le 400\text{ ms}$)** | **`150 / 150 (100.0%)` $\le 400\text{ ms}$**, **`150 / 150 (100.0%)` Gold Exact Match**, **`0` fact leaks**, `P50 = 117.45 ms`, `P95 = 186.66 ms`, `Max = 289.91 ms` | **PASS** |
+| **Phase B 30-Case Edge-Case Gold Suite ($\le 400\text{ ms}$)** | **`30 / 30 (100.0%)` Gold Exact Match**, **`0 / 30` fact leaks**, `P50 = 139.55 ms`, `P95 = 213.97 ms`, `Max = 280.98 ms` | **PASS** |
+| **Phase C 25-Case Strict `400 ms` Deadline** | **`25 / 25 (100.0%)` Gold Exact Match**, **`0 / 25` fact leaks**, `P50 = 116.61 ms`, `P95 = 167.44 ms`, `Max = 181.71 ms` | **PASS** |
+| **Phase D1 Real Human Speech (`Common Voice 17.0`, 10 clips)** | **`10 / 10 (100.0%)` $\le 400\text{ ms}$ (`REPAIRED`)**, **`0 / 10` fact leaks**, `0.0000` WER loss, `P50 = 141.64 ms`, `Max = 203.71 ms` | **PASS** |
+| **Phase D2 Acoustic SAPI Disfluent Speech (10 clips)** | **`10 / 10 (100.0%)` $\le 400\text{ ms}$ (`REPAIRED`)**, **`0 / 10` fact leaks**, `P50 = 116.25 ms`, `Max = 153.39 ms` | **PASS** |

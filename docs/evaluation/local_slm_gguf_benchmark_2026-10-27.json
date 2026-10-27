@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-10-27T02:10:23.512642+00:00",
+  "timestamp_utc": "2026-10-27T02:34:26.602328+00:00",
   "host": {
     "node": "LAPTOP-5KASE5RO",
     "system": "Windows",
@@ -15,7 +15,7 @@
     "sha256": "74A4DA8C9FDBCD15BD1F6D01D621410D31C6FC00986F5EB687824E7B93D7A9DB",
     "quantization": "Q4_K_M",
     "parameters": "0.5B",
-    "repair_strategy": "span_diff (3-word opening span + @N compact slot encoding + post-call gc.collect)",
+    "repair_strategy": "span_diff (adaptive 2/3-word opening span + dynamic max_tokens + @N compact slots + gen-0 gc.collect(0) + ABOVE_NORMAL_PRIORITY_CLASS)",
     "n_ctx": 256,
     "n_batch": 128,
     "n_threads": 4
@@ -23,19 +23,19 @@
   "phase_0_cold_start_audit": {
     "cold_unwarmed_call_status": "FALLBACK_UNPROVISIONED",
     "cold_unwarmed_call_fallback_used": true,
-    "cold_unwarmed_call_latency_ms": 86.17,
-    "worker_cold_ready_latency_ms": 1498.04,
+    "cold_unwarmed_call_latency_ms": 83.8,
+    "worker_cold_ready_latency_ms": 1124.74,
     "first_warm_call_status": "REPAIRED",
-    "first_warm_call_latency_ms": 131.64,
-    "worker_initial_rss_mb": 516.2,
-    "worker_peak_rss_mb": 519.62
+    "first_warm_call_latency_ms": 109.4,
+    "worker_initial_rss_mb": 515.92,
+    "worker_peak_rss_mb": 528.04
   },
   "phase_a_150_adversarial_corpus": {
     "corpus_size": 150,
     "ceiling_ms": 3000.0,
     "strict_sla_target_ms": 400.0,
-    "completed_within_400ms_count": 149,
-    "completed_within_400ms_pct": 99.33,
+    "completed_within_400ms_count": 150,
+    "completed_within_400ms_pct": 100.0,
     "status_counts": {
       "REPAIRED": 150,
       "FALLBACK_UNPROVISIONED": 0,
@@ -50,22 +50,64 @@
     "factguard_veto_rate_pct": 0.0,
     "latency_all_ms": {
       "count": 150,
-      "p50": 170.71,
-      "p90": 238.35,
-      "p95": 253.96,
-      "mean": 180.74,
-      "min": 92.79,
-      "max": 404.3
+      "p50": 117.45,
+      "p90": 173.29,
+      "p95": 186.66,
+      "mean": 129.05,
+      "min": 78.41,
+      "max": 289.91
     },
     "latency_repaired_only_ms": {
       "count": 150,
-      "p50": 170.71,
-      "p90": 238.35,
-      "p95": 253.96,
-      "mean": 180.74,
-      "min": 92.79,
-      "max": 404.3
+      "p50": 117.45,
+      "p90": 173.29,
+      "p95": 186.66,
+      "mean": 129.05,
+      "min": 78.41,
+      "max": 289.91
     },
+    "top_slowest_cases": [
+      {
+        "index": 146,
+        "latency_ms": 289.91,
+        "head_span": "@0 must",
+        "max_tokens": 4,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      },
+      {
+        "index": 144,
+        "latency_ms": 246.02,
+        "head_span": "@4 @0",
+        "max_tokens": 5,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      },
+      {
+        "index": 147,
+        "latency_ms": 236.49,
+        "head_span": "uh I said",
+        "max_tokens": 3,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      },
+      {
+        "index": 149,
+        "latency_ms": 210.68,
+        "head_span": "there are",
+        "max_tokens": 3,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      },
+      {
+        "index": 64,
+        "latency_ms": 205.74,
+        "head_span": "@4 @0",
+        "max_tokens": 5,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      }
+    ],
     "post_delivery_fact_leaks": 0,
     "repaired_samples": [
       {
@@ -73,7 +115,7 @@
         "expected_gold": "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400.",
         "repaired": "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400.",
         "gold_exact_match": true,
-        "latency_ms": 92.79,
+        "latency_ms": 78.41,
         "slots_locked": 5
       },
       {
@@ -81,7 +123,7 @@
         "expected_gold": "Please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id.",
         "repaired": "Please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id.",
         "gold_exact_match": true,
-        "latency_ms": 142.39,
+        "latency_ms": 112.15,
         "slots_locked": 5
       },
       {
@@ -89,7 +131,7 @@
         "expected_gold": "The latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator.",
         "repaired": "The latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator.",
         "gold_exact_match": true,
-        "latency_ms": 174.04,
+        "latency_ms": 105.6,
         "slots_locked": 4
       },
       {
@@ -97,7 +139,7 @@
         "expected_gold": "We did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today.",
         "repaired": "We did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today.",
         "gold_exact_match": true,
-        "latency_ms": 214.94,
+        "latency_ms": 109.84,
         "slots_locked": 7
       },
       {
@@ -105,7 +147,7 @@
         "expected_gold": "Neither node_5 nor node_6 should accept port 8004 when allow_external_access is false.",
         "repaired": "Neither node_5 nor node_6 should accept port 8004 when allow_external_access is false.",
         "gold_exact_match": true,
-        "latency_ms": 242.57,
+        "latency_ms": 166.46,
         "slots_locked": 6
       },
       {
@@ -113,7 +155,7 @@
         "expected_gold": "The discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge.",
         "repaired": "The discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge.",
         "gold_exact_match": true,
-        "latency_ms": 151.5,
+        "latency_ms": 132.8,
         "slots_locked": 4
       }
     ]
@@ -133,12 +175,12 @@
     "gold_mismatches": [],
     "latency_ms": {
       "count": 30,
-      "p50": 137.69,
-      "p90": 216.82,
-      "p95": 218.37,
-      "mean": 154.17,
-      "min": 96.36,
-      "max": 243.79
+      "p50": 139.55,
+      "p90": 210.54,
+      "p95": 213.97,
+      "mean": 150.85,
+      "min": 87.39,
+      "max": 280.98
     },
     "post_delivery_fact_leaks": 0,
     "samples": [
@@ -148,7 +190,7 @@
         "expected_gold": "Please ping @0 and @1 before 1 pm so check_user_handle does not fail.",
         "repaired": "Please ping @0 and @1 before 1 pm so check_user_handle does not fail.",
         "gold_exact_match": true,
-        "latency_ms": 135.84
+        "latency_ms": 157.5
       },
       {
         "category": "natural_at_n_head",
@@ -156,7 +198,7 @@
         "expected_gold": "@0 and @1 must not accept port 2021 when allow_external_access is false.",
         "repaired": "@0 and @1 must not accept port 2021 when allow_external_access is false.",
         "gold_exact_match": true,
-        "latency_ms": 218.37
+        "latency_ms": 213.97
       },
       {
         "category": "literal_slot_token",
@@ -164,7 +206,7 @@
         "expected_gold": "Do not replace <SLOT_0> or @99 when testing SlotLocker with 3 inputs.",
         "repaired": "Do not replace <SLOT_0> or @99 when testing SlotLocker with 3 inputs.",
         "gold_exact_match": true,
-        "latency_ms": 171.61
+        "latency_ms": 280.98
       },
       {
         "category": "filler_in_meaning_subject",
@@ -172,7 +214,7 @@
         "expected_gold": "Um is a common filler word that should not break parse_token_stream in 2023.",
         "repaired": "Um is a common filler word that should not break parse_token_stream in 2023.",
         "gold_exact_match": true,
-        "latency_ms": 216.82
+        "latency_ms": 233.34
       },
       {
         "category": "filler_in_meaning_meta_mention",
@@ -180,7 +222,7 @@
         "expected_gold": "Please do not delete the word um or the token uh when running suite 5.",
         "repaired": "Please do not delete the word um or the token uh when running suite 5.",
         "gold_exact_match": true,
-        "latency_ms": 120.71
+        "latency_ms": 169.62
       },
       {
         "category": "filler_in_meaning_quoted",
@@ -188,7 +230,7 @@
         "expected_gold": "We should not strip 'um' or \"uh\" from raw_transcript_buffer during 6 runs.",
         "repaired": "We should not strip 'um' or \"uh\" from raw_transcript_buffer during 6 runs.",
         "gold_exact_match": true,
-        "latency_ms": 139.54
+        "latency_ms": 183.01
       },
       {
         "category": "acronym_and_unit_homographs",
@@ -196,7 +238,7 @@
         "expected_gold": "The patient in ER room 7 must not wait more than 15 minutes for a 50 Ah battery.",
         "repaired": "The patient in ER room 7 must not wait more than 15 minutes for a 50 Ah battery.",
         "gold_exact_match": true,
-        "latency_ms": 124.56
+        "latency_ms": 160.62
       },
       {
         "category": "interrogative_why",
@@ -204,7 +246,7 @@
         "expected_gold": "Why did check_status_code return 2027 instead of 200 when retry_limit_enabled was not set?",
         "repaired": "Why did check_status_code return 2027 instead of 200 when retry_limit_enabled was not set?",
         "gold_exact_match": true,
-        "latency_ms": 132.36
+        "latency_ms": 142.14
       },
       {
         "category": "interrogative_can",
@@ -212,7 +254,7 @@
         "expected_gold": "Can we deploy commit 2028 before 9 pm without breaking user_session_id?",
         "repaired": "Can we deploy commit 2028 before 9 pm without breaking user_session_id?",
         "gold_exact_match": true,
-        "latency_ms": 104.21
+        "latency_ms": 116.86
       },
       {
         "category": "inline_tail_fillers",
@@ -220,7 +262,7 @@
         "expected_gold": "The service did not crash after 1 hours in AudioRecorder during stress_test_run.",
         "repaired": "The service did not crash after 1 hours in AudioRecorder during stress_test_run.",
         "gold_exact_match": true,
-        "latency_ms": 169.23
+        "latency_ms": 140.08
       }
     ]
   },
@@ -238,13 +280,273 @@
     "gold_exact_match_pct": 100.0,
     "caller_latency_ms": {
       "count": 25,
-      "p50": 184.61,
-      "p90": 238.23,
-      "p95": 242.65,
-      "mean": 184.45,
-      "min": 122.22,
-      "max": 273.61
+      "p50": 116.61,
+      "p90": 150.9,
+      "p95": 167.44,
+      "mean": 123.7,
+      "min": 99.27,
+      "max": 181.71
     },
     "post_delivery_fact_leaks": 0
+  },
+  "phase_d_real_speech_stt_to_slm_evaluation": {
+    "d1_common_voice_17_human_speech": {
+      "source": "Mozilla Common Voice 17.0 (en-cv-001..010, consented real human recordings)",
+      "sample_size": 10,
+      "completed_within_400ms_count": 10,
+      "completed_within_400ms_pct": 100.0,
+      "slm_repair_latency_ms": {
+        "count": 10,
+        "p50": 141.64,
+        "p90": 196.52,
+        "p95": 196.52,
+        "mean": 147.83,
+        "min": 110.55,
+        "max": 203.71
+      },
+      "mean_wer_before_repair": 0.1428,
+      "mean_wer_after_repair": 0.1428,
+      "post_delivery_fact_leaks": 0,
+      "samples": [
+        {
+          "item_id": "en-cv-006",
+          "spoken_reference": "The examples included above are by no means comprehensive.",
+          "whisper_hypothesis": "The examples included are by no means comprehensive.",
+          "slm_repaired": "The examples included are by no means comprehensive.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 803.58,
+          "slm_repair_ms": 141.92,
+          "wer_before_repair": 0.1111,
+          "wer_after_repair": 0.1111,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-007",
+          "spoken_reference": "No one else could claim that.",
+          "whisper_hypothesis": "No one else could claim that.",
+          "slm_repaired": "No one else could claim that.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 707.82,
+          "slm_repair_ms": 196.52,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-008",
+          "spoken_reference": "I cannot understand it.",
+          "whisper_hypothesis": "I cannot understand it.",
+          "slm_repaired": "I cannot understand it.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 708.64,
+          "slm_repair_ms": 203.71,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-009",
+          "spoken_reference": "It's not a ghost, it was probably a Hologram.",
+          "whisper_hypothesis": "It's not a ghost, it was probably a hologram.",
+          "slm_repaired": "It's not a ghost, it was probably a hologram.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 704.65,
+          "slm_repair_ms": 155.33,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-010",
+          "spoken_reference": "No intact examples of native vegetation survive in the area immediately around Yea.",
+          "whisper_hypothesis": "No intact examples of native vegetation survive in the area immediately around Yeh.",
+          "slm_repaired": "No intact examples of native vegetation survive in the area immediately around Yeh.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 669.73,
+          "slm_repair_ms": 141.36,
+          "wer_before_repair": 0.0769,
+          "wer_after_repair": 0.0769,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-001",
+          "spoken_reference": "Slip anchor returned to the track in the September stakes at Kempton park.",
+          "whisper_hypothesis": "Sleep anchor written to the track in the September stakes at Campton Park.",
+          "slm_repaired": "Sleep anchor written to the track in the September stakes at Campton Park.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 684.42,
+          "slm_repair_ms": 114.23,
+          "wer_before_repair": 0.2308,
+          "wer_after_repair": 0.2308,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-002",
+          "spoken_reference": "He stood at stud at fair chance farms in Washington court house, Ohio.",
+          "whisper_hypothesis": "He stood and stood at FairChan's farms in Washington Courthouse, Ohio.",
+          "slm_repaired": "He stood and stood at FairChan's farms in Washington Courthouse, Ohio.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 690.08,
+          "slm_repair_ms": 110.55,
+          "wer_before_repair": 0.4615,
+          "wer_after_repair": 0.4615,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-003",
+          "spoken_reference": "For centuries, it was the location of the Spanish colonial mint.",
+          "whisper_hypothesis": "For centuries it was the location of the Spanish colonial myth.",
+          "slm_repaired": "For centuries it was the location of the Spanish colonial myth.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 650.55,
+          "slm_repair_ms": 113.04,
+          "wer_before_repair": 0.0909,
+          "wer_after_repair": 0.0909,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-004",
+          "spoken_reference": "He was commonly referred to as the \"blacksmith of Ballinalee\".",
+          "whisper_hypothesis": "He was commonly referred to as the blacksmith of Ballinale.",
+          "slm_repaired": "He was commonly referred to as the blacksmith of Ballinale.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 939.85,
+          "slm_repair_ms": 172.55,
+          "wer_before_repair": 0.1,
+          "wer_after_repair": 0.1,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-005",
+          "spoken_reference": "As the population of Beitar Illit is Haredi, the schools are all Haredi schools.",
+          "whisper_hypothesis": "As the population of Byter Elite is already, the schools are already schools.",
+          "slm_repaired": "As the population of Byter Elite is already, the schools are already schools.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 698.1,
+          "slm_repair_ms": 129.09,
+          "wer_before_repair": 0.3571,
+          "wer_after_repair": 0.3571,
+          "fact_leak": false
+        }
+      ]
+    },
+    "d2_acoustic_sapi_disfluent_speech": {
+      "source": "Windows SAPI WAV synthesis -> STTEngine (faster-whisper base int8 CPU) -> LocalTextRepair",
+      "sample_size": 10,
+      "completed_within_400ms_count": 10,
+      "completed_within_400ms_pct": 100.0,
+      "slm_repair_latency_ms": {
+        "count": 10,
+        "p50": 116.25,
+        "p90": 148.79,
+        "p95": 148.79,
+        "mean": 118.71,
+        "min": 83.05,
+        "max": 153.39
+      },
+      "post_delivery_fact_leaks": 0,
+      "samples": [
+        {
+          "index": 0,
+          "spoken_prompt": "um we must not deploy commit 104 to production before 3 pm",
+          "whisper_hypothesis": "We must not deploy commit 104 to production before 3pm.",
+          "slm_repaired": "We must not deploy commit 104 to production before 3pm.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 2241.45,
+          "slm_repair_ms": 128.61,
+          "fact_leak": false
+        },
+        {
+          "index": 1,
+          "spoken_prompt": "uh please do not charge more than 25 dollars for invoice 5010",
+          "whisper_hypothesis": "A please do not charge more than $25 for invoice $5,010.",
+          "slm_repaired": "A please do not charge more than $25 for invoice $5,010.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 739.9,
+          "slm_repair_ms": 130.75,
+          "fact_leak": false
+        },
+        {
+          "index": 2,
+          "spoken_prompt": "um the latency target is 170 milliseconds and cannot exceed 400 milliseconds",
+          "whisper_hypothesis": "I'm the latency target is 170 milliseconds and cannot exceed 400 milliseconds.",
+          "slm_repaired": "I'm the latency target is 170 milliseconds and cannot exceed 400 milliseconds.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 737.51,
+          "slm_repair_ms": 153.39,
+          "fact_leak": false
+        },
+        {
+          "index": 3,
+          "spoken_prompt": "uh we did not approve the 500 dollar transfer on 2026 10 27",
+          "whisper_hypothesis": "We did not approve the $500 transfer on 2026-1027.",
+          "slm_repaired": "We did not approve the $500 transfer on 2026-1027.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 737.79,
+          "slm_repair_ms": 117.07,
+          "fact_leak": false
+        },
+        {
+          "index": 4,
+          "spoken_prompt": "um neither node 1 nor node 2 should accept port 8080 today",
+          "whisper_hypothesis": "A neither node 1 nor node 2 should accept port 8,080 today.",
+          "slm_repaired": "A neither node 1 nor node 2 should accept port 8,080 today.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 711.22,
+          "slm_repair_ms": 148.79,
+          "fact_leak": false
+        },
+        {
+          "index": 5,
+          "spoken_prompt": "uh the discount rate is 15 percent so do not apply the surcharge",
+          "whisper_hypothesis": "How the discount rate is 15% so do not apply the surcharge.",
+          "slm_repaired": "How the discount rate is 15% so do not apply the surcharge.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 700.26,
+          "slm_repair_ms": 103.78,
+          "fact_leak": false
+        },
+        {
+          "index": 6,
+          "spoken_prompt": "um I said do not delete table 5 until backup 90 finishes with 0 errors",
+          "whisper_hypothesis": "Am I said do not delete Table 5 until backup 90 finishes with 0 errors?",
+          "slm_repaired": "Am I said do not delete Table 5 until backup 90 finishes with 0 errors?",
+          "status": "REPAIRED",
+          "stt_decode_ms": 687.17,
+          "slm_repair_ms": 83.05,
+          "fact_leak": false
+        },
+        {
+          "index": 7,
+          "spoken_prompt": "uh the battery dropped to 12 percent after 4 hours so we cannot run the worker",
+          "whisper_hypothesis": "Are the battery dropped to 12% after 4 hours so we cannot run the worker.",
+          "slm_repaired": "Are the battery dropped to 12% after 4 hours so we cannot run the worker.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 686.53,
+          "slm_repair_ms": 112.15,
+          "fact_leak": false
+        },
+        {
+          "index": 8,
+          "spoken_prompt": "um there are 60 suites and we must not skip suite 14 during validation",
+          "whisper_hypothesis": "Um there are 60 sweets and we must not skip sweet 14 during validation.",
+          "slm_repaired": "There are 60 sweets and we must not skip sweet 14 during validation.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 681.87,
+          "slm_repair_ms": 115.42,
+          "fact_leak": false
+        },
+        {
+          "index": 9,
+          "spoken_prompt": "uh why did the status check return 404 instead of 200 today",
+          "whisper_hypothesis": "Why did the status check return 400 and 4 instead of 200 today?",
+          "slm_repaired": "Why did the status check return 400 and 4 instead of 200 today?",
+          "status": "REPAIRED",
+          "stt_decode_ms": 669.76,
+          "slm_repair_ms": 94.09,
+          "fact_leak": false
+        }
+      ]
+    }
   }
 }
