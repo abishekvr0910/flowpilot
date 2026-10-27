@@ -179,17 +179,23 @@ def find_external_candidates(devices):
             continue
         if "microphone array" in name_l or "stereo mix" in name_l or "pc speaker" in name_l:
             continue
-        if any(
+        is_usb_pnp = bool(classify_hardware_bus(d["name"], api).get("is_usb_bus_device"))
+        if is_usb_pnp or any(
             term in name_l
             for term in [
                 "usb", "headset", "headphone", "hyperx", "yeti", "rode",
-                "shure", "samson", "focusrite", "buds", "airpods", "realtek(r) audio"
+                "shure", "samson", "focusrite", "buds", "airpods", "realtek(r) audio", "wireless controller"
             ]
         ):
             candidates.append(d)
-    # Sort so Windows WASAPI comes first, then DirectSound, then MME
+    # Sort so genuine USB PnP bus devices (USB\VID_...) come first, then Windows WASAPI -> DirectSound -> MME
     api_rank = {"Windows WASAPI": 0, "Windows DirectSound": 1, "MME": 2, "Windows WDM-KS": 3}
-    candidates.sort(key=lambda d: api_rank.get(d.get("host_api", ""), 99))
+    candidates.sort(
+        key=lambda d: (
+            0 if classify_hardware_bus(d["name"], d.get("host_api", "")).get("is_usb_bus_device") else 1,
+            api_rank.get(d.get("host_api", ""), 99),
+        )
+    )
     return candidates
 
 
@@ -225,18 +231,46 @@ def select_target_device(devices, interactive: bool = True):
         return devices[default_idx]
 
 
-def run_test(simulated: bool = False, auto_confirm: bool = False, mmdevice_id: str = ""):
+def run_test(simulated: bool = False, auto_confirm: bool = False, mmdevice_id: str = "", require_usb: bool = False):
     print("=" * 74)
     print("   FLOWPILOT PHYSICAL MICROPHONE DISCONNECT & RECONNECT GATE")
     print("=" * 74)
 
     devices = get_audio_input_devices(refresh=True)
+    if require_usb and not simulated:
+        usb_devs = [
+            d for d in devices
+            if classify_hardware_bus(d["name"], d.get("host_api", ""), mmdevice_id).get("is_usb_bus_device")
+        ]
+        if not usb_devs:
+            print("\n[Waiting for USB Audio Hardware] No active USB\\VID_... audio input endpoint detected yet.")
+            print("  -> Please connect your USB headset, USB microphone, or USB controller via USB cable now (waiting up to 180s)...", flush=True)
+            t_wait = time.perf_counter()
+            while time.perf_counter() - t_wait < 180.0:
+                time.sleep(1.0)
+                devices = get_audio_input_devices(refresh=True)
+                usb_devs = [
+                    d for d in devices
+                    if classify_hardware_bus(d["name"], d.get("host_api", ""), mmdevice_id).get("is_usb_bus_device")
+                ]
+                if usb_devs:
+                    print(f"\n  -> [USB AUDIO DETECTED] Found {len(usb_devs)} USB audio endpoint(s)!", flush=True)
+                    break
+            if not usb_devs:
+                print("\n[ERROR] No USB\\VID_... audio input endpoint appeared within 180s.")
+                return False
+
     if not devices:
         print("[ERROR] No audio input devices found on this system!")
         sys.exit(1)
 
     print(f"\n[1] Enumerated {len(devices)} input endpoints.")
     target_dev = select_target_device(devices, interactive=not (simulated or auto_confirm))
+    if require_usb and not simulated:
+        bus_chk = classify_hardware_bus(target_dev["name"], target_dev.get("host_api", ""), mmdevice_id)
+        if not bus_chk.get("is_usb_bus_device"):
+            print(f"[ERROR] Selected endpoint '{target_dev['name']}' is not a USB bus device ({bus_chk['hardware_bus_class']}).")
+            return False
     print("\n[Target Endpoint Selected]:")
     print(f"  Name:        {target_dev['name']}")
     print(f"  Host API:    {target_dev['host_api']}")
@@ -549,7 +583,8 @@ if __name__ == "__main__":
     parser.add_argument("--simulated", action="store_true", help="Run simulated disconnect/reconnect check")
     parser.add_argument("--yes", action="store_true", help="Auto-select detected external headset/mic and start without ENTER prompt")
     parser.add_argument("--mmdevice-id", type=str, default="", help="Optional exact SWD\\MMDEVAPI\\{0.0.1...} endpoint ID to disambiguate identically named microphones")
+    parser.add_argument("--require-usb", action="store_true", help="Wait for and require an authoritative USB\\VID_... audio input endpoint")
     args = parser.parse_args()
 
-    success = run_test(simulated=args.simulated, auto_confirm=args.yes, mmdevice_id=args.mmdevice_id)
+    success = run_test(simulated=args.simulated, auto_confirm=args.yes, mmdevice_id=args.mmdevice_id, require_usb=args.require_usb)
     sys.exit(0 if success else 1)
