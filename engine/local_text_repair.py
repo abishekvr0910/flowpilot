@@ -99,6 +99,26 @@ class SlotLocker:
             restored = restored.replace(token, original)
         return restored
 
+    @classmethod
+    def find_missing_slots(cls, generated_text: str, slots: Dict[str, str]) -> List[str]:
+        """Returns original values of any locked <SLOT_N> tokens dropped by the SLM."""
+        return [original for token, original in slots.items() if token not in generated_text]
+
+    @classmethod
+    def find_duplicated_slots(cls, generated_text: str, slots: Dict[str, str]) -> List[str]:
+        """Returns original values of any locked <SLOT_N> tokens duplicated by the SLM."""
+        return [original for token, original in slots.items() if generated_text.count(token) > 1]
+
+
+DEFAULT_SYSTEM_PROMPT = (
+    "You are FlowPilot's local text repair engine. Clean up speech disfluencies (um, uh), "
+    "fix capitalization and punctuation, and keep every <SLOT_N> token in its exact position. "
+    "Do NOT add new facts, explanations, or delete any <SLOT_N> token.\n"
+    "Example:\n"
+    "User: um we must <SLOT_2> deploy commit <SLOT_0> before <SLOT_1> pm in <SLOT_3>\n"
+    "Assistant: We must <SLOT_2> deploy commit <SLOT_0> before <SLOT_1> pm in <SLOT_3>."
+)
+
 
 def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_threads: int):
     """
@@ -112,9 +132,15 @@ def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_thr
             llm = Llama(
                 model_path=model_path,
                 n_ctx=512,
+                n_batch=256,
                 n_threads=n_threads,
                 verbose=False
             )
+            warmup_prompt = (
+                f"<|im_start|>system\n{DEFAULT_SYSTEM_PROMPT}<|im_end|>\n"
+                "<|im_start|>user\nwarmup<|im_end|>\n<|im_start|>assistant\n"
+            )
+            llm(warmup_prompt, max_tokens=1, stop=["<|im_end|>", "\n"], temperature=0.0)
             pipe.send({"status": "ready"})
         else:
             pipe.send({"status": "error", "error": "No model path provided"})
@@ -141,8 +167,8 @@ def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_thr
             elif cmd == "infer":
                 prompt = req.get("prompt")
                 max_tokens = req.get("max_tokens", 60)
-                stop = req.get("stop", ["<|im_end|>", "\n\n"])
-                temperature = req.get("temperature", 0.1)
+                stop = req.get("stop", ["<|im_end|>", "\n"])
+                temperature = req.get("temperature", 0.0)
 
                 if llm is None:
                     pipe.send({"status": "error", "error": "Model not initialized"})
@@ -344,8 +370,8 @@ class LocalTextRepair:
                 self._llm,
                 prompt,
                 max_tokens=self.MAX_TOKENS,
-                stop=["<|im_end|>", "\n\n"],
-                temperature=0.1
+                stop=["<|im_end|>", "\n"],
+                temperature=0.0
             )
             res = future.result(timeout=remaining_sec)
             return res["choices"][0]["text"].strip()
@@ -358,7 +384,8 @@ class LocalTextRepair:
             "cmd": "infer",
             "prompt": prompt,
             "max_tokens": self.MAX_TOKENS,
-            "temperature": 0.1
+            "stop": ["<|im_end|>", "\n"],
+            "temperature": 0.0
         })
 
         if not self._parent_pipe.poll(timeout=remaining_sec):
@@ -431,11 +458,7 @@ class LocalTextRepair:
             if remaining_ms <= 5.0:
                 return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_TIMEOUT, t_start)
 
-            system_prompt = (
-                "You are FlowPilot's local text repair engine. Clean up speech disfluencies, "
-                "fix punctuation, and structure run-on sentences. Keep all <SLOT_N> tokens exactly intact. "
-                "Do NOT add new facts or delete <SLOT_N> tokens."
-            )
+            system_prompt = DEFAULT_SYSTEM_PROMPT
             prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{locked_text}<|im_end|>\n<|im_start|>assistant\n"
 
             raw_generated = self._infer_bounded(prompt, remaining_ms)
@@ -447,18 +470,23 @@ class LocalTextRepair:
             logger.warning("Tier 2 SLM inference failed: %s", e)
             return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_ERROR, t_start)
 
-        # Tier 3: Slot Restoration (< 2 ms)
+        # Tier 3: Slot Restoration (< 2 ms) & Slot Completeness Verification
+        missing_slots = SlotLocker.find_missing_slots(raw_generated, slots)
+        duplicated_slots = SlotLocker.find_duplicated_slots(raw_generated, slots)
         restored_text = SlotLocker.restore(raw_generated, slots)
+        unexpanded_slots = re.findall(r"<SLOT_\d+>", restored_text)
 
-        # FactGuard Veto Check: Ensure zero missing critical facts or negations
+        # FactGuard Veto Check: Ensure zero missing critical facts, negations, or locked slots
         elapsed_ms = (time.perf_counter() - t_start) * 1000.0
         if elapsed_ms > self.MAX_LATENCY_MS:
             logger.info("Local text repair timed out (%.1f ms > %.1f ms); vetoing.", elapsed_ms, self.MAX_LATENCY_MS)
             return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_TIMEOUT, t_start)
 
         facts = verify_critical_facts(raw_transcript, restored_text, language=language)
-        missing_critical = facts["missing_numbers"] + facts["missing_negations"]
-        added_critical = [v for vals in facts["added_entities"].values() for v in vals]
+        missing_critical = list(dict.fromkeys(facts["missing_numbers"] + facts["missing_negations"] + missing_slots))
+        added_critical = list(dict.fromkeys(
+            [v for vals in facts["added_entities"].values() for v in vals] + duplicated_slots + unexpanded_slots
+        ))
 
         if missing_critical or added_critical:
             veto_reason = f"FactGuard veto: missing={missing_critical}, added={added_critical}"

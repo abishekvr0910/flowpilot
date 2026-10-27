@@ -140,6 +140,27 @@ class TestLocalTextRepair(unittest.TestCase):
         self.assertIn("FactGuard veto", res.veto_reason)
         repairer.shutdown()
 
+    def test_tier3_factguard_vetoes_dropped_code_identifier_slot(self):
+        """Simulate an SLM that drops a locked code-identifier slot (<SLOT_0>): Tier 3 must VETO."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+
+        raw = "um please invoke getUserProfile and verify connection_string_db"
+
+        mock_llm = MagicMock()
+        # Drops <SLOT_1> (connection_string_db) and hallucinates <SLOT_99>
+        mock_llm.return_value = {
+            "choices": [{"text": "Please invoke <SLOT_0> and verify <SLOT_99>."}]
+        }
+        repairer._llm = mock_llm
+
+        res = repairer.repair(raw)
+        self.assertEqual(res.status, RepairStatus.VETOED_FACT_MISMATCH)
+        self.assertEqual(res.text, raw)
+        self.assertTrue(res.fallback_used)
+        self.assertIn("connection_string_db", res.veto_reason)
+        self.assertIn("<SLOT_99>", res.veto_reason)
+        repairer.shutdown()
+
     def test_tier3_factguard_approves_safe_cleaned_text(self):
         """Simulate an SLM that cleans punctuation while preserving slots."""
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
