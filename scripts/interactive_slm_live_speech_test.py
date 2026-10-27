@@ -248,6 +248,7 @@ def run_live_test(
             for attempt in range(1, 21):
                 print(f"  [Window {attempt}/20] Listening ({duration_sec:.1f}s) after HIGH BEEP — SPEAK NOW!", flush=True)
                 play_beep(880, duration=0.3)
+                time.sleep(0.4)
                 captured_list = record_multi_mic_clip(recorders, duration_sec=duration_sec)
                 best_dev, wav_bytes, rms, peak = captured_list[0]
                 if rms < min_rms:
@@ -269,13 +270,16 @@ def run_live_test(
                         dev_name = cand_dev.get("name") or dev_name
                         host_api = cand_dev.get("host_api") or host_api
                         bus_info = classify_hardware_bus(dev_name, host_api=host_api)
-                        play_beep(523, duration=0.2)
+                        play_beep(523, duration=0.18)
+                        time.sleep(0.1)
+                        play_beep(659, duration=0.18)
                         print(
                             f"  Captured speech on [{dev_idx}] {dev_name}: RMS={rms:.5f}, Peak={peak:.4f}",
                             flush=True,
                         )
                         break
                 if raw_text:
+                    time.sleep(2.0)
                     break
 
             if not raw_text:
