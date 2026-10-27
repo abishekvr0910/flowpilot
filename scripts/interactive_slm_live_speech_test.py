@@ -133,6 +133,20 @@ def record_multi_mic_clip(
         with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
             pcm_bytes = wf.readframes(wf.getnframes())
         rms, peak = compute_pcm16_rms_and_peak(pcm_bytes)
+        if peak > 0.002 and peak < 0.35:
+            count = len(pcm_bytes) // 2
+            samples = struct.unpack(f"<{count}h", pcm_bytes[: count * 2])
+            gain = min(8.0, 0.55 / peak)
+            scaled = [max(-32767, min(32767, int(s * gain))) for s in samples]
+            pcm_bytes = struct.pack(f"<{len(scaled)}h", *scaled)
+            buf = io.BytesIO()
+            with wave.open(buf, "wb") as wf_out:
+                wf_out.setnchannels(1)
+                wf_out.setsampwidth(2)
+                wf_out.setframerate(16000)
+                wf_out.writeframes(pcm_bytes)
+            wav_bytes = buf.getvalue()
+            rms, peak = compute_pcm16_rms_and_peak(pcm_bytes)
         results.append((dev, wav_bytes, rms, peak))
     results.sort(key=lambda item: item[2], reverse=True)
     return results
@@ -202,13 +216,13 @@ def run_live_test(
     host_api = target.get("host_api") or "Windows WASAPI"
     bus_info = classify_hardware_bus(dev_name, host_api=host_api)
 
-    print(f"[Model]  Loading STT (faster-whisper base int8, vad_filter=True) and GGUF ({model_path.name})...", flush=True)
+    print(f"[Model]  Loading STT (faster-whisper base int8) and GGUF ({model_path.name})...", flush=True)
     stt = STTEngine({
         "engine_mode": "local",
         "local_model_size": "base",
         "cpu_threads": min(8, os.cpu_count() or 4),
         "biasing_strategy": "none",
-        "vad_filter": True,
+        "vad_filter": False,
     })
     stt.preload_model()
 
