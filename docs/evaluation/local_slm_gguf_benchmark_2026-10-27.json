@@ -1,0 +1,159 @@
+{
+  "timestamp_utc": "2026-10-27T00:59:47.204827+00:00",
+  "host": {
+    "node": "LAPTOP-5KASE5RO",
+    "system": "Windows",
+    "release": "10",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+    "cpu_count_logical": 16,
+    "python": "3.11.15",
+    "llama_cpp_version": "0.3.36"
+  },
+  "model": {
+    "name": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    "size_bytes": 491400032,
+    "sha256": "74A4DA8C9FDBCD15BD1F6D01D621410D31C6FC00986F5EB687824E7B93D7A9DB",
+    "quantization": "Q4_K_M",
+    "parameters": "0.5B",
+    "n_ctx": 512,
+    "n_batch": 256,
+    "n_threads": 4
+  },
+  "warmup": {
+    "warmup_latency_ms": 1330.85,
+    "worker_peak_rss_mb": 614.53
+  },
+  "phase_a_unbounded_150_corpus": {
+    "corpus_size": 150,
+    "ceiling_ms": 3000.0,
+    "strict_sla_target_ms": 400.0,
+    "completed_within_400ms_count": 0,
+    "completed_within_400ms_pct": 0.0,
+    "status_counts": {
+      "REPAIRED": 135,
+      "FALLBACK_UNPROVISIONED": 0,
+      "FALLBACK_TIMEOUT": 0,
+      "FALLBACK_ERROR": 0,
+      "VETOED_FACT_MISMATCH": 15
+    },
+    "repaired_rate_pct": 90.0,
+    "factguard_veto_rate_pct": 10.0,
+    "latency_all_ms": {
+      "count": 150,
+      "p50": 1361.49,
+      "p90": 1706.56,
+      "p95": 1847.59,
+      "mean": 1420.07,
+      "min": 1120.11,
+      "max": 2050.53
+    },
+    "latency_repaired_only_ms": {
+      "count": 135,
+      "p50": 1348.04,
+      "p90": 1667.1,
+      "p95": 1865.3,
+      "mean": 1399.81,
+      "min": 1120.11,
+      "max": 2050.53
+    },
+    "latency_vetoed_only_ms": {
+      "count": 15,
+      "p50": 1616.68,
+      "p90": 1720.42,
+      "p95": 1748.65,
+      "mean": 1602.38,
+      "min": 1440.08,
+      "max": 1837.59
+    },
+    "post_delivery_fact_leaks": 0,
+    "repaired_samples": [
+      {
+        "raw": "um we must not deploy commit 100 to production before 1 pm because check_status_code returned 400",
+        "repaired": "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400.",
+        "latency_ms": 1248.71,
+        "slots_locked": 5
+      },
+      {
+        "raw": "uh please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id",
+        "repaired": "Uh, please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id.",
+        "latency_ms": 1327.19,
+        "slots_locked": 5
+      },
+      {
+        "raw": "the latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator",
+        "repaired": "The latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator.",
+        "latency_ms": 1242.11,
+        "slots_locked": 4
+      },
+      {
+        "raw": "we did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today",
+        "repaired": "We did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today.",
+        "latency_ms": 2003.86,
+        "slots_locked": 7
+      },
+      {
+        "raw": "um the discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge",
+        "repaired": "The discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge.",
+        "latency_ms": 1410.53,
+        "slots_locked": 4
+      },
+      {
+        "raw": "verify_critical_facts must never drop the negation in sentence 106 or alter the 8.5% threshold",
+        "repaired": "verify_critical_facts must never drop the negation in sentence 106 or alter the 8.5% threshold.",
+        "latency_ms": 1418.01,
+        "slots_locked": 4
+      }
+    ],
+    "vetoed_samples": [
+      {
+        "raw": "neither node_5 nor node_6 should accept port 8004 when allow_external_access is false",
+        "delivered_fallback": "neither node_5 nor node_6 should accept port 8004 when allow_external_access is false",
+        "veto_reason": "FactGuard veto: missing=[], added=['8004']",
+        "latency_ms": 1837.59,
+        "slots_locked": 6
+      },
+      {
+        "raw": "neither node_15 nor node_16 should accept port 8014 when allow_external_access is false",
+        "delivered_fallback": "neither node_15 nor node_16 should accept port 8014 when allow_external_access is false",
+        "veto_reason": "FactGuard veto: missing=[], added=['8014']",
+        "latency_ms": 1471.31,
+        "slots_locked": 6
+      },
+      {
+        "raw": "neither node_25 nor node_26 should accept port 8024 when allow_external_access is false",
+        "delivered_fallback": "neither node_25 nor node_26 should accept port 8024 when allow_external_access is false",
+        "veto_reason": "FactGuard veto: missing=[], added=['8024']",
+        "latency_ms": 1748.65,
+        "slots_locked": 6
+      },
+      {
+        "raw": "neither node_35 nor node_36 should accept port 8034 when allow_external_access is false",
+        "delivered_fallback": "neither node_35 nor node_36 should accept port 8034 when allow_external_access is false",
+        "veto_reason": "FactGuard veto: missing=[], added=['8034']",
+        "latency_ms": 1706.56,
+        "slots_locked": 6
+      }
+    ]
+  },
+  "phase_b_strict_400ms_deadline_25_cases": {
+    "sample_size": 25,
+    "deadline_ms": 400.0,
+    "status_counts": {
+      "REPAIRED": 0,
+      "FALLBACK_UNPROVISIONED": 24,
+      "FALLBACK_TIMEOUT": 1,
+      "FALLBACK_ERROR": 0,
+      "VETOED_FACT_MISMATCH": 0
+    },
+    "caller_latency_ms": {
+      "count": 25,
+      "p50": 61.81,
+      "p90": 63.97,
+      "p95": 64.3,
+      "mean": 78.56,
+      "min": 59.51,
+      "max": 474.47
+    },
+    "post_delivery_fact_leaks": 0
+  }
+}
