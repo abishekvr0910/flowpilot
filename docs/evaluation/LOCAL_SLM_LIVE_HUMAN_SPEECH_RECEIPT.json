@@ -1,0 +1,133 @@
+{
+  "schema": "flowpilot.slm.live_human_speech_receipt.v1",
+  "timestamp_utc": "2026-10-27T17:45:55.205547+00:00",
+  "host": {
+    "node": "LAPTOP-5KASE5RO",
+    "system": "Windows",
+    "release": "10",
+    "python": "3.11.15"
+  },
+  "microphone": {
+    "device_index": 20,
+    "device_name": "Microphone Array (Intel\u00ae Smart Sound Technology for Digital Microphones)",
+    "host_api": "Windows WASAPI",
+    "hardware_bus": {
+      "ambiguous_endpoint_match": false,
+      "hardware_bus_class": "analog_jack_hd_audio_endpoint",
+      "host_api": "Windows WASAPI",
+      "is_usb_bus_device": false,
+      "matched_active_endpoint_count": 1,
+      "mmdevice_endpoint_id": "SWD\\MMDEVAPI\\{0.0.1.00000000}.{79f3a015-245e-4e88-aaeb-09e6163b967c}",
+      "parent_pnp_instance_id": "INTELAUDIO\\CTLR_DEV_51C8&LINKTYPE_02&DEVTYPE_00&VEN_8086&DEV_AE20&SUBSYS_159C1025&REV_10EC\\5&2C95BAB1&0&0000",
+      "resolution_authority": "win32_cfgmgr32_unique_devnode"
+    }
+  },
+  "model": {
+    "name": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    "size_bytes": 491400032
+  },
+  "summary": {
+    "trials_count": 5,
+    "completed_within_400ms_count": 5,
+    "completed_within_400ms_pct": 100.0,
+    "measurable_repairs_count": 3,
+    "measurable_repairs_pct": 60.0,
+    "p50_latency_ms": 122.05,
+    "max_latency_ms": 144.99,
+    "post_delivery_fact_leaks": 0,
+    "gate_passed": true
+  },
+  "trials": [
+    {
+      "trial_id": "live-01-negation-number",
+      "instruction": "Speak clearly starting with 'Um,': 'Um, we must not deploy build 104 before 3 pm'",
+      "device_index": 20,
+      "device_name": "Microphone Array (Intel\u00ae Smart Sound Technology for Digital Microphones)",
+      "rms_energy": 0.09321,
+      "peak_amplitude": 0.9372,
+      "stt_decode_ms": 786.31,
+      "whisper_raw": "The system is very good. It's very good. It's very good.",
+      "slm_repaired": "The system is very good. It's very good. It's very good.",
+      "slm_status": "REPAIRED",
+      "slm_latency_ms": 116.25,
+      "within_400ms": true,
+      "fact_leak": false,
+      "measurable_repair": false,
+      "missing_facts": [],
+      "added_facts": []
+    },
+    {
+      "trial_id": "live-02-currency-negation",
+      "instruction": "Speak clearly starting with 'Uh,': 'Uh, please do not charge more than 25 dollars for invoice 500'",
+      "device_index": 20,
+      "device_name": "Microphone Array (Intel\u00ae Smart Sound Technology for Digital Microphones)",
+      "rms_energy": 0.0668,
+      "peak_amplitude": 0.5504,
+      "stt_decode_ms": 559.75,
+      "whisper_raw": "Um, we must not deploy.",
+      "slm_repaired": "We must not deploy.",
+      "slm_status": "REPAIRED",
+      "slm_latency_ms": 102.67,
+      "within_400ms": true,
+      "fact_leak": false,
+      "measurable_repair": true,
+      "missing_facts": [],
+      "added_facts": []
+    },
+    {
+      "trial_id": "live-03-question",
+      "instruction": "Speak clearly starting with 'Um,': 'Um, why did the status check return 404 instead of 200'",
+      "device_index": 20,
+      "device_name": "Microphone Array (Intel\u00ae Smart Sound Technology for Digital Microphones)",
+      "rms_energy": 0.06076,
+      "peak_amplitude": 0.5445,
+      "stt_decode_ms": 891.28,
+      "whisper_raw": "$1.50 for invoice 500. Um, uh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,",
+      "slm_repaired": "$1.50 for invoice 500.",
+      "slm_status": "REPAIRED",
+      "slm_latency_ms": 144.99,
+      "within_400ms": true,
+      "fact_leak": false,
+      "measurable_repair": true,
+      "missing_facts": [],
+      "added_facts": []
+    },
+    {
+      "trial_id": "live-04-filler-in-meaning",
+      "instruction": "Speak clearly starting with 'Uh,': 'Uh, the patient in ER room 4 cannot wait 15 minutes'",
+      "device_index": 20,
+      "device_name": "Microphone Array (Intel\u00ae Smart Sound Technology for Digital Microphones)",
+      "rms_energy": 0.04058,
+      "peak_amplitude": 0.4883,
+      "stt_decode_ms": 539.27,
+      "whisper_raw": "Um, do not deploy versions.",
+      "slm_repaired": "Do not deploy versions.",
+      "slm_status": "REPAIRED",
+      "slm_latency_ms": 122.05,
+      "within_400ms": true,
+      "fact_leak": false,
+      "measurable_repair": true,
+      "missing_facts": [],
+      "added_facts": []
+    },
+    {
+      "trial_id": "live-05-free-spontaneous",
+      "instruction": "Speak clearly starting with 'Um,': 'Um, do not deploy version 2 before running test 10'",
+      "device_index": 20,
+      "device_name": "Microphone Array (Intel\u00ae Smart Sound Technology for Digital Microphones)",
+      "rms_energy": 0.05578,
+      "peak_amplitude": 0.55,
+      "stt_decode_ms": 678.07,
+      "whisper_raw": "I can't talk, I don't know. I'm already in a more watered place. I can't talk. I need a question.",
+      "slm_repaired": "I can't talk, I don't know. I'm already in a more watered place. I can't talk. I need a question.",
+      "slm_status": "REPAIRED",
+      "slm_latency_ms": 137.58,
+      "within_400ms": true,
+      "fact_leak": false,
+      "measurable_repair": false,
+      "missing_facts": [],
+      "added_facts": []
+    }
+  ],
+  "receipt_sha256": "E7F0239E65604920333CF4FC701F737CD494D0A6FFBAC87F64C1E84BD5B69D96"
+}
