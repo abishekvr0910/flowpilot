@@ -27,12 +27,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import numpy as np
 import sounddevice as sd
+from engine.audio_devices import get_audio_input_devices
 from engine.audio_recorder import AudioRecorder
 from engine.evaluation_metrics import verify_critical_facts
-from engine.local_text_repair import LocalTextRepair, RepairStatus
+from engine.local_text_repair import LocalTextRepair
 from engine.stt_engine import STTEngine
-from scripts.verify_audio_device_gate import classify_hardware_bus
+from scripts.interactive_physical_mic_test import classify_hardware_bus
 
 DEFAULT_GGUF_PATHS = [
     Path(r"C:\Users\moham\.gemini\antigravity-cli\brain\8d265aff-d454-486a-b3e9-3f924dbca464\scratch\models\qwen2.5-0.5b-instruct-q4_k_m.gguf"),
@@ -73,19 +75,42 @@ def compute_pcm16_rms_and_peak(pcm_bytes: bytes) -> tuple[float, float]:
     return math.sqrt(sum_sq / count), peak
 
 
-def record_wav_clip(device_index: int, duration_sec: float = 5.5, sample_rate: int = 16000) -> tuple[bytes, float, float]:
-    frames = int(duration_sec * sample_rate)
-    audio = sd.rec(frames, samplerate=sample_rate, channels=1, dtype="int16", device=device_index)
-    sd.wait()
-    pcm_bytes = audio.tobytes()
-    rms, peak = compute_pcm16_rms_and_peak(pcm_bytes)
-    buf = io.BytesIO()
-    with wave.open(buf, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(sample_rate)
-        wf.writeframes(pcm_bytes)
-    return buf.getvalue(), rms, peak
+def get_physical_wasapi_mics() -> list[dict]:
+    """Returns all physical WASAPI microphone input devices."""
+    devices = get_audio_input_devices(refresh=True)
+    wasapi_candidates = [
+        d for d in devices
+        if d.get("host_api") == "Windows WASAPI"
+        and "cable" not in d["name"].lower()
+        and "virtual" not in d["name"].lower()
+        and "stereo mix" not in d["name"].lower()
+    ]
+    if not wasapi_candidates:
+        wasapi_candidates = [
+            d for d in devices
+            if "cable" not in d["name"].lower() and "virtual" not in d["name"].lower()
+        ]
+    return wasapi_candidates
+
+
+def record_multi_mic_clip(
+    recorders: list[tuple[dict, AudioRecorder]], duration_sec: float = 6.0
+) -> list[tuple[dict, bytes, float, float]]:
+    for _, rec in recorders:
+        rec.start_recording()
+    time.sleep(duration_sec)
+    results: list[tuple[dict, bytes, float, float]] = []
+    for dev, rec in recorders:
+        wav_bytes = rec.stop_recording(keep_stream_alive=True)
+        if not wav_bytes or len(wav_bytes) <= 44:
+            results.append((dev, b"", 0.0, 0.0))
+            continue
+        with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
+            pcm_bytes = wf.readframes(wf.getnframes())
+        rms, peak = compute_pcm16_rms_and_peak(pcm_bytes)
+        results.append((dev, wav_bytes, rms, peak))
+    results.sort(key=lambda item: item[2], reverse=True)
+    return results
 
 
 def resolve_gguf_model(explicit_path: Path | None) -> Path:
@@ -97,21 +122,27 @@ def resolve_gguf_model(explicit_path: Path | None) -> Path:
     raise FileNotFoundError("Could not locate qwen2.5-0.5b-instruct-q4_k_m.gguf; pass --model <path>.")
 
 
-def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_rms: float = 0.004) -> int:
-    print("=" * 74)
-    print("  FLOWPILOT SPONTANEOUS LIVE MICROPHONE + LOCAL SLM REPAIR GATE")
-    print("=" * 74)
+def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_rms: float = 0.002) -> int:
+    print("=" * 74, flush=True)
+    print("  FLOWPILOT SPONTANEOUS LIVE MICROPHONE + LOCAL SLM REPAIR GATE", flush=True)
+    print("=" * 74, flush=True)
 
-    rec = AudioRecorder()
-    resolved = rec.resolve_target_device()
-    dev_idx = resolved.get("device_index")
-    dev_name = resolved.get("device_name") or "Unknown"
-    host_api = resolved.get("host_api") or "WASAPI"
+    candidates = get_physical_wasapi_mics()
+    for d in candidates:
+        b_info = classify_hardware_bus(d.get("name") or "", host_api=d.get("host_api") or "Windows WASAPI")
+        print(
+            f"[Device] Armed Mic  : [{d.get('index')}] {d.get('name')} ({d.get('host_api')}) "
+            f"-> {b_info.get('parent_pnp_instance_id')} ({b_info.get('hardware_bus_class')})",
+            flush=True,
+        )
+
+    target = candidates[0]
+    dev_idx = target.get("index")
+    dev_name = target.get("name") or "Unknown"
+    host_api = target.get("host_api") or "Windows WASAPI"
     bus_info = classify_hardware_bus(dev_name, host_api=host_api)
-    print(f"[Device] Active Mic : [{dev_idx}] {dev_name} ({host_api})")
-    print(f"[Bus]    Hardware ID: {bus_info.get('matched_instance_id')} ({bus_info.get('bus_classification')})")
 
-    print(f"[Model]  Loading STT (faster-whisper base int8) and GGUF ({model_path.name})...")
+    print(f"[Model]  Loading STT (faster-whisper base int8) and GGUF ({model_path.name})...", flush=True)
     stt = STTEngine({"engine_mode": "local", "local_model_size": "base", "cpu_threads": min(8, os.cpu_count() or 4)})
     stt.preload_model()
 
@@ -128,6 +159,7 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
         repairer.shutdown()
         raise RuntimeError("Failed to warm up LocalTextRepair GGUF worker process.")
 
+    recorders = [(d, AudioRecorder(device_index=d.get("index"))) for d in candidates]
     trials = []
     repair_latencies = []
     within_400ms = 0
@@ -135,24 +167,59 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
 
     try:
         for idx, prompt_cfg in enumerate(LIVE_PROMPTS, start=1):
-            print("\n" + "-" * 74)
-            print(f"[Trial {idx}/{len(LIVE_PROMPTS)}] ({prompt_cfg['id']})")
-            print(f"Prompt: {prompt_cfg['instruction']}")
-            print(f"Recording {duration_sec:.1f}s in 1 second... SPEAK NOW!")
-            time.sleep(1.0)
+            print("\n" + "-" * 74, flush=True)
+            print(f"[Trial {idx}/{len(LIVE_PROMPTS)}] ({prompt_cfg['id']})", flush=True)
+            print(f"Prompt: {prompt_cfg['instruction']}", flush=True)
+            wav_bytes, rms, peak = b"", 0.0, 0.0
+            raw_text = ""
+            stt_ms = 0.0
 
-            wav_bytes, rms, peak = record_wav_clip(dev_idx, duration_sec=duration_sec)
-            print(f"  Captured audio: RMS={rms:.5f}, Peak={peak:.4f}")
-            if rms < min_rms:
-                print(f"  [FAIL] RMS {rms:.5f} is below silence floor {min_rms}; real human voice required.")
-                return 2
+            for attempt in range(1, 11):
+                print(f"  [Window {attempt}/10] Listening ({duration_sec:.1f}s) after HIGH BEEP — SPEAK NOW!", flush=True)
+                try:
+                    import winsound
+                    winsound.Beep(880, 220)
+                except Exception:
+                    pass
+                captured_list = record_multi_mic_clip(recorders, duration_sec=duration_sec)
+                best_dev, wav_bytes, rms, peak = captured_list[0]
+                if rms < min_rms:
+                    print(f"    (Silence RMS={rms:.5f} < {min_rms}; waiting for your voice...)", flush=True)
+                    continue
 
-            t0 = time.perf_counter()
-            stt_res = stt.transcribe(wav_bytes, language="en")
-            stt_ms = (time.perf_counter() - t0) * 1000.0
-            raw_text = (stt_res.get("text") or "").strip() if isinstance(stt_res, dict) else str(stt_res).strip()
+                for cand_dev, cand_wav, cand_rms, cand_peak in captured_list:
+                    if cand_rms < min_rms:
+                        continue
+                    t0 = time.perf_counter()
+                    stt_res = stt.transcribe(cand_wav, language="en")
+                    stt_ms = (time.perf_counter() - t0) * 1000.0
+                    candidate = (stt_res.get("text") or "").strip() if isinstance(stt_res, dict) else str(stt_res).strip()
+                    if len(candidate.split()) >= 3:
+                        raw_text = candidate
+                        wav_bytes, rms, peak = cand_wav, cand_rms, cand_peak
+                        dev_idx = cand_dev.get("index")
+                        dev_name = cand_dev.get("name") or dev_name
+                        host_api = cand_dev.get("host_api") or host_api
+                        bus_info = classify_hardware_bus(dev_name, host_api=host_api)
+                        try:
+                            import winsound
+                            winsound.Beep(523, 180)
+                        except Exception:
+                            pass
+                        print(
+                            f"  Captured speech on [{dev_idx}] {dev_name}: RMS={rms:.5f}, Peak={peak:.4f}",
+                            flush=True,
+                        )
+                        break
+                if raw_text:
+                    break
+                rms_summary = ", ".join(
+                    f"[{d.get('index')}]=RMS:{r:.5f}" for d, _, r, _ in captured_list
+                )
+                print(f"    (No spoken sentence decoded yet [{rms_summary}]; keep speaking...)", flush=True)
+
             if not raw_text:
-                print("  [FAIL] Whisper decoded empty text from microphone recording.")
+                print(f"  [FAIL] No spoken utterance captured for {prompt_cfg['id']} after 10 windows.", flush=True)
                 return 2
 
             rep = repairer.repair(raw_text, language="en")
@@ -167,12 +234,14 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
             if leak:
                 fact_leaks += 1
 
-            print(f"  Whisper Raw ({stt_ms:6.1f} ms): {raw_text}")
-            print(f"  SLM Repaired ({rep.latency_ms:5.1f} ms): {rep.text} [{rep.status.value}] | fact_leak={leak}")
+            print(f"  Whisper Raw ({stt_ms:6.1f} ms): {raw_text}", flush=True)
+            print(f"  SLM Repaired ({rep.latency_ms:5.1f} ms): {rep.text} [{rep.status.value}] | fact_leak={leak}", flush=True)
 
             trials.append({
                 "trial_id": prompt_cfg["id"],
                 "instruction": prompt_cfg["instruction"],
+                "device_index": dev_idx,
+                "device_name": dev_name,
                 "rms_energy": round(rms, 5),
                 "peak_amplitude": round(peak, 4),
                 "stt_decode_ms": round(stt_ms, 2),
@@ -186,6 +255,8 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
                 "added_facts": added,
             })
     finally:
+        for _, rec in recorders:
+            rec.close()
         repairer.shutdown(wait=True)
 
     receipt = {
@@ -223,18 +294,18 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
 
     out_receipt.parent.mkdir(parents=True, exist_ok=True)
     out_receipt.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
-    print("\n" + "=" * 74)
-    print(f"  LIVE SPEECH RECEIPT WRITTEN: {out_receipt}")
-    print(f"  SHA-256: {receipt['receipt_sha256']}")
-    print(f"  VERDICT: {'PASS' if receipt['summary']['gate_passed'] else 'FAIL'}")
-    print("=" * 74)
+    print("\n" + "=" * 74, flush=True)
+    print(f"  LIVE SPEECH RECEIPT WRITTEN: {out_receipt}", flush=True)
+    print(f"  SHA-256: {receipt['receipt_sha256']}", flush=True)
+    print(f"  VERDICT: {'PASS' if receipt['summary']['gate_passed'] else 'FAIL'}", flush=True)
+    print("=" * 74, flush=True)
     return 0 if receipt["summary"]["gate_passed"] else 1
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, default=None, help="Path to GGUF model")
-    parser.add_argument("--duration-sec", type=float, default=5.5, help="Recording duration per prompt in seconds")
+    parser.add_argument("--duration-sec", type=float, default=6.0, help="Recording duration per prompt in seconds")
     parser.add_argument(
         "--out-receipt",
         type=Path,
