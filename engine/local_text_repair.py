@@ -392,17 +392,17 @@ class LocalTextRepair:
         self.model_path: Optional[str] = self.config.get("local_text_repair_model_path")
         self.worker_mode: str = self.config.get("local_text_repair_worker_mode", "process")
         self.span_diff_enabled: bool = bool(self.config.get("local_text_repair_span_diff", True))
-        
+
         # In-process mock / fallback callable (used for unit tests and thread mode)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
-        
+
         # Process worker state
         self._worker_process: Optional[mp.Process] = None
         self._parent_pipe: Optional[Connection] = None
         self._is_ready: bool = False
         self._init_failed: bool = False
-        
+
         # Asynchronous warmup state
         self._warmup_future: Optional[concurrent.futures.Future] = None
         self._warmup_in_progress: bool = False
@@ -441,7 +441,7 @@ class LocalTextRepair:
             ctx = mp.get_context("spawn")
             parent_conn, child_conn = ctx.Pipe(duplex=True)
             n_threads = min(4, os.cpu_count() or 2)
-            
+
             p = ctx.Process(
                 target=_slm_process_worker_entry,
                 args=(child_conn, self.model_path, n_threads),

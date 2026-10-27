@@ -69,6 +69,7 @@ hidden_imports = [
     'engine.transforms_engine',
     'engine.history_vault',
     'engine.local_llm',
+    'engine.local_text_repair',
     'engine.writing_intelligence',
     'engine.correction_intent',
     'engine.stt_engine',
