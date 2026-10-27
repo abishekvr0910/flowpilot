@@ -427,5 +427,236 @@ class TestAudioInputSafetyIntegration(unittest.TestCase):
         self.assertFalse(recorder.has_healthy_hot_stream())
 
 
+class HardwareBusClassifierTests(unittest.TestCase):
+    """Unit tests for authoritative Win32 CfgMgr32 + MMDEVAPI hardware bus classification."""
+
+    @staticmethod
+    def _make_mock_winreg_and_cfg(registry_nodes: list[dict]):
+        """Build fake winreg and cfgmgr32 mocks from a list of endpoint node dicts.
+
+        Each dict in registry_nodes has:
+          - subkey: str (e.g. '{0.0.1.00000000}.{guid-1}')
+          - friendly_name: str
+          - active: bool
+          - parent_pnp_id: str
+        """
+        by_subkey = {n["subkey"]: n for n in registry_nodes}
+        by_inst_id = {f"SWD\\MMDEVAPI\\{n['subkey']}": n for n in registry_nodes}
+
+        class FakeKey:
+            def __init__(self, subkey=None):
+                self.subkey = subkey
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        class FakeWinreg:
+            HKEY_LOCAL_MACHINE = 0x80000002
+
+            @staticmethod
+            def OpenKey(root, path):
+                if root == FakeWinreg.HKEY_LOCAL_MACHINE:
+                    return FakeKey(None)
+                if isinstance(root, FakeKey) and path in by_subkey:
+                    return FakeKey(path)
+                raise OSError("Key not found")
+
+            @staticmethod
+            def EnumKey(key_obj, index):
+                if index < len(registry_nodes):
+                    return registry_nodes[index]["subkey"]
+                raise OSError("No more keys")
+
+            @staticmethod
+            def QueryValueEx(key_obj, value_name):
+                if value_name == "FriendlyName" and key_obj.subkey in by_subkey:
+                    return by_subkey[key_obj.subkey]["friendly_name"], 1
+                raise OSError("Value not found")
+
+        class FakeCfgMgr32:
+            def __init__(self):
+                self._devinst_to_parent_id = {}
+                self._next_handle = 100
+
+            def CM_Locate_DevNodeW(self, p_devinst, inst_id, flags):
+                node = by_inst_id.get(inst_id)
+                if not node or not node.get("active", False):
+                    return 13  # CR_NO_SUCH_DEVNODE
+                h = self._next_handle
+                self._next_handle += 1
+                p_devinst._obj.value = h
+                self._devinst_to_parent_id[h] = node["parent_pnp_id"]
+                return 0  # CR_SUCCESS
+
+            def CM_Get_Parent(self, p_parent, devinst, flags):
+                h = getattr(devinst, "value", devinst)
+                if h not in self._devinst_to_parent_id:
+                    return 13
+                p_parent._obj.value = h + 1000
+                self._devinst_to_parent_id[h + 1000] = self._devinst_to_parent_id[h]
+                return 0
+
+            def CM_Get_Device_IDW(self, parent_handle, buf, buf_len, flags):
+                h = getattr(parent_handle, "value", parent_handle)
+                parent_id = self._devinst_to_parent_id.get(h)
+                if not parent_id:
+                    return 13
+                buf.value = parent_id
+                return 0
+
+        return FakeWinreg(), FakeCfgMgr32()
+
+    def test_unique_usb_audio_endpoint_is_classified_as_usb(self):
+        from scripts.interactive_physical_mic_test import classify_hardware_bus
+        winreg_mod, cfg_lib = self._make_mock_winreg_and_cfg([
+            {
+                "subkey": "{0.0.1.00000000}.{11111111-2222-3333-4444-555555555555}",
+                "friendly_name": "Microphone (Yeti Stereo Microphone)",
+                "active": True,
+                "parent_pnp_id": r"USB\VID_B58E&PID_9E84&MI_00\7&1A2B3C4D&0&0000",
+            }
+        ])
+        res = classify_hardware_bus(
+            "Microphone (Yeti Stereo Microphone)",
+            host_api="Windows WASAPI",
+            winreg_module=winreg_mod,
+            cfgmgr32_lib=cfg_lib,
+        )
+        self.assertTrue(res["is_usb_bus_device"])
+        self.assertEqual(res["hardware_bus_class"], "usb_audio_device")
+        self.assertFalse(res["ambiguous_endpoint_match"])
+        self.assertEqual(res["resolution_authority"], "win32_cfgmgr32_unique_devnode")
+
+    def test_duplicate_active_friendly_names_fail_closed_without_explicit_id(self):
+        from scripts.interactive_physical_mic_test import classify_hardware_bus
+        winreg_mod, cfg_lib = self._make_mock_winreg_and_cfg([
+            {
+                "subkey": "{0.0.1.00000000}.{aaaaaaaa-1111-2222-3333-444444444444}",
+                "friendly_name": "Microphone (Generic Audio)",
+                "active": True,
+                "parent_pnp_id": r"USB\VID_046D&PID_0A37&MI_00\6&1111&0&0000",
+            },
+            {
+                "subkey": "{0.0.1.00000000}.{bbbbbbbb-1111-2222-3333-444444444444}",
+                "friendly_name": "Microphone (Generic Audio)",
+                "active": True,
+                "parent_pnp_id": r"INTELAUDIO\FUNC_01&VEN_10EC&DEV_0287\5&2222&0&0001",
+            },
+        ])
+        res = classify_hardware_bus(
+            "Microphone (Generic Audio)",
+            host_api="Windows WASAPI",
+            winreg_module=winreg_mod,
+            cfgmgr32_lib=cfg_lib,
+        )
+        self.assertFalse(res["is_usb_bus_device"])
+        self.assertTrue(res["ambiguous_endpoint_match"])
+        self.assertEqual(res["hardware_bus_class"], "ambiguous_multiple_active_endpoints")
+        self.assertEqual(res["matched_active_endpoint_count"], 2)
+        self.assertEqual(res["resolution_authority"], "ambiguous_multiple_active_devnodes_fail_closed")
+
+    def test_explicit_mmdevice_endpoint_id_disambiguates_duplicate_friendly_names(self):
+        from scripts.interactive_physical_mic_test import classify_hardware_bus
+        winreg_mod, cfg_lib = self._make_mock_winreg_and_cfg([
+            {
+                "subkey": "{0.0.1.00000000}.{aaaaaaaa-1111-2222-3333-444444444444}",
+                "friendly_name": "Microphone (Generic Audio)",
+                "active": True,
+                "parent_pnp_id": r"USB\VID_046D&PID_0A37&MI_00\6&1111&0&0000",
+            },
+            {
+                "subkey": "{0.0.1.00000000}.{bbbbbbbb-1111-2222-3333-444444444444}",
+                "friendly_name": "Microphone (Generic Audio)",
+                "active": True,
+                "parent_pnp_id": r"INTELAUDIO\FUNC_01&VEN_10EC&DEV_0287\5&2222&0&0001",
+            },
+        ])
+        res_usb = classify_hardware_bus(
+            "Microphone (Generic Audio)",
+            host_api="Windows WASAPI",
+            mmdevice_endpoint_id=r"SWD\MMDEVAPI\{0.0.1.00000000}.{aaaaaaaa-1111-2222-3333-444444444444}",
+            winreg_module=winreg_mod,
+            cfgmgr32_lib=cfg_lib,
+        )
+        self.assertTrue(res_usb["is_usb_bus_device"])
+        self.assertEqual(res_usb["hardware_bus_class"], "usb_audio_device")
+        self.assertFalse(res_usb["ambiguous_endpoint_match"])
+        self.assertEqual(res_usb["resolution_authority"], "win32_cfgmgr32_explicit_endpoint")
+
+        res_analog = classify_hardware_bus(
+            "Microphone (Generic Audio)",
+            host_api="Windows WASAPI",
+            mmdevice_endpoint_id=r"SWD\MMDEVAPI\{0.0.1.00000000}.{bbbbbbbb-1111-2222-3333-444444444444}",
+            winreg_module=winreg_mod,
+            cfgmgr32_lib=cfg_lib,
+        )
+        self.assertFalse(res_analog["is_usb_bus_device"])
+        self.assertEqual(res_analog["hardware_bus_class"], "analog_jack_hd_audio_endpoint")
+        self.assertEqual(res_analog["resolution_authority"], "win32_cfgmgr32_explicit_endpoint")
+
+    def test_inactive_phantom_duplicate_does_not_trigger_ambiguity(self):
+        from scripts.interactive_physical_mic_test import classify_hardware_bus
+        winreg_mod, cfg_lib = self._make_mock_winreg_and_cfg([
+            {
+                "subkey": "{0.0.1.00000000}.{aaaaaaaa-1111-2222-3333-444444444444}",
+                "friendly_name": "Microphone (Realtek(R) Audio)",
+                "active": False,  # Disconnected phantom node
+                "parent_pnp_id": r"USB\VID_046D&PID_0A37&MI_00\6&1111&0&0000",
+            },
+            {
+                "subkey": "{0.0.1.00000000}.{bbbbbbbb-1111-2222-3333-444444444444}",
+                "friendly_name": "Microphone (Realtek(R) Audio)",
+                "active": True,
+                "parent_pnp_id": r"INTELAUDIO\FUNC_01&VEN_10EC&DEV_0287\5&2222&0&0001",
+            },
+        ])
+        res = classify_hardware_bus(
+            "Microphone (Realtek(R) Audio)",
+            host_api="Windows WASAPI",
+            winreg_module=winreg_mod,
+            cfgmgr32_lib=cfg_lib,
+        )
+        self.assertFalse(res["ambiguous_endpoint_match"])
+        self.assertFalse(res["is_usb_bus_device"])
+        self.assertEqual(res["hardware_bus_class"], "analog_jack_hd_audio_endpoint")
+        self.assertEqual(res["matched_active_endpoint_count"], 1)
+
+    def test_mme_31_char_prefix_matching_is_restricted_to_mme_host_api(self):
+        from scripts.interactive_physical_mic_test import classify_hardware_bus
+        full_name = "Microphone Array (Intel Smart Sound Technology for Digital Microphones)"
+        truncated_mme = full_name[:31]
+        winreg_mod, cfg_lib = self._make_mock_winreg_and_cfg([
+            {
+                "subkey": "{0.0.1.00000000}.{cccccccc-1111-2222-3333-444444444444}",
+                "friendly_name": full_name,
+                "active": True,
+                "parent_pnp_id": r"INTELAUDIO\CTLR_DEV_51C8\5&2C95BAB1&0&0000",
+            }
+        ])
+        # Under MME, 31-character truncated name matches
+        res_mme = classify_hardware_bus(
+            truncated_mme,
+            host_api="MME",
+            winreg_module=winreg_mod,
+            cfgmgr32_lib=cfg_lib,
+        )
+        self.assertEqual(res_mme["matched_active_endpoint_count"], 1)
+        self.assertEqual(res_mme["hardware_bus_class"], "analog_jack_hd_audio_endpoint")
+
+        # Under Windows WASAPI, truncated prefix does NOT match
+        res_wasapi = classify_hardware_bus(
+            truncated_mme,
+            host_api="Windows WASAPI",
+            winreg_module=winreg_mod,
+            cfgmgr32_lib=cfg_lib,
+        )
+        self.assertEqual(res_wasapi["matched_active_endpoint_count"], 0)
+        self.assertEqual(res_wasapi["hardware_bus_class"], "unverified_non_usb_endpoint")
+
+
+
 if __name__ == "__main__":
     unittest.main()
