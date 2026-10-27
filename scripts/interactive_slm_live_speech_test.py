@@ -174,8 +174,8 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
             raw_text = ""
             stt_ms = 0.0
 
-            for attempt in range(1, 11):
-                print(f"  [Window {attempt}/10] Listening ({duration_sec:.1f}s) after HIGH BEEP — SPEAK NOW!", flush=True)
+            for attempt in range(1, 16):
+                print(f"  [Window {attempt}/15] Listening ({duration_sec:.1f}s) after HIGH BEEP — SPEAK NOW!", flush=True)
                 try:
                     import winsound
                     winsound.Beep(880, 220)
@@ -194,7 +194,8 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
                     stt_res = stt.transcribe(cand_wav, language="en")
                     stt_ms = (time.perf_counter() - t0) * 1000.0
                     candidate = (stt_res.get("text") or "").strip() if isinstance(stt_res, dict) else str(stt_res).strip()
-                    if len(candidate.split()) >= 3:
+                    print(f"    [{cand_dev.get('index')} {cand_dev.get('name')[:25]}] RMS={cand_rms:.5f} -> STT ({stt_ms:.0f}ms): '{candidate}'", flush=True)
+                    if len(candidate.split()) >= 2 and not candidate.lower().startswith("you"):
                         raw_text = candidate
                         wav_bytes, rms, peak = cand_wav, cand_rms, cand_peak
                         dev_idx = cand_dev.get("index")
@@ -213,13 +214,9 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
                         break
                 if raw_text:
                     break
-                rms_summary = ", ".join(
-                    f"[{d.get('index')}]=RMS:{r:.5f}" for d, _, r, _ in captured_list
-                )
-                print(f"    (No spoken sentence decoded yet [{rms_summary}]; keep speaking...)", flush=True)
 
             if not raw_text:
-                print(f"  [FAIL] No spoken utterance captured for {prompt_cfg['id']} after 10 windows.", flush=True)
+                print(f"  [FAIL] No spoken utterance captured for {prompt_cfg['id']} after 15 windows.", flush=True)
                 return 2
 
             rep = repairer.repair(raw_text, language="en")
