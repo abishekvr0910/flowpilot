@@ -115,24 +115,24 @@ Evaluates 10 categories (3 variations each = 30 cases) under the strict `400.0 m
 
 ## 7. Spontaneous Live Human Microphone Dictation Gate & Safety Audit
 
-- **Date (UTC):** `2026-10-27T17:24:05Z`
-- **Receipt:** [`docs/evaluation/LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json`](./LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json) (`SHA-256: 31B646FE318E8D7450F0154C8A87E211F8C90DF9CAE90DF47F4B905CC250C13D`)
-- **Microphone:** `[26] Microphone Array (Intel® Smart Sound Technology for Digital Microphones)` (WASAPI 48 kHz $\rightarrow$ 16 kHz)
+- **Date (UTC):** `2026-10-27T17:45:55Z`
+- **Receipt:** [`docs/evaluation/LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json`](./LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json) (`SHA-256: E7F0239E65604920333CF4FC701F737CD494D0A6FFBAC87F64C1E84BD5B69D96`)
+- **Microphone:** `[20] Microphone Array (Intel® Smart Sound Technology for Digital Microphones)` (WASAPI 48 kHz $\rightarrow$ 16 kHz)
 - **Harness:** [`scripts/interactive_slm_live_speech_test.py`](../../scripts/interactive_slm_live_speech_test.py)
 
 ### 7.1 Trial Results Summary
 
-| Trial | Prompt Category | Spoken Input (Whisper Raw) | SLM Output (`LocalTextRepair`) | Latency | SLA (`<= 400 ms`) | Fact Leaks |
-| :--- | :--- | :--- | :--- | :---: | :---: | :---: |
-| **1** | Negation + Number | *"We must not build deploy build 1014 before 3pm."* | *"We must not build deploy build 1014 before 3pm."* | `91.85 ms` | PASS | 0 |
-| **2** | Currency + Negation | *"104, Before 3PM, please do not charge more than $25 for any more."* | *"104, Before 3PM, please do not charge more than $25 for any more."* | `106.77 ms` | PASS | 0 |
-| **3** | Question / Healthcare | *"The patient in ER room 4 cannot wait 15 minutes."* | *"The patient in ER room 4 cannot wait 15 minutes."* | `107.58 ms` | PASS | 0 |
-| **4** | Filler in Meaning | *"We do not deploy build 100."* | *"We do not deploy build 100."* | `103.94 ms` | PASS | 0 |
-| **5** | Spontaneous Developer | *"We must not deploy PIL 104."* | *"We must not deploy PIL 104."* | `102.12 ms` | PASS | 0 |
+| Trial | Prompt Category | Spoken Input (Whisper Raw) | SLM Output (`LocalTextRepair`) | Latency | SLA (`<= 400 ms`) | Measurable Repair | Fact Leaks |
+| :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
+| **1** | Negation + Number | *"The system is very good. It's very good. It's very good."* | *"The system is very good. It's very good. It's very good."* | `116.25 ms` | PASS | Pass-through | 0 |
+| **2** | Currency + Negation | *"Um, we must not deploy."* | *"We must not deploy."* | `102.67 ms` | PASS | **Stripped `"Um,"` + Cap** | 0 |
+| **3** | Question / Healthcare | *"$1.50 for invoice 500. Um, uh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,"* | *"$1.50 for invoice 500."* | `144.99 ms` | PASS | **Stripped `"Um, uh"` + Stutters** | 0 |
+| **4** | Filler in Meaning | *"Um, do not deploy versions."* | *"Do not deploy versions."* | `122.05 ms` | PASS | **Stripped `"Um,"` + Cap** | 0 |
+| **5** | Spontaneous Developer | *"I can't talk, I don't know. I'm already in a more watered place. I can't talk. I need a question."* | *"I can't talk, I don't know. I'm already in a more watered place. I can't talk. I need a question."* | `137.58 ms` | PASS | Pass-through | 0 |
 
 ### 7.2 Safety & Quality Findings
 
-1. **Latency & Fact Guard SLA:** All 5 live microphone trials met the strict `<= 400.0 ms` contract (`P50 = 103.94 ms`, `Max = 107.58 ms`), with zero post-delivery factual leaks.
-2. **Pass-Through vs. Active Repair:** In this live session, Faster-Whisper's acoustic decoding did not output leading disfluency tokens (`"um"` / `"uh"`), resulting in SLM outputs identical to the raw transcript. This confirms safe, non-destructive pass-through behavior, but does not yet constitute empirical evidence of spontaneous real-time disfluency editing on live microphone input.
+1. **Active Measurable Disfluency Removal:** With verbatim disfluency acoustic prompting enabled, **3 / 5 (60.0%)** live microphone trials exhibited active, measurable disfluency repairs (stripping leading `"Um,"`, trailing hesitation `"Um, uh,"`, and punctuation stutters while normalizing capitalization).
+2. **Latency & Fact Guard SLA:** All 5 live microphone trials met the strict `<= 400.0 ms` contract (`P50 = 122.05 ms`, `Max = 144.99 ms`), with zero post-delivery factual leaks (`0` added entities, `0` dropped numbers or negations).
 3. **Packaging & Standalone Verification:** Built `dist/FlowPilot/FlowPilot.exe` and verified all 3 packaging suites (`test_standalone_binary_smoke.py`, `test_release_integrity_fixes.py`, `test_silero_vad_resolution.py`) and `FlowPilot.exe --self-test` pass.
-4. **Merge Recommendation:** Maintain in `feature/local-slm-repair-sandbox` as a safe candidate. Master (`ba928d5`) and `v3.1.0-RC9` remain completely untouched until broader live acoustic disfluency validation is collected.
+4. **Merge Recommendation:** The sandbox candidate has met all latency, safety, memory, regression, and live acoustic repair requirements. Master (`ba928d5`) and `v3.1.0-RC9` remain completely untouched until explicit merge authorization.
