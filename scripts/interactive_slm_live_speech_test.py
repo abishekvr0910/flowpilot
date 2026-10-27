@@ -236,7 +236,7 @@ def run_live_test(
             print("\n" + "-" * 74, flush=True)
             print(f"[Trial {idx}/{len(LIVE_PROMPTS)}] ({prompt_cfg['id']})", flush=True)
             print(f"Prompt: {prompt_cfg['instruction']}", flush=True)
-            if interactive and sys.stdin.isatty():
+            if interactive:
                 try:
                     input("  -> Press [ENTER] when ready to speak this prompt... ")
                 except (EOFError, KeyboardInterrupt):
