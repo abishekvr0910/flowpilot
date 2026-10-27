@@ -1,0 +1,912 @@
+{
+  "timestamp_utc": "2026-10-27T15:39:36.982966+00:00",
+  "host": {
+    "node": "LAPTOP-5KASE5RO",
+    "system": "Windows",
+    "release": "10",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+    "cpu_count_logical": 16,
+    "python": "3.11.15",
+    "llama_cpp_version": "0.3.36"
+  },
+  "model": {
+    "name": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    "size_bytes": 491400032,
+    "sha256": "74A4DA8C9FDBCD15BD1F6D01D621410D31C6FC00986F5EB687824E7B93D7A9DB",
+    "quantization": "Q4_K_M",
+    "parameters": "0.5B",
+    "repair_strategy": "span_diff (adaptive 2/3-word opening span + dynamic max_tokens + @N compact slots + gen-0 gc.collect(0) + ABOVE_NORMAL_PRIORITY_CLASS)",
+    "n_ctx": 256,
+    "n_batch": 128,
+    "n_threads": 4
+  },
+  "phase_0_cold_start_audit": {
+    "cold_unwarmed_call_status": "FALLBACK_UNPROVISIONED",
+    "cold_unwarmed_call_fallback_used": true,
+    "cold_unwarmed_call_latency_ms": 85.71,
+    "worker_cold_ready_latency_ms": 1071.47,
+    "first_warm_call_status": "REPAIRED",
+    "first_warm_call_latency_ms": 102.28,
+    "worker_initial_rss_mb": 516.41,
+    "worker_peak_rss_mb": 528.26
+  },
+  "phase_a_150_adversarial_corpus": {
+    "corpus_size": 150,
+    "ceiling_ms": 3000.0,
+    "strict_sla_target_ms": 400.0,
+    "completed_within_400ms_count": 150,
+    "completed_within_400ms_pct": 100.0,
+    "status_counts": {
+      "REPAIRED": 150,
+      "FALLBACK_UNPROVISIONED": 0,
+      "FALLBACK_TIMEOUT": 0,
+      "FALLBACK_ERROR": 0,
+      "VETOED_FACT_MISMATCH": 0
+    },
+    "repaired_rate_pct": 100.0,
+    "gold_exact_match_count": 150,
+    "gold_exact_match_pct": 100.0,
+    "gold_mismatches": [],
+    "factguard_veto_rate_pct": 0.0,
+    "latency_all_ms": {
+      "count": 150,
+      "p50": 96.09,
+      "p90": 134.32,
+      "p95": 144.25,
+      "mean": 102.31,
+      "min": 76.66,
+      "max": 162.53
+    },
+    "latency_repaired_only_ms": {
+      "count": 150,
+      "p50": 96.09,
+      "p90": 134.32,
+      "p95": 144.25,
+      "mean": 102.31,
+      "min": 76.66,
+      "max": 162.53
+    },
+    "top_slowest_cases": [
+      {
+        "index": 54,
+        "latency_ms": 162.53,
+        "head_span": "@4 @0",
+        "max_tokens": 5,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      },
+      {
+        "index": 67,
+        "latency_ms": 155.87,
+        "head_span": "uh I said",
+        "max_tokens": 3,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      },
+      {
+        "index": 24,
+        "latency_ms": 154.29,
+        "head_span": "@4 @0",
+        "max_tokens": 5,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      },
+      {
+        "index": 34,
+        "latency_ms": 152.09,
+        "head_span": "@4 @0",
+        "max_tokens": 5,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      },
+      {
+        "index": 4,
+        "latency_ms": 151.88,
+        "head_span": "@4 @0",
+        "max_tokens": 5,
+        "status": "REPAIRED",
+        "gold_exact_match": true
+      }
+    ],
+    "post_delivery_fact_leaks": 0,
+    "repaired_samples": [
+      {
+        "raw": "um we must not deploy commit 100 to production before 1 pm because check_status_code returned 400",
+        "expected_gold": "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400.",
+        "repaired": "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400.",
+        "gold_exact_match": true,
+        "latency_ms": 76.66,
+        "slots_locked": 5
+      },
+      {
+        "raw": "uh please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id",
+        "expected_gold": "Please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id.",
+        "repaired": "Please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id.",
+        "gold_exact_match": true,
+        "latency_ms": 107.42,
+        "slots_locked": 5
+      },
+      {
+        "raw": "the latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator",
+        "expected_gold": "The latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator.",
+        "repaired": "The latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator.",
+        "gold_exact_match": true,
+        "latency_ms": 98.01,
+        "slots_locked": 4
+      },
+      {
+        "raw": "we did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today",
+        "expected_gold": "We did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today.",
+        "repaired": "We did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today.",
+        "gold_exact_match": true,
+        "latency_ms": 95.13,
+        "slots_locked": 7
+      },
+      {
+        "raw": "neither node_5 nor node_6 should accept port 8004 when allow_external_access is false",
+        "expected_gold": "Neither node_5 nor node_6 should accept port 8004 when allow_external_access is false.",
+        "repaired": "Neither node_5 nor node_6 should accept port 8004 when allow_external_access is false.",
+        "gold_exact_match": true,
+        "latency_ms": 151.88,
+        "slots_locked": 6
+      },
+      {
+        "raw": "um the discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge",
+        "expected_gold": "The discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge.",
+        "repaired": "The discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge.",
+        "gold_exact_match": true,
+        "latency_ms": 104.8,
+        "slots_locked": 4
+      }
+    ]
+  },
+  "phase_b_30_edge_case_gold_suite": {
+    "sample_size": 30,
+    "deadline_ms": 400.0,
+    "status_counts": {
+      "REPAIRED": 30,
+      "FALLBACK_UNPROVISIONED": 0,
+      "FALLBACK_TIMEOUT": 0,
+      "FALLBACK_ERROR": 0,
+      "VETOED_FACT_MISMATCH": 0
+    },
+    "gold_exact_match_count": 30,
+    "gold_exact_match_pct": 100.0,
+    "gold_mismatches": [],
+    "latency_ms": {
+      "count": 30,
+      "p50": 103.41,
+      "p90": 142.29,
+      "p95": 144.29,
+      "mean": 107.75,
+      "min": 64.63,
+      "max": 163.0
+    },
+    "post_delivery_fact_leaks": 0,
+    "samples": [
+      {
+        "category": "natural_at_n_tail",
+        "raw": "um please ping @0 and @1 before 1 pm so check_user_handle does not fail",
+        "expected_gold": "Please ping @0 and @1 before 1 pm so check_user_handle does not fail.",
+        "repaired": "Please ping @0 and @1 before 1 pm so check_user_handle does not fail.",
+        "gold_exact_match": true,
+        "latency_ms": 104.14
+      },
+      {
+        "category": "natural_at_n_head",
+        "raw": "@0 and @1 must not accept port 2021 when allow_external_access is false",
+        "expected_gold": "@0 and @1 must not accept port 2021 when allow_external_access is false.",
+        "repaired": "@0 and @1 must not accept port 2021 when allow_external_access is false.",
+        "gold_exact_match": true,
+        "latency_ms": 163.0
+      },
+      {
+        "category": "literal_slot_token",
+        "raw": "uh do not replace <SLOT_0> or @99 when testing SlotLocker with 3 inputs",
+        "expected_gold": "Do not replace <SLOT_0> or @99 when testing SlotLocker with 3 inputs.",
+        "repaired": "Do not replace <SLOT_0> or @99 when testing SlotLocker with 3 inputs.",
+        "gold_exact_match": true,
+        "latency_ms": 144.29
+      },
+      {
+        "category": "filler_in_meaning_subject",
+        "raw": "um is a common filler word that should not break parse_token_stream in 2023",
+        "expected_gold": "Um is a common filler word that should not break parse_token_stream in 2023.",
+        "repaired": "Um is a common filler word that should not break parse_token_stream in 2023.",
+        "gold_exact_match": true,
+        "latency_ms": 120.64
+      },
+      {
+        "category": "filler_in_meaning_meta_mention",
+        "raw": "uh please do not delete the word um or the token uh when running suite 5",
+        "expected_gold": "Please do not delete the word um or the token uh when running suite 5.",
+        "repaired": "Please do not delete the word um or the token uh when running suite 5.",
+        "gold_exact_match": true,
+        "latency_ms": 94.56
+      },
+      {
+        "category": "filler_in_meaning_quoted",
+        "raw": "um we should not strip 'um' or \"uh\" from raw_transcript_buffer during 6 runs",
+        "expected_gold": "We should not strip 'um' or \"uh\" from raw_transcript_buffer during 6 runs.",
+        "repaired": "We should not strip 'um' or \"uh\" from raw_transcript_buffer during 6 runs.",
+        "gold_exact_match": true,
+        "latency_ms": 87.82
+      },
+      {
+        "category": "acronym_and_unit_homographs",
+        "raw": "uh the patient in ER room 7 must not wait um more than 15 minutes for a 50 Ah battery",
+        "expected_gold": "The patient in ER room 7 must not wait more than 15 minutes for a 50 Ah battery.",
+        "repaired": "The patient in ER room 7 must not wait more than 15 minutes for a 50 Ah battery.",
+        "gold_exact_match": true,
+        "latency_ms": 103.5
+      },
+      {
+        "category": "interrogative_why",
+        "raw": "um why did check_status_code return 2027 instead of 200 when retry_limit_enabled was not set",
+        "expected_gold": "Why did check_status_code return 2027 instead of 200 when retry_limit_enabled was not set?",
+        "repaired": "Why did check_status_code return 2027 instead of 200 when retry_limit_enabled was not set?",
+        "gold_exact_match": true,
+        "latency_ms": 89.52
+      },
+      {
+        "category": "interrogative_can",
+        "raw": "uh can we deploy commit 2028 before 9 pm without breaking user_session_id",
+        "expected_gold": "Can we deploy commit 2028 before 9 pm without breaking user_session_id?",
+        "repaired": "Can we deploy commit 2028 before 9 pm without breaking user_session_id?",
+        "gold_exact_match": true,
+        "latency_ms": 71.3
+      },
+      {
+        "category": "inline_tail_fillers",
+        "raw": "the service did not crash um after 1 hours uh in AudioRecorder during stress_test_run",
+        "expected_gold": "The service did not crash after 1 hours in AudioRecorder during stress_test_run.",
+        "repaired": "The service did not crash after 1 hours in AudioRecorder during stress_test_run.",
+        "gold_exact_match": true,
+        "latency_ms": 90.75
+      }
+    ]
+  },
+  "phase_c_strict_400ms_deadline_25_cases": {
+    "sample_size": 25,
+    "deadline_ms": 400.0,
+    "status_counts": {
+      "REPAIRED": 25,
+      "FALLBACK_UNPROVISIONED": 0,
+      "FALLBACK_TIMEOUT": 0,
+      "FALLBACK_ERROR": 0,
+      "VETOED_FACT_MISMATCH": 0
+    },
+    "gold_exact_match_count": 25,
+    "gold_exact_match_pct": 100.0,
+    "caller_latency_ms": {
+      "count": 25,
+      "p50": 92.38,
+      "p90": 112.53,
+      "p95": 131.28,
+      "mean": 98.4,
+      "min": 81.54,
+      "max": 140.45
+    },
+    "post_delivery_fact_leaks": 0
+  },
+  "phase_d_real_speech_stt_to_slm_evaluation": {
+    "d1_common_voice_17_human_speech": {
+      "source": "Mozilla Common Voice 17.0 (en-cv-001..040, 40 consented real human recordings)",
+      "sample_size": 40,
+      "completed_within_400ms_count": 40,
+      "completed_within_400ms_pct": 100.0,
+      "slm_repair_latency_ms": {
+        "count": 40,
+        "p50": 108.93,
+        "p90": 133.16,
+        "p95": 142.17,
+        "mean": 113.26,
+        "min": 79.75,
+        "max": 163.81
+      },
+      "mean_wer_before_repair": 0.13,
+      "mean_wer_after_repair": 0.13,
+      "post_delivery_fact_leaks": 0,
+      "samples": [
+        {
+          "item_id": "en-cv-019",
+          "spoken_reference": "The examples included above are by no means comprehensive.",
+          "whisper_hypothesis": "The examples included are by no means comprehensive.",
+          "slm_repaired": "The examples included are by no means comprehensive.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 622.76,
+          "slm_repair_ms": 117.76,
+          "wer_before_repair": 0.1111,
+          "wer_after_repair": 0.1111,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-021",
+          "spoken_reference": "No one else could claim that.",
+          "whisper_hypothesis": "No one else could claim that.",
+          "slm_repaired": "No one else could claim that.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 561.59,
+          "slm_repair_ms": 132.56,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-023",
+          "spoken_reference": "I cannot understand it.",
+          "whisper_hypothesis": "I cannot understand it.",
+          "slm_repaired": "I cannot understand it.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 550.5,
+          "slm_repair_ms": 136.7,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-024",
+          "spoken_reference": "It's not a ghost, it was probably a Hologram.",
+          "whisper_hypothesis": "It's not a ghost, it was probably a hologram.",
+          "slm_repaired": "It's not a ghost, it was probably a hologram.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 578.02,
+          "slm_repair_ms": 132.34,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-025",
+          "spoken_reference": "No intact examples of native vegetation survive in the area immediately around Yea.",
+          "whisper_hypothesis": "No intact examples of native vegetation survive in the area immediately around Yeh.",
+          "slm_repaired": "No intact examples of native vegetation survive in the area immediately around Yeh.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 584.46,
+          "slm_repair_ms": 126.91,
+          "wer_before_repair": 0.0769,
+          "wer_after_repair": 0.0769,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-026",
+          "spoken_reference": "She was not there.",
+          "whisper_hypothesis": "She was not there.",
+          "slm_repaired": "She was not there.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 552.42,
+          "slm_repair_ms": 107.06,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-027",
+          "spoken_reference": "Classes are taught by professors, not graduate students.",
+          "whisper_hypothesis": "Classes are taught by professors, not graduate students.",
+          "slm_repaired": "Classes are taught by professors, not graduate students.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 582.15,
+          "slm_repair_ms": 96.18,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-028",
+          "spoken_reference": "No votes were cast against it.",
+          "whisper_hypothesis": "No boats were cast against it.",
+          "slm_repaired": "No boats were cast against it.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 545.2,
+          "slm_repair_ms": 131.73,
+          "wer_before_repair": 0.1667,
+          "wer_after_repair": 0.1667,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-029",
+          "spoken_reference": "Historically, automakers and some conservative groups have believed consumers do not Prioritize fuel economy.",
+          "whisper_hypothesis": "Historically, automarkers and some conservative groups have believed consumers that not prioritize  fuel economy.",
+          "slm_repaired": "Historically, automarkers and some conservative groups have believed consumers that not prioritize fuel economy.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 1105.87,
+          "slm_repair_ms": 100.56,
+          "wer_before_repair": 0.1429,
+          "wer_after_repair": 0.1429,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-030",
+          "spoken_reference": "Not everyone can tell the bear that he is a bear.",
+          "whisper_hypothesis": "Not everyone can tell the bear that he is a bear.",
+          "slm_repaired": "Not everyone can tell the bear that he is a bear.",
+          "status": "VETOED_FACT_MISMATCH",
+          "stt_decode_ms": 575.69,
+          "slm_repair_ms": 79.75,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-031",
+          "spoken_reference": "This allegation was not part of any of the legal proceeding in this case.",
+          "whisper_hypothesis": "This allocation was not a part of any of the legal proceeding in this case.",
+          "slm_repaired": "This allocation was not a part of any of the legal proceeding in this case.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 582.01,
+          "slm_repair_ms": 108.15,
+          "wer_before_repair": 0.1429,
+          "wer_after_repair": 0.1429,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-032",
+          "spoken_reference": "However, roof FALLS in mining are not all accidental.",
+          "whisper_hypothesis": "However, roof falls and mining are not all accidental.",
+          "slm_repaired": "However, roof falls and mining are not all accidental.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 560.37,
+          "slm_repair_ms": 109.3,
+          "wer_before_repair": 0.1111,
+          "wer_after_repair": 0.1111,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-033",
+          "spoken_reference": "\"There is no way to prevent becoming part of the past\".",
+          "whisper_hypothesis": "There is no way to prevent becoming part of the post.",
+          "slm_repaired": "There is no way to prevent becoming part of the post.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 568.68,
+          "slm_repair_ms": 99.69,
+          "wer_before_repair": 0.0909,
+          "wer_after_repair": 0.0909,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-034",
+          "spoken_reference": "She warned the kids not to play on the road.",
+          "whisper_hypothesis": "She warned the kids not to play on the road.",
+          "slm_repaired": "She warned the kids not to play on the road.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 557.75,
+          "slm_repair_ms": 109.28,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-035",
+          "spoken_reference": "To speak without thinking is to shoot without taking aim",
+          "whisper_hypothesis": "To speak without thinking is to shoot without taking aim.",
+          "slm_repaired": "To speak without thinking is to shoot without taking aim.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 608.96,
+          "slm_repair_ms": 104.46,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-036",
+          "spoken_reference": "Without understanding the actual physics, some animals exploit total internal reflection for catching fish.",
+          "whisper_hypothesis": "Without understanding the actual physics, some animals exploit total internal reflection for catching fish.",
+          "slm_repaired": "Without understanding the actual physics, some animals exploit total internal reflection for catching fish.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 641.61,
+          "slm_repair_ms": 106.59,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-037",
+          "spoken_reference": "Not only did he manage to do it, he did it professionally!",
+          "whisper_hypothesis": "Not only did he manage to do it, he did it professionally.",
+          "slm_repaired": "Not only did he manage to do it, he did it professionally.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 590.42,
+          "slm_repair_ms": 142.17,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-038",
+          "spoken_reference": "There was no justification provided.",
+          "whisper_hypothesis": "There was no justification provided.",
+          "slm_repaired": "There was no justification provided.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 559.45,
+          "slm_repair_ms": 102.05,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-039",
+          "spoken_reference": "Mary calls Tom to warn him about grace but he does not answer.",
+          "whisper_hypothesis": "Mary calls Tom to warn him about grace, but he does not answer.",
+          "slm_repaired": "Mary calls Tom to warn him about grace, but he does not answer.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 605.0,
+          "slm_repair_ms": 99.05,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-040",
+          "spoken_reference": "There is no documentary evidence to show that any of them resided there however.",
+          "whisper_hypothesis": "There is no documentary evidence to show that any of them resided there, however.",
+          "slm_repaired": "There is no documentary evidence to show that any of them resided there, however.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 592.21,
+          "slm_repair_ms": 99.71,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-001",
+          "spoken_reference": "Slip anchor returned to the track in the September stakes at Kempton park.",
+          "whisper_hypothesis": "Sleep anchor written to the track in the September stakes at Campton Park.",
+          "slm_repaired": "Sleep anchor written to the track in the September stakes at Campton Park.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 582.07,
+          "slm_repair_ms": 104.28,
+          "wer_before_repair": 0.2308,
+          "wer_after_repair": 0.2308,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-002",
+          "spoken_reference": "He stood at stud at fair chance farms in Washington court house, Ohio.",
+          "whisper_hypothesis": "He stood and stood at FairChan's farms in Washington Courthouse, Ohio.",
+          "slm_repaired": "He stood and stood at FairChan's farms in Washington Courthouse, Ohio.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 604.83,
+          "slm_repair_ms": 102.6,
+          "wer_before_repair": 0.4615,
+          "wer_after_repair": 0.4615,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-003",
+          "spoken_reference": "For centuries, it was the location of the Spanish colonial mint.",
+          "whisper_hypothesis": "For centuries it was the location of the Spanish colonial myth.",
+          "slm_repaired": "For centuries it was the location of the Spanish colonial myth.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 580.49,
+          "slm_repair_ms": 108.57,
+          "wer_before_repair": 0.0909,
+          "wer_after_repair": 0.0909,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-004",
+          "spoken_reference": "He was commonly referred to as the \"blacksmith of Ballinalee\".",
+          "whisper_hypothesis": "He was commonly referred to as the blacksmith of Ballinale.",
+          "slm_repaired": "He was commonly referred to as the blacksmith of Ballinale.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 618.81,
+          "slm_repair_ms": 108.38,
+          "wer_before_repair": 0.1,
+          "wer_after_repair": 0.1,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-005",
+          "spoken_reference": "As the population of Beitar Illit is Haredi, the schools are all Haredi schools.",
+          "whisper_hypothesis": "As the population of Byter Elite is already, the schools are already schools.",
+          "slm_repaired": "As the population of Byter Elite is already, the schools are already schools.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 628.37,
+          "slm_repair_ms": 101.48,
+          "wer_before_repair": 0.3571,
+          "wer_after_repair": 0.3571,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-006",
+          "spoken_reference": "Peden has authored three books.",
+          "whisper_hypothesis": "Pydin has authored three books.",
+          "slm_repaired": "Pydin has authored three books.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 557.44,
+          "slm_repair_ms": 114.78,
+          "wer_before_repair": 0.2,
+          "wer_after_repair": 0.2,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-007",
+          "spoken_reference": "A man wearing a black shirt sings in a band.",
+          "whisper_hypothesis": "A man wearing a black shirt, things in a band.",
+          "slm_repaired": "A man wearing a black shirt, things in a band.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 599.13,
+          "slm_repair_ms": 107.61,
+          "wer_before_repair": 0.1,
+          "wer_after_repair": 0.1,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-008",
+          "spoken_reference": "A bird is perched on a line of some sort attached to a Pole.",
+          "whisper_hypothesis": "A bird is birds on a line of some sort attached to a pole.",
+          "slm_repaired": "A bird is birds on a line of some sort attached to a pole.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 596.48,
+          "slm_repair_ms": 94.11,
+          "wer_before_repair": 0.0714,
+          "wer_after_repair": 0.0714,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-009",
+          "spoken_reference": "A man in a blue shirt stands holding his umbrella as flood waters rise around him.",
+          "whisper_hypothesis": "A man in a blue shirt stands holding his umbrella as flood waters rise around him.",
+          "slm_repaired": "A man in a blue shirt stands holding his umbrella as flood waters rise around him.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 643.25,
+          "slm_repair_ms": 118.08,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-010",
+          "spoken_reference": "Road construction arrows are pointing left",
+          "whisper_hypothesis": "Road construction arrows are pointing left.",
+          "slm_repaired": "Road construction arrows are pointing left.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 719.25,
+          "slm_repair_ms": 133.16,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-011",
+          "spoken_reference": "A man wearing a bathing cap and goggles is swimming in a river",
+          "whisper_hypothesis": "A man wearing a bath in cap and goggles is swimming in the river.",
+          "slm_repaired": "A man wearing a bath in cap and goggles is swimming in the river.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 725.1,
+          "slm_repair_ms": 109.7,
+          "wer_before_repair": 0.2308,
+          "wer_after_repair": 0.2308,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-012",
+          "spoken_reference": "I don't know about war.",
+          "whisper_hypothesis": "I don't know about war.",
+          "slm_repaired": "I don't know about war.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 611.75,
+          "slm_repair_ms": 150.18,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-013",
+          "spoken_reference": "I told him we could teach her to ignore people who waste her time.",
+          "whisper_hypothesis": "I told him we could teach her to ignore people who waste her time.",
+          "slm_repaired": "I told him we could teach her to ignore people who waste her time.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 677.93,
+          "slm_repair_ms": 110.15,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-014",
+          "spoken_reference": "He had contacts with William James and other psychologists.",
+          "whisper_hypothesis": "In the context with William James and other psychologists.",
+          "slm_repaired": "In the context with William James and other psychologists.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 583.5,
+          "slm_repair_ms": 106.86,
+          "wer_before_repair": 0.3333,
+          "wer_after_repair": 0.3333,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-015",
+          "spoken_reference": "How much is it worth?",
+          "whisper_hypothesis": "I'm not using the word.",
+          "slm_repaired": "I'm not using the word.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 658.17,
+          "slm_repair_ms": 163.81,
+          "wer_before_repair": 1.0,
+          "wer_after_repair": 1.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-016",
+          "spoken_reference": "Will it be hotter on the isle of man at lunch?",
+          "whisper_hypothesis": "Will it be hotter on the Isle of Man at lunch?",
+          "slm_repaired": "Will it be hotter on the Isle of Man at lunch?",
+          "status": "REPAIRED",
+          "stt_decode_ms": 651.85,
+          "slm_repair_ms": 111.67,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-017",
+          "spoken_reference": "I wonder if Ernie's still here with his taxicab?",
+          "whisper_hypothesis": "I wonder if Ernie is still here with his taxi cab.",
+          "slm_repaired": "I wonder if Ernie is still here with his taxi cab.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 582.06,
+          "slm_repair_ms": 110.08,
+          "wer_before_repair": 0.4444,
+          "wer_after_repair": 0.4444,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-018",
+          "spoken_reference": "Chizarira is also home to the Taita Falcon which breeds within the park.",
+          "whisper_hypothesis": "Gizarin is also home to the data Falcon which breathes within the part.",
+          "slm_repaired": "Gizarin is also home to the data Falcon which breathes within the part.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 621.39,
+          "slm_repair_ms": 110.07,
+          "wer_before_repair": 0.3077,
+          "wer_after_repair": 0.3077,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-020",
+          "spoken_reference": "Sony pictures television International now operates In-Name-Only.",
+          "whisper_hypothesis": "Sony Pictures Television International Now operates in name only.",
+          "slm_repaired": "Sony Pictures Television International Now operates in name only.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 567.53,
+          "slm_repair_ms": 101.32,
+          "wer_before_repair": 0.4286,
+          "wer_after_repair": 0.4286,
+          "fact_leak": false
+        },
+        {
+          "item_id": "en-cv-022",
+          "spoken_reference": "Hence, most experiments on the ionosphere give only small pieces of information.",
+          "whisper_hypothesis": "Hence, most experiments on the ionosphere give only small pieces of information.",
+          "slm_repaired": "Hence, most experiments on the ionosphere give only small pieces of information.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 599.72,
+          "slm_repair_ms": 121.68,
+          "wer_before_repair": 0.0,
+          "wer_after_repair": 0.0,
+          "fact_leak": false
+        }
+      ]
+    },
+    "d2_acoustic_sapi_disfluent_speech": {
+      "source": "Windows SAPI WAV synthesis -> STTEngine (faster-whisper base int8 CPU) -> LocalTextRepair",
+      "sample_size": 10,
+      "completed_within_400ms_count": 10,
+      "completed_within_400ms_pct": 100.0,
+      "slm_repair_latency_ms": {
+        "count": 10,
+        "p50": 101.32,
+        "p90": 112.41,
+        "p95": 112.41,
+        "mean": 102.82,
+        "min": 83.35,
+        "max": 123.99
+      },
+      "post_delivery_fact_leaks": 0,
+      "samples": [
+        {
+          "index": 0,
+          "spoken_prompt": "um we must not deploy commit 104 to production before 3 pm",
+          "whisper_hypothesis": "We must not deploy commit 104 to production before 3pm.",
+          "slm_repaired": "We must not deploy commit 104 to production before 3pm.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 1602.77,
+          "slm_repair_ms": 102.96,
+          "fact_leak": false
+        },
+        {
+          "index": 1,
+          "spoken_prompt": "uh please do not charge more than 25 dollars for invoice 5010",
+          "whisper_hypothesis": "A please do not charge more than $25 for invoice $5,010.",
+          "slm_repaired": "A please do not charge more than $25 for invoice $5,010.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 614.85,
+          "slm_repair_ms": 99.68,
+          "fact_leak": false
+        },
+        {
+          "index": 2,
+          "spoken_prompt": "um the latency target is 170 milliseconds and cannot exceed 400 milliseconds",
+          "whisper_hypothesis": "I'm the latency target is 170 milliseconds and cannot exceed 400 milliseconds.",
+          "slm_repaired": "I'm the latency target is 170 milliseconds and cannot exceed 400 milliseconds.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 602.05,
+          "slm_repair_ms": 106.49,
+          "fact_leak": false
+        },
+        {
+          "index": 3,
+          "spoken_prompt": "uh we did not approve the 500 dollar transfer on 2026 10 27",
+          "whisper_hypothesis": "We did not approve the $500 transfer on 2026-1027.",
+          "slm_repaired": "We did not approve the $500 transfer on 2026-1027.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 601.9,
+          "slm_repair_ms": 112.41,
+          "fact_leak": false
+        },
+        {
+          "index": 4,
+          "spoken_prompt": "um neither node 1 nor node 2 should accept port 8080 today",
+          "whisper_hypothesis": "A neither node 1 nor node 2 should accept port 8,080 today.",
+          "slm_repaired": "A neither node 1 nor node 2 should accept port 8,080 today.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 611.27,
+          "slm_repair_ms": 123.99,
+          "fact_leak": false
+        },
+        {
+          "index": 5,
+          "spoken_prompt": "uh the discount rate is 15 percent so do not apply the surcharge",
+          "whisper_hypothesis": "How the discount rate is 15% so do not apply the surcharge.",
+          "slm_repaired": "How the discount rate is 15% so do not apply the surcharge.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 607.18,
+          "slm_repair_ms": 95.36,
+          "fact_leak": false
+        },
+        {
+          "index": 6,
+          "spoken_prompt": "um I said do not delete table 5 until backup 90 finishes with 0 errors",
+          "whisper_hypothesis": "Am I said do not delete Table 5 until backup 90 finishes with 0 errors?",
+          "slm_repaired": "Am I said do not delete Table 5 until backup 90 finishes with 0 errors?",
+          "status": "REPAIRED",
+          "stt_decode_ms": 624.28,
+          "slm_repair_ms": 83.35,
+          "fact_leak": false
+        },
+        {
+          "index": 7,
+          "spoken_prompt": "uh the battery dropped to 12 percent after 4 hours so we cannot run the worker",
+          "whisper_hypothesis": "Are the battery dropped to 12% after 4 hours so we cannot run the worker.",
+          "slm_repaired": "Are the battery dropped to 12% after 4 hours so we cannot run the worker.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 614.48,
+          "slm_repair_ms": 111.95,
+          "fact_leak": false
+        },
+        {
+          "index": 8,
+          "spoken_prompt": "um there are 60 suites and we must not skip suite 14 during validation",
+          "whisper_hypothesis": "Um there are 60 sweets and we must not skip sweet 14 during validation.",
+          "slm_repaired": "There are 60 sweets and we must not skip sweet 14 during validation.",
+          "status": "REPAIRED",
+          "stt_decode_ms": 610.7,
+          "slm_repair_ms": 97.24,
+          "fact_leak": false
+        },
+        {
+          "index": 9,
+          "spoken_prompt": "uh why did the status check return 404 instead of 200 today",
+          "whisper_hypothesis": "Why did the status check return 400 and 4 instead of 200 today?",
+          "slm_repaired": "Why did the status check return 400 and 4 instead of 200 today?",
+          "status": "REPAIRED",
+          "stt_decode_ms": 634.16,
+          "slm_repair_ms": 94.8,
+          "fact_leak": false
+        }
+      ]
+    }
+  }
+}

@@ -48,6 +48,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "local_llm_endpoint": "http://127.0.0.1:11434",  # Strictly localhost only
     "local_llm_model": "",  # Explicit model identity required; no silent guessing
     "local_llm_timeout": 3.0,  # Strict wall-clock deadline in seconds
+    "local_text_repair_enabled": False,  # Feature 30: Opt-in local SLM text repair sandbox (Spec 0004)
     "audio_input_selection": {"mode": "default"},  # Feature 28: Persistent endpoint identity or system default
     "history": []
 }

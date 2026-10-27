@@ -1,0 +1,522 @@
+[
+  {
+    "item_id": "en-cv-019",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "The examples included above are by no means comprehensive.",
+    "formatted_reference": "The examples included above are by no means comprehensive.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-019.wav",
+    "duration_sec": 5.81,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-021",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "No one else could claim that.",
+    "formatted_reference": "No one else could claim that.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-021.wav",
+    "duration_sec": 3.71,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-023",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "I cannot understand it.",
+    "formatted_reference": "I cannot understand it.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-023.wav",
+    "duration_sec": 4.898,
+    "critical_entities": [
+      "cannot"
+    ]
+  },
+  {
+    "item_id": "en-cv-024",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "It's not a ghost, it was probably a Hologram.",
+    "formatted_reference": "It's not a ghost, it was probably a Hologram.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-024.wav",
+    "duration_sec": 5.138,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-025",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "No intact examples of native vegetation survive in the area immediately around Yea.",
+    "formatted_reference": "No intact examples of native vegetation survive in the area immediately around Yea.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-025.wav",
+    "duration_sec": 6.41,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-026",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "She was not there.",
+    "formatted_reference": "She was not there.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-026.wav",
+    "duration_sec": 3.674,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-027",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Classes are taught by professors, not graduate students.",
+    "formatted_reference": "Classes are taught by professors, not graduate students.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-027.wav",
+    "duration_sec": 5.882,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-028",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "No votes were cast against it.",
+    "formatted_reference": "No votes were cast against it.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-028.wav",
+    "duration_sec": 5.258,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-029",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Historically, automakers and some conservative groups have believed consumers do not Prioritize fuel economy.",
+    "formatted_reference": "Historically, automakers and some conservative groups have believed consumers do not Prioritize fuel economy.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-029.wav",
+    "duration_sec": 9.242,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-030",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Not everyone can tell the bear that he is a bear.",
+    "formatted_reference": "Not everyone can tell the bear that he is a bear.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-030.wav",
+    "duration_sec": 4.862,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-031",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "This allegation was not part of any of the legal proceeding in this case.",
+    "formatted_reference": "This allegation was not part of any of the legal proceeding in this case.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-031.wav",
+    "duration_sec": 6.098,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-032",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "However, roof FALLS in mining are not all accidental.",
+    "formatted_reference": "However, roof FALLS in mining are not all accidental.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-032.wav",
+    "duration_sec": 8.318,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-033",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "\"There is no way to prevent becoming part of the past\".",
+    "formatted_reference": "\"There is no way to prevent becoming part of the past\".",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-033.wav",
+    "duration_sec": 7.85,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-034",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "She warned the kids not to play on the road.",
+    "formatted_reference": "She warned the kids not to play on the road.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-034.wav",
+    "duration_sec": 4.934,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-035",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "To speak without thinking is to shoot without taking aim",
+    "formatted_reference": "To speak without thinking is to shoot without taking aim",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-035.wav",
+    "duration_sec": 4.898,
+    "critical_entities": [
+      "without"
+    ]
+  },
+  {
+    "item_id": "en-cv-036",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Without understanding the actual physics, some animals exploit total internal reflection for catching fish.",
+    "formatted_reference": "Without understanding the actual physics, some animals exploit total internal reflection for catching fish.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-036.wav",
+    "duration_sec": 7.586,
+    "critical_entities": [
+      "without"
+    ]
+  },
+  {
+    "item_id": "en-cv-037",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Not only did he manage to do it, he did it professionally!",
+    "formatted_reference": "Not only did he manage to do it, he did it professionally!",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-037.wav",
+    "duration_sec": 5.57,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-038",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "There was no justification provided.",
+    "formatted_reference": "There was no justification provided.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-038.wav",
+    "duration_sec": 4.658,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-039",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Mary calls Tom to warn him about grace but he does not answer.",
+    "formatted_reference": "Mary calls Tom to warn him about grace but he does not answer.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-039.wav",
+    "duration_sec": 6.986,
+    "critical_entities": [
+      "not"
+    ]
+  },
+  {
+    "item_id": "en-cv-040",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "There is no documentary evidence to show that any of them resided there however.",
+    "formatted_reference": "There is no documentary evidence to show that any of them resided there however.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-040.wav",
+    "duration_sec": 10.478,
+    "critical_entities": [
+      "no"
+    ]
+  },
+  {
+    "item_id": "en-cv-001",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Slip anchor returned to the track in the September stakes at Kempton park.",
+    "formatted_reference": "Slip anchor returned to the track in the September stakes at Kempton park.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-001.wav",
+    "duration_sec": 7.778,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-002",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "He stood at stud at fair chance farms in Washington court house, Ohio.",
+    "formatted_reference": "He stood at stud at fair chance farms in Washington court house, Ohio.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-002.wav",
+    "duration_sec": 8.498,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-003",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "For centuries, it was the location of the Spanish colonial mint.",
+    "formatted_reference": "For centuries, it was the location of the Spanish colonial mint.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-003.wav",
+    "duration_sec": 7.85,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-004",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "He was commonly referred to as the \"blacksmith of Ballinalee\".",
+    "formatted_reference": "He was commonly referred to as the \"blacksmith of Ballinalee\".",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-004.wav",
+    "duration_sec": 5.87,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-005",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "As the population of Beitar Illit is Haredi, the schools are all Haredi schools.",
+    "formatted_reference": "As the population of Beitar Illit is Haredi, the schools are all Haredi schools.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-005.wav",
+    "duration_sec": 8.066,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-006",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Peden has authored three books.",
+    "formatted_reference": "Peden has authored three books.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-006.wav",
+    "duration_sec": 3.998,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-007",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "A man wearing a black shirt sings in a band.",
+    "formatted_reference": "A man wearing a black shirt sings in a band.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-007.wav",
+    "duration_sec": 8.666,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-008",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "A bird is perched on a line of some sort attached to a Pole.",
+    "formatted_reference": "A bird is perched on a line of some sort attached to a Pole.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-008.wav",
+    "duration_sec": 7.394,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-009",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "A man in a blue shirt stands holding his umbrella as flood waters rise around him.",
+    "formatted_reference": "A man in a blue shirt stands holding his umbrella as flood waters rise around him.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-009.wav",
+    "duration_sec": 8.21,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-010",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Road construction arrows are pointing left",
+    "formatted_reference": "Road construction arrows are pointing left",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-010.wav",
+    "duration_sec": 4.178,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-011",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "A man wearing a bathing cap and goggles is swimming in a river",
+    "formatted_reference": "A man wearing a bathing cap and goggles is swimming in a river",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-011.wav",
+    "duration_sec": 5.81,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-012",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "I don't know about war.",
+    "formatted_reference": "I don't know about war.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-012.wav",
+    "duration_sec": 3.146,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-013",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "I told him we could teach her to ignore people who waste her time.",
+    "formatted_reference": "I told him we could teach her to ignore people who waste her time.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-013.wav",
+    "duration_sec": 4.658,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-014",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "He had contacts with William James and other psychologists.",
+    "formatted_reference": "He had contacts with William James and other psychologists.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-014.wav",
+    "duration_sec": 5.87,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-015",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "How much is it worth?",
+    "formatted_reference": "How much is it worth?",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-015.wav",
+    "duration_sec": 2.378,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-016",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Will it be hotter on the isle of man at lunch?",
+    "formatted_reference": "Will it be hotter on the isle of man at lunch?",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-016.wav",
+    "duration_sec": 7.994,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-017",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "I wonder if Ernie's still here with his taxicab?",
+    "formatted_reference": "I wonder if Ernie's still here with his taxicab?",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-017.wav",
+    "duration_sec": 9.722,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-018",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Chizarira is also home to the Taita Falcon which breeds within the park.",
+    "formatted_reference": "Chizarira is also home to the Taita Falcon which breeds within the park.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-018.wav",
+    "duration_sec": 9.554,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-020",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Sony pictures television International now operates In-Name-Only.",
+    "formatted_reference": "Sony pictures television International now operates In-Name-Only.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-020.wav",
+    "duration_sec": 7.082,
+    "critical_entities": []
+  },
+  {
+    "item_id": "en-cv-022",
+    "language": "en",
+    "group": "clean",
+    "spoken_reference": "Hence, most experiments on the ionosphere give only small pieces of information.",
+    "formatted_reference": "Hence, most experiments on the ionosphere give only small pieces of information.",
+    "speaker_id": "cv-anon-en",
+    "consent_verified": true,
+    "audio_file": "../../private/corpus/en/en-cv-022.wav",
+    "duration_sec": 7.238,
+    "critical_entities": []
+  }
+]
