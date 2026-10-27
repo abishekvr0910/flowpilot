@@ -66,22 +66,26 @@ LIVE_PROMPTS = [
 
 
 def play_beep(freq: int = 880, duration: float = 0.25):
-    """Plays an audible beep through the laptop speakers (and fallback default device)."""
+    """Plays an audible beep through all active playback devices (laptop speakers, headphones, display)."""
     try:
         sr = 48000
         t = np.linspace(0, duration, int(sr * duration), endpoint=False)
-        beep_mono = (0.4 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+        beep_mono = (0.5 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
         beep_stereo = np.column_stack([beep_mono, beep_mono])
+        played_any = False
         for i, d in enumerate(sd.query_devices()):
-            if "speaker" in d["name"].lower() and d["max_output_channels"] >= 2 and d["hostapi"] == 2:
-                try:
-                    sd.play(beep_stereo, samplerate=sr, device=i)
-                    sd.wait()
-                    return
-                except Exception:
-                    pass
-        sd.play(beep_mono, samplerate=sr)
-        sd.wait()
+            if d.get("max_output_channels", 0) >= 2 and d.get("hostapi") == 2:
+                name = d.get("name", "").lower()
+                if any(k in name for k in ["speaker", "headphone", "smarttech", "buds", "airpod"]):
+                    try:
+                        sd.play(beep_stereo, samplerate=sr, device=i)
+                        sd.wait()
+                        played_any = True
+                    except Exception:
+                        pass
+        if not played_any:
+            sd.play(beep_stereo, samplerate=sr)
+            sd.wait()
     except Exception:
         try:
             import winsound
@@ -169,16 +173,20 @@ def ensure_windows_mic_unmuted(keyword: str = "array") -> bool:
         from comtypes import CLSCTX_ALL
         for d in AudioUtilities.GetAllDevices():
             name = getattr(d, 'FriendlyName', '') or ''
-            if keyword.lower() in name.lower() and hasattr(d, '_dev') and d._dev:
-                ep = d._dev.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-                vol = cast(ep, POINTER(IAudioEndpointVolume))
-                if vol.GetMute():
-                    vol.SetMute(0, None)
-                    print(f"[Windows Audio] Unmuted {name}", flush=True)
-                if vol.GetMasterVolumeLevelScalar() < 0.95:
-                    vol.SetMasterVolumeLevelScalar(1.0, None)
-                    print(f"[Windows Audio] Set {name} volume to 100%", flush=True)
-                return True
+            if hasattr(d, '_dev') and d._dev:
+                try:
+                    ep = d._dev.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                    vol = cast(ep, POINTER(IAudioEndpointVolume))
+                    if keyword.lower() in name.lower() or "speaker" in name.lower():
+                        if vol.GetMute():
+                            vol.SetMute(0, None)
+                            print(f"[Windows Audio] Unmuted {name}", flush=True)
+                        if vol.GetMasterVolumeLevelScalar() < 0.85:
+                            vol.SetMasterVolumeLevelScalar(0.90, None)
+                            print(f"[Windows Audio] Set {name} volume to 90%", flush=True)
+                except Exception:
+                    pass
+        return True
     except Exception as exc:
         print(f"[Windows Audio] pycaw inspection note: {exc}", flush=True)
     return False
