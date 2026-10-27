@@ -65,6 +65,31 @@ LIVE_PROMPTS = [
 ]
 
 
+def play_beep(freq: int = 880, duration: float = 0.25):
+    """Plays an audible beep through the laptop speakers (and fallback default device)."""
+    try:
+        sr = 48000
+        t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+        beep_mono = (0.4 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+        beep_stereo = np.column_stack([beep_mono, beep_mono])
+        for i, d in enumerate(sd.query_devices()):
+            if "speaker" in d["name"].lower() and d["max_output_channels"] >= 2 and d["hostapi"] == 2:
+                try:
+                    sd.play(beep_stereo, samplerate=sr, device=i)
+                    sd.wait()
+                    return
+                except Exception:
+                    pass
+        sd.play(beep_mono, samplerate=sr)
+        sd.wait()
+    except Exception:
+        try:
+            import winsound
+            winsound.Beep(freq, int(duration * 1000))
+        except Exception:
+            pass
+
+
 def compute_pcm16_rms_and_peak(pcm_bytes: bytes) -> tuple[float, float]:
     if not pcm_bytes or len(pcm_bytes) < 2:
         return 0.0, 0.0
@@ -222,11 +247,7 @@ def run_live_test(
 
             for attempt in range(1, 21):
                 print(f"  [Window {attempt}/20] Listening ({duration_sec:.1f}s) after HIGH BEEP — SPEAK NOW!", flush=True)
-                try:
-                    import winsound
-                    winsound.Beep(880, 220)
-                except Exception:
-                    pass
+                play_beep(880, duration=0.3)
                 captured_list = record_multi_mic_clip(recorders, duration_sec=duration_sec)
                 best_dev, wav_bytes, rms, peak = captured_list[0]
                 if rms < min_rms:
@@ -248,11 +269,7 @@ def run_live_test(
                         dev_name = cand_dev.get("name") or dev_name
                         host_api = cand_dev.get("host_api") or host_api
                         bus_info = classify_hardware_bus(dev_name, host_api=host_api)
-                        try:
-                            import winsound
-                            winsound.Beep(523, 180)
-                        except Exception:
-                            pass
+                        play_beep(523, duration=0.2)
                         print(
                             f"  Captured speech on [{dev_idx}] {dev_name}: RMS={rms:.5f}, Peak={peak:.4f}",
                             flush=True,
