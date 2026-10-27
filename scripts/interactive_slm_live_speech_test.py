@@ -122,7 +122,13 @@ def resolve_gguf_model(explicit_path: Path | None) -> Path:
     raise FileNotFoundError("Could not locate qwen2.5-0.5b-instruct-q4_k_m.gguf; pass --model <path>.")
 
 
-def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_rms: float = 0.002) -> int:
+def run_live_test(
+    model_path: Path,
+    duration_sec: float,
+    out_receipt: Path,
+    min_rms: float = 0.002,
+    interactive: bool = False,
+) -> int:
     print("=" * 74, flush=True)
     print("  FLOWPILOT SPONTANEOUS LIVE MICROPHONE + LOCAL SLM REPAIR GATE", flush=True)
     print("=" * 74, flush=True)
@@ -142,8 +148,14 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
     host_api = target.get("host_api") or "Windows WASAPI"
     bus_info = classify_hardware_bus(dev_name, host_api=host_api)
 
-    print(f"[Model]  Loading STT (faster-whisper base int8) and GGUF ({model_path.name})...", flush=True)
-    stt = STTEngine({"engine_mode": "local", "local_model_size": "base", "cpu_threads": min(8, os.cpu_count() or 4)})
+    print(f"[Model]  Loading STT (faster-whisper base int8, vad_filter=True) and GGUF ({model_path.name})...", flush=True)
+    stt = STTEngine({
+        "engine_mode": "local",
+        "local_model_size": "base",
+        "cpu_threads": min(8, os.cpu_count() or 4),
+        "biasing_strategy": "none",
+        "vad_filter": True,
+    })
     stt.preload_model()
 
     repairer = LocalTextRepair(
@@ -170,12 +182,17 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
             print("\n" + "-" * 74, flush=True)
             print(f"[Trial {idx}/{len(LIVE_PROMPTS)}] ({prompt_cfg['id']})", flush=True)
             print(f"Prompt: {prompt_cfg['instruction']}", flush=True)
+            if interactive and sys.stdin.isatty():
+                try:
+                    input("  -> Press [ENTER] when ready to speak this prompt... ")
+                except (EOFError, KeyboardInterrupt):
+                    pass
             wav_bytes, rms, peak = b"", 0.0, 0.0
             raw_text = ""
             stt_ms = 0.0
 
-            for attempt in range(1, 16):
-                print(f"  [Window {attempt}/15] Listening ({duration_sec:.1f}s) after HIGH BEEP — SPEAK NOW!", flush=True)
+            for attempt in range(1, 21):
+                print(f"  [Window {attempt}/20] Listening ({duration_sec:.1f}s) after HIGH BEEP — SPEAK NOW!", flush=True)
                 try:
                     import winsound
                     winsound.Beep(880, 220)
@@ -216,7 +233,7 @@ def run_live_test(model_path: Path, duration_sec: float, out_receipt: Path, min_
                     break
 
             if not raw_text:
-                print(f"  [FAIL] No spoken utterance captured for {prompt_cfg['id']} after 15 windows.", flush=True)
+                print(f"  [FAIL] No spoken utterance captured for {prompt_cfg['id']} after 20 windows.", flush=True)
                 return 2
 
             rep = repairer.repair(raw_text, language="en")
@@ -308,5 +325,13 @@ if __name__ == "__main__":
         type=Path,
         default=PROJECT_ROOT / "docs" / "evaluation" / "LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json",
     )
+    parser.add_argument("--interactive", action="store_true", help="Prompt Enter key in terminal before each trial")
     args = parser.parse_args()
-    sys.exit(run_live_test(resolve_gguf_model(args.model), args.duration_sec, args.out_receipt))
+    sys.exit(
+        run_live_test(
+            resolve_gguf_model(args.model),
+            args.duration_sec,
+            args.out_receipt,
+            interactive=args.interactive,
+        )
+    )
