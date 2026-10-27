@@ -1,6 +1,6 @@
 # 0004. Local Text Repair Sandbox and Infilling Contract
 
-**Date:** 2026-10-26 (Updated 2026-10-27 with Real GGUF Benchmark Results)  
+**Date:** 2026-10-26 (Updated 2026-10-27 with `SpanDiffEditor` Real GGUF Benchmark)  
 **Status:** Draft / In Progress (Sandbox — Evaluated on Real GGUF)  
 **Audience:** FlowPilot maintainers, Codex, Gemini  
 **Baseline:** commit `54e7c5c` (`v3.1.0-RC9`)  
@@ -27,7 +27,7 @@ This specification defines the architecture, security constraints, and execution
 
 ## 2. Architecture & The Three-Tier Guard Protocol
 
-To eliminate the hallucination, entity drift, and negation-dropping risks common to small language models, the Local Text Repair engine executes a mandatory **Three-Tier Guard Protocol**:
+To eliminate the hallucination, entity drift, negation-dropping, and CPU latency overhead of full-sentence regeneration, the Local Text Repair engine executes a mandatory **Three-Tier Guard Protocol with Bounded Span-Diff Editing (`SpanDiffEditor`)**:
 
 ```
 [Raw Whisper Transcript]
@@ -43,11 +43,11 @@ To eliminate the hallucination, entity drift, and negation-dropping risks common
          │
          ▼
 ┌────────────────────────────────────────────────────────┐
-│ Tier 2: Bounded Local SLM Infilling (< 350 ms Target)  │
-│ • Model: Qwen2.5-0.5B-Instruct (Q4_K_M GGUF, ~468 MB)  │
-│ • Enforces KV-cached 1-shot constrained repair prompt  │
-│ • Repairs run-ons, capitalization, and disfluencies    │
-│ • Strictly forbidden from altering or dropping slots   │
+│ Tier 2: SpanDiffEditor & Bounded SLM Infilling         │
+│ • Extracts 3-word opening span; encodes slots as @N    │
+│ • Model: Qwen2.5-0.5B-Instruct (Q4_K_M GGUF, ~468 MiB) │
+│ • Bounds generation to <= 6 tokens (P50 ~170 ms CPU)   │
+│ • Splices repaired span onto slot-locked body tail     │
 └────────────────────────────────────────────────────────┘
          │
          ▼
@@ -87,7 +87,7 @@ In CPython on Windows, native C/C++ threads executing `llama.cpp` inference cann
 1. **Persistent Worker Process**: Infilling executes in a dedicated child process (`multiprocessing.Process` via `spawn`) communicating over bidirectional duplex `multiprocessing.Pipe`.
 2. **Hard Termination on Timeout**: If inference exceeds the 400 ms latency budget, the host process issues `worker.terminate()` (and `worker.kill()` if necessary), instantly freeing CPU/GPU handles and threads. A fresh worker is respawned cleanly on the subsequent invocation without leaking background tasks.
 3. **Asynchronous Non-Blocking Warmup (`warmup_async()`)**: Model loading, weight preloading, and 1-shot system prompt KV cache warmup are initiated non-blocking in background threads during application startup (`FlowOrchestrator.__init__`). If dictation completes before the model is fully loaded, a short bounded cold-start check (<= 50 ms) fails fast and safely falls back to pristine Whisper transcripts (`FALLBACK_UNPROVISIONED`), completely protecting the 400 ms budget.
-4. **Verification**: Validated in Suite 60 (`tests/test_local_text_repair.py`, 18 tests) covering hard timeout termination, cold-start fallback, dropped code-identifier slot veto, and auto-restart self-healing.
+4. **Verification**: Validated in Suite 60 (`tests/test_local_text_repair.py`, 19 tests) covering `SpanDiffEditor`, hard timeout termination, cold-start fallback, dropped code-identifier slot veto, and auto-restart self-healing.
 
 ---
 
@@ -111,17 +111,14 @@ Development in `feature/local-slm-repair-sandbox` will be accepted when:
 
 ---
 
-## 6. Real GGUF Benchmark Findings (`2026-10-27`)
+## 6. Real GGUF Benchmark Findings (`2026-10-27` — `SpanDiffEditor`)
 
 Full report: [`docs/evaluation/LOCAL_SLM_GGUF_BENCHMARK_2026-10-27.md`](../evaluation/LOCAL_SLM_GGUF_BENCHMARK_2026-10-27.md)  
 Raw JSON artifact: [`docs/evaluation/local_slm_gguf_benchmark_2026-10-27.json`](../evaluation/local_slm_gguf_benchmark_2026-10-27.json)
 
-| Criterion | Measured Value (`Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`) | Gate Status |
-| :--- | :--- | :--- |
-| **Zero Fact Loss (`N = 150` Phase A + `25` Phase B)** | **`0 / 175 (0.0%)` post-delivery factual leaks** (`135/150` `REPAIRED`, `15/150` caught by `VETOED_FACT_MISMATCH`) | **PASS** |
-| **Safe Non-Blocking Fallback (`MAX_LATENCY_MS = 400.0`)** | `FALLBACK_TIMEOUT` (`474.47 ms` caller time with OS process kill) followed by `FALLBACK_UNPROVISIONED` (`P50 = 61.81 ms` cold-start guard) | **PASS** |
-| **CPU P50 Latency ($\le 300\text{ ms}$ target)** | **`P50 = 1,361.49 ms`** (`P95 = 1,847.59 ms`, `Min = 1,120.11 ms` on 4-thread CPU; `0%` $\le 400\text{ ms}$) | **BLOCKED ON CPU (Keep in Sandbox)** |
-| **Worker Process Memory Delta ($\le 600\text{ MB}$ target)** | **`614.53 MB` peak RSS** (`525.0 MB` initial ready RSS) | **MARGINAL (`+14.5 MB` over 600 MB)** |
-
-### Promotion Gate Conclusion
-While the **Three-Tier Guard Protocol** achieves **0.0% post-delivery factual leaks (`0 / 175`)** and **90.0% successful repair accuracy (`135 / 150`)** on real `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`, full-sentence CPU autoregressive generation (`P50 = 1,361.49 ms`) does not meet the $\le 300\text{ ms}$ P50 / $\le 400\text{ ms}$ hard deadline on CPU-only hardware due to BPE subword expansion of `<SLOT_N>` placeholders (5 subwords per slot). Consequently, `feature/local-slm-repair-sandbox` **must remain isolated from `master`** until either span-edit diff generation or GPU/NPU acceleration brings P50 latency below `300 ms`.
+| Criterion | Full-Sentence Regeneration Baseline | `SpanDiffEditor` (`span_diff`) | Gate Status |
+| :--- | :--- | :--- | :--- |
+| **Zero Fact Loss (`N = 150` Phase A + `25` Phase B)** | `0 / 175 (0.0%)` leaks (`135/150` `REPAIRED`, `15/150` vetoed) | **`0 / 175 (0.0%)` leaks (`150/150` `REPAIRED`, `0/150` vetoed)** | **PASS** |
+| **CPU P50 Latency ($\le 300\text{ ms}$ target)** | `P50 = 1,361.49 ms` (`P95 = 1,847.59 ms`, `0% <= 400 ms`) | **`P50 = 169.76 ms`** (`P95 = 244.74 ms`, `99.33% <= 400 ms`) | **PASS (`8.02x` faster)** |
+| **Strict `400.0 ms` Deadline (`N = 25` Phase B)** | `0 / 25` `REPAIRED` (`1` timeout, `24` cold-start fallback) | **`25 / 25 (100.0%)` `REPAIRED`** (`P50 = 160.58 ms`, `P95 = 225.67 ms`) | **PASS** |
+| **Worker Process Memory Delta ($\le 600\text{ MB}$ target)** | `525.0 MB` initial / `614.53 MB` peak RSS | `513.9 MB` initial / **`610.70 MB` peak RSS** | **MARGINAL (`+10.7 MB` at peak)** |

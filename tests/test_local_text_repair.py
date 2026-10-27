@@ -1,6 +1,6 @@
 """
 Tests for Local Text Repair (Spec 0004: Feature 30 Sandbox)
-Validates Three-Tier Guard Protocol, Slot-Locker, FactGuard Veto, Fallbacks,
+Validates Three-Tier Guard Protocol, Slot-Locker, SpanDiffEditor, FactGuard Veto, Fallbacks,
 Process Isolation, Asynchronous Warmup, Cold-Start Safety, and Auto-Restart.
 """
 
@@ -17,6 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from engine.local_text_repair import (
     SlotLocker,
+    SpanDiffEditor,
     LocalTextRepair,
     RepairStatus,
     RepairResult
@@ -84,6 +85,26 @@ class TestLocalTextRepair(unittest.TestCase):
 
         restored = SlotLocker.restore(locked, slots)
         self.assertEqual(restored, text)
+
+    def test_span_diff_editor_windowed_repair(self):
+        """Verify SpanDiffEditor extracts 3-word opening span, compresses @N slots, and splices cleanly."""
+        raw = "um we must not deploy commit 100 to production before 1 pm because check_status_code returned 400"
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+
+        mock_llm = MagicMock()
+        mock_llm.return_value = {"choices": [{"text": "We must"}]}
+        repairer._llm = mock_llm
+
+        res = repairer.repair(raw)
+        self.assertEqual(res.status, RepairStatus.REPAIRED)
+        self.assertEqual(
+            res.text,
+            "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400."
+        )
+        # Ensure max_tokens was bounded to SPAN_MAX_TOKENS (6)
+        _, kwargs = mock_llm.call_args
+        self.assertEqual(kwargs.get("max_tokens"), SpanDiffEditor.SPAN_MAX_TOKENS)
+        repairer.shutdown()
 
     def test_disabled_engine_returns_unprovisioned_fallback(self):
         repairer = LocalTextRepair(config={"local_text_repair_enabled": False})

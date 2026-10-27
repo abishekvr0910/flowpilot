@@ -5,7 +5,7 @@ Bounded natural language text repair, punctuation restoration, and disfluency cl
 STRICT INVARIANTS:
 1. Text repair ONLY (post-ASR NLP); NOT an acoustic speech recognizer.
 2. Three-Tier Guard Protocol: Slot-locking (numbers, dates, negations, identifiers)
-   + Bounded Infilling + FactGuard Veto Verification.
+   + Bounded Span-Diff Infilling + FactGuard Veto Verification.
 3. Hard execution deadline (400 ms). Fallback to raw Whisper on ANY error or veto in <= 5 ms.
 4. Process Isolation: SLM runs in an isolated worker process that can be forcibly
    terminated (SIGTERM/kill) if native C++ inference hangs, eliminating thread leakage.
@@ -73,6 +73,9 @@ class SlotLocker:
         r"\b(?:[a-z]+[A-Z][a-zA-Z0-9]*|[A-Z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*|[a-z0-9]+_[a-z0-9_]+)\b"
     )
 
+    SLOT_TOKEN_PATTERN = re.compile(r"<SLOT_(\d+)>")
+    COMPACT_SLOT_PATTERN = re.compile(r"@(\d+)\b")
+
     @classmethod
     def lock(cls, text: str) -> Tuple[str, Dict[str, str]]:
         slots = {}
@@ -93,30 +96,103 @@ class SlotLocker:
         return locked, slots
 
     @classmethod
+    def to_compact_slots(cls, text: str) -> str:
+        """Compresses <SLOT_N> (5 BPE subwords) into @N (2 BPE subwords) for bounded span repair."""
+        return cls.SLOT_TOKEN_PATTERN.sub(r"@\1", text)
+
+    @classmethod
+    def from_compact_slots(cls, text: str) -> str:
+        """Expands compact @N placeholders back into canonical <SLOT_N> tokens."""
+        return cls.COMPACT_SLOT_PATTERN.sub(r"<SLOT_\1>", text)
+
+    @classmethod
     def restore(cls, text: str, slots: Dict[str, str]) -> str:
-        restored = text
+        restored = cls.from_compact_slots(text)
+        # If the sentence begins with a natural-language negation slot (e.g. 'neither'),
+        # capitalize its leading character while keeping code identifiers untouched.
+        first_token_match = re.match(r"^\s*(<SLOT_\d+>)", restored)
+        leading_negation_token = None
+        if first_token_match:
+            tok = first_token_match.group(1)
+            orig = slots.get(tok, "")
+            if orig and cls.NEGATION_PATTERN.fullmatch(orig) and orig[0].islower():
+                leading_negation_token = tok
+
         for token, original in slots.items():
-            restored = restored.replace(token, original)
+            replacement = original
+            if token == leading_negation_token:
+                replacement = original[0].upper() + original[1:]
+            restored = restored.replace(token, replacement)
         return restored
 
     @classmethod
     def find_missing_slots(cls, generated_text: str, slots: Dict[str, str]) -> List[str]:
         """Returns original values of any locked <SLOT_N> tokens dropped by the SLM."""
-        return [original for token, original in slots.items() if token not in generated_text]
+        normalized = cls.from_compact_slots(generated_text)
+        return [original for token, original in slots.items() if token not in normalized]
 
     @classmethod
     def find_duplicated_slots(cls, generated_text: str, slots: Dict[str, str]) -> List[str]:
         """Returns original values of any locked <SLOT_N> tokens duplicated by the SLM."""
-        return [original for token, original in slots.items() if generated_text.count(token) > 1]
+        normalized = cls.from_compact_slots(generated_text)
+        return [original for token, original in slots.items() if normalized.count(token) > 1]
+
+
+class SpanDiffEditor:
+    """
+    Tier 2 Bounded Span-Diff Editor.
+    Instead of regenerating an entire multi-clause sentence token-by-token on CPU
+    (which takes >1,300 ms and risks dropping later slots), extracts the dirty opening
+    span (3 words) for SLM repair (<6 completion tokens, ~150 ms on CPU) and splices
+    the repaired span back onto the slot-locked body.
+    """
+
+    FILLER_WORDS = {"um", "uh", "er", "ah"}
+    SPAN_WINDOW_WORDS = 3
+    SPAN_THRESHOLD_WORDS = 8
+    SPAN_MAX_TOKENS = 6
+
+    @classmethod
+    def extract_span(cls, locked_text: str) -> Tuple[str, str, bool]:
+        """
+        Splits locked_text into (slm_input_span, untouched_body_tail, is_windowed).
+        For sentences > SPAN_THRESHOLD_WORDS, extracts the first SPAN_WINDOW_WORDS words
+        with @N compact slot encoding and strips isolated filler tokens from the tail.
+        """
+        words = locked_text.strip().split()
+        if len(words) <= cls.SPAN_THRESHOLD_WORDS:
+            return locked_text.strip(), "", False
+
+        head_words = words[:cls.SPAN_WINDOW_WORDS]
+        tail_words = [
+            w for w in words[cls.SPAN_WINDOW_WORDS:]
+            if w.lower().strip(",.") not in cls.FILLER_WORDS
+        ]
+        head_span = SlotLocker.to_compact_slots(" ".join(head_words))
+        body_tail = " ".join(tail_words)
+        return head_span, body_tail, True
+
+    @classmethod
+    def assemble(cls, repaired_span: str, body_tail: str, is_windowed: bool) -> str:
+        """Splices the SLM-repaired opening span onto the untouched slot-locked body tail."""
+        expanded_head = SlotLocker.from_compact_slots(repaired_span.strip())
+        if not is_windowed:
+            return expanded_head
+
+        # Remove premature terminal punctuation from the head span before splicing
+        clean_head = expanded_head.rstrip(".?!")
+        assembled = f"{clean_head} {body_tail}".strip() if body_tail else clean_head
+        if assembled and assembled[-1] not in ".?!":
+            assembled += "."
+        return assembled
 
 
 DEFAULT_SYSTEM_PROMPT = (
-    "You are FlowPilot's local text repair engine. Clean up speech disfluencies (um, uh), "
-    "fix capitalization and punctuation, and keep every <SLOT_N> token in its exact position. "
-    "Do NOT add new facts, explanations, or delete any <SLOT_N> token.\n"
-    "Example:\n"
-    "User: um we must <SLOT_2> deploy commit <SLOT_0> before <SLOT_1> pm in <SLOT_3>\n"
-    "Assistant: We must <SLOT_2> deploy commit <SLOT_0> before <SLOT_1> pm in <SLOT_3>."
+    "Remove speech fillers (um, uh) and capitalize the first word. Keep @N tokens exact.\n"
+    "User: um we must\n"
+    "Assistant: We must\n"
+    "User: @0 must @1\n"
+    "Assistant: @0 must @1"
 )
 
 
@@ -131,14 +207,14 @@ def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_thr
             from llama_cpp import Llama
             llm = Llama(
                 model_path=model_path,
-                n_ctx=512,
-                n_batch=256,
+                n_ctx=128,
+                n_batch=64,
                 n_threads=n_threads,
                 verbose=False
             )
             warmup_prompt = (
                 f"<|im_start|>system\n{DEFAULT_SYSTEM_PROMPT}<|im_end|>\n"
-                "<|im_start|>user\nwarmup<|im_end|>\n<|im_start|>assistant\n"
+                "<|im_start|>user\num test<|im_end|>\n<|im_start|>assistant\n"
             )
             llm(warmup_prompt, max_tokens=1, stop=["<|im_end|>", "\n"], temperature=0.0)
             pipe.send({"status": "ready"})
@@ -200,13 +276,14 @@ class LocalTextRepair:
     """
 
     MAX_LATENCY_MS: float = 400.0   # Hard deadline for local repair
-    MAX_TOKENS: int = 60            # Bounded output generation
+    MAX_TOKENS: int = 60            # Upper bound for full-sentence fallback
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or {}
         self.enabled: bool = bool(self.config.get("local_text_repair_enabled", False))
         self.model_path: Optional[str] = self.config.get("local_text_repair_model_path")
         self.worker_mode: str = self.config.get("local_text_repair_worker_mode", "process")
+        self.span_diff_enabled: bool = bool(self.config.get("local_text_repair_span_diff", True))
         
         # In-process mock / fallback callable (used for unit tests and thread mode)
         self._llm = None
@@ -355,13 +432,14 @@ class LocalTextRepair:
             self._executor.shutdown(wait=wait)
             self._executor = None
 
-    def _infer_bounded(self, prompt: str, remaining_ms: float) -> str:
+    def _infer_bounded(self, prompt: str, remaining_ms: float, max_tokens: Optional[int] = None) -> str:
         """
         Executes inference within remaining_ms.
         If self._llm is set (mock/thread mode), runs via ThreadPoolExecutor.
         Otherwise, runs via isolated worker process with hard process termination on timeout.
         """
         remaining_sec = remaining_ms / 1000.0
+        tokens_limit = max_tokens if max_tokens is not None else self.MAX_TOKENS
 
         # Mode A: In-process callable (used for unit tests and mock overrides)
         if self._llm is not None:
@@ -369,7 +447,7 @@ class LocalTextRepair:
             future = executor.submit(
                 self._llm,
                 prompt,
-                max_tokens=self.MAX_TOKENS,
+                max_tokens=tokens_limit,
                 stop=["<|im_end|>", "\n"],
                 temperature=0.0
             )
@@ -383,7 +461,7 @@ class LocalTextRepair:
         self._parent_pipe.send({
             "cmd": "infer",
             "prompt": prompt,
-            "max_tokens": self.MAX_TOKENS,
+            "max_tokens": tokens_limit,
             "stop": ["<|im_end|>", "\n"],
             "temperature": 0.0
         })
@@ -403,7 +481,7 @@ class LocalTextRepair:
         """
         Executes the Three-Tier Guard Protocol on the input transcript:
         Tier 1: Slot-lock numbers, dates, negations, identifiers.
-        Tier 2: Bounded infilling via local SLM with hard process-isolated deadline enforcement.
+        Tier 2: Bounded Span-Diff infilling via local SLM with hard process-isolated deadline enforcement.
         Tier 3: Slot restoration & FactGuard verification.
 
         Guarantees <= 5 ms fallback to raw_transcript on any error, timeout, or veto.
@@ -451,17 +529,25 @@ class LocalTextRepair:
                 # Return raw fallback immediately without waiting for cold start
                 return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_UNPROVISIONED, t_start)
 
-        # Tier 2: Bounded Local SLM Infilling with Process-Isolated Hard Timeout
+        # Tier 2: Bounded Local SLM Span-Diff Infilling with Process-Isolated Hard Timeout
         try:
             time_spent_ms = (time.perf_counter() - t_start) * 1000.0
             remaining_ms = self.MAX_LATENCY_MS - time_spent_ms
             if remaining_ms <= 5.0:
                 return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_TIMEOUT, t_start)
 
-            system_prompt = DEFAULT_SYSTEM_PROMPT
-            prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{locked_text}<|im_end|>\n<|im_start|>assistant\n"
+            if self.span_diff_enabled:
+                slm_span, body_tail, is_windowed = SpanDiffEditor.extract_span(locked_text)
+                max_toks = SpanDiffEditor.SPAN_MAX_TOKENS if is_windowed else self.MAX_TOKENS
+            else:
+                slm_span, body_tail, is_windowed = locked_text, "", False
+                max_toks = self.MAX_TOKENS
 
-            raw_generated = self._infer_bounded(prompt, remaining_ms)
+            system_prompt = DEFAULT_SYSTEM_PROMPT
+            prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{slm_span}<|im_end|>\n<|im_start|>assistant\n"
+
+            raw_span_generated = self._infer_bounded(prompt, remaining_ms, max_tokens=max_toks)
+            raw_generated = SpanDiffEditor.assemble(raw_span_generated, body_tail, is_windowed)
 
         except concurrent.futures.TimeoutError:
             logger.warning("Tier 2 SLM inference exceeded latency budget (%.1f ms); returning safe fallback", self.MAX_LATENCY_MS)

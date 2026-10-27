@@ -105,6 +105,7 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
         "local_text_repair_enabled": True,
         "local_text_repair_model_path": str(model_path),
         "local_text_repair_worker_mode": "process",
+        "local_text_repair_span_diff": True,
     }
     engine = LocalTextRepair(config=config)
     engine.MAX_LATENCY_MS = unbounded_ceiling_ms
@@ -235,8 +236,9 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             "sha256": model_sha256,
             "quantization": "Q4_K_M",
             "parameters": "0.5B",
-            "n_ctx": 512,
-            "n_batch": 256,
+            "repair_strategy": "span_diff (3-word opening span + @N compact slot encoding)",
+            "n_ctx": 128,
+            "n_batch": 64,
             "n_threads": min(4, os.cpu_count() or 2),
         },
         "warmup": {
