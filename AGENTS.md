@@ -23,7 +23,7 @@ python desktop_app.py
 # Offline self-test (Windows only, synthesizes speech through SAPI and decodes on CPU)
 python desktop_app.py --self-test
 
-# Full audit suite, 59 suites; release promotion also requires --require-all
+# Full audit suite, 60 suites; release promotion also requires --require-all
 python -X utf8 tests/run_all_tests.py
 
 # Run single suite
@@ -60,4 +60,4 @@ Stored in `docs/specs/` as `NNNN-title.md`:
 
 - [engine/AGENTS.md](engine/AGENTS.md): Pipeline invariants, module responsibilities, import-time hazards, and cross-platform tiers.
 - [ui/AGENTS.md](ui/AGENTS.md): Qt window hierarchy, HUD non-activating behavior, companion stack, and web shell.
-- [tests/AGENTS.md](tests/AGENTS.md): 59-suite runner rules, environment staging, and testing conventions.
+- [tests/AGENTS.md](tests/AGENTS.md): 60-suite runner rules, environment staging, and testing conventions.

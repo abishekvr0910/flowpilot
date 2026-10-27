@@ -40,7 +40,7 @@ jobs:
         run: |
           python -m PyInstaller flowpilot.spec --noconfirm
 
-      - name: Run Python Automated Master Regression Suite (59 Suites)
+      - name: Run Python Automated Master Regression Suite (60 Suites)
         run: |
           python -X utf8 tests/run_all_tests.py
 

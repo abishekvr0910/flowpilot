@@ -29,7 +29,7 @@ python -X utf8 tests/run_all_tests.py
 npm test
 ```
 
-The runner currently defines 59 suites (2026-10-26). Use `python -X utf8 tests/run_all_tests.py --require-all` for release verification. Physical microphone, audio-ducking, clipboard-sequence, and real-editor insertion checks may be skipped in hosted headless CI; a skip is not a pass for those behaviors. Require a green [GitHub Actions run](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the intended commit and perform explicit interactive Windows hardware and insertion checks before release. If CI is red, stop and investigate; do not reuse results from an older tag.
+The runner currently defines 60 suites (2026-10-27). Use `python -X utf8 tests/run_all_tests.py --require-all` for release verification. Physical microphone, audio-ducking, clipboard-sequence, and real-editor insertion checks may be skipped in hosted headless CI; a skip is not a pass for those behaviors. Require a green [GitHub Actions run](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the intended commit and perform explicit interactive Windows hardware and insertion checks before release. If CI is red, stop and investigate; do not reuse results from an older tag.
 
 ## Inspect the exact artifact
 
