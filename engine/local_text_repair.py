@@ -171,8 +171,9 @@ class SpanDiffEditor:
     Tier 2 Bounded Span-Diff Editor.
     Instead of regenerating an entire multi-clause sentence token-by-token on CPU
     (which takes >1,300 ms and risks dropping later slots), extracts the dirty opening
-    span (3 words) for SLM repair (<6 completion tokens, ~150 ms on CPU) and splices
-    the repaired span back onto the slot-locked body.
+    span (3 words when a leading filler is present, 2 words otherwise) for SLM repair
+    (<=6 completion tokens, ~140 ms on CPU) and splices the repaired span back onto
+    the slot-locked body.
     """
 
     # Only lowercase 'um' and 'uh' are treated as unguarded tail fillers;
@@ -183,28 +184,44 @@ class SpanDiffEditor:
         "can", "could", "should", "would", "will", "shall", "did", "does", "is", "are", "was", "were"
     }
     SPAN_WINDOW_WORDS = 3
-    SPAN_THRESHOLD_WORDS = 8
+    SPAN_THRESHOLD_WORDS = 2
     SPAN_MAX_TOKENS = 6
 
     @classmethod
     def extract_span(cls, locked_text: str) -> Tuple[str, str, bool]:
         """
         Splits locked_text into (slm_input_span, untouched_body_tail, is_windowed).
-        For sentences > SPAN_THRESHOLD_WORDS, extracts the first SPAN_WINDOW_WORDS words
-        with @N compact slot encoding and strips isolated lowercase filler tokens from the tail.
+        For sentences > SPAN_THRESHOLD_WORDS, extracts a 3-word opening span when a leading
+        disfluency filler is present (or 2-word opening span when no leading filler is present)
+        with @N compact slot encoding, and strips isolated lowercase filler tokens from the tail.
         """
         words = locked_text.strip().split()
         if len(words) <= cls.SPAN_THRESHOLD_WORDS:
-            return locked_text.strip(), "", False
+            return SlotLocker.to_compact_slots(locked_text.strip()), "", False
 
-        head_words = words[:cls.SPAN_WINDOW_WORDS]
+        has_leading_filler = any(
+            w.strip(",.?!").lower() in cls.FILLER_WORDS
+            for w in words[:cls.SPAN_WINDOW_WORDS]
+        )
+        window_size = cls.SPAN_WINDOW_WORDS if has_leading_filler else 2
+        head_words = words[:window_size]
         tail_words = [
-            w for w in words[cls.SPAN_WINDOW_WORDS:]
+            w for w in words[window_size:]
             if w.strip(",.") not in cls.FILLER_WORDS
         ]
         head_span = SlotLocker.to_compact_slots(" ".join(head_words))
         body_tail = " ".join(tail_words)
         return head_span, body_tail, True
+
+    @classmethod
+    def estimate_max_tokens(cls, head_span: str) -> int:
+        """Dynamically bounds completion tokens for the extracted opening span."""
+        content_words = [
+            w for w in head_span.strip().split()
+            if w.strip(",.?!").lower() not in cls.FILLER_WORDS
+        ]
+        tok_budget = sum(2 if re.fullmatch(r"@\d+", w) else 1 for w in content_words) + 1
+        return max(2, min(cls.SPAN_MAX_TOKENS, tok_budget))
 
     @classmethod
     def assemble(cls, repaired_span: str, body_tail: str, is_windowed: bool, original_head_span: str = "") -> str:
@@ -239,6 +256,15 @@ class SpanDiffEditor:
                         clean_head = " ".join([first] + expected_content[1:])
                     else:
                         clean_head = orig_expanded
+                elif len(actual_content) > 1 and len(actual_content) == len(expected_content):
+                    # Preserve original casing for non-initial words (e.g. prevent '@0 Must' or 'I\'m The')
+                    fixed_words = [actual_content[0]]
+                    for act_w, exp_w in zip(actual_content[1:], expected_content[1:]):
+                        if exp_w.islower() and not act_w.startswith("<SLOT_"):
+                            fixed_words.append(exp_w)
+                        else:
+                            fixed_words.append(act_w)
+                    clean_head = " ".join(fixed_words)
 
         assembled = f"{clean_head} {body_tail}".strip() if body_tail else clean_head
         if assembled and assembled[-1] not in ".?!":
@@ -258,8 +284,8 @@ DEFAULT_SYSTEM_PROMPT = (
     "Assistant: We must\n"
     "User: uh do @0\n"
     "Assistant: Do @0\n"
-    "User: @0 must @1\n"
-    "Assistant: @0 must @1"
+    "User: @0 must\n"
+    "Assistant: @0 must"
 )
 
 
@@ -269,7 +295,14 @@ def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_thr
     Runs in a dedicated OS process to allow hard termination if native C++ inference hangs.
     """
     llm = None
+    infer_count = 0
     try:
+        if os.name == "nt":
+            try:
+                import psutil
+                psutil.Process(os.getpid()).nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+            except Exception:
+                pass
         if model_path:
             from llama_cpp import Llama
             llm = Llama(
@@ -328,9 +361,11 @@ def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_thr
                 )
                 text = res["choices"][0]["text"].strip()
                 pipe.send({"status": "ok", "text": text})
-                # Reclaim per-call LlamaSampler and Ctypes buffer objects after sending response
-                # so worker RSS stays flat at ~514 MB across hundreds of invocations.
-                gc.collect()
+                infer_count += 1
+                # Fast gen-0 collection after each call (<0.05 ms); full collection only when pipe is idle
+                gc.collect(0)
+                if infer_count % 25 == 0 and not pipe.poll(0):
+                    gc.collect()
 
         except (EOFError, BrokenPipeError):
             break
@@ -611,7 +646,7 @@ class LocalTextRepair:
 
             if self.span_diff_enabled:
                 slm_span, body_tail, is_windowed = SpanDiffEditor.extract_span(locked_text)
-                max_toks = SpanDiffEditor.SPAN_MAX_TOKENS if is_windowed else self.MAX_TOKENS
+                max_toks = SpanDiffEditor.estimate_max_tokens(slm_span)
             else:
                 slm_span, body_tail, is_windowed = locked_text, "", False
                 max_toks = self.MAX_TOKENS

@@ -43,7 +43,7 @@ def _controllable_worker_target(pipe):
                 if "hang" in prompt:
                     time.sleep(10.0)  # Simulate hung native C++ thread
                 else:
-                    pipe.send({"status": "ok", "text": "We should deploy <SLOT_0> to cluster <SLOT_1>."})
+                    pipe.send({"status": "ok", "text": "We should"})
         except Exception:
             break
 
@@ -110,8 +110,8 @@ class TestLocalTextRepair(unittest.TestCase):
         """Verify that if natural @0 in the opening span is dropped by the SLM, Tier 3 vetoes it."""
         raw = "@0 and @1 must not accept port 8080 when allow_external_access is false in production"
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
-        # SLM drops @0 from the opening span '@0 and @1'
-        repairer._llm = MagicMock(return_value={"choices": [{"text": "And @1"}]})
+        # SLM drops @0 from the 2-word opening span '@0 and'
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "And"}]})
         res = repairer.repair(raw)
         self.assertEqual(res.status, RepairStatus.VETOED_FACT_MISMATCH)
         self.assertEqual(res.text, raw)
@@ -122,9 +122,9 @@ class TestLocalTextRepair(unittest.TestCase):
         """Verify filler-in-meaning (subject, meta-mention, quoted, ER/Ah acronyms) are preserved."""
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
 
-        # Case 1: 'um' as grammatical subject at sentence start
+        # Case 1: 'um' as grammatical subject at sentence start ('@0 is' 2-word opening span)
         raw1 = "um is a common filler word that should not break parse_token_stream in 2026"
-        repairer._llm = MagicMock(return_value={"choices": [{"text": "@0 is a"}]})
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "@0 is"}]})
         res1 = repairer.repair(raw1)
         self.assertEqual(res1.status, RepairStatus.REPAIRED)
         self.assertEqual(
@@ -177,7 +177,7 @@ class TestLocalTextRepair(unittest.TestCase):
         repairer.shutdown()
 
     def test_span_diff_editor_windowed_repair(self):
-        """Verify SpanDiffEditor extracts 3-word opening span, compresses @N slots, and splices cleanly."""
+        """Verify SpanDiffEditor extracts opening span, bounds max_tokens dynamically, and splices cleanly."""
         raw = "um we must not deploy commit 100 to production before 1 pm because check_status_code returned 400"
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
 
@@ -191,9 +191,9 @@ class TestLocalTextRepair(unittest.TestCase):
             res.text,
             "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400."
         )
-        # Ensure max_tokens was bounded to SPAN_MAX_TOKENS (6)
+        # Ensure max_tokens was dynamically bounded for 'um we must' -> 2 content words + 1 = 3 tokens
         _, kwargs = mock_llm.call_args
-        self.assertEqual(kwargs.get("max_tokens"), SpanDiffEditor.SPAN_MAX_TOKENS)
+        self.assertEqual(kwargs.get("max_tokens"), 3)
         repairer.shutdown()
 
     def test_disabled_engine_returns_unprovisioned_fallback(self):
@@ -253,7 +253,11 @@ class TestLocalTextRepair(unittest.TestCase):
 
     def test_tier3_factguard_vetoes_dropped_code_identifier_slot(self):
         """Simulate an SLM that drops a locked code-identifier slot (<SLOT_0>): Tier 3 must VETO."""
-        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        repairer = LocalTextRepair(config={
+            "local_text_repair_enabled": True,
+            "local_text_repair_model_path": "mock.gguf",
+            "local_text_repair_span_diff": False,
+        })
 
         raw = "um please invoke getUserProfile and verify connection_string_db"
 
@@ -274,7 +278,11 @@ class TestLocalTextRepair(unittest.TestCase):
 
     def test_tier3_factguard_approves_safe_cleaned_text(self):
         """Simulate an SLM that cleans punctuation while preserving slots."""
-        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        repairer = LocalTextRepair(config={
+            "local_text_repair_enabled": True,
+            "local_text_repair_model_path": "mock.gguf",
+            "local_text_repair_span_diff": False,
+        })
 
         raw = "we should like deploy <SLOT_0> to cluster <SLOT_1>"
 
