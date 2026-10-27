@@ -207,7 +207,7 @@ class SpanDiffEditor:
         head_words = words[:window_size]
         tail_words = [
             w for w in words[window_size:]
-            if w.strip(",.") not in cls.FILLER_WORDS
+            if w.strip(",.?!").lower() not in cls.FILLER_WORDS
         ]
         head_span = SlotLocker.to_compact_slots(" ".join(head_words))
         body_tail = " ".join(tail_words)

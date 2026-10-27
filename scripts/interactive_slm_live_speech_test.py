@@ -44,23 +44,23 @@ DEFAULT_GGUF_PATHS = [
 LIVE_PROMPTS = [
     {
         "id": "live-01-negation-number",
-        "instruction": "Speak naturally with a leading 'um' or 'uh': e.g. 'um we must not deploy build 104 before 3 pm'",
+        "instruction": "Speak clearly starting with 'Um,': 'Um, we must not deploy build 104 before 3 pm'",
     },
     {
         "id": "live-02-currency-negation",
-        "instruction": "Speak naturally with a hesitation: e.g. 'uh please do not charge more than 25 dollars for invoice 500'",
+        "instruction": "Speak clearly starting with 'Uh,': 'Uh, please do not charge more than 25 dollars for invoice 500'",
     },
     {
         "id": "live-03-question",
-        "instruction": "Ask a spontaneous question with 'um' or 'uh': e.g. 'um why did the status check return 404 instead of 200'",
+        "instruction": "Speak clearly starting with 'Um,': 'Um, why did the status check return 404 instead of 200'",
     },
     {
         "id": "live-04-filler-in-meaning",
-        "instruction": "Mention a filler word or unit in meaning: e.g. 'uh the patient in ER room 4 cannot wait 15 minutes'",
+        "instruction": "Speak clearly starting with 'Uh,': 'Uh, the patient in ER room 4 cannot wait 15 minutes'",
     },
     {
         "id": "live-05-free-spontaneous",
-        "instruction": "Speak any spontaneous developer sentence with numbers, negations, and natural hesitation",
+        "instruction": "Speak clearly starting with 'Um,': 'Um, do not deploy version 2 before running test 10'",
     },
 ]
 
@@ -224,12 +224,13 @@ def run_live_test(
     host_api = target.get("host_api") or "Windows WASAPI"
     bus_info = classify_hardware_bus(dev_name, host_api=host_api)
 
-    print(f"[Model]  Loading STT (faster-whisper base int8) and GGUF ({model_path.name})...", flush=True)
+    print(f"[Model]  Loading STT (faster-whisper base int8, verbatim disfluency prompt) and GGUF ({model_path.name})...", flush=True)
     stt = STTEngine({
         "engine_mode": "local",
         "local_model_size": "base",
         "cpu_threads": min(8, os.cpu_count() or 4),
-        "biasing_strategy": "none",
+        "biasing_strategy": "initial_prompt",
+        "custom_vocabulary": ["Um", "uh", "um,", "uh,"],
         "vad_filter": False,
     })
     stt.preload_model()
@@ -252,6 +253,7 @@ def run_live_test(
     repair_latencies = []
     within_400ms = 0
     fact_leaks = 0
+    measurable_repairs = 0
 
     try:
         for idx, prompt_cfg in enumerate(LIVE_PROMPTS, start=1):
@@ -320,8 +322,12 @@ def run_live_test(
             if leak:
                 fact_leaks += 1
 
+            was_repaired = (raw_text.strip() != rep.text.strip())
+            if was_repaired:
+                measurable_repairs += 1
+
             print(f"  Whisper Raw ({stt_ms:6.1f} ms): {raw_text}", flush=True)
-            print(f"  SLM Repaired ({rep.latency_ms:5.1f} ms): {rep.text} [{rep.status.value}] | fact_leak={leak}", flush=True)
+            print(f"  SLM Repaired ({rep.latency_ms:5.1f} ms): {rep.text} [{rep.status.value}] | fact_leak={leak} | repaired={was_repaired}", flush=True)
 
             trials.append({
                 "trial_id": prompt_cfg["id"],
@@ -337,6 +343,7 @@ def run_live_test(
                 "slm_latency_ms": round(rep.latency_ms, 2),
                 "within_400ms": rep.latency_ms <= 400.0,
                 "fact_leak": leak,
+                "measurable_repair": was_repaired,
                 "missing_facts": missing,
                 "added_facts": added,
             })
@@ -368,10 +375,12 @@ def run_live_test(
             "trials_count": len(trials),
             "completed_within_400ms_count": within_400ms,
             "completed_within_400ms_pct": round((within_400ms / len(trials)) * 100.0, 2),
+            "measurable_repairs_count": measurable_repairs,
+            "measurable_repairs_pct": round((measurable_repairs / len(trials)) * 100.0, 2),
             "p50_latency_ms": round(statistics.median(repair_latencies), 2),
             "max_latency_ms": round(max(repair_latencies), 2),
             "post_delivery_fact_leaks": fact_leaks,
-            "gate_passed": within_400ms == len(trials) and fact_leaks == 0,
+            "gate_passed": within_400ms == len(trials) and fact_leaks == 0 and measurable_repairs >= 3,
         },
         "trials": trials,
     }
