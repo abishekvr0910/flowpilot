@@ -2,6 +2,30 @@
 
 Updated 2026-10-27. A locally verified candidate is not a published general release.
 
+## Pilot release candidate: v3.1.0-RC10, Windows x64
+
+**Candidate prerelease package.** Built locally from clean committed source `251e0f9` with PyInstaller 6.22.3 and Python 3.11.15. RC10 incorporates the local SLM text repair sandbox and Three-Tier Guard Protocol (Spec 0004) with FactGuard entity veto and SpanDiffEditor CPU optimization, opt-in via `local_text_repair_enabled` (default: `False`). Includes empirical real-voice benchmark on 40 Common Voice clips and verified live human speech gate receipt (3/5 active disfluency repairs, 0 fact leaks, all under 145 ms; [`LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json`](../evaluation/LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json)). RC9 remains immutable.
+
+| Item | Measured value |
+|---|---|
+| Source commit | `251e0f9` (`master`) |
+| Archive | `dist/FlowPilot-v3.1.0-RC10-win64.zip` |
+| Archive size | 772,565,177 bytes |
+| Archive SHA-256 | `9277468F859C36E2F58CD11FB38795537E83B2FE193E3F73EC0827B0F76EF51F` |
+| Embedded executable | `FlowPilot.exe`, 26,636,275 bytes |
+| Embedded executable SHA-256 | `6D00D6982C1CF21553495E7F429CA34967A649CECCE17E957C4FE1BDCD05ED9A` |
+| Archive integrity | 1,298 members, CRC passed; embedded executable hash matched the tested bundle |
+| License notices | 93 files under `licenses/` |
+| Authenticode | `NotSigned`, unsigned pilot candidate only |
+| Physical 3.5mm WASAPI hot-plug gate | `PASSED` (verified on `Microphone (Realtek(R) Audio) [Windows WASAPI]`, index 25, `analog_jack_hd_audio_endpoint`) |
+| Local automated audit (`exebox` desktop) | 55 passed, 5 honest interactive-desktop skips, 0 failed across 60 suites in 115.32 s |
+| Local SLM repair unit suite | 23 passed, 0 failed across 23 tests in 1.23 s (`tests/test_local_text_repair.py`) |
+| Packaged smoke | Named mutex, duplicate instance handling, bundled model and Silero assets, and clean termination passed with zero source-timestamp warnings (`tests/test_standalone_binary_smoke.py` and `tests/test_release_integrity_fixes.py`) |
+| Offline packaged self test | `dist\FlowPilot\FlowPilot.exe --self-test` exited `0` |
+| Offline ZIP extraction self test | Extracted executable transcribed the SAPI fixture, exited `0`, and left isolated empty model cache empty |
+| Full stack | `npm test` passed REST and WebSocket lifecycle |
+| Live human speech gate | `PASSED` (3/5 measurable repairs, P50 122.1 ms <= 400 ms, 0 fact leaks; receipt: `docs/evaluation/LOCAL_SLM_LIVE_HUMAN_SPEECH_RECEIPT.json`) |
+
 ## Pilot release candidate: v3.1.0-RC9, Windows x64
 
 **Published as an [unsigned pilot prerelease](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.0-RC9).** Built locally from clean committed source `00fff03` with PyInstaller 6.22.3 and Python 3.11.15. RC9 incorporates PortAudio hot-plug re-enumeration (`refresh_audio_devices()`), pre-roll stream stall verification (`has_healthy_hot_stream()`), worker-thread Win32 COM initialization (`CoInitializeEx`) and stereo-to-mono downmix for Windows WASAPI endpoints, and the verified physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect gate ([`PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md`](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md), `analog_jack_hd_audio_endpoint`, `is_usb_bus_device=false`). Dedicated USB PnP bus audio device (`USB\VID_...`) hot-plug confirmation remains part of pilot hardware testing. The local text repair prototype (`feature/local-slm-repair-sandbox`) remains strictly isolated outside `master` and RC9.
