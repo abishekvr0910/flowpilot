@@ -1,7 +1,8 @@
 """
 Tests for Local Text Repair (Spec 0004: Feature 30 Sandbox)
-Validates Three-Tier Guard Protocol, Slot-Locker, SpanDiffEditor, FactGuard Veto, Fallbacks,
-Process Isolation, Asynchronous Warmup, Cold-Start Safety, and Auto-Restart.
+Validates Three-Tier Guard Protocol, Slot-Locker, SpanDiffEditor, Natural @N Edge Cases,
+Filler-in-Meaning Preservation, FactGuard Veto, Fallbacks, Process Isolation,
+Asynchronous Warmup, Cold-Start Safety, and Auto-Restart.
 """
 
 import sys
@@ -85,6 +86,95 @@ class TestLocalTextRepair(unittest.TestCase):
 
         restored = SlotLocker.restore(locked, slots)
         self.assertEqual(restored, text)
+
+    def test_natural_at_n_and_literal_slot_preservation(self):
+        """Verify natural @0, @1, @99, and <SLOT_0> tokens in user input never collide with compact slots."""
+        raw = "um please ping @0 and @1 before 5 pm so check_user_handle does not overwrite <SLOT_0>"
+        locked, slots = SlotLocker.lock(raw)
+        self.assertIn("@0", slots.values())
+        self.assertIn("@1", slots.values())
+        self.assertIn("<SLOT_0>", slots.values())
+        self.assertIn("check_user_handle", slots.values())
+
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "Please ping"}]})
+        res = repairer.repair(raw)
+        self.assertEqual(res.status, RepairStatus.REPAIRED)
+        self.assertEqual(
+            res.text,
+            "Please ping @0 and @1 before 5 pm so check_user_handle does not overwrite <SLOT_0>."
+        )
+        repairer.shutdown()
+
+    def test_natural_at_n_dropped_is_vetoed(self):
+        """Verify that if natural @0 in the opening span is dropped by the SLM, Tier 3 vetoes it."""
+        raw = "@0 and @1 must not accept port 8080 when allow_external_access is false in production"
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        # SLM drops @0 from the opening span '@0 and @1'
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "And @1"}]})
+        res = repairer.repair(raw)
+        self.assertEqual(res.status, RepairStatus.VETOED_FACT_MISMATCH)
+        self.assertEqual(res.text, raw)
+        self.assertIn("@0", res.veto_reason)
+        repairer.shutdown()
+
+    def test_filler_in_meaning_preserved_while_disfluency_removed(self):
+        """Verify filler-in-meaning (subject, meta-mention, quoted, ER/Ah acronyms) are preserved."""
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+
+        # Case 1: 'um' as grammatical subject at sentence start
+        raw1 = "um is a common filler word that should not break parse_token_stream in 2026"
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "@0 is a"}]})
+        res1 = repairer.repair(raw1)
+        self.assertEqual(res1.status, RepairStatus.REPAIRED)
+        self.assertEqual(
+            res1.text,
+            "Um is a common filler word that should not break parse_token_stream in 2026."
+        )
+
+        # Case 2: 'um' and 'uh' mentioned meta-linguistically after 'word' / 'token', while leading 'uh' is stripped
+        raw2 = "uh please do not delete the word um or the token uh when testing filter_disfluencies"
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "Please do"}]})
+        res2 = repairer.repair(raw2)
+        self.assertEqual(res2.status, RepairStatus.REPAIRED)
+        self.assertEqual(
+            res2.text,
+            "Please do not delete the word um or the token uh when testing filter_disfluencies."
+        )
+
+        # Case 3: Quoted 'um' and "uh" preserved while leading 'um' is stripped
+        raw3 = 'um we should not strip \'um\' or "uh" from raw_transcript_buffer during 100 tests'
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "We should"}]})
+        res3 = repairer.repair(raw3)
+        self.assertEqual(res3.status, RepairStatus.REPAIRED)
+        self.assertEqual(
+            res3.text,
+            'We should not strip \'um\' or "uh" from raw_transcript_buffer during 100 tests.'
+        )
+
+        # Case 4: Uppercase acronyms/units 'ER' and 'Ah' preserved while leading 'uh' and inline lowercase 'um' stripped
+        raw4 = "uh the patient in ER room 4 must not wait um more than 15 minutes for a 50 Ah battery"
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "The patient"}]})
+        res4 = repairer.repair(raw4)
+        self.assertEqual(res4.status, RepairStatus.REPAIRED)
+        self.assertEqual(
+            res4.text,
+            "The patient in ER room 4 must not wait more than 15 minutes for a 50 Ah battery."
+        )
+        repairer.shutdown()
+
+    def test_interrogative_question_mark_restoration(self):
+        """Verify interrogative openings receive '?' terminal punctuation in SpanDiffEditor."""
+        raw = "um why did check_status_code return 404 instead of 200 when retry_limit_enabled was not set"
+        repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
+        repairer._llm = MagicMock(return_value={"choices": [{"text": "Why did"}]})
+        res = repairer.repair(raw)
+        self.assertEqual(res.status, RepairStatus.REPAIRED)
+        self.assertEqual(
+            res.text,
+            "Why did check_status_code return 404 instead of 200 when retry_limit_enabled was not set?"
+        )
+        repairer.shutdown()
 
     def test_span_diff_editor_windowed_repair(self):
         """Verify SpanDiffEditor extracts 3-word opening span, compresses @N slots, and splices cleanly."""
