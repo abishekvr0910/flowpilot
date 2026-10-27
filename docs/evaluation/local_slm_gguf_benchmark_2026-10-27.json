@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-10-27T01:49:33.207024+00:00",
+  "timestamp_utc": "2026-10-27T02:10:23.512642+00:00",
   "host": {
     "node": "LAPTOP-5KASE5RO",
     "system": "Windows",
@@ -15,16 +15,22 @@
     "sha256": "74A4DA8C9FDBCD15BD1F6D01D621410D31C6FC00986F5EB687824E7B93D7A9DB",
     "quantization": "Q4_K_M",
     "parameters": "0.5B",
-    "repair_strategy": "span_diff (3-word opening span + @N compact slot encoding)",
-    "n_ctx": 128,
-    "n_batch": 64,
+    "repair_strategy": "span_diff (3-word opening span + @N compact slot encoding + post-call gc.collect)",
+    "n_ctx": 256,
+    "n_batch": 128,
     "n_threads": 4
   },
-  "warmup": {
-    "warmup_latency_ms": 1206.05,
-    "worker_peak_rss_mb": 610.7
+  "phase_0_cold_start_audit": {
+    "cold_unwarmed_call_status": "FALLBACK_UNPROVISIONED",
+    "cold_unwarmed_call_fallback_used": true,
+    "cold_unwarmed_call_latency_ms": 86.17,
+    "worker_cold_ready_latency_ms": 1498.04,
+    "first_warm_call_status": "REPAIRED",
+    "first_warm_call_latency_ms": 131.64,
+    "worker_initial_rss_mb": 516.2,
+    "worker_peak_rss_mb": 519.62
   },
-  "phase_a_unbounded_150_corpus": {
+  "phase_a_150_adversarial_corpus": {
     "corpus_size": 150,
     "ceiling_ms": 3000.0,
     "strict_sla_target_ms": 400.0,
@@ -38,76 +44,187 @@
       "VETOED_FACT_MISMATCH": 0
     },
     "repaired_rate_pct": 100.0,
+    "gold_exact_match_count": 150,
+    "gold_exact_match_pct": 100.0,
+    "gold_mismatches": [],
     "factguard_veto_rate_pct": 0.0,
     "latency_all_ms": {
       "count": 150,
-      "p50": 169.76,
-      "p90": 241.97,
-      "p95": 244.74,
-      "mean": 180.46,
-      "min": 114.13,
-      "max": 455.85
+      "p50": 170.71,
+      "p90": 238.35,
+      "p95": 253.96,
+      "mean": 180.74,
+      "min": 92.79,
+      "max": 404.3
     },
     "latency_repaired_only_ms": {
       "count": 150,
-      "p50": 169.76,
-      "p90": 241.97,
-      "p95": 244.74,
-      "mean": 180.46,
-      "min": 114.13,
-      "max": 455.85
-    },
-    "latency_vetoed_only_ms": {
-      "count": 0,
-      "p50": null,
-      "p90": null,
-      "p95": null,
-      "mean": null,
-      "min": null,
-      "max": null
+      "p50": 170.71,
+      "p90": 238.35,
+      "p95": 253.96,
+      "mean": 180.74,
+      "min": 92.79,
+      "max": 404.3
     },
     "post_delivery_fact_leaks": 0,
     "repaired_samples": [
       {
         "raw": "um we must not deploy commit 100 to production before 1 pm because check_status_code returned 400",
+        "expected_gold": "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400.",
         "repaired": "We must not deploy commit 100 to production before 1 pm because check_status_code returned 400.",
-        "latency_ms": 134.28,
+        "gold_exact_match": true,
+        "latency_ms": 92.79,
         "slots_locked": 5
       },
       {
         "raw": "uh please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id",
+        "expected_gold": "Please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id.",
         "repaired": "Please do not charge more than $25.00 for invoice 5001 and never overwrite user_profile_id.",
-        "latency_ms": 134.41,
+        "gold_exact_match": true,
+        "latency_ms": 142.39,
         "slots_locked": 5
       },
       {
         "raw": "the latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator",
+        "expected_gold": "The latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator.",
         "repaired": "The latency target is 152 ms at p50 and cannot exceed 400 ms under any circumstances in FlowOrchestrator.",
-        "latency_ms": 159.92,
+        "gold_exact_match": true,
+        "latency_ms": 174.04,
         "slots_locked": 4
       },
       {
         "raw": "we did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today",
+        "expected_gold": "We did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today.",
         "repaired": "We did not approve the \u20ac50.00 transfer on 2026-10-27 and won't enable auto_retry_mode today.",
-        "latency_ms": 201.77,
+        "gold_exact_match": true,
+        "latency_ms": 214.94,
         "slots_locked": 7
       },
       {
         "raw": "neither node_5 nor node_6 should accept port 8004 when allow_external_access is false",
+        "expected_gold": "Neither node_5 nor node_6 should accept port 8004 when allow_external_access is false.",
         "repaired": "Neither node_5 nor node_6 should accept port 8004 when allow_external_access is false.",
-        "latency_ms": 242.33,
+        "gold_exact_match": true,
+        "latency_ms": 242.57,
         "slots_locked": 6
       },
       {
         "raw": "um the discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge",
+        "expected_gold": "The discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge.",
         "repaired": "The discount rate is 8.0% for tier_2 customers so don't apply the \u00a375.00 surcharge.",
-        "latency_ms": 128.32,
+        "gold_exact_match": true,
+        "latency_ms": 151.5,
         "slots_locked": 4
       }
-    ],
-    "vetoed_samples": []
+    ]
   },
-  "phase_b_strict_400ms_deadline_25_cases": {
+  "phase_b_30_edge_case_gold_suite": {
+    "sample_size": 30,
+    "deadline_ms": 400.0,
+    "status_counts": {
+      "REPAIRED": 30,
+      "FALLBACK_UNPROVISIONED": 0,
+      "FALLBACK_TIMEOUT": 0,
+      "FALLBACK_ERROR": 0,
+      "VETOED_FACT_MISMATCH": 0
+    },
+    "gold_exact_match_count": 30,
+    "gold_exact_match_pct": 100.0,
+    "gold_mismatches": [],
+    "latency_ms": {
+      "count": 30,
+      "p50": 137.69,
+      "p90": 216.82,
+      "p95": 218.37,
+      "mean": 154.17,
+      "min": 96.36,
+      "max": 243.79
+    },
+    "post_delivery_fact_leaks": 0,
+    "samples": [
+      {
+        "category": "natural_at_n_tail",
+        "raw": "um please ping @0 and @1 before 1 pm so check_user_handle does not fail",
+        "expected_gold": "Please ping @0 and @1 before 1 pm so check_user_handle does not fail.",
+        "repaired": "Please ping @0 and @1 before 1 pm so check_user_handle does not fail.",
+        "gold_exact_match": true,
+        "latency_ms": 135.84
+      },
+      {
+        "category": "natural_at_n_head",
+        "raw": "@0 and @1 must not accept port 2021 when allow_external_access is false",
+        "expected_gold": "@0 and @1 must not accept port 2021 when allow_external_access is false.",
+        "repaired": "@0 and @1 must not accept port 2021 when allow_external_access is false.",
+        "gold_exact_match": true,
+        "latency_ms": 218.37
+      },
+      {
+        "category": "literal_slot_token",
+        "raw": "uh do not replace <SLOT_0> or @99 when testing SlotLocker with 3 inputs",
+        "expected_gold": "Do not replace <SLOT_0> or @99 when testing SlotLocker with 3 inputs.",
+        "repaired": "Do not replace <SLOT_0> or @99 when testing SlotLocker with 3 inputs.",
+        "gold_exact_match": true,
+        "latency_ms": 171.61
+      },
+      {
+        "category": "filler_in_meaning_subject",
+        "raw": "um is a common filler word that should not break parse_token_stream in 2023",
+        "expected_gold": "Um is a common filler word that should not break parse_token_stream in 2023.",
+        "repaired": "Um is a common filler word that should not break parse_token_stream in 2023.",
+        "gold_exact_match": true,
+        "latency_ms": 216.82
+      },
+      {
+        "category": "filler_in_meaning_meta_mention",
+        "raw": "uh please do not delete the word um or the token uh when running suite 5",
+        "expected_gold": "Please do not delete the word um or the token uh when running suite 5.",
+        "repaired": "Please do not delete the word um or the token uh when running suite 5.",
+        "gold_exact_match": true,
+        "latency_ms": 120.71
+      },
+      {
+        "category": "filler_in_meaning_quoted",
+        "raw": "um we should not strip 'um' or \"uh\" from raw_transcript_buffer during 6 runs",
+        "expected_gold": "We should not strip 'um' or \"uh\" from raw_transcript_buffer during 6 runs.",
+        "repaired": "We should not strip 'um' or \"uh\" from raw_transcript_buffer during 6 runs.",
+        "gold_exact_match": true,
+        "latency_ms": 139.54
+      },
+      {
+        "category": "acronym_and_unit_homographs",
+        "raw": "uh the patient in ER room 7 must not wait um more than 15 minutes for a 50 Ah battery",
+        "expected_gold": "The patient in ER room 7 must not wait more than 15 minutes for a 50 Ah battery.",
+        "repaired": "The patient in ER room 7 must not wait more than 15 minutes for a 50 Ah battery.",
+        "gold_exact_match": true,
+        "latency_ms": 124.56
+      },
+      {
+        "category": "interrogative_why",
+        "raw": "um why did check_status_code return 2027 instead of 200 when retry_limit_enabled was not set",
+        "expected_gold": "Why did check_status_code return 2027 instead of 200 when retry_limit_enabled was not set?",
+        "repaired": "Why did check_status_code return 2027 instead of 200 when retry_limit_enabled was not set?",
+        "gold_exact_match": true,
+        "latency_ms": 132.36
+      },
+      {
+        "category": "interrogative_can",
+        "raw": "uh can we deploy commit 2028 before 9 pm without breaking user_session_id",
+        "expected_gold": "Can we deploy commit 2028 before 9 pm without breaking user_session_id?",
+        "repaired": "Can we deploy commit 2028 before 9 pm without breaking user_session_id?",
+        "gold_exact_match": true,
+        "latency_ms": 104.21
+      },
+      {
+        "category": "inline_tail_fillers",
+        "raw": "the service did not crash um after 1 hours uh in AudioRecorder during stress_test_run",
+        "expected_gold": "The service did not crash after 1 hours in AudioRecorder during stress_test_run.",
+        "repaired": "The service did not crash after 1 hours in AudioRecorder during stress_test_run.",
+        "gold_exact_match": true,
+        "latency_ms": 169.23
+      }
+    ]
+  },
+  "phase_c_strict_400ms_deadline_25_cases": {
     "sample_size": 25,
     "deadline_ms": 400.0,
     "status_counts": {
@@ -117,14 +234,16 @@
       "FALLBACK_ERROR": 0,
       "VETOED_FACT_MISMATCH": 0
     },
+    "gold_exact_match_count": 25,
+    "gold_exact_match_pct": 100.0,
     "caller_latency_ms": {
       "count": 25,
-      "p50": 160.58,
-      "p90": 222.61,
-      "p95": 225.67,
-      "mean": 169.52,
-      "min": 123.6,
-      "max": 251.12
+      "p50": 184.61,
+      "p90": 238.23,
+      "p95": 242.65,
+      "mean": 184.45,
+      "min": 122.22,
+      "max": 273.61
     },
     "post_delivery_fact_leaks": 0
   }

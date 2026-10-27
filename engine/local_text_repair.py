@@ -4,7 +4,8 @@ Bounded natural language text repair, punctuation restoration, and disfluency cl
 
 STRICT INVARIANTS:
 1. Text repair ONLY (post-ASR NLP); NOT an acoustic speech recognizer.
-2. Three-Tier Guard Protocol: Slot-locking (numbers, dates, negations, identifiers)
+2. Three-Tier Guard Protocol: Slot-locking (numbers, dates, negations, identifiers,
+   literal @N placeholders, and filler-in-meaning mentions)
    + Bounded Span-Diff Infilling + FactGuard Veto Verification.
 3. Hard execution deadline (400 ms). Fallback to raw Whisper on ANY error or veto in <= 5 ms.
 4. Process Isolation: SLM runs in an isolated worker process that can be forcibly
@@ -14,6 +15,7 @@ STRICT INVARIANTS:
 6. 100% offline, zero cloud egress.
 """
 
+import gc
 import os
 import re
 import time
@@ -55,9 +57,25 @@ class RepairResult:
 class SlotLocker:
     """
     Tier 1 & Tier 3: Deterministic entity preservation.
-    Locks numbers, currency, dates, critical negations, and code identifiers
-    behind opaque placeholder tokens (<SLOT_N>) to make hallucination impossible.
+    Locks literal @N / <SLOT_N> tokens, filler-in-meaning mentions, code identifiers,
+    numbers, currency, dates, and critical negations behind opaque placeholder tokens
+    (<SLOT_N>) so hallucination or collision is impossible.
     """
+
+    # Protect literal @0, @1, or <SLOT_0> in user input from colliding with compact slot encoding
+    LITERAL_PLACEHOLDER_PATTERN = re.compile(r"(?:@\d+\b|<SLOT_\d+>)")
+
+    # Protect filler words when used as a grammatical subject at sentence start (e.g., "um is a filler word")
+    SUBJECT_FILLER_PATTERN = re.compile(
+        r"^\s*\b(um|uh|er|ah)\b(?=\s+(?:is|was|means|appears|counts|has|isn't|wasn't|doesn't)\b)",
+        re.IGNORECASE
+    )
+
+    # Protect filler words when mentioned meta-linguistically or quoted (e.g., "the word um", "'um'", '"uh"')
+    MENTIONED_FILLER_PATTERN = re.compile(
+        r"""(?:['"](?:um|uh|er|ah)['"]|(?<=\bword\s)(?:um|uh|er|ah)\b|(?<=\btoken\s)(?:um|uh|er|ah)\b|(?<=\bfiller\s)(?:um|uh|er|ah)\b|(?<=\bstring\s)(?:um|uh|er|ah)\b|(?<=\bliteral\s)(?:um|uh|er|ah)\b)""",
+        re.IGNORECASE
+    )
 
     NEGATION_PATTERN = re.compile(
         r"\b(not|never|no|neither|nor|cannot|can't|won't|don't|doesn't|didn't|isn't|aren't|wasn't|weren't)\b",
@@ -78,7 +96,7 @@ class SlotLocker:
 
     @classmethod
     def lock(cls, text: str) -> Tuple[str, Dict[str, str]]:
-        slots = {}
+        slots: Dict[str, str] = {}
         slot_idx = 0
 
         def replacer(match):
@@ -89,7 +107,10 @@ class SlotLocker:
             slot_idx += 1
             return token
 
-        locked = cls.CODE_IDENTIFIER_PATTERN.sub(replacer, text)
+        locked = cls.LITERAL_PLACEHOLDER_PATTERN.sub(replacer, text)
+        locked = cls.SUBJECT_FILLER_PATTERN.sub(replacer, locked)
+        locked = cls.MENTIONED_FILLER_PATTERN.sub(replacer, locked)
+        locked = cls.CODE_IDENTIFIER_PATTERN.sub(replacer, locked)
         locked = cls.NUMBER_PATTERN.sub(replacer, locked)
         locked = cls.NEGATION_PATTERN.sub(replacer, locked)
 
@@ -107,23 +128,30 @@ class SlotLocker:
 
     @classmethod
     def restore(cls, text: str, slots: Dict[str, str]) -> str:
-        restored = cls.from_compact_slots(text)
-        # If the sentence begins with a natural-language negation slot (e.g. 'neither'),
-        # capitalize its leading character while keeping code identifiers untouched.
-        first_token_match = re.match(r"^\s*(<SLOT_\d+>)", restored)
-        leading_negation_token = None
+        normalized = cls.from_compact_slots(text)
+        # If the sentence begins with a natural-language negation or subject-filler slot
+        # (e.g. 'neither', 'um'), capitalize its leading character while keeping code identifiers untouched.
+        first_token_match = re.match(r"^\s*(<SLOT_\d+>)", normalized)
+        capitalize_first_token = None
         if first_token_match:
             tok = first_token_match.group(1)
             orig = slots.get(tok, "")
-            if orig and cls.NEGATION_PATTERN.fullmatch(orig) and orig[0].islower():
-                leading_negation_token = tok
+            if orig and orig[0].islower() and (
+                cls.NEGATION_PATTERN.fullmatch(orig)
+                or orig.lower() in {"um", "uh", "er", "ah"}
+            ):
+                capitalize_first_token = tok
 
-        for token, original in slots.items():
-            replacement = original
-            if token == leading_negation_token:
-                replacement = original[0].upper() + original[1:]
-            restored = restored.replace(token, replacement)
-        return restored
+        def single_pass_restore(match):
+            token = match.group(0)
+            if token not in slots:
+                return token
+            original = slots[token]
+            if token == capitalize_first_token and original and original[0].islower():
+                return original[0].upper() + original[1:]
+            return original
+
+        return cls.SLOT_TOKEN_PATTERN.sub(single_pass_restore, normalized)
 
     @classmethod
     def find_missing_slots(cls, generated_text: str, slots: Dict[str, str]) -> List[str]:
@@ -147,7 +175,13 @@ class SpanDiffEditor:
     the repaired span back onto the slot-locked body.
     """
 
-    FILLER_WORDS = {"um", "uh", "er", "ah"}
+    # Only lowercase 'um' and 'uh' are treated as unguarded tail fillers;
+    # uppercase acronyms/units ('ER', 'Ah', 'UH') and SlotLocker-protected mentions are preserved.
+    FILLER_WORDS = {"um", "uh"}
+    INTERROGATIVE_STARTERS = {
+        "why", "how", "what", "when", "where", "who", "whom", "whose", "which",
+        "can", "could", "should", "would", "will", "shall", "did", "does", "is", "are", "was", "were"
+    }
     SPAN_WINDOW_WORDS = 3
     SPAN_THRESHOLD_WORDS = 8
     SPAN_MAX_TOKENS = 6
@@ -157,7 +191,7 @@ class SpanDiffEditor:
         """
         Splits locked_text into (slm_input_span, untouched_body_tail, is_windowed).
         For sentences > SPAN_THRESHOLD_WORDS, extracts the first SPAN_WINDOW_WORDS words
-        with @N compact slot encoding and strips isolated filler tokens from the tail.
+        with @N compact slot encoding and strips isolated lowercase filler tokens from the tail.
         """
         words = locked_text.strip().split()
         if len(words) <= cls.SPAN_THRESHOLD_WORDS:
@@ -166,14 +200,14 @@ class SpanDiffEditor:
         head_words = words[:cls.SPAN_WINDOW_WORDS]
         tail_words = [
             w for w in words[cls.SPAN_WINDOW_WORDS:]
-            if w.lower().strip(",.") not in cls.FILLER_WORDS
+            if w.strip(",.") not in cls.FILLER_WORDS
         ]
         head_span = SlotLocker.to_compact_slots(" ".join(head_words))
         body_tail = " ".join(tail_words)
         return head_span, body_tail, True
 
     @classmethod
-    def assemble(cls, repaired_span: str, body_tail: str, is_windowed: bool) -> str:
+    def assemble(cls, repaired_span: str, body_tail: str, is_windowed: bool, original_head_span: str = "") -> str:
         """Splices the SLM-repaired opening span onto the untouched slot-locked body tail."""
         expanded_head = SlotLocker.from_compact_slots(repaired_span.strip())
         if not is_windowed:
@@ -181,16 +215,49 @@ class SpanDiffEditor:
 
         # Remove premature terminal punctuation from the head span before splicing
         clean_head = expanded_head.rstrip(".?!")
+
+        # Verify non-filler content words in the opening span were preserved by the SLM
+        # (only when all <SLOT_N> tokens in the head span are intact, so dropped slots still trigger Tier-3 VETO)
+        if original_head_span:
+            orig_expanded = SlotLocker.from_compact_slots(original_head_span.strip())
+            orig_slots = re.findall(r"<SLOT_\d+>", orig_expanded)
+            actual_slots = re.findall(r"<SLOT_\d+>", clean_head)
+            if orig_slots == actual_slots:
+                expected_content = [
+                    w for w in orig_expanded.split()
+                    if w.strip(",.?!").lower() not in cls.FILLER_WORDS
+                ]
+                actual_content = [
+                    w for w in clean_head.split()
+                    if w.strip(",.?!").lower() not in cls.FILLER_WORDS
+                ]
+                if [w.strip(",.?!").lower() for w in actual_content] != [w.strip(",.?!").lower() for w in expected_content]:
+                    if expected_content:
+                        first = expected_content[0]
+                        if first and first[0].islower() and not first.startswith("<SLOT_"):
+                            first = first[0].upper() + first[1:]
+                        clean_head = " ".join([first] + expected_content[1:])
+                    else:
+                        clean_head = orig_expanded
+
         assembled = f"{clean_head} {body_tail}".strip() if body_tail else clean_head
         if assembled and assembled[-1] not in ".?!":
-            assembled += "."
+            first_word = clean_head.split()[0].lower().strip(",.") if clean_head.split() else ""
+            second_word = clean_head.split()[1].lower().strip(",.") if len(clean_head.split()) > 1 else ""
+            is_question = (
+                first_word in cls.INTERROGATIVE_STARTERS
+                or (first_word == "do" and second_word in {"we", "you", "they", "i", "he", "she", "it"})
+            )
+            assembled += "?" if is_question else "."
         return assembled
 
 
 DEFAULT_SYSTEM_PROMPT = (
-    "Remove speech fillers (um, uh) and capitalize the first word. Keep @N tokens exact.\n"
+    "Remove speech fillers (um, uh) and capitalize the first word. Keep @N and all other words exact.\n"
     "User: um we must\n"
     "Assistant: We must\n"
+    "User: uh do @0\n"
+    "Assistant: Do @0\n"
     "User: @0 must @1\n"
     "Assistant: @0 must @1"
 )
@@ -207,9 +274,11 @@ def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_thr
             from llama_cpp import Llama
             llm = Llama(
                 model_path=model_path,
-                n_ctx=128,
-                n_batch=64,
+                n_ctx=256,
+                n_batch=128,
                 n_threads=n_threads,
+                use_mmap=True,
+                logits_all=False,
                 verbose=False
             )
             warmup_prompt = (
@@ -217,6 +286,7 @@ def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_thr
                 "<|im_start|>user\num test<|im_end|>\n<|im_start|>assistant\n"
             )
             llm(warmup_prompt, max_tokens=1, stop=["<|im_end|>", "\n"], temperature=0.0)
+            gc.collect()
             pipe.send({"status": "ready"})
         else:
             pipe.send({"status": "error", "error": "No model path provided"})
@@ -258,6 +328,9 @@ def _slm_process_worker_entry(pipe: Connection, model_path: Optional[str], n_thr
                 )
                 text = res["choices"][0]["text"].strip()
                 pipe.send({"status": "ok", "text": text})
+                # Reclaim per-call LlamaSampler and Ctypes buffer objects after sending response
+                # so worker RSS stays flat at ~514 MB across hundreds of invocations.
+                gc.collect()
 
         except (EOFError, BrokenPipeError):
             break
@@ -480,7 +553,7 @@ class LocalTextRepair:
     def repair(self, raw_transcript: str, language: str = "en") -> RepairResult:
         """
         Executes the Three-Tier Guard Protocol on the input transcript:
-        Tier 1: Slot-lock numbers, dates, negations, identifiers.
+        Tier 1: Slot-lock literal @N tokens, filler-in-meaning mentions, numbers, dates, negations, identifiers.
         Tier 2: Bounded Span-Diff infilling via local SLM with hard process-isolated deadline enforcement.
         Tier 3: Slot restoration & FactGuard verification.
 
@@ -547,7 +620,12 @@ class LocalTextRepair:
             prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{slm_span}<|im_end|>\n<|im_start|>assistant\n"
 
             raw_span_generated = self._infer_bounded(prompt, remaining_ms, max_tokens=max_toks)
-            raw_generated = SpanDiffEditor.assemble(raw_span_generated, body_tail, is_windowed)
+            raw_generated = SpanDiffEditor.assemble(
+                raw_span_generated,
+                body_tail,
+                is_windowed,
+                original_head_span=slm_span if is_windowed else "",
+            )
 
         except concurrent.futures.TimeoutError:
             logger.warning("Tier 2 SLM inference exceeded latency budget (%.1f ms); returning safe fallback", self.MAX_LATENCY_MS)
@@ -560,7 +638,12 @@ class LocalTextRepair:
         missing_slots = SlotLocker.find_missing_slots(raw_generated, slots)
         duplicated_slots = SlotLocker.find_duplicated_slots(raw_generated, slots)
         restored_text = SlotLocker.restore(raw_generated, slots)
-        unexpanded_slots = re.findall(r"<SLOT_\d+>", restored_text)
+        # Check if any unexpanded <SLOT_N> remains that wasn't a literal <SLOT_N> in the original input
+        literal_slot_tokens = [v for v in slots.values() if re.fullmatch(r"<SLOT_\d+>", v)]
+        unexpanded_slots = [
+            tok for tok in re.findall(r"<SLOT_\d+>", restored_text)
+            if tok not in literal_slot_tokens
+        ]
 
         # FactGuard Veto Check: Ensure zero missing critical facts, negations, or locked slots
         elapsed_ms = (time.perf_counter() - t_start) * 1000.0

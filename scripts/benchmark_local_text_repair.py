@@ -1,15 +1,19 @@
 """
 Benchmark Real GGUF Model (Qwen2.5-0.5B-Instruct-Q4_K_M.gguf) in Process-Isolated LocalTextRepair Sandbox.
 Measures:
-1. Worker process cold-start warmup latency (ms) and child process RSS memory delta (MB).
-2. Phase A (150-Case Full Corpus CPU Latency & Three-Tier FactGuard Audit):
-   - End-to-end CPU inference latency distribution (P50, P90, P95, Mean, Min, Max) across all 150 adversarial utterances.
-   - Percentage of utterances completing within the strict 400 ms SLA budget on CPU.
-   - Three-Tier Guard Protocol efficacy: REPAIRED vs VETOED_FACT_MISMATCH counts, and post-delivery factual integrity
-     (must be 0% entity/negation/identifier loss or hallucination across all 150 cases).
-3. Phase B (25-Case Strict 400 ms Deadline Enforcement & Process-Isolation Stress Test):
-   - Enforces MAX_LATENCY_MS = 400.0 ms with OS-level worker termination and raw-transcript fallback.
-   - Verifies bounded caller latency and 0% post-delivery factual leaks under hard timeouts.
+1. Phase 0 (Cold-Start Audit):
+   - Unwarmed first-call fallback latency (must return FALLBACK_UNPROVISIONED without blocking dictation).
+   - Background worker cold-start initialization latency (ms) and initial worker RSS (MB).
+   - First warm call latency (ms).
+2. Phase A (150-Case Adversarial Corpus + Gold-Output Exact Match Audit):
+   - End-to-end CPU inference latency distribution (P50, P90, P95, Mean, Min, Max) across all 150 utterances.
+   - Guard-pass rate (REPAIRED) AND Gold-Output Exact Match rate (res.text == expected_gold).
+   - Post-delivery factual integrity (must be 0% entity/negation/identifier loss or hallucination).
+3. Phase B (30-Case Edge-Case Gold Suite: Natural @N, Filler-in-Meaning, Acronyms, Interrogatives):
+   - Evaluates natural @0/@1/<SLOT_0> inputs, subject/meta/quoted filler-in-meaning, ER/Ah units, and questions.
+   - Measures Gold Exact Match rate and latency under the strict 400.0 ms deadline.
+4. Phase C (25-Case Strict 400 ms Production Deadline Stress Test):
+   - Enforces MAX_LATENCY_MS = 400.0 ms and tracks peak worker RSS across the entire 205-call session.
 """
 
 import argparse
@@ -33,24 +37,54 @@ from engine.evaluation_metrics import verify_critical_facts
 from engine.local_text_repair import LocalTextRepair, RepairStatus
 
 
-def build_150_adversarial_corpus() -> list[str]:
-    """Constructs a deterministic 150-utterance adversarial corpus with numbers, negations, currencies, and identifiers."""
+def build_150_adversarial_corpus_with_gold() -> list[tuple[str, str]]:
+    """Constructs 150 (raw_utterance, expected_gold) pairs with numbers, negations, currencies, and identifiers."""
     templates = [
-        "um we must not deploy commit {num} to production before {hour} pm because check_status_code returned {err}",
-        "uh please do not charge more than ${price} for invoice {inv} and never overwrite user_profile_id",
-        "the latency target is {ms} ms at p50 and cannot exceed {max_ms} ms under any circumstances in FlowOrchestrator",
-        "we did not approve the €{price} transfer on {year}-10-27 and won't enable auto_retry_mode today",
-        "neither node_{node_a} nor node_{node_b} should accept port {port} when allow_external_access is false",
-        "um the discount rate is {pct}% for tier_{tier} customers so don't apply the £{price} surcharge",
-        "verify_critical_facts must never drop the negation in sentence {num} or alter the {pct}% threshold",
-        "uh I said do not delete table_{node_a} until backup_{inv} finishes with 0 errors in AudioRecorder",
-        "the battery dropped to {pct}% after {hour} hours so we cannot run background_sync_worker right now",
-        "there are {num} suites in run_all_tests and we must not skip suite {node_b} during release validation",
+        (
+            "um we must not deploy commit {num} to production before {hour} pm because check_status_code returned {err}",
+            "We must not deploy commit {num} to production before {hour} pm because check_status_code returned {err}.",
+        ),
+        (
+            "uh please do not charge more than ${price} for invoice {inv} and never overwrite user_profile_id",
+            "Please do not charge more than ${price} for invoice {inv} and never overwrite user_profile_id.",
+        ),
+        (
+            "the latency target is {ms} ms at p50 and cannot exceed {max_ms} ms under any circumstances in FlowOrchestrator",
+            "The latency target is {ms} ms at p50 and cannot exceed {max_ms} ms under any circumstances in FlowOrchestrator.",
+        ),
+        (
+            "we did not approve the €{price} transfer on {year}-10-27 and won't enable auto_retry_mode today",
+            "We did not approve the €{price} transfer on {year}-10-27 and won't enable auto_retry_mode today.",
+        ),
+        (
+            "neither node_{node_a} nor node_{node_b} should accept port {port} when allow_external_access is false",
+            "Neither node_{node_a} nor node_{node_b} should accept port {port} when allow_external_access is false.",
+        ),
+        (
+            "um the discount rate is {pct}% for tier_{tier} customers so don't apply the £{price} surcharge",
+            "The discount rate is {pct}% for tier_{tier} customers so don't apply the £{price} surcharge.",
+        ),
+        (
+            "verify_critical_facts must never drop the negation in sentence {num} or alter the {pct}% threshold",
+            "verify_critical_facts must never drop the negation in sentence {num} or alter the {pct}% threshold.",
+        ),
+        (
+            "uh I said do not delete table_{node_a} until backup_{inv} finishes with 0 errors in AudioRecorder",
+            "I said do not delete table_{node_a} until backup_{inv} finishes with 0 errors in AudioRecorder.",
+        ),
+        (
+            "the battery dropped to {pct}% after {hour} hours so we cannot run background_sync_worker right now",
+            "The battery dropped to {pct}% after {hour} hours so we cannot run background_sync_worker right now.",
+        ),
+        (
+            "there are {num} suites in run_all_tests and we must not skip suite {node_b} during release validation",
+            "There are {num} suites in run_all_tests and we must not skip suite {node_b} during release validation.",
+        ),
     ]
     corpus = []
     for i in range(150):
-        tpl = templates[i % len(templates)]
-        utterance = tpl.format(
+        raw_tpl, gold_tpl = templates[i % len(templates)]
+        params = dict(
             num=100 + i,
             hour=(i % 12) + 1,
             err=400 + (i % 5),
@@ -65,8 +99,75 @@ def build_150_adversarial_corpus() -> list[str]:
             pct=round(5.5 + (i % 90) * 0.5, 1),
             tier=(i % 4) + 1,
         )
-        corpus.append(utterance)
+        corpus.append((raw_tpl.format(**params), gold_tpl.format(**params)))
     return corpus
+
+
+def build_30_edge_case_gold_suite() -> list[dict]:
+    """Constructs 30 hard edge cases covering natural @N, filler-in-meaning, ER/Ah units, and questions."""
+    base_cases = [
+        {
+            "category": "natural_at_n_tail",
+            "raw": "um please ping @0 and @1 before {n} pm so check_user_handle does not fail",
+            "gold": "Please ping @0 and @1 before {n} pm so check_user_handle does not fail.",
+        },
+        {
+            "category": "natural_at_n_head",
+            "raw": "@0 and @1 must not accept port {port} when allow_external_access is false",
+            "gold": "@0 and @1 must not accept port {port} when allow_external_access is false.",
+        },
+        {
+            "category": "literal_slot_token",
+            "raw": "uh do not replace <SLOT_0> or @99 when testing SlotLocker with {n} inputs",
+            "gold": "Do not replace <SLOT_0> or @99 when testing SlotLocker with {n} inputs.",
+        },
+        {
+            "category": "filler_in_meaning_subject",
+            "raw": "um is a common filler word that should not break parse_token_stream in {port}",
+            "gold": "Um is a common filler word that should not break parse_token_stream in {port}.",
+        },
+        {
+            "category": "filler_in_meaning_meta_mention",
+            "raw": "uh please do not delete the word um or the token uh when running suite {n}",
+            "gold": "Please do not delete the word um or the token uh when running suite {n}.",
+        },
+        {
+            "category": "filler_in_meaning_quoted",
+            "raw": "um we should not strip 'um' or \"uh\" from raw_transcript_buffer during {n} runs",
+            "gold": "We should not strip 'um' or \"uh\" from raw_transcript_buffer during {n} runs.",
+        },
+        {
+            "category": "acronym_and_unit_homographs",
+            "raw": "uh the patient in ER room {n} must not wait um more than 15 minutes for a 50 Ah battery",
+            "gold": "The patient in ER room {n} must not wait more than 15 minutes for a 50 Ah battery.",
+        },
+        {
+            "category": "interrogative_why",
+            "raw": "um why did check_status_code return {port} instead of 200 when retry_limit_enabled was not set",
+            "gold": "Why did check_status_code return {port} instead of 200 when retry_limit_enabled was not set?",
+        },
+        {
+            "category": "interrogative_can",
+            "raw": "uh can we deploy commit {port} before {n} pm without breaking user_session_id",
+            "gold": "Can we deploy commit {port} before {n} pm without breaking user_session_id?",
+        },
+        {
+            "category": "inline_tail_fillers",
+            "raw": "the service did not crash um after {n} hours uh in AudioRecorder during stress_test_run",
+            "gold": "The service did not crash after {n} hours in AudioRecorder during stress_test_run.",
+        },
+    ]
+    cases = []
+    for i in range(30):
+        item = base_cases[i % len(base_cases)]
+        n_val = (i % 9) + 1
+        port_val = 2020 + i
+        cases.append({
+            "category": item["category"],
+            "raw": item["raw"].format(n=n_val, port=port_val),
+            "gold": item["gold"].format(n=n_val, port=port_val),
+        })
+    return cases
 
 
 def sha256_file(path: Path) -> str:
@@ -108,36 +209,57 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
         "local_text_repair_span_diff": True,
     }
     engine = LocalTextRepair(config=config)
-    engine.MAX_LATENCY_MS = unbounded_ceiling_ms
+    engine.MAX_LATENCY_MS = strict_deadline_ms
 
-    print("[2] Warming up isolated SLM worker process (loading GGUF + KV prefix warmup)...")
-    t_w0 = time.perf_counter()
+    # Phase 0: Cold-Start Audit (unwarmed call before worker is ready, then wait for ready)
+    print("[2] Phase 0: Measuring cold-start fallback & worker initialization...")
+    t_cold0 = time.perf_counter()
+    cold_res = engine.repair(
+        "um we must not deploy commit 100 to production before 1 pm because check_status_code returned 400"
+    )
+    cold_unwarmed_call_ms = (time.perf_counter() - t_cold0) * 1000.0
+    print(
+        f"    Cold unwarmed call: status={cold_res.status.value} "
+        f"caller_latency={cold_unwarmed_call_ms:.2f} ms (fallback={cold_res.fallback_used})"
+    )
+
+    # Now wait for the background worker process spawned by the cold call to finish warming up
     ready = engine._ensure_worker_process(timeout_sec=15.0)
-    warmup_ms = (time.perf_counter() - t_w0) * 1000.0
+    total_cold_ready_ms = (time.perf_counter() - t_cold0) * 1000.0
     if not ready or engine._worker_process is None:
         engine.shutdown()
         raise RuntimeError("SLM worker process failed to initialize with real GGUF model.")
 
     worker_pid = engine._worker_process.pid
-    worker_rss_mb = psutil.Process(worker_pid).memory_info().rss / (1024 * 1024)
-    print(f"    Worker PID {worker_pid} ready in {warmup_ms:.1f} ms (Worker RSS: {worker_rss_mb:.1f} MB)")
+    worker_proc = psutil.Process(worker_pid)
+    worker_initial_rss_mb = worker_proc.memory_info().rss / (1024 * 1024)
+    worker_peak_rss_mb = worker_initial_rss_mb
 
-    corpus = build_150_adversarial_corpus()
+    first_warm_res = engine.repair(
+        "um we must not deploy commit 100 to production before 1 pm because check_status_code returned 400"
+    )
+    print(
+        f"    Worker PID {worker_pid} ready in {total_cold_ready_ms:.1f} ms "
+        f"(Initial RSS: {worker_initial_rss_mb:.2f} MB) | First warm call: {first_warm_res.latency_ms:.2f} ms"
+    )
+
+    corpus = build_150_adversarial_corpus_with_gold()
+    engine.MAX_LATENCY_MS = unbounded_ceiling_ms
     latencies_all = []
     latencies_repaired = []
-    latencies_vetoed = []
     status_counts = {s.value: 0 for s in RepairStatus}
     within_400ms_count = 0
+    gold_exact_matches = 0
+    gold_mismatches = []
     fact_leaks = 0
     repaired_samples = []
-    vetoed_samples = []
 
     print(
-        f"[3] Phase A: Running 150-case adversarial FactGuard & CPU latency evaluation "
+        f"[3] Phase A: Running 150-case adversarial FactGuard, Gold-Output & CPU latency evaluation "
         f"(ceiling={unbounded_ceiling_ms} ms)..."
     )
     try:
-        for idx, raw_text in enumerate(corpus):
+        for idx, (raw_text, expected_gold) in enumerate(corpus):
             if not engine._is_ready:
                 engine._ensure_worker_process(timeout_sec=15.0)
 
@@ -148,59 +270,109 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             status_counts[res.status.value] = status_counts.get(res.status.value, 0) + 1
             if res.status == RepairStatus.REPAIRED:
                 latencies_repaired.append(res.latency_ms)
-            elif res.status == RepairStatus.VETOED_FACT_MISMATCH:
-                latencies_vetoed.append(res.latency_ms)
 
-            # Verify post-delivery text strictly preserves all numbers, negations, and identifiers
+            if res.text == expected_gold:
+                gold_exact_matches += 1
+            elif len(gold_mismatches) < 10:
+                gold_mismatches.append({
+                    "index": idx,
+                    "raw": raw_text,
+                    "expected_gold": expected_gold,
+                    "actual": res.text,
+                    "status": res.status.value,
+                })
+
             facts = verify_critical_facts(raw_text, res.text, language="en")
             missing = facts["missing_numbers"] + facts["missing_negations"] + facts["missing_identifiers"]
             added = [v for vals in facts["added_entities"].values() for v in vals]
             if missing or added:
                 fact_leaks += 1
 
-            if idx < 5 or (idx + 1) % 25 == 0:
+            if (idx + 1) % 25 == 0 or idx < 5:
+                curr_rss = worker_proc.memory_info().rss / (1024 * 1024)
+                worker_peak_rss_mb = max(worker_peak_rss_mb, curr_rss)
                 print(
-                    f"    [Phase A {idx + 1:3d}/150] status={res.status.value:<22} "
-                    f"latency={res.latency_ms:6.1f} ms | slots={res.slots_locked}"
+                    f"    [Phase A {idx + 1:3d}/150] status={res.status.value:<10} "
+                    f"latency={res.latency_ms:6.1f} ms | gold_match={res.text == expected_gold} | RSS={curr_rss:.1f} MB"
                 )
             if len(repaired_samples) < 6 and res.status == RepairStatus.REPAIRED:
                 repaired_samples.append({
                     "raw": raw_text,
+                    "expected_gold": expected_gold,
                     "repaired": res.text,
-                    "latency_ms": round(res.latency_ms, 2),
-                    "slots_locked": res.slots_locked,
-                })
-            if len(vetoed_samples) < 4 and res.status == RepairStatus.VETOED_FACT_MISMATCH:
-                vetoed_samples.append({
-                    "raw": raw_text,
-                    "delivered_fallback": res.text,
-                    "veto_reason": res.veto_reason,
+                    "gold_exact_match": res.text == expected_gold,
                     "latency_ms": round(res.latency_ms, 2),
                     "slots_locked": res.slots_locked,
                 })
 
-        if engine._worker_process and engine._worker_process.is_alive():
-            try:
-                worker_rss_mb = max(
-                    worker_rss_mb,
-                    psutil.Process(engine._worker_process.pid).memory_info().rss / (1024 * 1024),
-                )
-            except Exception:
-                pass
-
-        # Phase B: Strict 400 ms Production Deadline Enforcement & Process-Kill Stress Test (25 utterances)
+        # Phase B: 30-Case Hard Semantic & Edge-Case Gold Suite under strict 400 ms deadline
         print(
-            f"[4] Phase B: Running 25-case strict production deadline stress test "
-            f"(MAX_LATENCY_MS={strict_deadline_ms} ms)..."
+            f"[4] Phase B: Running 30-case Edge-Case Gold Suite "
+            f"(Natural @N, Filler-in-Meaning, ER/Ah, Questions; deadline={strict_deadline_ms} ms)..."
         )
         engine.MAX_LATENCY_MS = strict_deadline_ms
+        edge_cases = build_30_edge_case_gold_suite()
+        edge_latencies = []
+        edge_status_counts = {s.value: 0 for s in RepairStatus}
+        edge_gold_matches = 0
+        edge_gold_mismatches = []
+        edge_fact_leaks = 0
+        edge_samples = []
+
+        for idx, item in enumerate(edge_cases):
+            raw_text = item["raw"]
+            expected_gold = item["gold"]
+            res = engine.repair(raw_text, language="en")
+            edge_latencies.append(res.latency_ms)
+            edge_status_counts[res.status.value] = edge_status_counts.get(res.status.value, 0) + 1
+
+            if res.text == expected_gold:
+                edge_gold_matches += 1
+            else:
+                edge_gold_mismatches.append({
+                    "index": idx,
+                    "category": item["category"],
+                    "raw": raw_text,
+                    "expected_gold": expected_gold,
+                    "actual": res.text,
+                    "status": res.status.value,
+                })
+
+            facts = verify_critical_facts(raw_text, res.text, language="en")
+            missing = facts["missing_numbers"] + facts["missing_negations"] + facts["missing_identifiers"]
+            added = [v for vals in facts["added_entities"].values() for v in vals]
+            if missing or added:
+                edge_fact_leaks += 1
+
+            if idx < 10:
+                edge_samples.append({
+                    "category": item["category"],
+                    "raw": raw_text,
+                    "expected_gold": expected_gold,
+                    "repaired": res.text,
+                    "gold_exact_match": res.text == expected_gold,
+                    "latency_ms": round(res.latency_ms, 2),
+                })
+                print(
+                    f"    [Phase B {idx + 1:2d}/30] [{item['category']:<28}] "
+                    f"latency={res.latency_ms:6.1f} ms | gold_match={res.text == expected_gold}"
+                )
+
+        # Phase C: 25-Case Strict 400 ms Production Deadline Stress Test
+        print(
+            f"[5] Phase C: Running 25-case strict production deadline stress test "
+            f"(MAX_LATENCY_MS={strict_deadline_ms} ms)..."
+        )
         strict_latencies = []
         strict_status_counts = {s.value: 0 for s in RepairStatus}
         strict_fact_leaks = 0
-        for idx, raw_text in enumerate(corpus[:25]):
+        strict_gold_matches = 0
+        for idx, (raw_text, expected_gold) in enumerate(corpus[:25]):
             res = engine.repair(raw_text, language="en")
             strict_latencies.append(res.latency_ms)
             strict_status_counts[res.status.value] = strict_status_counts.get(res.status.value, 0) + 1
+            if res.text == expected_gold:
+                strict_gold_matches += 1
 
             facts = verify_critical_facts(raw_text, res.text, language="en")
             missing = facts["missing_numbers"] + facts["missing_negations"] + facts["missing_identifiers"]
@@ -208,11 +380,9 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             if missing or added:
                 strict_fact_leaks += 1
 
-            if idx < 5 or (idx + 1) % 5 == 0:
-                print(
-                    f"    [Phase B {idx + 1:2d}/25] status={res.status.value:<22} "
-                    f"caller_latency={res.latency_ms:6.2f} ms | fallback={res.fallback_used}"
-                )
+        if engine._worker_process and engine._worker_process.is_alive():
+            curr_rss = psutil.Process(engine._worker_process.pid).memory_info().rss / (1024 * 1024)
+            worker_peak_rss_mb = max(worker_peak_rss_mb, curr_rss)
 
     finally:
         engine.shutdown(wait=True)
@@ -236,16 +406,22 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             "sha256": model_sha256,
             "quantization": "Q4_K_M",
             "parameters": "0.5B",
-            "repair_strategy": "span_diff (3-word opening span + @N compact slot encoding)",
-            "n_ctx": 128,
-            "n_batch": 64,
+            "repair_strategy": "span_diff (3-word opening span + @N compact slot encoding + post-call gc.collect)",
+            "n_ctx": 256,
+            "n_batch": 128,
             "n_threads": min(4, os.cpu_count() or 2),
         },
-        "warmup": {
-            "warmup_latency_ms": round(warmup_ms, 2),
-            "worker_peak_rss_mb": round(worker_rss_mb, 2),
+        "phase_0_cold_start_audit": {
+            "cold_unwarmed_call_status": cold_res.status.value,
+            "cold_unwarmed_call_fallback_used": cold_res.fallback_used,
+            "cold_unwarmed_call_latency_ms": round(cold_unwarmed_call_ms, 2),
+            "worker_cold_ready_latency_ms": round(total_cold_ready_ms, 2),
+            "first_warm_call_status": first_warm_res.status.value,
+            "first_warm_call_latency_ms": round(first_warm_res.latency_ms, 2),
+            "worker_initial_rss_mb": round(worker_initial_rss_mb, 2),
+            "worker_peak_rss_mb": round(worker_peak_rss_mb, 2),
         },
-        "phase_a_unbounded_150_corpus": {
+        "phase_a_150_adversarial_corpus": {
             "corpus_size": len(corpus),
             "ceiling_ms": unbounded_ceiling_ms,
             "strict_sla_target_ms": strict_deadline_ms,
@@ -253,18 +429,32 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
             "completed_within_400ms_pct": round((within_400ms_count / len(corpus)) * 100.0, 2),
             "status_counts": status_counts,
             "repaired_rate_pct": round((status_counts["REPAIRED"] / len(corpus)) * 100.0, 2),
+            "gold_exact_match_count": gold_exact_matches,
+            "gold_exact_match_pct": round((gold_exact_matches / len(corpus)) * 100.0, 2),
+            "gold_mismatches": gold_mismatches,
             "factguard_veto_rate_pct": round((status_counts["VETOED_FACT_MISMATCH"] / len(corpus)) * 100.0, 2),
             "latency_all_ms": percentiles(latencies_all),
             "latency_repaired_only_ms": percentiles(latencies_repaired),
-            "latency_vetoed_only_ms": percentiles(latencies_vetoed),
             "post_delivery_fact_leaks": fact_leaks,
             "repaired_samples": repaired_samples,
-            "vetoed_samples": vetoed_samples,
         },
-        "phase_b_strict_400ms_deadline_25_cases": {
+        "phase_b_30_edge_case_gold_suite": {
+            "sample_size": len(edge_cases),
+            "deadline_ms": strict_deadline_ms,
+            "status_counts": edge_status_counts,
+            "gold_exact_match_count": edge_gold_matches,
+            "gold_exact_match_pct": round((edge_gold_matches / len(edge_cases)) * 100.0, 2),
+            "gold_mismatches": edge_gold_mismatches,
+            "latency_ms": percentiles(edge_latencies),
+            "post_delivery_fact_leaks": edge_fact_leaks,
+            "samples": edge_samples,
+        },
+        "phase_c_strict_400ms_deadline_25_cases": {
             "sample_size": 25,
             "deadline_ms": strict_deadline_ms,
             "status_counts": strict_status_counts,
+            "gold_exact_match_count": strict_gold_matches,
+            "gold_exact_match_pct": round((strict_gold_matches / 25) * 100.0, 2),
             "caller_latency_ms": percentiles(strict_latencies),
             "post_delivery_fact_leaks": strict_fact_leaks,
         },
@@ -276,7 +466,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark Qwen2.5-0.5B GGUF in LocalTextRepair sandbox")
     parser.add_argument("--model", type=Path, required=True, help="Path to GGUF model file")
     parser.add_argument("--ceiling-ms", type=float, default=3000.0, help="Unbounded Phase A ceiling in ms")
-    parser.add_argument("--deadline-ms", type=float, default=400.0, help="Strict Phase B latency deadline in ms")
+    parser.add_argument("--deadline-ms", type=float, default=400.0, help="Strict Phase B/C latency deadline in ms")
     parser.add_argument("--out-json", type=Path, default=None, help="Optional JSON output path")
     args = parser.parse_args()
 
