@@ -401,7 +401,8 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
         stt = STTEngine({"engine_mode": "local", "local_model_size": "base", "cpu_threads": min(8, os.cpu_count() or 4)})
         stt.preload_model()
 
-        manifest_path = PROJECT_ROOT / "docs" / "evaluation" / "EN_HI_TA_ML_REAL_VOICE_MANIFEST.json"
+        manifest_40 = PROJECT_ROOT / "docs" / "evaluation" / "EN_REAL_VOICE_40_MANIFEST.json"
+        manifest_path = manifest_40 if manifest_40.is_file() else (PROJECT_ROOT / "docs" / "evaluation" / "EN_HI_TA_ML_REAL_VOICE_MANIFEST.json")
         manifest_items = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else []
         en_cv_items = [m for m in manifest_items if m.get("language") == "en"]
 
@@ -609,7 +610,7 @@ def run_benchmark(model_path: Path, unbounded_ceiling_ms: float = 3000.0, strict
         },
         "phase_d_real_speech_stt_to_slm_evaluation": {
             "d1_common_voice_17_human_speech": {
-                "source": "Mozilla Common Voice 17.0 (en-cv-001..010, consented real human recordings)",
+                "source": "Mozilla Common Voice 17.0 (en-cv-001..040, 40 consented real human recordings)",
                 "sample_size": len(cv_results),
                 "completed_within_400ms_count": cv_within_400ms,
                 "completed_within_400ms_pct": round((cv_within_400ms / max(1, len(cv_results))) * 100.0, 2),

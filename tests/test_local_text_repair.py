@@ -392,7 +392,7 @@ class TestLocalTextRepair(unittest.TestCase):
         p_conn, c_conn = ctx.Pipe(duplex=True)
         worker = ctx.Process(target=_slow_startup_worker_target, args=(c_conn,), daemon=True)
         worker.start()
-        
+
         repairer._worker_process = worker
         repairer._parent_pipe = p_conn
         repairer._is_ready = False  # Not yet ready!
@@ -417,7 +417,7 @@ class TestLocalTextRepair(unittest.TestCase):
         repairer.MAX_LATENCY_MS = 30.0
 
         ctx = mp.get_context("spawn")
-        
+
         # 1. First worker (hangs and gets killed)
         p1, c1 = ctx.Pipe(duplex=True)
         w1 = ctx.Process(target=_controllable_worker_target, args=(c1,), daemon=True)
@@ -457,7 +457,7 @@ class TestLocalTextRepair(unittest.TestCase):
     def test_warmup_async_preloads_in_background(self):
         """Verify that warmup_async() returns an immediate future and executes non-blocking."""
         repairer = LocalTextRepair(config={"local_text_repair_enabled": True, "local_text_repair_model_path": "mock.gguf"})
-        
+
         # Mock warmup to take 50ms on background thread
         def mock_warmup():
             time.sleep(0.05)
