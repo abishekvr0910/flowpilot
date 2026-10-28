@@ -201,9 +201,40 @@ def test_automatic_correction_detector():
     print("[RESULT] Automatic Correction Detector PASSED 100%.")
 
 
+def test_universal_repetition_loop_suppression():
+    print("\n" + "=" * 65)
+    print("AUDIT TEST: UNIVERSAL REPETITION LOOP SUPPRESSION (WP-5)")
+    print("=" * 65)
+    wi = WritingIntelligence()
+
+    # Hindi pathological loop
+    hindi_raw = "नमस्ते नमस्ते नमस्ते नमस्ते दुनिया"
+    hindi_res = wi.polish(hindi_raw, mode="polished", language="hi")["text"]
+    print(f"[1] Hindi Loop:\n    Raw:    {hindi_raw}\n    Result: {hindi_res}")
+    assert "नमस्ते नमस्ते नमस्ते" not in hindi_res
+    assert "नमस्ते दुनिया" in hindi_res
+
+    # Tamil pathological loop
+    tamil_raw = "வணக்கம் வணக்கம் வணக்கம் உலகம்"
+    tamil_res = wi.polish(tamil_raw, mode="polished", language="ta")["text"]
+    print(f"[2] Tamil Loop:\n    Raw:    {tamil_raw}\n    Result: {tamil_res}")
+    assert "வணக்கம் வணக்கம் வணக்கம்" not in tamil_res
+    assert "வணக்கம் உலகம்" in tamil_res
+
+    # English pathological loop
+    en_raw = "we need the the the the update now"
+    en_res = wi.polish(en_raw, mode="polished", language="en")["text"]
+    print(f"[3] English Loop:\n    Raw:    {en_raw}\n    Result: {en_res}")
+    assert "the the" not in en_res
+    assert "We need the update now" in en_res
+
+    print("[RESULT] Universal Repetition Loop Suppression PASSED 100%.")
+
+
 if __name__ == "__main__":
     test_writing_intelligence()
     test_wispr_flow_spoken_commands()
     test_caret_aware_context_formatting()
     test_automatic_correction_detector()
+    test_universal_repetition_loop_suppression()
     sys.exit(0)
