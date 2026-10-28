@@ -214,6 +214,13 @@ class NotetakerView(QWidget):
         self.btn_translate.clicked.connect(self._toggle_translation)
         header_row.addWidget(self.btn_translate)
 
+        self.btn_two_track = QPushButton("🎧 Two-Track: OFF")
+        self.btn_two_track.setCheckable(True)
+        self.btn_two_track.setToolTip("Separate Local mic (Track 0) and Remote system audio (Track 1) to eliminate echo")
+        self.btn_two_track.setStyleSheet(self._btn_style())
+        self.btn_two_track.clicked.connect(self._toggle_two_track)
+        header_row.addWidget(self.btn_two_track)
+
         c_layout.addLayout(header_row)
 
         # Recording Status Bar
@@ -660,7 +667,9 @@ class NotetakerView(QWidget):
         self.lbl_clock.setText(f"{hrs:02d}:{m:02d}:{s:02d}")
 
     def _handle_live_segment_gui(self, seg: dict):
-        line = f"[{seg.get('time', '00:00')}] {seg.get('text', '')}\n"
+        spk = seg.get("speaker")
+        spk_str = f"[{spk}] " if spk else ""
+        line = f"[{seg.get('time', '00:00')}] {spk_str}{seg.get('text', '')}\n"
         self.transcript_edit.append(line.strip())
 
     def _handle_audio_level_gui(self, level: float):
@@ -924,6 +933,26 @@ class NotetakerView(QWidget):
         else:
             self.btn_translate.setText("🌐 Translate: OFF")
             self.btn_translate.setStyleSheet(self._btn_style())
+
+    def _toggle_two_track(self):
+        enabled = self.btn_two_track.isChecked()
+        self.engine.enable_two_track(enabled)
+        if enabled:
+            self.btn_two_track.setText("🎧 Two-Track: ON")
+            self.btn_two_track.setStyleSheet("""
+                QPushButton {
+                    background-color: #0369A1;
+                    color: #FFFFFF;
+                    font-weight: 600;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    border: 1px solid #38BDF8;
+                    font-size: 12px;
+                }
+            """)
+        else:
+            self.btn_two_track.setText("🎧 Two-Track: OFF")
+            self.btn_two_track.setStyleSheet(self._btn_style())
 
     def _on_catchup_clicked(self):
         recap = self.engine.get_live_catchup(window_minutes=5)

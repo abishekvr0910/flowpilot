@@ -7,6 +7,14 @@ This page distinguishes published releases from work on `master`. Check [GitHub 
 - Removed obsolete cloud controls from the optional web companion. Unsupported cloud settings are rejected by the API, and old unused cloud keys are removed from the active local config on load.
 - Moved superseded verification and agent status reports into the dated archive, removed tracked scratch probes, and replaced workstation-specific public links.
 
+## v3.1.0-RC11 — October 28, 2026
+
+- **Caret-Aware Context Formatting:** Real-time Win32 `EM_GETSEL` and UIA `IUIAutomationTextPattern` surrounding text inspection; suppresses mid-sentence capitalization, duplicate punctuation, and trailing periods before following lowercase text.
+- **Automatic Correction Learning & Persistence:** Automatic detection of user buffer replacements post-injection with occurrence thresholding, atomic disk persistence (`~/.flowpilot/corrections.json`), and UI suggestion cards in `DictionaryView`.
+- **Background Idle Model Memory Unloader:** Background orchestrator idle timer releasing 1.0–2.0 GB RAM from local Faster-Whisper and SLM workers during periods of inactivity with transparent, zero-cost reacquisition on subsequent dictation calls.
+- **Two-Track Meeting Audio Separation:** WASAPI loopback system audio capture with acoustic energy bleed suppression, ensuring loud remote speaker turns do not leak into local mic turns.
+- **Synthetic Modifier Safety:** Hardened modifier release gate ensuring physical keys are unpressed before paste dispatches, tagging synthetic events with `'FPLT'` (`0x46504C54`).
+
 ## v3.1.0 — October 20, 2026
 
 - **Multilingual Offline Dictation:** Added tested acoustic support for German, French, Spanish, Japanese, Chinese, and Hindi using bundled Faster-Whisper base weights with zero network calls.

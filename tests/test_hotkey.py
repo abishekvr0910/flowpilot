@@ -156,6 +156,29 @@ def test_hotkey_resolution():
     assert orchestrator.hotkey_service.is_alive() is False, "Hotkey thread should be stopped"
     print("[5] Orchestrator stopped Win32HotkeyService cleanly.")
 
+    # 7. Test Hold-to-Toggle latching state machine
+    from engine.hotkey_service import TapLatch
+    starts = []
+    stops = []
+    clock_time = [100.0]
+    latch = TapLatch(on_start=lambda: starts.append(1), on_stop=lambda: stops.append(1), window_ms=300, clock=lambda: clock_time[0])
+    latch.press()
+    assert latch.state == TapLatch.HELD
+    assert len(starts) == 1
+    assert len(stops) == 0
+    switched = latch.latch_to_toggle()
+    assert switched is True
+    assert latch.state == TapLatch.LATCHED
+    clock_time[0] += 2.0
+    latch.release()
+    assert latch.state == TapLatch.LATCHED
+    assert len(stops) == 0
+    clock_time[0] += 5.0
+    latch.press()
+    assert latch.state == TapLatch.IDLE
+    assert len(stops) == 1
+    print("[7] Hold-to-Toggle latching and release immunity verified 100%.")
+
     print("\n[RESULT] Win32 Global Hotkey test PASSED 100%.")
     return True
 

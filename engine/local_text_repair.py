@@ -40,6 +40,8 @@ class RepairStatus(str, Enum):
     FALLBACK_TIMEOUT = "FALLBACK_TIMEOUT"      # Exceeded the 400 ms latency budget
     FALLBACK_ERROR = "FALLBACK_ERROR"          # Runtime exception handled safely
     VETOED_FACT_MISMATCH = "VETOED_FACT_MISMATCH"  # FactGuard rejected hallucination or missing entity
+    VETOED_INSTRUCTION_EXECUTION = "VETOED_INSTRUCTION_EXECUTION"  # Model answered/executed instruction instead of cleaning text
+    VETOED_TEMPLATE_LEAKAGE = "VETOED_TEMPLATE_LEAKAGE"  # Model leaked chat template tokens or prompt phrases
 
 
 @dataclass
@@ -276,6 +278,85 @@ class SpanDiffEditor:
             )
             assembled += "?" if is_question else "."
         return assembled
+
+
+class InstructionExecutionGuard:
+    """
+    Tier 3 Guard: Prevents conversational takeover, prompt fulfillment, and template leakage.
+    If the speaker dictates an instruction (e.g. 'Write an email to John...'), an SLM
+    might hallucinate an email rather than preserving the spoken words.
+    This guard deterministically detects and vetoes instruction fulfillment and template leakage.
+    """
+    PREAMBLE_PATTERN = re.compile(
+        r"^\s*(?:sure|certainly|absolutely|here(?:'s|\s+is)|i(?:'d|\s+would)\s+be\s+happy\s+to|i\s+can|of\s+course)\b",
+        re.IGNORECASE
+    )
+
+    INSTRUCTION_MARKERS = {
+        "ask", "answer", "compose", "create", "draft", "email", "generate",
+        "make", "message", "prompt", "reply", "respond", "response", "summarize",
+        "tell", "translate", "write", "claude", "chatgpt", "ai", "llm"
+    }
+
+    STOP_WORDS = {
+        "a", "an", "and", "are", "as", "at", "be", "but", "by", "can", "could",
+        "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if",
+        "in", "into", "is", "it", "its", "just", "me", "my", "of", "on", "or", "our",
+        "please", "she", "so", "that", "the", "their", "them", "then", "there", "this",
+        "to", "um", "uh", "was", "we", "were", "what", "when", "where", "who", "with",
+        "would", "you", "your"
+    }
+
+    TEMPLATE_LEAKAGE_PATTERN = re.compile(
+        r"(?:<\|im_start\|>|<\|im_end\|>|<\|begin_of_text\|>|<\|end_of_text\|>|\[INST\]|\[/INST\]|system\s*\n|assistant\s*\n|user\s*\n|Remove speech fillers|Keep @N and all other words)",
+        re.IGNORECASE
+    )
+
+    @classmethod
+    def significant_tokens(cls, text: str) -> set:
+        normalized = text.lower()
+        parts = re.findall(r"\b[a-z0-9_]+\b", normalized)
+        return {p for p in parts if len(p) > 1 and p not in cls.STOP_WORDS}
+
+    @classmethod
+    def has_template_leakage(cls, text: str) -> bool:
+        """Returns True if text contains raw chat template tokens or leaked prompt phrases."""
+        return bool(cls.TEMPLATE_LEAKAGE_PATTERN.search(text))
+
+    @classmethod
+    def appears_to_have_executed_instruction(cls, raw_transcript: str, cleaned_transcript: str) -> bool:
+        """
+        Returns True if the output indicates the model executed the transcript
+        as an instruction rather than performing literal text repair.
+        """
+        raw_clean = raw_transcript.strip()
+        cleaned_clean = cleaned_transcript.strip()
+        if not raw_clean or not cleaned_clean:
+            return False
+
+        # 1. Preamble check: model started with assistant conversational response
+        cleaned_has_preamble = bool(cls.PREAMBLE_PATTERN.search(cleaned_clean))
+        raw_has_preamble = bool(cls.PREAMBLE_PATTERN.search(raw_clean))
+        if cleaned_has_preamble and not raw_has_preamble:
+            return True
+
+        # 2. Token overlap and instruction verb collapse
+        raw_tokens = cls.significant_tokens(raw_clean)
+        cleaned_tokens = cls.significant_tokens(cleaned_clean)
+        if not raw_tokens or not cleaned_tokens:
+            return False
+
+        raw_markers = raw_tokens.intersection(cls.INSTRUCTION_MARKERS)
+        if raw_markers:
+            preserved_markers = raw_markers.intersection(cleaned_tokens)
+            overlap = raw_tokens.intersection(cleaned_tokens)
+            overlap_ratio = len(overlap) / max(len(raw_tokens), 1)
+
+            # If the user spoke instruction words, but NONE survived and overlap plummeted below 35%
+            if not preserved_markers and overlap_ratio < 0.35:
+                return True
+
+        return False
 
 
 DEFAULT_SYSTEM_PROMPT = (
@@ -526,6 +607,18 @@ class LocalTextRepair:
         self._warmup_future = executor.submit(_task)
         return self._warmup_future
 
+    def unload_model(self) -> bool:
+        """
+        Releases the local SLM worker process and memory during idle periods.
+        Reclaims system RAM when no text repair has been requested.
+        """
+        if self._worker_process is not None:
+            self._terminate_worker_process()
+            import gc
+            gc.collect()
+            return True
+        return False
+
     def shutdown(self, wait: bool = False):
         """Cleanly terminate worker process and executor."""
         if self._parent_pipe is not None and self._worker_process is not None and self._worker_process.is_alive():
@@ -685,6 +778,33 @@ class LocalTextRepair:
         if elapsed_ms > self.MAX_LATENCY_MS:
             logger.info("Local text repair timed out (%.1f ms > %.1f ms); vetoing.", elapsed_ms, self.MAX_LATENCY_MS)
             return self._safe_fallback(raw_transcript, RepairStatus.FALLBACK_TIMEOUT, t_start)
+
+        # Instruction Execution & Template Leakage Guards
+        if InstructionExecutionGuard.has_template_leakage(restored_text):
+            veto_reason = "InstructionExecutionGuard veto: detected template token leakage in output"
+            logger.warning("Local text repair rejected: %s", veto_reason)
+            return RepairResult(
+                status=RepairStatus.VETOED_TEMPLATE_LEAKAGE,
+                text=raw_transcript,
+                raw_input=raw_transcript,
+                latency_ms=elapsed_ms,
+                veto_reason=veto_reason,
+                slots_locked=len(slots),
+                fallback_used=True
+            )
+
+        if InstructionExecutionGuard.appears_to_have_executed_instruction(raw_transcript, restored_text):
+            veto_reason = "InstructionExecutionGuard veto: model answered/executed instruction instead of cleaning text"
+            logger.warning("Local text repair rejected: %s", veto_reason)
+            return RepairResult(
+                status=RepairStatus.VETOED_INSTRUCTION_EXECUTION,
+                text=raw_transcript,
+                raw_input=raw_transcript,
+                latency_ms=elapsed_ms,
+                veto_reason=veto_reason,
+                slots_locked=len(slots),
+                fallback_used=True
+            )
 
         facts = verify_critical_facts(raw_transcript, restored_text, language=language)
         missing_critical = list(dict.fromkeys(facts["missing_numbers"] + facts["missing_negations"] + missing_slots))

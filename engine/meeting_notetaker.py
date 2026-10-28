@@ -131,7 +131,15 @@ class MeetingSession:
 
     @property
     def full_transcript(self) -> str:
-        return "\n".join(f"[{seg['time']}] {seg['text']}" for seg in self.segments)
+        lines = []
+        for seg in self.segments:
+            time_tag = f"[{seg['time']}]"
+            spk = seg.get("speaker")
+            if spk and not seg["text"].startswith("["):
+                lines.append(f"{time_tag} [{spk}] {seg['text']}")
+            else:
+                lines.append(f"{time_tag} {seg['text']}")
+        return "\n".join(lines)
 
     @property
     def elapsed_seconds(self) -> float:
@@ -156,23 +164,69 @@ class MeetingSession:
 
 
 class MeetingAudioWorker:
-    """Continuous streaming background microphone recorder for meetings."""
+    """Continuous streaming background microphone & loopback recorder for meetings with dual-track support."""
     def __init__(
         self,
-        on_chunk_ready: Callable[[np.ndarray], None],
+        on_chunk_ready: Callable[..., None],
         on_audio_level: Optional[Callable[[float], None]] = None,
-        sample_rate: int = 16000
+        sample_rate: int = 16000,
+        two_track: bool = False
     ):
         self.on_chunk_ready = on_chunk_ready
         self.on_audio_level = on_audio_level
         self.sample_rate = sample_rate
+        self.two_track = two_track
         self._running = False
         self._paused = False
         self._stream: Optional[Any] = None
-        self._speech_buffer: List[np.ndarray] = []
-        self._silence_frames = 0
-        self._is_speaking = False
+        self._loopback_stream: Optional[Any] = None
+
+        # Track 0: Local microphone
+        self._speech_buffer_local: List[np.ndarray] = []
+        self._silence_frames_local = 0
+        self._is_speaking_local = False
+
+        # Track 1: Remote loopback
+        self._speech_buffer_remote: List[np.ndarray] = []
+        self._silence_frames_remote = 0
+        self._is_speaking_remote = False
+
         self._lock = threading.Lock()
+
+    @property
+    def _speech_buffer(self) -> List[np.ndarray]:
+        return self._speech_buffer_local
+
+    @_speech_buffer.setter
+    def _speech_buffer(self, val: List[np.ndarray]):
+        self._speech_buffer_local = val
+
+    @property
+    def _is_speaking(self) -> bool:
+        return self._is_speaking_local or self._is_speaking_remote
+
+    @_is_speaking.setter
+    def _is_speaking(self, val: bool):
+        self._is_speaking_local = val
+
+    @property
+    def _silence_frames(self) -> int:
+        return self._silence_frames_local
+
+    @_silence_frames.setter
+    def _silence_frames(self, val: int):
+        self._silence_frames_local = val
+
+    def _deliver_chunk(self, chunk: np.ndarray, speaker: str = "Local"):
+        if chunk is None or len(chunk) == 0:
+            return
+        try:
+            self.on_chunk_ready(chunk, speaker=speaker)
+        except TypeError:
+            try:
+                self.on_chunk_ready(chunk, speaker)
+            except TypeError:
+                self.on_chunk_ready(chunk)
 
     def start(self):
         with self._lock:
@@ -180,20 +234,54 @@ class MeetingAudioWorker:
                 return
             self._running = True
             self._paused = False
-            self._speech_buffer = []
-            self._silence_frames = 0
-            self._is_speaking = False
+            self._speech_buffer_local = []
+            self._silence_frames_local = 0
+            self._is_speaking_local = False
+            self._speech_buffer_remote = []
+            self._silence_frames_remote = 0
+            self._is_speaking_remote = False
+
+            loopback_dev = self.find_loopback_device() if self.two_track else None
+            if loopback_dev is not None:
+                try:
+                    self._loopback_stream = sd.InputStream(
+                        device=loopback_dev,
+                        samplerate=self.sample_rate,
+                        channels=1,
+                        dtype="float32",
+                        callback=self._loopback_callback,
+                        blocksize=1600
+                    )
+                    self._loopback_stream.start()
+                except Exception as e:
+                    self._loopback_stream = None
+
+            channels = 2 if (self.two_track and self._loopback_stream is None) else 1
             try:
                 self._stream = sd.InputStream(
                     samplerate=self.sample_rate,
-                    channels=1,
+                    channels=channels,
                     dtype="float32",
                     callback=self._audio_callback,
                     blocksize=1600  # 100ms blocks
                 )
                 self._stream.start()
             except Exception as e:
-                print(f"[MeetingAudioWorker Error] Stream start failed: {e}")
+                # Fallback to mono if hardware does not support multi-channel
+                if channels > 1:
+                    try:
+                        self._stream = sd.InputStream(
+                            samplerate=self.sample_rate,
+                            channels=1,
+                            dtype="float32",
+                            callback=self._audio_callback,
+                            blocksize=1600
+                        )
+                        self._stream.start()
+                    except Exception as e2:
+                        print(f"[MeetingAudioWorker Error] Stream start fallback failed: {e2}")
+                else:
+                    print(f"[MeetingAudioWorker Error] Stream start failed: {e}")
 
     def pause(self):
         with self._lock:
@@ -213,57 +301,179 @@ class MeetingAudioWorker:
                 except Exception:
                     pass
                 self._stream = None
-            # Flush final speech buffer if significant
-            if len(self._speech_buffer) >= 6:
+            if self._loopback_stream:
                 try:
-                    chunk = np.concatenate(self._speech_buffer, axis=0).flatten()
-                    self.on_chunk_ready(chunk)
+                    self._loopback_stream.stop()
+                    self._loopback_stream.close()
                 except Exception:
                     pass
-            self._speech_buffer = []
+                self._loopback_stream = None
+
+            # Flush final local speech buffer if significant
+            if len(self._speech_buffer_local) >= 6:
+                try:
+                    chunk = np.concatenate(self._speech_buffer_local, axis=0).flatten()
+                    self._deliver_chunk(chunk, speaker="Local")
+                except Exception:
+                    pass
+            self._speech_buffer_local = []
+            self._silence_frames_local = 0
+            self._is_speaking_local = False
+
+            # Flush final remote speech buffer if significant
+            if len(self._speech_buffer_remote) >= 6:
+                try:
+                    chunk = np.concatenate(self._speech_buffer_remote, axis=0).flatten()
+                    self._deliver_chunk(chunk, speaker="Remote")
+                except Exception:
+                    pass
+            self._speech_buffer_remote = []
+            self._silence_frames_remote = 0
+            self._is_speaking_remote = False
 
     def _audio_callback(self, indata, frames, time_info, status):
         if not self._running or self._paused:
             return
+        self.process_audio_frame(indata, default_speaker="Local")
 
-        rms = float(np.sqrt(np.mean(indata**2)))
-        if self.on_audio_level:
-            try:
-                self.on_audio_level(min(1.0, rms * 14.0))
-            except Exception:
-                pass
+    def _loopback_callback(self, indata, frames, time_info, status):
+        if not self._running or self._paused:
+            return
+        self.process_audio_frame(indata, default_speaker="Remote")
 
-        # Dynamic speech vs pause segmentation
+    @classmethod
+    def find_loopback_device(cls) -> Optional[int]:
+        """
+        Detects an available system audio loopback capture device on Windows
+        (Stereo Mix, VB-Audio Cable, What U Hear, Loopback).
+        """
+        if sd is None:
+            return None
+        try:
+            devices = sd.query_devices()
+            keywords = ["stereo mix", "what u hear", "loopback", "cable output", "wave out", "mix"]
+            for idx, dev in enumerate(devices):
+                if dev.get("max_input_channels", 0) > 0:
+                    name = dev.get("name", "").lower()
+                    for kw in keywords:
+                        if kw in name:
+                            return idx
+        except Exception:
+            pass
+        return None
+
+    def process_audio_frame(self, indata: np.ndarray, default_speaker: str = "Local"):
+        if not self._running or self._paused:
+            return
+
         energy_threshold = 0.012
-        if rms > energy_threshold:
-            self._is_speaking = True
-            self._silence_frames = 0
-            self._speech_buffer.append(indata.copy())
+
+        # Two-track stereo separation: Channel 0 = Local, Channel 1 = Remote
+        if indata.ndim == 2 and indata.shape[1] >= 2:
+            local_frame = indata[:, 0]
+            remote_frame = indata[:, 1]
+
+            rms_local = float(np.sqrt(np.mean(local_frame**2)))
+            rms_remote = float(np.sqrt(np.mean(remote_frame**2)))
+
+            if self.on_audio_level:
+                try:
+                    self.on_audio_level(min(1.0, max(rms_local, rms_remote) * 14.0))
+                except Exception:
+                    pass
+
+            # Crosstalk / acoustic echo bleed suppression:
+            # If Remote energy is active and substantially louder than Local, suppress
+            # microphone bleed from triggering spurious local speech segments.
+            is_remote_bleed = (rms_remote > energy_threshold and rms_remote > rms_local * 1.5)
+
+            # Local track VAD segmentation
+            if rms_local > energy_threshold and not is_remote_bleed:
+                self._is_speaking_local = True
+                self._silence_frames_local = 0
+                self._speech_buffer_local.append(local_frame.copy())
+            else:
+                if self._is_speaking_local:
+                    self._speech_buffer_local.append(local_frame.copy())
+                    self._silence_frames_local += 1
+                    if self._silence_frames_local >= 12 or len(self._speech_buffer_local) >= 200:
+                        if len(self._speech_buffer_local) >= 8:
+                            chunk = np.concatenate(self._speech_buffer_local, axis=0).flatten()
+                            self._deliver_chunk(chunk, speaker="Local")
+                        self._speech_buffer_local = []
+                        self._silence_frames_local = 0
+                        self._is_speaking_local = False
+
+            # Remote track VAD segmentation
+            if rms_remote > energy_threshold:
+                self._is_speaking_remote = True
+                self._silence_frames_remote = 0
+                self._speech_buffer_remote.append(remote_frame.copy())
+            else:
+                if self._is_speaking_remote:
+                    self._speech_buffer_remote.append(remote_frame.copy())
+                    self._silence_frames_remote += 1
+                    if self._silence_frames_remote >= 12 or len(self._speech_buffer_remote) >= 200:
+                        if len(self._speech_buffer_remote) >= 8:
+                            chunk = np.concatenate(self._speech_buffer_remote, axis=0).flatten()
+                            self._deliver_chunk(chunk, speaker="Remote")
+                        self._speech_buffer_remote = []
+                        self._silence_frames_remote = 0
+                        self._is_speaking_remote = False
+
         else:
-            if self._is_speaking:
-                self._speech_buffer.append(indata.copy())
-                self._silence_frames += 1
-                # 1.2s silence (12 frames * 100ms) OR buffer exceeds 20s (200 frames)
-                if self._silence_frames >= 12 or len(self._speech_buffer) >= 200:
-                    if len(self._speech_buffer) >= 8:  # At least 800ms
-                        try:
-                            chunk = np.concatenate(self._speech_buffer, axis=0).flatten()
-                            self.on_chunk_ready(chunk)
-                        except Exception:
-                            pass
-                    self._speech_buffer = []
-                    self._silence_frames = 0
-                    self._is_speaking = False
+            mono_data = indata.flatten()
+            rms = float(np.sqrt(np.mean(mono_data**2)))
+            if self.on_audio_level:
+                try:
+                    self.on_audio_level(min(1.0, rms * 14.0))
+                except Exception:
+                    pass
+
+            target_speaker = default_speaker or "Local"
+            if target_speaker == "Remote":
+                buf = self._speech_buffer_remote
+                speaking = self._is_speaking_remote
+                silence = self._silence_frames_remote
+            else:
+                buf = self._speech_buffer_local
+                speaking = self._is_speaking_local
+                silence = self._silence_frames_local
+
+            if rms > energy_threshold:
+                speaking = True
+                silence = 0
+                buf.append(mono_data.copy())
+            else:
+                if speaking:
+                    buf.append(mono_data.copy())
+                    silence += 1
+                    if silence >= 12 or len(buf) >= 200:
+                        if len(buf) >= 8:
+                            chunk = np.concatenate(buf, axis=0).flatten()
+                            self._deliver_chunk(chunk, speaker=target_speaker)
+                        buf.clear()
+                        silence = 0
+                        speaking = False
+
+            if target_speaker == "Remote":
+                self._is_speaking_remote = speaking
+                self._silence_frames_remote = silence
+            else:
+                self._is_speaking_local = speaking
+                self._silence_frames_local = silence
 
 
 class MeetingNotetakerEngine:
     def __init__(
         self,
         on_segment: Optional[Callable[[Dict[str, Any]], None]] = None,
-        on_audio_level: Optional[Callable[[float], None]] = None
+        on_audio_level: Optional[Callable[[float], None]] = None,
+        two_track_mode: bool = False
     ):
         self.on_segment = on_segment
         self.on_audio_level = on_audio_level
+        self.two_track_mode = bool(two_track_mode)
         self._lock = threading.RLock()
         self._active_session: Optional[MeetingSession] = None
         self._is_recording = False
@@ -293,8 +503,21 @@ class MeetingNotetakerEngine:
 
         self._audio_recorder = MeetingAudioWorker(
             on_chunk_ready=self._enqueue_audio_chunk,
-            on_audio_level=self.on_audio_level
+            on_audio_level=self.on_audio_level,
+            two_track=self.two_track_mode
         )
+
+    def enable_two_track(self, enabled: bool = True):
+        """Enable or disable dual-track (Local mic + Remote loopback) audio separation."""
+        with self._lock:
+            self.two_track_mode = bool(enabled)
+            if self._audio_recorder:
+                self._audio_recorder.two_track = bool(enabled)
+
+    def feed_audio_frame(self, frame: np.ndarray, speaker: str = "Local"):
+        """Directly feed an audio frame (mono or stereo [N, 2]) for testing or external streams."""
+        if self._audio_recorder:
+            self._audio_recorder.process_audio_frame(frame, default_speaker=speaker)
 
     def set_translation_mode(self, enabled: bool, target_language: str = "en"):
         """Enable or disable real-time translation into target language (default English)."""
@@ -384,19 +607,24 @@ class MeetingNotetakerEngine:
             self._save_session_dict(summary)
             return self._active_session
 
-    def _enqueue_audio_chunk(self, audio_chunk: np.ndarray):
+    def _enqueue_audio_chunk(self, audio_chunk: np.ndarray, speaker: str = "Local"):
         if audio_chunk is not None and len(audio_chunk) > 0:
-            self._queue.put(audio_chunk)
+            self._queue.put((audio_chunk, speaker))
 
     def _transcription_loop(self):
         while self._worker_active or not self._queue.empty():
             try:
-                chunk = self._queue.get(timeout=0.25)
+                item = self._queue.get(timeout=0.25)
             except queue.Empty:
                 if not self._worker_active:
                     break
                 continue
             try:
+                if isinstance(item, tuple) and len(item) == 2:
+                    chunk, speaker = item
+                else:
+                    chunk, speaker = item, "Local"
+
                 task = "translate" if getattr(self, "translation_mode", False) else "transcribe"
                 result = self._stt.transcribe(chunk, task=task)
                 if isinstance(result, dict):
@@ -408,13 +636,13 @@ class MeetingNotetakerEngine:
 
                 clean_text = raw_text.strip() if raw_text else ""
                 if clean_text:
-                    self.add_transcript_segment(clean_text)
+                    self.add_transcript_segment(clean_text, speaker=speaker)
             except Exception as e:
                 print(f"[MeetingNotetaker STT Error] {e}")
             finally:
                 self._queue.task_done()
 
-    def add_transcript_segment(self, text: str) -> Optional[Dict[str, Any]]:
+    def add_transcript_segment(self, text: str, speaker: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Add transcribed segment with relative time-offset [HH:MM:SS]."""
         if not text or not text.strip():
             return None
@@ -424,13 +652,15 @@ class MeetingNotetakerEngine:
             secs = int(self._active_session.elapsed_seconds)
             mins, s = divmod(secs, 60)
             hrs, m = divmod(mins, 60)
-            time_str = f"{hrs:02d}:{m:02d}:{s:02d}" if hrs > 0 else f"{m:02d}:{s:02d}"
+            time_str = f"{hrs:02d}:{m:02d}:{s:02d}" if hrs > 0 else f"{mins:02d}:{s:02d}"
 
-            seg = {
+            seg: Dict[str, Any] = {
                 "time": time_str,
                 "text": text.strip(),
                 "timestamp": time.time()
             }
+            if speaker:
+                seg["speaker"] = speaker
             self._active_session.segments.append(seg)
             if self.on_segment:
                 try:

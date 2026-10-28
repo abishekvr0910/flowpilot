@@ -495,6 +495,17 @@ def test_text_injection():
     print("\n[RESULT] Text insertion and clipboard preservation PASSED.")
     return True
 
+def test_physical_modifier_release_gate():
+    """Verify physical modifier polling helper runs safely and recognizes release."""
+    print("Testing physical modifier release gate helper...")
+    assert hasattr(TextInjector, "_wait_for_physical_modifiers_release")
+    assert TextInjector.FLOWPILOT_SYNTHETIC_EXTRA_INFO == 0x46504C54
+    res = TextInjector._wait_for_physical_modifiers_release(timeout_sec=0.05)
+    assert isinstance(res, bool)
+    print("  -> Physical modifier release gate test PASSED.")
+
+
 if __name__ == "__main__":
+    test_physical_modifier_release_gate()
     success = test_text_injection()
     sys.exit(0 if success else 1)

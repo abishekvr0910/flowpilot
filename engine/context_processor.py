@@ -161,7 +161,9 @@ class ContextProcessor:
         raw_text: str,
         active_window: Optional[Dict[str, Any]] = None,
         session_mode: Optional[str] = None,
-        language: Optional[str] = None
+        language: Optional[str] = None,
+        preceding_text: Optional[str] = None,
+        following_text: Optional[str] = None
     ) -> str:
         if not raw_text or not raw_text.strip():
             return ""
@@ -172,11 +174,24 @@ class ContextProcessor:
 
         # 1. Check for Verbatim Mode
         if style == "verbatim":
-            res = self.local_engine.polish(raw_trimmed, mode="verbatim", language=lang_str)
+            res = self.local_engine.polish(
+                raw_trimmed,
+                mode="verbatim",
+                language=lang_str,
+                preceding_text=preceding_text,
+                following_text=following_text
+            )
             return res["text"]
 
         # 2. Apply Local Deterministic Polishing (Self-corrections, fillers, stutters, lists, tech terms, FactGuard)
-        local_result = self.local_engine.polish(raw_trimmed, mode="polished", style=style, language=lang_str)
+        local_result = self.local_engine.polish(
+            raw_trimmed,
+            mode="polished",
+            style=style,
+            language=lang_str,
+            preceding_text=preceding_text,
+            following_text=following_text
+        )
         polished_text = local_result["text"]
 
         # 3. Apply Voice Snippet Expansion

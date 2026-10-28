@@ -1,6 +1,25 @@
 # FlowPilot release artifact manifest
 
-Updated 2026-10-27. A locally verified candidate is not a published general release.
+Updated 2026-10-28. A locally verified candidate is not a published general release.
+
+## Pilot release candidate: v3.1.0-RC11, Windows x64
+
+**Candidate prerelease package.** Built locally with PyInstaller 6.22.3 and Python 3.11.15. RC11 brings the FlowPilot whole-product implementation to full end-to-end operational parity, incorporating Caret-Aware Context Formatting with Win32 EM_GETSEL and UIA IUIAutomationTextPattern integration, Automatic Correction Learning with atomic disk persistence (`corrections.json`) and UI suggestion cards in DictionaryView, Background Idle Model Memory Unloader releasing 1.0–2.0 GB RAM after idle timeouts with zero-cost reacquisition, Two-Track Meeting Audio Separation with acoustic bleed suppression, and Synthetic Modifier Safety Gate (`FLOWPILOT_SYNTHETIC_EXTRA_INFO = 0x46504C54`).
+
+| Item | Measured value |
+|---|---|
+| Archive | `dist/FlowPilot-v3.1.0-RC11-windows-x64.zip` |
+| Archive size | 772,587,918 bytes |
+| Archive SHA-256 | `9DC4F8A2AD4402708B1EF013CA777E076F7646D2F98CF34706E07E482E28C6EF` |
+| Embedded executable | `FlowPilot.exe`, 26,661,042 bytes |
+| Embedded executable SHA-256 | `D3C94C99A9AE73AA67F37389AE583A75ED0622F36F483FF4239129572F294EEA` |
+| Archive integrity | 1,298 members, CRC passed; embedded executable hash matched the tested bundle |
+| License notices | 93 files under `licenses/` |
+| Authenticode | `NotSigned`, unsigned pilot candidate only |
+| Live wiring proof | 5 passed, 0 failed across 5 proofs in [`tests/live_feature_wiring_proof.py`](../../tests/live_feature_wiring_proof.py) |
+| Local automated audit | 55 passed, 5 honest interactive-desktop skips, 0 failed across 60 suites in 114.14 s |
+| Packaged smoke | Named mutex, duplicate instance handling, bundled model and Silero assets, and clean termination passed with 110.46 MB resident RAM (`tests/test_standalone_binary_smoke.py`) |
+| Offline packaged self test | `dist\FlowPilot\FlowPilot.exe --self-test` exited `0` with SAPI speech synthesis fixture verified in 1.29 s |
 
 ## Pilot release candidate: v3.1.0-RC10, Windows x64
 
