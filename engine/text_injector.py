@@ -156,6 +156,21 @@ class TextInjector:
             return ""
 
     @classmethod
+    def get_target_window_info(cls, hwnd: Optional[int] = None) -> Tuple[int, str, str]:
+        """
+        Returns (hwnd, window_title, process_name) for the target or current foreground window.
+        """
+        if not HAS_WIN32 or sys.platform != "win32":
+            return (0, "", "")
+        try:
+            target_hwnd = hwnd or win32gui.GetForegroundWindow() or 0
+            title = win32gui.GetWindowText(target_hwnd) if target_hwnd else ""
+            proc_name = cls._get_target_process_name(target_hwnd) if target_hwnd else ""
+            return (target_hwnd, title, proc_name)
+        except Exception:
+            return (0, "", "")
+
+    @classmethod
     def _get_clipboard_sequence_number(cls) -> Optional[int]:
         """Returns Win32 GetClipboardSequenceNumber() or fallback content hash integer on non-Windows."""
         if HAS_WIN32 and sys.platform == "win32":
