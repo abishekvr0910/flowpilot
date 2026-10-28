@@ -54,7 +54,7 @@ class FlowOrchestrator:
     def __init__(self, on_state_change: Optional[Callable[[Dict[str, Any]], None]] = None):
         self.config = load_config()
         self.on_state_change = on_state_change
-        
+
         self.personalization = get_shared_personalization()
         migrate_legacy_audio_config(self.config)
         self._device_selection = self.config["audio_input_selection"]
@@ -64,7 +64,7 @@ class FlowOrchestrator:
         self.processor = ContextProcessor(self.config, personalization=self.personalization)
         self.ducker = AudioDucker(duck_mode="mute")
         self.feedback = AudioFeedback(enabled=self.config.get("sound_effects_enabled", True))
-        
+
         self.target_window_info: Dict[str, Any] = {}
         self.state = AppState.IDLE
         self._current_session: Optional[DictationSession] = None
@@ -72,7 +72,7 @@ class FlowOrchestrator:
         self._success_generation = 0
         self._stop_pending = False
         self.is_processing = False
-        
+
         self.hotkey_service = get_hotkey_service()
         self.hotkey_listener = None
         self._auxiliary_hotkeys: Dict[str, Callable[[], None]] = {}
@@ -90,7 +90,11 @@ class FlowOrchestrator:
         self._tap_latch: Optional[Any] = None
         self._idle_unload_timer: Optional[threading.Timer] = None
         self._idle_unload_timeout_sec: float = float(self.config.get("idle_model_unload_sec", 600.0))
-        
+
+        # Universal Selection Rewriter & Undo Latch (WP-2)
+        from engine.selection_rewriter import SelectionRewriter
+        self.selection_rewriter = SelectionRewriter()
+
         # Link audio level callback
         self.recorder.level_callback = self._on_audio_level
         self._pending_model_switch: Optional[str] = None
@@ -321,7 +325,7 @@ class FlowOrchestrator:
                 if resolution.device_index is not None and resolution.device_index < 0:
                     raise RuntimeError(resolution.error_message or "Select an available microphone in Settings.")
                 self.recorder.start_recording()
-                
+
                 with self._state_lock:
                     if active_session.is_cancelled or active_session != self._current_session or self.state != AppState.STARTING_RECORDING:
                         print(f"[Orchestrator] Recording startup aborted because state changed or session was cancelled (state={self.state})")
@@ -338,7 +342,7 @@ class FlowOrchestrator:
                     active_session.transition_to(SessionState.RECORDING)
 
                 self.feedback.play_start()
-                
+
                 # Start safety auto-stop timer (120 seconds max recording)
                 if self._auto_stop_timer:
                     self._auto_stop_timer.cancel()
@@ -932,6 +936,23 @@ class FlowOrchestrator:
         })
         return is_muted
 
+    def undo_last_rewrite(self) -> bool:
+        """Rolls back the last in-place selection rewrite transaction via SelectionRewriter."""
+        if hasattr(self, "selection_rewriter"):
+            success = self.selection_rewriter.undo_last_rewrite()
+            if success:
+                self._notify(AppState.IDLE, {
+                    "notice": "Reverted last text rewrite",
+                    "recovery_action": True
+                })
+            else:
+                self._notify(AppState.IDLE, {
+                    "notice": "Nothing to undo",
+                    "recovery_action": True
+                })
+            return success
+        return False
+
     def re_copy_last(self) -> bool:
         """Copies the last dictation text directly to clipboard with UI feedback."""
         success = TextInjector.re_copy_last()
@@ -1108,7 +1129,11 @@ class FlowOrchestrator:
                 self.hotkey_service.register("Alt+Shift+X", self.re_copy_last)
             except Exception:
                 pass
-            
+            try:
+                self.hotkey_service.register("Alt+Shift+U", self.undo_last_rewrite)
+            except Exception:
+                pass
+
             success = self.hotkey_service.start(timeout=3.0)
             service_name = self.hotkey_service.__class__.__name__
             if success:
