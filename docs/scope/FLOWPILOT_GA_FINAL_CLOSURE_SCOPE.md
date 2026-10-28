@@ -1,7 +1,7 @@
 # FlowPilot: General Availability (GA) Final Closure Scope
 
 **Document Version:** 3.2.0-GA-CLOSURE-SPEC  
-**Status:** Authoritative Closure Scope & Implementation Roadmap  
+**Status:** Completed & Verified in Source (v3.1.0-RC11 / GA Release Candidate)
 **Target Release:** FlowPilot v3.1.0-GA / v3.2.0  
 **Target Architecture:** Windows 10/11 (64-bit, x64), Native Host-Isolated  
 
