@@ -37,6 +37,7 @@ class AudioRecorder:
         self.device = device if device is not None else device_index
         self.capture_sample_rate = sample_rate
         self.is_recording = False
+        self.is_muted = False
         self.audio_frames = []
         self.last_audio_array: Optional[np.ndarray] = None
         self.stream: Optional[sd.InputStream] = None
@@ -59,6 +60,7 @@ class AudioRecorder:
         return {
             "state": "recording" if self.is_recording else "idle",
             "is_recording": self.is_recording,
+            "is_muted": bool(self.is_recording and self.is_muted),
             "sample_rate": self.sample_rate
         }
 
@@ -76,6 +78,15 @@ class AudioRecorder:
                     max_chunks = max(1, int(self.capture_sample_rate * self.preroll_seconds / frames))
                     while len(self._preroll_buffer) > max_chunks:
                         self._preroll_buffer.popleft()
+                return
+
+            # Hold to mute keeps the same healthy stream and session alive, but
+            # deliberately excludes the muted interval from the final audio.
+            # We still report a zero level so the UI reflects the muted state,
+            # and we keep _last_callback_at fresh for disconnect detection.
+            if self.is_muted:
+                if self.level_callback:
+                    self.level_callback(0.0)
                 return
 
             self.audio_frames.append(indata.copy())
@@ -249,6 +260,7 @@ class AudioRecorder:
             if self._stream_cleanup_failed:
                 raise RuntimeError(self.capture_health_error())
             self._capture_error = None
+            self.is_muted = False
             self._recording_started_at = time.monotonic()
 
             # 1. If stream is already hot and running (and not stalled by an idle unplug), start immediately!
@@ -340,6 +352,7 @@ class AudioRecorder:
                     return None
                 health_error = self.capture_health_error()
                 self.is_recording = False
+                self.is_muted = False
                 if (not keep_stream_alive or health_error) and self.stream:
                     old_stream = self.stream
                     self.stream = None
@@ -427,10 +440,21 @@ class AudioRecorder:
             elif warmup:
                 self._warmup_stream_locked()
 
+    def set_muted(self, muted: bool) -> bool:
+        """Temporarily exclude callback frames without ending the recording session."""
+        with self._lock:
+            if not self.is_recording:
+                self.is_muted = False
+                return False
+            self.is_muted = bool(muted)
+            logger.info("Recording mute %s", "enabled" if self.is_muted else "disabled")
+            return self.is_muted
+
     def close(self):
         """Cleanly terminates and releases the underlying audio device."""
         with self._lock:
             self.is_recording = False
+            self.is_muted = False
             self._device_change_pending = False
             self._pending_device = None
             self._last_callback_at = 0.0

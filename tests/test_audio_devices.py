@@ -251,6 +251,32 @@ class TestAudioRecorderDeviceLifecycle(unittest.TestCase):
             self.assertIsNone(recorder.last_audio_array)
         recorder.close()
 
+    def test_hold_to_mute_excludes_frames_without_ending_session(self):
+        """Muted callback frames are dropped while the healthy stream stays active."""
+        import numpy as np
+
+        recorder = AudioRecorder(sample_rate=16000, device=1)
+        recorder.is_recording = True
+        recorder.stream = MagicMock(active=True)
+        levels = []
+        recorder.level_callback = levels.append
+
+        frame_before = np.full((8000, 1), 0.1, dtype=np.float32)
+        frame_muted = np.full((8000, 1), 0.9, dtype=np.float32)
+        frame_after = np.full((8000, 1), 0.2, dtype=np.float32)
+        recorder._audio_callback(frame_before, len(frame_before), None, None)
+        self.assertTrue(recorder.set_muted(True))
+        recorder._audio_callback(frame_muted, len(frame_muted), None, None)
+        self.assertTrue(recorder.is_recording)
+        self.assertTrue(recorder.is_muted)
+        self.assertEqual(len(recorder.audio_frames), 1)
+        self.assertEqual(levels[-1], 0.0)
+        self.assertFalse(recorder.set_muted(False))
+        recorder._audio_callback(frame_after, len(frame_after), None, None)
+        self.assertEqual(len(recorder.audio_frames), 2)
+        self.assertFalse(recorder.is_muted)
+        recorder.close()
+
     def test_ci_stream_failure_does_not_fabricate_audio(self):
         recorder = AudioRecorder(sample_rate=16000, device=1)
         with patch.dict(os.environ, {"CI": "1", "GITHUB_ACTIONS": "1", "FLOWPILOT_HEADLESS": "1"}), \

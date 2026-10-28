@@ -31,6 +31,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "enable_code_switching": True,
     "hotkey": "<ctrl>+<shift>+<space>",  # or push-to-talk key
     "hotkey_exclusive": False,  # Preserve legacy aliases until a shortcut is explicitly chosen
+    "hold_to_mute_enabled": False,
+    "mute_hotkey": "Ctrl+Space",
     "hotkey_mode": "toggle",  # "toggle" (press to start, press to stop) or "push_to_talk"
     "active_tone_mode": "developer",  # "verbatim", "cleaned", "developer", "casual", "email"
     "auto_detect_active_app": True,

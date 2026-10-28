@@ -79,6 +79,7 @@ class FlowOrchestrator:
         self.last_dictation: Dict[str, Any] = {}
         self._auto_stop_timer: Optional[threading.Timer] = None
         self._capture_watchdog_stop = threading.Event()
+        self._mute_hotkey_registered = False
 
         # Silence auto-stop tracking (Wispr Flow behavior)
         self._last_speech_time: float = 0.0
@@ -132,6 +133,11 @@ class FlowOrchestrator:
     def _on_audio_level(self, level: float):
         if self.state == AppState.RECORDING or self.recorder.is_recording:
             self._notify("audio_level", {"level": round(level, 3)})
+
+            # A muted session remains open. Do not let the intentional zero
+            # level trigger silence auto stop while the user is thinking.
+            if getattr(self.recorder, "is_muted", False):
+                return
 
             # Intelligent silence auto-finalization (when enabled)
             if self.config.get("auto_stop_on_silence", False) and self.state == AppState.RECORDING:
@@ -715,11 +721,32 @@ class FlowOrchestrator:
         old_hk = self.config.get("hotkey")
         old_mode = self.config.get("hotkey_mode")
         old_exclusive = self.config.get("hotkey_exclusive", False)
+        old_mute_enabled = bool(self.config.get("hold_to_mute_enabled", False))
+        old_mute_hotkey = self.config.get("mute_hotkey", "Ctrl+Space")
         old_model = self.config.get("local_model_size", "base")
         new_model = new_config.get("local_model_size")
         model_changed = (new_model is not None and new_model != old_model)
 
         updated_config = local_only_config({**self.config, **new_config})
+        mute_enabled = bool(updated_config.get("hold_to_mute_enabled", False))
+        mute_hotkey = str(updated_config.get("mute_hotkey", "Ctrl+Space")).strip()
+        if mute_enabled:
+            try:
+                mute_mods, mute_vk = parse_hotkey_string(mute_hotkey)
+                dictation_mods, dictation_vk = parse_hotkey_string(updated_config.get("hotkey", "Ctrl+Shift+Space"))
+                if not mute_mods:
+                    print("[Orchestrator Warning] Hold-to-mute requires a modifier shortcut; bare keys are rejected.")
+                    return False
+                if (mute_mods, mute_vk) == (dictation_mods, dictation_vk):
+                    print("[Orchestrator Warning] Hold-to-mute cannot reuse the dictation shortcut.")
+                    return False
+                mute_conflict = dictation_hotkey_conflict(mute_hotkey)
+                if mute_conflict:
+                    print(f"[Orchestrator Warning] Hold-to-mute shortcut conflicts with {mute_conflict}.")
+                    return False
+            except ValueError as exc:
+                print(f"[Orchestrator Warning] Invalid hold-to-mute shortcut: {exc}")
+                return False
         new_hk = updated_config.get("hotkey", "Ctrl+Shift+Space")
         if new_hk != old_hk:
             updated_config["hotkey_exclusive"] = True
@@ -795,13 +822,34 @@ class FlowOrchestrator:
         new_hk = self.config.get("hotkey")
         new_mode = self.config.get("hotkey_mode")
         new_exclusive = self.config.get("hotkey_exclusive", False)
-        if (new_hk and new_hk != old_hk) or (new_mode and new_mode != old_mode) or new_exclusive != old_exclusive:
+        new_mute_enabled = bool(self.config.get("hold_to_mute_enabled", False))
+        new_mute_hotkey = self.config.get("mute_hotkey", "Ctrl+Space")
+        if ((new_hk and new_hk != old_hk) or (new_mode and new_mode != old_mode)
+                or new_exclusive != old_exclusive
+                or new_mute_enabled != old_mute_enabled
+                or new_mute_hotkey != old_mute_hotkey):
             print(f"[Orchestrator] Re-registering hotkey service with updated shortcut '{new_hk}' (mode={new_mode})...")
             self.stop_hotkey_listener()
             from engine.hotkey_service import get_hotkey_service
             self.hotkey_service = get_hotkey_service()
             self.start_hotkey_listener()
         return True
+
+    def _set_recording_muted(self, muted: bool):
+        """Apply a temporary capture mute without ending the active session."""
+        setter = getattr(self.recorder, "set_muted", None)
+        if not callable(setter):
+            return False
+        active = bool(getattr(self.recorder, "is_recording", False))
+        if not active:
+            return False
+        setter(bool(muted))
+        is_muted = bool(getattr(self.recorder, "is_muted", False))
+        self._notify(AppState.RECORDING, {
+            "is_muted": is_muted,
+            "notice": "Microphone muted" if is_muted else "Microphone resumed",
+        })
+        return is_muted
 
     def re_copy_last(self) -> bool:
         """Copies the last dictation text directly to clipboard with UI feedback."""
@@ -958,6 +1006,17 @@ class FlowOrchestrator:
 
             for shortcut, callback in self._auxiliary_hotkeys.items():
                 self.hotkey_service.register(shortcut, callback)
+
+            if self.config.get("hold_to_mute_enabled", False):
+                mute_shortcut = self.config.get("mute_hotkey", "Ctrl+Space")
+                self.hotkey_service.register(
+                    mute_shortcut,
+                    lambda: self._set_recording_muted(True),
+                    on_release=lambda: self._set_recording_muted(False),
+                )
+                self._mute_hotkey_registered = True
+            else:
+                self._mute_hotkey_registered = False
 
             # Register Alt+Shift+Z (Paste Last) and Alt+Shift+X (Copy Last) for instant recovery (Wispr Flow alignment)
             try:

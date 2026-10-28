@@ -54,6 +54,7 @@ def test_hotkey_resolution():
     class FakeService:
         def __init__(self):
             self.keys = []
+            self.bindings = []
             self.alive = False
             self.stats = {"errors": []}
 
@@ -62,6 +63,7 @@ def test_hotkey_resolution():
 
         def register(self, key, callback, on_release=None):
             self.keys.append(key)
+            self.bindings.append((key, callback, on_release))
 
         def start(self, timeout=3.0):
             self.alive = True
@@ -105,6 +107,42 @@ def test_hotkey_resolution():
         assert isolated.config["hotkey"] == "Ctrl+F9"
     isolated.stop_hotkey_listener()
     print("[4] F9 is the sole dictation shortcut; rebinding preserves auxiliary actions and rejects reserved keys.")
+
+    # Optional hold-to-mute uses the existing press/release callback contract.
+    mute_orch = FlowOrchestrator.__new__(FlowOrchestrator)
+    mute_orch.config = {
+        "hotkey": "F9", "hotkey_mode": "toggle", "hotkey_exclusive": True,
+        "hold_to_mute_enabled": True, "mute_hotkey": "Ctrl+Space",
+    }
+    mute_orch.hotkey_service = FakeService()
+    mute_orch._auxiliary_hotkeys = {}
+    mute_orch._mute_hotkey_registered = False
+    mute_orch.state = "RECORDING"
+    mute_orch._notify = lambda *_args, **_kwargs: None
+
+    class FakeRecorder:
+        is_recording = True
+        is_muted = False
+
+        def set_muted(self, value):
+            self.is_muted = bool(value)
+
+    mute_orch.recorder = FakeRecorder()
+    mute_orch.start_hotkey_listener()
+    mute_binding = next(binding for binding in mute_orch.hotkey_service.bindings if binding[0] == "Ctrl+Space")
+    mute_binding[1]()
+    assert mute_orch.recorder.is_muted is True
+    mute_binding[2]()
+    assert mute_orch.recorder.is_muted is False
+    mute_orch.stop_hotkey_listener()
+    print("[5] Hold-to-mute press and release callbacks preserve one recording session.")
+
+    # Bare Space is intentionally refused before any configuration is saved.
+    reject_orch = FlowOrchestrator.__new__(FlowOrchestrator)
+    reject_orch.config = {"hotkey": "F9", "hotkey_mode": "toggle", "mute_hotkey": "Ctrl+Space"}
+    reject_orch.hotkey_service = FakeService()
+    assert reject_orch.update_config({"hold_to_mute_enabled": True, "mute_hotkey": "Space"}) is False
+    print("[6] Bare Space hold-to-mute binding rejected safely.")
 
     # 2. Test orchestrator start and stop with Win32HotkeyService
     orchestrator = FlowOrchestrator()
