@@ -48,6 +48,7 @@ RESERVED_FLOWPILOT_SHORTCUTS = {
     (MOD_CONTROL | MOD_ALT, VK_MAPPING["T"]): "Selected-text transforms (Ctrl+Alt+T)",
     (MOD_ALT | MOD_SHIFT, VK_MAPPING["Z"]): "Paste last dictation (Alt+Shift+Z)",
     (MOD_ALT | MOD_SHIFT, VK_MAPPING["X"]): "Copy last dictation (Alt+Shift+X)",
+    (MOD_ALT | MOD_SHIFT, VK_MAPPING["U"]): "Undo last rewrite (Alt+Shift+U)",
 }
 
 RESERVED_WINDOWS_SHORTCUTS = {

@@ -66,7 +66,7 @@ def main():
     print(f"Compiling installer from: {ISS_PATH} ...")
 
     cmd = [str(iscc_exe), str(ISS_PATH)]
-    res = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
+    res = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8", errors="replace")
     
     if res.returncode != 0:
         print("[Error] ISCC failed with code", res.returncode)

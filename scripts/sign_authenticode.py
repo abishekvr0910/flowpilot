@@ -47,11 +47,11 @@ def find_signtool() -> Optional[Path]:
 def verify_file_signature(target_path: Path) -> dict:
     """Verifies Authenticode signature via PowerShell Get-AuthenticodeSignature."""
     ps_cmd = f"(Get-AuthenticodeSignature -LiteralPath '{str(target_path)}').Status.ToString()"
-    res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True)
+    res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True, encoding="utf-8", errors="replace")
     status_str = res.stdout.strip() if res.returncode == 0 else "Unknown"
 
     ps_detail = f"(Get-AuthenticodeSignature -LiteralPath '{str(target_path)}') | Select-Object Status, StatusMessage, @{{N='Subject';E={{$_.SignerCertificate.Subject}}}} | ConvertTo-Json"
-    res_detail = subprocess.run(["powershell", "-NoProfile", "-Command", ps_detail], capture_output=True, text=True)
+    res_detail = subprocess.run(["powershell", "-NoProfile", "-Command", ps_detail], capture_output=True, text=True, encoding="utf-8", errors="replace")
     
     return {
         "file": str(target_path),
@@ -86,7 +86,7 @@ def sign_artifact(
         raise ValueError("Must provide either cert_path (.pfx) or thumbprint (Certificate Store).")
 
     cmd.append(str(target_path))
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     return res.returncode == 0
 
 
