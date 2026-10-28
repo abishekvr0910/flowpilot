@@ -6,8 +6,8 @@ The [release page](https://github.com/abishekvr0910/flowpilot/releases) lists st
 
 ## Install a published build
 
-1. Download the Windows ZIP from the repository's GitHub release page. Check its SHA-256 against the matching [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md).
-2. Extract the **whole folder**, including supporting libraries, and inspect the executable's publisher signature using the [release guide](docs/release/flowpilot_build_and_release.md). If Windows blocks the build, verify its origin before proceeding.
+1. Download either the 1-Click Setup installer (`FlowPilot-Setup.exe`) or the portable Windows ZIP from the repository's GitHub release page. Check its SHA-256 against the matching [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md).
+2. For the installer, run `FlowPilot-Setup.exe` (installs cleanly to `{localappdata}\Programs\FlowPilot` without requesting admin elevation). For the portable ZIP, extract the **whole folder**, including supporting libraries, and inspect the executable's publisher signature using the [release guide](docs/release/flowpilot_build_and_release.md). If Windows blocks the build, verify its origin before proceeding.
 3. Run `FlowPilot.exe` as a normal user. Use the tray icon to access settings and quit.
 4. Allow desktop microphone access in Windows Settings and select your intended recording device. Check that local model weights are available; current source will report a missing-model error rather than silently downloading them.
 
@@ -62,6 +62,8 @@ Other controls in current source:
 | Push to talk | Hold F9, speak, then release |
 | Hands-free latch | Double-tap F9; tap again to stop |
 | Recover the latest dictation | Alt+Shift+Z, or tray > Copy Last Dictation |
+| Copy latest dictation to clipboard | Alt+Shift+X |
+| Undo last selection rewrite | Alt+Shift+U |
 | Change appearance | Companion context menu or Companion Studio |
 | Move the companion | Drag, or use its placement menu |
 
@@ -75,6 +77,6 @@ See [SUPPORT.md](SUPPORT.md) for microphone, model, elevated-window, and reporti
 
 ## Voice formatting
 
-Current-source formatting supports commands such as `comma`, `new line`, `new paragraph`, `scratch that`, `camel case user profile`, and `snake case api key`. Recognition and formatting can still be wrong: review numbers, negations, identifiers, and commands before using the result. Choose verbatim mode when minimal post-processing is preferred.
+Current-source formatting supports commands such as `comma`, `new line`, `new paragraph`, `scratch that`, `camel case user profile`, and `snake case api key`. Universal selection rewriting allows highlighting text in any application and dictating replacement instructions directly in-place, with instant rollback via **`Alt+Shift+U`**. Recognition and formatting can still be wrong: review numbers, negations, identifiers, and commands before using the result. Choose verbatim mode when minimal post-processing is preferred.
 
 For configuration, optional local integrations, and architecture, see the [README](README.md). For release evidence and remaining limitations, see [Evaluating FlowPilot](TRUST.md).

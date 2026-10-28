@@ -18,7 +18,7 @@ FlowPilot is an open-source Windows dictation app with speech recognition on you
 
 ## Current release assurance
 
-The local `dist/FlowPilot/FlowPilot.exe` inspected on October 18 returned `NotSigned` from Windows Authenticode. That observation applies to this local executable, not automatically to the published ZIP. Publisher signing and exact-artifact verification remain release work. Check the downloaded executable's signature using the [release guide](docs/release/flowpilot_build_and_release.md).
+The repository includes an Authenticode code signing automation harness (`scripts/sign_authenticode.py`) supporting Windows SDK `signtool.exe`, dual SHA-256 digests, and RFC 3161 timestamps (DigiCert and Sectigo), alongside an Inno Setup installer (`installer/flowpilot_setup.iss`). Check the downloaded executable's signature using PowerShell `Get-AuthenticodeSignature` and the [release guide](docs/release/flowpilot_build_and_release.md).
 
 This repository does not establish an independent security audit, SOC 2/ISO certification, a contractual support SLA, or a 99.9% insertion guarantee. The security policy describes implemented boundaries and known limitations. The [governance status](docs/security/GITHUB_BRANCH_PROTECTION.md) records which GitHub controls were observed and which are proposed.
 
