@@ -99,6 +99,8 @@ async def api_status():
         "version": __version__,
         "engine_state": getattr(orchestrator.state, "value", str(orchestrator.state)),
         "is_recording": orchestrator.recorder.is_recording,
+        "is_muted": bool(getattr(orchestrator.recorder, "is_recording", False)
+                          and getattr(orchestrator.recorder, "is_muted", False)),
         "active_profile": orchestrator.config.get("profile", "developer"),
         "model": orchestrator.config.get("local_model_size", "base")
     }
@@ -120,7 +122,9 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_text(json.dumps({
             "state": "connected",
             "config": redact_sensitive_config(orchestrator.config),
-            "is_recording": orchestrator.recorder.is_recording
+            "is_recording": orchestrator.recorder.is_recording,
+            "is_muted": bool(getattr(orchestrator.recorder, "is_recording", False)
+                              and getattr(orchestrator.recorder, "is_muted", False)),
         }))
         while True:
             # Keep alive and listen for client commands
@@ -158,7 +162,12 @@ async def set_config(new_config: Dict[str, Any]):
 @app.post("/api/toggle")
 async def toggle_dictation():
     orchestrator.toggle_dictation()
-    return {"status": "triggered", "is_recording": orchestrator.recorder.is_recording}
+    return {
+        "status": "triggered",
+        "is_recording": orchestrator.recorder.is_recording,
+        "is_muted": bool(getattr(orchestrator.recorder, "is_recording", False)
+                          and getattr(orchestrator.recorder, "is_muted", False)),
+    }
 
 @app.get("/api/history")
 async def get_history():

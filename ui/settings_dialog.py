@@ -241,6 +241,21 @@ class SettingsDialog(QDialog):
         mode_layout.addWidget(self.radio_ptt)
         vbox.addLayout(mode_layout)
 
+        # Optional temporary capture mute. A modifier shortcut is required so
+        # normal Space typing is never intercepted globally on Windows.
+        self.chk_hold_mute = QCheckBox("Enable hold-to-mute while dictating")
+        self.chk_hold_mute.setChecked(self.config.get("hold_to_mute_enabled", False))
+        vbox.addWidget(self.chk_hold_mute)
+        mute_row = QHBoxLayout()
+        mute_row.addWidget(QLabel("Mute shortcut"))
+        self.combo_mute_shortcut = QComboBox()
+        self.combo_mute_shortcut.setEditable(True)
+        self.combo_mute_shortcut.addItems(["Ctrl+Space", "Ctrl+Alt+M", "Ctrl+Shift+M"])
+        self.combo_mute_shortcut.setCurrentText(self.config.get("mute_hotkey", "Ctrl+Space"))
+        mute_row.addWidget(self.combo_mute_shortcut, 1)
+        vbox.addLayout(mute_row)
+        vbox.addWidget(label("Hold the shortcut to pause capture without ending the session. Muted audio is not transcribed or saved.", "muted"))
+
         # Primary Shortcut Selector & Availability Check
         lbl_shortcut = QLabel("Primary Global Keyboard Shortcut:")
         vbox.addWidget(lbl_shortcut)
@@ -673,6 +688,8 @@ class SettingsDialog(QDialog):
         self.config["hotkey"] = self.combo_shortcut.currentText().strip()
         self.config["hotkey_exclusive"] = True
         self.config["hotkey_mode"] = "push_to_talk" if self.radio_ptt.isChecked() else "toggle"
+        self.config["hold_to_mute_enabled"] = self.chk_hold_mute.isChecked()
+        self.config["mute_hotkey"] = self.combo_mute_shortcut.currentText().strip()
         self.config["ducking_enabled"] = self.chk_ducking.isChecked()
         self.config["sound_effects_enabled"] = self.chk_sound.isChecked()
         

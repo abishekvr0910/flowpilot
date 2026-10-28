@@ -69,6 +69,7 @@ class FloatingHUD(QWidget):
         self._presentation_style = "normal"
         self._edge_original_pos = None
         self._audio_level = 0.0
+        self._is_muted = False
         self._tick = 0
         self._is_blinking = False
         self._blink_counter = 0
@@ -220,6 +221,14 @@ class FloatingHUD(QWidget):
 
         if (st in ("pasted", "success") and not extra.get("injection_confirmed", True)) or st in ("unverified", "sent_unverified"):
             st = "unverified"
+
+        if st in ("listening", "recording"):
+            self._is_muted = bool(extra.get("is_muted", False))
+            if self._is_muted:
+                self._audio_level = 0.0
+                self.setToolTip("Microphone muted — hold the mute shortcut to resume")
+        else:
+            self._is_muted = False
 
         self._is_unverified = (st == "unverified")
 

@@ -132,6 +132,7 @@ async def client_test():
         initial_data = json.loads(initial_msg)
         print(f"  Received event: '{initial_data.get('state')}' (is_recording={initial_data.get('is_recording')})")
         assert initial_data.get("state") == "connected", "Initial event was not 'connected'"
+        assert initial_data.get("is_muted") is False, "Initial API state must report an unmuted session"
 
         # Send start recording action
         print("\n[Step 4] Sending WebSocket action: 'start'...")
