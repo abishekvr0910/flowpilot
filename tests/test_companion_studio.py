@@ -255,14 +255,20 @@ def test_learning_engine_disabled_by_default(temp_dir):
     assert len(le.load()["observations"]) == 0
 
 def test_learning_engine_3_day_consensus_heuristic(temp_dir):
+    from datetime import datetime, timedelta
     le = PreferenceLearningEngine(storage_dir=temp_dir)
     le.set_enabled(True)
 
+    today = datetime.now()
+    d1 = (today - timedelta(days=3)).strftime("%Y-%m-%d")
+    d2 = (today - timedelta(days=2)).strftime("%Y-%m-%d")
+    d3 = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+
     # Manually inject observations across 3 distinct days
     le._data["observations"] = [
-        {"app_id": "code.exe", "setting_key": "reduced_motion", "value": True, "date_str": "2026-10-14"},
-        {"app_id": "code.exe", "setting_key": "reduced_motion", "value": True, "date_str": "2026-10-15"},
-        {"app_id": "code.exe", "setting_key": "reduced_motion", "value": True, "date_str": "2026-10-16"}
+        {"app_id": "code.exe", "setting_key": "reduced_motion", "value": True, "date_str": d1},
+        {"app_id": "code.exe", "setting_key": "reduced_motion", "value": True, "date_str": d2},
+        {"app_id": "code.exe", "setting_key": "reduced_motion", "value": True, "date_str": d3}
     ]
     le._persist_unlocked()
 
