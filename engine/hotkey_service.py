@@ -149,9 +149,24 @@ class TapLatch:
         if action:
             action()
 
+    def latch_to_toggle(self) -> bool:
+        """
+        Transition from HELD push-to-talk into LATCHED hands-free mode.
+        When latched, releasing the hold key will not stop recording.
+        """
+        with self._lock:
+            if self.state == self.HELD:
+                self.state = self.LATCHED
+                logger.info("[TapLatch] Switched from hold-to-talk to latched hands-free mode.")
+                return True
+            return False
+
     def release(self):
         action = None
         with self._lock:
+            if self.state == self.LATCHED:
+                # Releasing the key while in latched mode is a no-op (hands-free recording stays active)
+                return
             if self.state != self.HELD:
                 return
             now = self._clock()

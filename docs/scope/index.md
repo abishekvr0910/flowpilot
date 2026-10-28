@@ -4,7 +4,7 @@ Current status and boundaries for the FlowPilot desktop dictation and writing pr
 
 ## At a glance
 
-FlowPilot is a Windows-first, 100% offline dictation and private writing tool. This index tracks verified software capabilities and the planned path through the current release cycle. The published pilot prerelease is **RC8** (v3.1.0-RC8). See the [release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) for artifact hashes, test evidence, and open gates.
+FlowPilot is a Windows-first, 100% offline dictation and private writing tool. For the complete whole-product specification and verification standard across all 13 core subsystems, see the [Whole-Product Master Scope and Acceptance Criteria](FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md). The published pilot prerelease is **RC11** (v3.1.0-RC11). See the [release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) for artifact hashes, test evidence, and open gates.
 
 | ID | Capability or milestone | Area | Status |
 |---|---|---|---|
@@ -36,8 +36,8 @@ FlowPilot is a Windows-first, 100% offline dictation and private writing tool. T
 | 27 | Media audio aware hiding | Product quality | in-progress |
 | 21 | Original character quality and rights | Product quality | planned |
 | 22 | Safe editing beyond the scratchpad | Product quality | planned |
-| 30 | Optional local text repair and infilling | Product quality | in-progress (sandbox) |
-| 31 | Approved local correction learning | Product quality | planned |
+| 30 | Optional local text repair and infilling | Product quality | done (sandbox) |
+| 31 | Approved local correction learning | Product quality | done |
 | 23 | Optional editor presence | Later | planned |
 | 24 | Windowed media and screen share behavior | Later | closed (manual app rules) |
 

@@ -67,6 +67,16 @@ def test_stt_model():
         print("FAILED: Result format invalid.")
         return False
 
+    # Verify idle model unloader reclaims memory
+    status_before = stt.get_model_status()
+    assert status_before["status"] == "ready"
+    unloaded = stt.unload_model()
+    assert unloaded is True
+    status_after = stt.get_model_status()
+    assert status_after["status"] == "unloaded"
+    assert status_after["active_size"] is None
+    print("[STT] Idle model unloader verified successfully.")
+
     print("\n[RESULT] Local STT model verified and functioning properly.")
     return True
 

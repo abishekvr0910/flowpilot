@@ -87,6 +87,9 @@ class FlowOrchestrator:
         self._speech_detected: bool = False
         self._speech_start_time: float = 0.0
         self.last_pipeline_timing: Dict[str, Any] = {}
+        self._tap_latch: Optional[Any] = None
+        self._idle_unload_timer: Optional[threading.Timer] = None
+        self._idle_unload_timeout_sec: float = float(self.config.get("idle_model_unload_sec", 600.0))
         
         # Link audio level callback
         self.recorder.level_callback = self._on_audio_level
@@ -105,6 +108,61 @@ class FlowOrchestrator:
                 logger.info("LocalTextRepair initialized; non-blocking background warmup started.")
             except Exception as e:
                 logger.warning("LocalTextRepair initialization failed: %s", e)
+
+        # Start idle unloader schedule
+        self._schedule_idle_unloader()
+
+    def _cancel_idle_unloader(self):
+        with self._state_lock:
+            if getattr(self, "_idle_unload_timer", None) is not None:
+                self._idle_unload_timer.cancel()
+                self._idle_unload_timer = None
+
+    def _schedule_idle_unloader(self):
+        with self._state_lock:
+            if getattr(self, "_idle_unload_timer", None) is not None:
+                self._idle_unload_timer.cancel()
+                self._idle_unload_timer = None
+            timeout = getattr(self, "_idle_unload_timeout_sec", 600.0)
+            if timeout > 0:
+                t = threading.Timer(timeout, self._on_idle_unload_timeout)
+                t.daemon = True
+                self._idle_unload_timer = t
+                t.start()
+
+    def _on_idle_unload_timeout(self):
+        with self._state_lock:
+            rec = getattr(self.recorder, "is_recording", False) if hasattr(self, "recorder") else False
+            if self.state != AppState.IDLE or rec or getattr(self, "is_processing", False):
+                return
+        logger.info("[Orchestrator] Idle timeout reached. Unloading inactive models to free system RAM.")
+        try:
+            if hasattr(self, "stt") and self.stt is not None:
+                self.stt.unload_model()
+        except Exception as e:
+            logger.debug("STT model unload exception: %s", e)
+        try:
+            if hasattr(self, "text_repair") and self.text_repair is not None:
+                self.text_repair.unload_model()
+        except Exception as e:
+            logger.debug("Text repair model unload exception: %s", e)
+
+    def _schedule_correction_check(self, target_hwnd: Optional[int], injected_text: str):
+        if not target_hwnd:
+            return
+        def _check():
+            try:
+                buf = TextInjector.read_window_buffer(target_hwnd)
+                if buf:
+                    from engine.writing_intelligence import get_correction_detector
+                    get_correction_detector().inspect_buffer_change(buf, hwnd=target_hwnd)
+            except Exception as e:
+                logger.debug("Correction inspection exception: %s", e)
+
+        for delay in (5.0, 15.0):
+            t = threading.Timer(delay, _check)
+            t.daemon = True
+            t.start()
 
     def _notify(self, state: str, extra: Optional[Dict[str, Any]] = None):
         legacy_map = {
@@ -197,11 +255,13 @@ class FlowOrchestrator:
                         active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
+                        self._schedule_idle_unloader()
                 return
 
         threading.Thread(target=watch, daemon=True, name="FlowPilot-CaptureWatchdog").start()
 
     def start_dictation(self, translation_mode: Optional[bool] = None):
+        self._cancel_idle_unloader()
         with self._state_lock:
             if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
                 print(f"[Orchestrator] start_dictation ignored: currently in state {self.state}")
@@ -457,11 +517,22 @@ class FlowOrchestrator:
                 # Post-process via ContextProcessor (using English formatting if translated, or detected language if original)
                 t_clean_start = time.perf_counter()
                 format_lang = "en" if stt_task == "translate" else detected_lang
+
+                target_hwnd = active_session.target_window_info.get("hwnd") if active_session.target_window_info else None
+                preceding_text, following_text = None, None
+                if target_hwnd:
+                    try:
+                        preceding_text, following_text = TextInjector.get_caret_surrounding_text(target_hwnd)
+                    except Exception as e:
+                        logger.debug("Failed to query caret context: %s", e)
+
                 formatted_text = self.processor.process(
                     raw_text,
                     active_session.target_window_info,
                     session_mode=active_session.tone_mode,
-                    language=format_lang
+                    language=format_lang,
+                    preceding_text=preceding_text,
+                    following_text=following_text
                 )
                 if self.personalization:
                     expanded_text, trigger = self.personalization.expand_snippets(formatted_text)
@@ -518,6 +589,8 @@ class FlowOrchestrator:
                 t_inj_end = time.perf_counter()
                 active_session.injection_method = injection_method
                 active_session.injection_success = success
+                if success and target_hwnd:
+                    self._schedule_correction_check(target_hwnd, formatted_text)
 
                 # Stage-level high-precision timing calculations
                 user_stop_to_cap_ms = round((t_cap_end - stop_action_time) * 1000, 2)
@@ -686,6 +759,14 @@ class FlowOrchestrator:
         threading.Thread(target=process_worker, args=(session, t_stop_action), daemon=True, name="FlowPilot-Processor").start()
 
     def toggle_dictation(self, translation_mode: Optional[bool] = None):
+        # Hold-to-Toggle Latching: If recording was initiated via push-to-talk,
+        # tapping toggle latches into hands-free mode without stopping recording.
+        tap_latch = getattr(self, "_tap_latch", None)
+        if tap_latch and hasattr(tap_latch, "latch_to_toggle") and tap_latch.state == getattr(tap_latch, "HELD", None):
+            if self._tap_latch.latch_to_toggle():
+                print("[Orchestrator] Hold-to-Toggle latching activated: switched to hands-free recording.")
+                return
+
         with self._state_lock:
             cur = self.state
 

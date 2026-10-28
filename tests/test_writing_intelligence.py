@@ -132,7 +132,78 @@ def test_wispr_flow_spoken_commands():
 
     print("\n[RESULT] Wispr Flow Spoken Commands PASSED 100%.")
 
+def test_caret_aware_context_formatting():
+    """Verify caret-aware capitalization suppression and duplicate punctuation prevention."""
+    from engine.writing_intelligence import WritingIntelligence
+    wi = WritingIntelligence()
+
+    print("\n=================================================================")
+    print("AUDIT TEST: CARET-AWARE CONTEXT FORMATTING")
+    print("=================================================================")
+
+    # 1. Mid-sentence capitalization suppression
+    res_mid = wi.polish("we should go", mode="polished", style="professional", preceding_text="I really think ")
+    print(f"[1] Mid-Sentence Insertion:\n    Preceding: 'I really think '\n    Result:    '{res_mid['text']}'")
+    assert res_mid["text"].startswith("we should go"), f"Expected lowercase 'we', got {res_mid['text']}"
+
+    # 2. Start of sentence capitalization preserved
+    res_start = wi.polish("we should go", mode="polished", style="professional", preceding_text="This was great. ")
+    print(f"[2] Start-Of-Sentence Insertion:\n    Preceding: 'This was great. '\n    Result:    '{res_start['text']}'")
+    assert res_start["text"].startswith("We should go"), f"Expected uppercase 'We', got {res_start['text']}"
+
+    # 3. Duplicate terminal punctuation prevention
+    res_dup = wi.polish("thanks very much.", mode="polished", style="professional", following_text=".")
+    print(f"[3] Duplicate Punctuation Suppression:\n    Following: '.'\n    Result:    '{res_dup['text']}'")
+    assert not res_dup["text"].endswith("."), f"Expected stripped trailing period, got {res_dup['text']}"
+
+    print("[RESULT] Caret-Aware Formatting PASSED 100%.")
+
+
+def test_automatic_correction_detector():
+    """Verify AutomaticCorrectionDetector diff extraction, 2x occurrence threshold, and cooldown."""
+    from engine.writing_intelligence import AutomaticCorrectionDetector
+    import time
+    detector = AutomaticCorrectionDetector(required_occurrences=2, window_days=7)
+    detector.clear()
+
+    print("\n=================================================================")
+    print("AUDIT TEST: AUTOMATIC CORRECTION DETECTOR (FLUIDVOICE PARITY)")
+    print("=================================================================")
+
+    # 1. Diff pair extraction
+    diff = detector.extract_diff_pair("We deployed K8s to prod.", "We deployed Kubernetes to prod.")
+    print(f"[1] Diff Extraction:\n    Pair: {diff}")
+    assert diff == ("K8s", "Kubernetes")
+
+    # 2. First occurrence: no suggestion yet
+    t0 = time.time()
+    detector.record_occurrence("K8s", "Kubernetes", timestamp=t0)
+    suggestions = detector.get_pending_suggestions(now=t0)
+    print(f"[2] First Occurrence (count 1):\n    Pending: {suggestions}")
+    assert len(suggestions) == 0
+
+    # 3. Second occurrence within 7 days: surfaces as pending suggestion
+    t1 = t0 + 86400  # 1 day later
+    detector.record_occurrence("K8s", "Kubernetes", timestamp=t1)
+    suggestions = detector.get_pending_suggestions(now=t1)
+    print(f"[3] Second Occurrence (count 2 within 7d):\n    Pending: {suggestions}")
+    assert len(suggestions) == 1
+    assert suggestions[0]["heard"] == "K8s"
+    assert suggestions[0]["corrected"] == "Kubernetes"
+    assert suggestions[0]["occurrences"] == 2
+
+    # 4. User dismissal cooldown
+    detector.dismiss_suggestion("K8s", "Kubernetes", cooldown_days=7, now=t1)
+    suggestions_after_dismiss = detector.get_pending_suggestions(now=t1)
+    print(f"[4] After 7-Day Dismissal Cooldown:\n    Pending: {suggestions_after_dismiss}")
+    assert len(suggestions_after_dismiss) == 0
+
+    print("[RESULT] Automatic Correction Detector PASSED 100%.")
+
+
 if __name__ == "__main__":
     test_writing_intelligence()
     test_wispr_flow_spoken_commands()
+    test_caret_aware_context_formatting()
+    test_automatic_correction_detector()
     sys.exit(0)

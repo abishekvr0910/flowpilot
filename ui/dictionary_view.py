@@ -40,6 +40,22 @@ class DictionaryView(QWidget):
         header_box.addWidget(lbl_subtitle)
         layout.addLayout(header_box)
 
+        # Suggestions Container (Auto-learned vocabulary from user corrections)
+        self.card_suggestions = QFrame()
+        self.card_suggestions.setStyleSheet("""
+            QFrame {
+                background-color: #172554;
+                border: 1px solid #1E40AF;
+                border-radius: 10px;
+                padding: 12px;
+            }
+        """)
+        self.suggestions_vbox = QVBoxLayout(self.card_suggestions)
+        self.suggestions_vbox.setContentsMargins(12, 10, 12, 10)
+        self.suggestions_vbox.setSpacing(8)
+        self.card_suggestions.setVisible(False)
+        layout.addWidget(self.card_suggestions)
+
         # Add Term Card
         card_add = QFrame()
         card_add.setStyleSheet("""
@@ -216,6 +232,48 @@ class DictionaryView(QWidget):
         layout.addLayout(btn_bar)
 
     def reload_dictionary(self):
+        # Auto-learned suggestions from user manual corrections
+        try:
+            from engine.writing_intelligence import get_correction_detector
+            suggestions = get_correction_detector().get_pending_suggestions()
+        except Exception:
+            suggestions = []
+
+        while self.suggestions_vbox.count():
+            item = self.suggestions_vbox.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if suggestions:
+            self.card_suggestions.setVisible(True)
+            lbl_sugg_title = QLabel(f"💡 Auto-Detected Vocabulary ({len(suggestions)}) — Learned from your manual corrections:")
+            lbl_sugg_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #93C5FD;")
+            self.suggestions_vbox.addWidget(lbl_sugg_title)
+
+            for s in suggestions:
+                s_row = QHBoxLayout()
+                heard_txt = s.get("heard", "")
+                corr_txt = s.get("corrected", "")
+                occ = s.get("occurrences", 2)
+
+                lbl_desc = QLabel(f"<b>{corr_txt}</b>  (heard as <i>'{heard_txt}'</i>, corrected {occ}×)")
+                lbl_desc.setStyleSheet("color: #E2E8F0; font-size: 13px;")
+
+                btn_accept = QPushButton(f"+ Add '{corr_txt}'")
+                btn_accept.setStyleSheet("background-color: #2563EB; color: white; font-weight: bold; padding: 4px 10px; border-radius: 4px; font-size: 11px;")
+                btn_accept.clicked.connect(lambda _, h=heard_txt, c=corr_txt: self._on_accept_suggestion(h, c))
+
+                btn_dismiss = QPushButton("Dismiss")
+                btn_dismiss.setStyleSheet("background-color: #334155; color: #94A3B8; padding: 4px 8px; border-radius: 4px; font-size: 11px;")
+                btn_dismiss.clicked.connect(lambda _, h=heard_txt, c=corr_txt: self._on_dismiss_suggestion(h, c))
+
+                s_row.addWidget(lbl_desc, 1)
+                s_row.addWidget(btn_accept)
+                s_row.addWidget(btn_dismiss)
+                self.suggestions_vbox.addLayout(s_row)
+        else:
+            self.card_suggestions.setVisible(False)
+
         query = self.input_search.text().strip().lower()
         self.table.setRowCount(0)
         terms = self.personalization.dictionary
@@ -287,6 +345,28 @@ class DictionaryView(QWidget):
     def _on_delete_term(self, term: str):
         self.personalization.remove_term(term)
         self.personalization.save()
+        self.reload_dictionary()
+
+    def _on_accept_suggestion(self, heard: str, corrected: str):
+        self.personalization.add_term(
+            term=corrected,
+            alias=heard,
+            aliases=[heard]
+        )
+        self.personalization.save()
+        try:
+            from engine.writing_intelligence import get_correction_detector
+            get_correction_detector().dismiss_suggestion(heard, corrected, cooldown_days=365)
+        except Exception:
+            pass
+        self.reload_dictionary()
+
+    def _on_dismiss_suggestion(self, heard: str, corrected: str):
+        try:
+            from engine.writing_intelligence import get_correction_detector
+            get_correction_detector().dismiss_suggestion(heard, corrected, cooldown_days=7)
+        except Exception:
+            pass
         self.reload_dictionary()
 
     def _on_import(self):

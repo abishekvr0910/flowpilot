@@ -266,6 +266,27 @@ class STTEngine:
                     self._active_inferences = 0
                     self._inference_cond.notify_all()
 
+    def unload_model(self) -> bool:
+        """
+        Releases the local Whisper model weights from memory during idle periods.
+        Reclaims 500MB-1.5GB of host RAM without shutting down the engine permanently.
+        A subsequent transcribe request automatically re-acquires the model.
+        """
+        with self._model_lock:
+            if self._active_inferences > 0 or self._shutdown:
+                return False
+            if self._local_model is not None:
+                del self._local_model
+                self._local_model = None
+                self._model_status = "unloaded"
+                self._active_model_size = None
+                self._active_model_target = None
+                self._active_model_key = None
+                import gc
+                gc.collect()
+                return True
+            return False
+
     def shutdown(self):
         """Releases model ownership and prevents subsequent executions."""
         with self._model_lock:

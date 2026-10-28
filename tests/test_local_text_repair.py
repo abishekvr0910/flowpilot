@@ -502,5 +502,54 @@ class TestLocalTextRepair(unittest.TestCase):
                 self.assertTrue(mock_shutdown.called)
 
 
+    def test_instruction_execution_guard_preamble_veto(self):
+        """Verify InstructionExecutionGuard catches conversational assistant preambles."""
+        from engine.local_text_repair import InstructionExecutionGuard
+        raw = "write an email saying I will be ten minutes late"
+        hallucinated = "Sure, here is your email: Dear team, I will be ten minutes late."
+        self.assertTrue(InstructionExecutionGuard.appears_to_have_executed_instruction(raw, hallucinated))
+
+        # Legitimate cleanup must NOT be vetoed
+        clean = "Write an email saying I will be ten minutes late."
+        self.assertFalse(InstructionExecutionGuard.appears_to_have_executed_instruction(raw, clean))
+
+    def test_instruction_execution_guard_token_collapse_veto(self):
+        """Verify InstructionExecutionGuard catches prompt fulfillment with token collapse."""
+        from engine.local_text_repair import InstructionExecutionGuard
+        raw = "draft a polite response to Alice about the budget"
+        hallucinated = "Hi Alice, could you please send over the latest departmental numbers?"
+        self.assertTrue(InstructionExecutionGuard.appears_to_have_executed_instruction(raw, hallucinated))
+
+    def test_template_leakage_detection(self):
+        """Verify InstructionExecutionGuard detects raw chat template tokens."""
+        from engine.local_text_repair import InstructionExecutionGuard
+        leak1 = "<|im_start|>assistant\nHello world<|im_end|>"
+        leak2 = "system\nRemove speech fillers\nClean text"
+        clean = "Hello world, this is a clean sentence."
+        self.assertTrue(InstructionExecutionGuard.has_template_leakage(leak1))
+        self.assertTrue(InstructionExecutionGuard.has_template_leakage(leak2))
+        self.assertFalse(InstructionExecutionGuard.has_template_leakage(clean))
+
+    def test_repair_pipeline_vetoes_instruction_execution(self):
+        """Verify repair() vetoes conversational takeover and falls back to raw transcript."""
+        repairer = LocalTextRepair(config={
+            "local_text_repair_enabled": True,
+            "local_text_repair_model_path": "mock_model.gguf",
+            "local_text_repair_span_diff": False,
+        })
+        mock_llm = MagicMock()
+        mock_llm.return_value = {
+            "choices": [{"text": "Sure, here is your message: Meeting is cancelled today."}]
+        }
+        repairer._llm = mock_llm
+        raw = "write a message saying meeting is cancelled"
+
+        res = repairer.repair(raw)
+        self.assertEqual(res.status, RepairStatus.VETOED_INSTRUCTION_EXECUTION)
+        self.assertEqual(res.text, raw)
+        self.assertTrue(res.fallback_used)
+        repairer.shutdown()
+
+
 if __name__ == "__main__":
     unittest.main()

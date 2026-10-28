@@ -5,7 +5,7 @@ import sys
 import time
 import threading
 import logging
-from typing import Optional
+from typing import Optional, Tuple, Dict, Any, List
 import pyperclip
 import psutil
 from engine.windows_integrity import target_has_higher_integrity
@@ -109,6 +109,40 @@ class TextInjector:
         "conhost.exe", "alacritty.exe", "wezterm-gui.exe", "kitty.exe", "mintty.exe",
         "bash.exe", "wsl.exe"
     }
+
+    # Custom synthetic event extra info signature ('FPLT' in ASCII = 0x46504C54)
+    # Allows low-level keyboard hooks to identify FlowPilot's synthetic keystrokes.
+    FLOWPILOT_SYNTHETIC_EXTRA_INFO = 0x46504C54
+
+    @classmethod
+    def _wait_for_physical_modifiers_release(cls, timeout_sec: float = 0.25) -> bool:
+        """
+        Polls GetAsyncKeyState to verify that physical modifier keys (Ctrl, Shift, Alt, Win)
+        are released before dispatching synthetic paste (Ctrl+V / Shift+Insert).
+        Prevents physical keys held by slow fingers from corrupting the paste into Ctrl+Alt+V or Ctrl+Shift+V.
+        """
+        if not HAS_WIN32 or sys.platform != "win32":
+            return True
+        try:
+            t0 = time.perf_counter()
+            modifiers = (
+                win32con.VK_CONTROL, win32con.VK_LCONTROL, win32con.VK_RCONTROL,
+                win32con.VK_MENU, win32con.VK_LMENU, win32con.VK_RMENU,  # Alt
+                win32con.VK_SHIFT, win32con.VK_LSHIFT, win32con.VK_RSHIFT,
+                win32con.VK_LWIN, win32con.VK_RWIN
+            )
+            while time.perf_counter() - t0 < timeout_sec:
+                any_held = False
+                for vk in modifiers:
+                    if win32api.GetAsyncKeyState(vk) & 0x8000:
+                        any_held = True
+                        break
+                if not any_held:
+                    return True
+                time.sleep(0.01)
+            return False
+        except Exception:
+            return True
 
     @classmethod
     def _get_target_process_name(cls, hwnd: Optional[int]) -> str:
@@ -489,6 +523,11 @@ class TextInjector:
                     cls._original_clipboard = current_clip
 
         cls.last_injected_text = text
+        try:
+            from engine.writing_intelligence import get_correction_detector
+            get_correction_detector().record_injection(text, hwnd=target_hwnd)
+        except Exception:
+            pass
 
         # Safely track intended target editor for recovery and "Paste Last"
         intended_editor = target_hwnd or (cur_fg if ('cur_fg' in locals() and cur_fg) else None)
@@ -585,19 +624,22 @@ class TextInjector:
 
             # 5. Keystroke dispatch (Ctrl+V / Shift+Insert)
             if HAS_WIN32 and sys.platform == "win32":
+                # Ensure physical modifiers from the user's hotkey are released before dispatching paste
+                cls._wait_for_physical_modifiers_release(timeout_sec=0.20)
                 keys_dispatch_started = True
+                extra = cls.FLOWPILOT_SYNTHETIC_EXTRA_INFO
                 if is_terminal:
-                    win32api.keybd_event(win32con.VK_SHIFT, 0, 0, 0)
-                    win32api.keybd_event(win32con.VK_INSERT, 0, 0, 0)
+                    win32api.keybd_event(win32con.VK_SHIFT, 0, 0, extra)
+                    win32api.keybd_event(win32con.VK_INSERT, 0, 0, extra)
                     time.sleep(key_dwell_sec)
-                    win32api.keybd_event(win32con.VK_INSERT, 0, win32con.KEYEVENTF_KEYUP, 0)
-                    win32api.keybd_event(win32con.VK_SHIFT, 0, win32con.KEYEVENTF_KEYUP, 0)
+                    win32api.keybd_event(win32con.VK_INSERT, 0, win32con.KEYEVENTF_KEYUP, extra)
+                    win32api.keybd_event(win32con.VK_SHIFT, 0, win32con.KEYEVENTF_KEYUP, extra)
                 else:
-                    win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
-                    win32api.keybd_event(ord('V'), 0, 0, 0)
+                    win32api.keybd_event(win32con.VK_CONTROL, 0, 0, extra)
+                    win32api.keybd_event(ord('V'), 0, 0, extra)
                     time.sleep(key_dwell_sec)
-                    win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
-                    win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+                    win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, extra)
+                    win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, extra)
                 time.sleep(post_paste_delay)
             elif sys.platform == "darwin":
                 # macOS Cmd+V
@@ -1032,6 +1074,98 @@ class TextInjector:
 
         # 2. Modern UI Automation fallback (WinUI 3 Notepad, Chromium, Electron, Office, Qt)
         return cls._read_via_ui_automation(target_hwnd)
+
+    @classmethod
+    def get_caret_surrounding_text(
+        cls,
+        target_hwnd: int = None,
+        char_limit: int = 250
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Inspects the target editor window at target_hwnd to extract preceding and
+        following text surrounding the active caret or selection range.
+        Uses Win32 EM_GETSEL for Edit/RichEdit controls, and UIA TextPattern for modern apps.
+        Returns (preceding_text, following_text). If unavailable, returns (None, None).
+        """
+        if not HAS_WIN32 or not target_hwnd or sys.platform != "win32":
+            return None, None
+        if not win32gui.IsWindow(target_hwnd):
+            return None, None
+
+        # 1. Win32 EM_GETSEL on Edit / RichEdit controls
+        try:
+            edit_ctrl = cls._find_edit_control(target_hwnd)
+            if edit_ctrl and win32gui.IsWindow(edit_ctrl):
+                import ctypes
+                user32 = ctypes.windll.user32
+                start_val = ctypes.c_uint32()
+                end_val = ctypes.c_uint32()
+                res = ctypes.c_size_t()
+                # EM_GETSEL = 0x00B0
+                if user32.SendMessageTimeoutW(
+                    ctypes.c_void_p(edit_ctrl),
+                    0x00B0,
+                    ctypes.byref(start_val),
+                    ctypes.byref(end_val),
+                    0x0002,
+                    150,
+                    ctypes.byref(res)
+                ):
+                    full_buf = cls.read_window_buffer(target_hwnd)
+                    if full_buf is not None:
+                        c_start = start_val.value
+                        c_end = end_val.value
+                        if 0 <= c_start <= len(full_buf):
+                            prec = full_buf[max(0, c_start - char_limit):c_start]
+                            foll = full_buf[c_end:min(len(full_buf), c_end + char_limit)]
+                            return (prec if prec else None, foll if foll else None)
+        except Exception:
+            pass
+
+        # 2. Modern UI Automation TextPattern selection inspection
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+            import comtypes.client
+            mod = comtypes.client.GetModule("UIAutomationCore.dll")
+            if not hasattr(cls, "_uia_instance") or cls._uia_instance is None:
+                cls._uia_instance = comtypes.client.CreateObject(mod.CUIAutomation)
+            uia = cls._uia_instance
+            focused = uia.GetFocusedElement()
+            if focused:
+                f_hwnd = getattr(focused, "CurrentNativeWindowHandle", 0)
+                is_match = (f_hwnd == target_hwnd)
+                if not is_match and f_hwnd and win32gui.IsWindow(f_hwnd):
+                    try:
+                        if win32gui.GetAncestor(f_hwnd, win32con.GA_ROOT) == target_hwnd:
+                            is_match = True
+                    except Exception:
+                        pass
+                if is_match:
+                    try:
+                        tp = focused.GetCurrentPattern(mod.UIA_TextPatternId)
+                        if tp:
+                            t_obj = tp.QueryInterface(mod.IUIAutomationTextPattern)
+                            sel_arr = t_obj.GetSelection()
+                            if sel_arr and sel_arr.Length > 0:
+                                sel_range = sel_arr.GetElement(0)
+                                doc_range = t_obj.DocumentRange
+
+                                pre_range = doc_range.Clone()
+                                pre_range.MoveEndpointByRange(1, sel_range, 0)
+                                prec = pre_range.GetText(char_limit)
+
+                                post_range = doc_range.Clone()
+                                post_range.MoveEndpointByRange(0, sel_range, 1)
+                                foll = post_range.GetText(char_limit)
+                                return (prec if prec else None, foll if foll else None)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        return None, None
+
 
     @classmethod
     def verify_text_injected(cls, expected_text: str, target_hwnd: int, timeout: float = 2.5) -> bool:

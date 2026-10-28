@@ -13,7 +13,9 @@ Provides two distinct operating modes:
    - FactGuard: Strict verification of numbers, currency, dates, and negations (not, never)
 """
 
+import os
 import re
+import threading
 from typing import Dict, Any, List, Optional, Tuple
 
 # Known technical glossary with accurate canonical casing
@@ -297,7 +299,9 @@ class WritingIntelligence:
         mode: str = "polished",
         style: str = "professional",
         dialect: str = "",
-        language: str = ""
+        language: str = "",
+        preceding_text: Optional[str] = None,
+        following_text: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Main processing method.
@@ -413,8 +417,10 @@ class WritingIntelligence:
         elif style == "professional":
             text = self._apply_professional(text)
 
-        # 11. Final punctuation and capitalization cleanup (style-aware)
-        text = self._finalize_punctuation(text, style=style)
+        # 11. Final punctuation and capitalization cleanup (style-aware and caret-aware)
+        text = self._finalize_punctuation(
+            text, style=style, preceding_text=preceding_text, following_text=following_text
+        )
 
         # 12. FactGuard semantic verification (Multilingual)
         custom_terms = self.personalization.get_terms_list(language=effective_lang, profile=style) if self.personalization else None
@@ -831,14 +837,26 @@ class WritingIntelligence:
                 res_lines.append("")
         return "\n".join(res_lines)
 
-    def _finalize_punctuation(self, text: str, style: str = "professional") -> str:
+    def _finalize_punctuation(
+        self,
+        text: str,
+        style: str = "professional",
+        preceding_text: Optional[str] = None,
+        following_text: Optional[str] = None
+    ) -> str:
         text = text.strip()
         if not text:
             return ""
 
-        # Remove duplicate punctuation
+        # Remove duplicate punctuation internal to text
         text = re.sub(r"\.{2,}", ".", text)
         text = re.sub(r",{2,}", ",", text)
+
+        # Caret-aware duplicate punctuation: If following text starts with punctuation, strip trailing
+        if following_text is not None and following_text.strip():
+            f_head = following_text.lstrip()
+            if f_head and f_head[0] in (".", ",", "!", "?", ";", ":"):
+                text = text.rstrip(".!?,;:")
 
         # For terminal commands, NEVER append a trailing period or capitalize initial command
         KNOWN_COMMANDS = (
@@ -852,10 +870,23 @@ class WritingIntelligence:
         is_camel_case = bool(re.match(r"^[a-z]+[A-Z][a-zA-Z0-9]*$", text))
         is_snake_case = bool(re.match(r"^[a-z0-9]+(?:_[a-z0-9]+)+$", text))
 
+        is_mid_sentence = False
+        if preceding_text is not None and preceding_text.strip():
+            p_tail = preceding_text.rstrip()
+            if p_tail and p_tail[-1] not in (".", "!", "?", ":", "\n", "\r"):
+                is_mid_sentence = True
+
         if style != "terminal" and not is_cli_cmd and not is_camel_case and not is_snake_case:
-            # Capitalize start if alphabetic
-            if text and text[0].islower():
-                text = text[0].upper() + text[1:]
+            if is_mid_sentence:
+                # Caret-aware formatting: Mid-sentence insertion suppresses initial capitalization
+                # except for canonical acronyms and single 'I'
+                words = text.split(maxsplit=1)
+                if words and words[0] != "I" and words[0].lower() not in ("api", "json", "sql", "http", "https"):
+                    text = text[0].lower() + text[1:]
+            else:
+                # Capitalize start if alphabetic
+                if text and text[0].islower():
+                    text = text[0].upper() + text[1:]
 
         if style == "terminal":
             # Under no circumstances should terminal profile add trailing punctuation
@@ -878,7 +909,217 @@ class WritingIntelligence:
             "।", "॥",                     # Devanagari / Indic
             "؟", "؛", "ـ"                  # Arabic
         )
-        if not is_code_or_url and "\n" not in text and not text.endswith(terminal_marks):
+        has_following_punct = False
+        is_mid_sentence_following = False
+        if following_text is not None and following_text.strip():
+            f_head = following_text.lstrip()
+            if f_head and f_head[0] in (".", ",", "!", "?", ";", ":"):
+                has_following_punct = True
+            elif f_head and f_head[0].islower():
+                is_mid_sentence_following = True
+
+        if not is_code_or_url and "\n" not in text and not has_following_punct and not is_mid_sentence_following and not text.endswith(terminal_marks):
             text += "."
+        elif has_following_punct:
+            text = text.rstrip(".!?,;:")
 
         return text
+
+
+
+class AutomaticCorrectionDetector:
+    """
+    Automatic Dictionary Learning Watcher (FluidVoice Parity).
+    Observes text modifications following an injection. When a user manually
+    corrects a mistranscribed word >= 2 times within 7 days, this detector
+    surfaces the pair as a recommended dictionary addition.
+    """
+    def __init__(self, required_occurrences: int = 2, window_days: int = 7, storage_path: Optional[str] = None):
+        import threading
+        import time
+        self.required_occurrences = required_occurrences
+        self.window_sec = window_days * 86400
+        self._history: Dict[str, Dict[str, Any]] = {}
+        self._recent_injections: List[Dict[str, Any]] = []
+        self._lock = threading.RLock()
+
+        # Disk persistence path: configured dir or ~/.flowpilot/corrections.json
+        if storage_path:
+            self._storage_path = storage_path
+        else:
+            cfg_dir = os.environ.get("FLOWPILOT_CONFIG_DIR", os.path.join(os.path.expanduser("~"), ".flowpilot"))
+            self._storage_path = os.path.join(cfg_dir, "corrections.json")
+
+        self._load_from_disk()
+
+    def _load_from_disk(self) -> None:
+        """Loads correction history from JSON file on disk."""
+        if not self._storage_path or not os.path.exists(self._storage_path):
+            return
+        try:
+            import json
+            with open(self._storage_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                with self._lock:
+                    self._history = data
+        except Exception:
+            pass
+
+    def _save_to_disk(self) -> None:
+        """Atomically saves correction history to JSON file on disk."""
+        if not self._storage_path:
+            return
+        try:
+            import json
+            folder = os.path.dirname(os.path.abspath(self._storage_path))
+            os.makedirs(folder, exist_ok=True)
+            temp_path = self._storage_path + ".tmp"
+            with self._lock:
+                to_save = dict(self._history)
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(to_save, f, indent=2)
+            if os.path.exists(self._storage_path):
+                os.replace(temp_path, self._storage_path)
+            else:
+                os.rename(temp_path, self._storage_path)
+        except Exception:
+            pass
+
+    def clear(self) -> None:
+        """Clears all in-memory history and updates disk."""
+        with self._lock:
+            self._history.clear()
+            self._recent_injections.clear()
+        self._save_to_disk()
+
+    def record_injection(self, text: str, hwnd: Optional[int] = None, timestamp: Optional[float] = None) -> None:
+        """Stores recent injection for diffing against subsequent user corrections."""
+        import time
+        now = timestamp if timestamp is not None else time.time()
+        with self._lock:
+            self._recent_injections.append({
+                "text": text,
+                "hwnd": hwnd,
+                "timestamp": now
+            })
+            cutoff = now - 300.0
+            self._recent_injections = [inj for inj in self._recent_injections if inj["timestamp"] >= cutoff][-20:]
+
+    def inspect_buffer_change(self, new_buffer: str, hwnd: Optional[int] = None, timestamp: Optional[float] = None) -> Optional[Tuple[str, str]]:
+        """
+        Detects if a recent injection in this hwnd was manually edited by the user.
+        Uses longest-common-prefix and longest-common-suffix to extract the replaced span.
+        """
+        import time
+        now = timestamp if timestamp is not None else time.time()
+        with self._lock:
+            candidate_inj = None
+            for inj in reversed(self._recent_injections):
+                if (hwnd is None or inj["hwnd"] == hwnd) and (now - inj["timestamp"] <= 30.0):
+                    candidate_inj = inj
+                    break
+
+            if not candidate_inj:
+                return None
+
+            orig_text = candidate_inj["text"]
+            if orig_text == new_buffer or not orig_text or not new_buffer:
+                return None
+
+            pair = self.extract_diff_pair(orig_text, new_buffer)
+            if pair:
+                heard, corrected = pair
+                self.record_occurrence(heard, corrected, timestamp=now)
+                return pair
+            return None
+
+    @classmethod
+    def extract_diff_pair(cls, before: str, after: str) -> Optional[Tuple[str, str]]:
+        """Extracts (heard, corrected) token pair using common prefix and suffix diffing."""
+        if before == after:
+            return None
+
+        p = 0
+        min_len = min(len(before), len(after))
+        while p < min_len and before[p] == after[p]:
+            p += 1
+
+        s = 0
+        while s < (min_len - p) and before[len(before) - 1 - s] == after[len(after) - 1 - s]:
+            s += 1
+
+        # Expand outwards to whole token/word boundaries so partial matches (e.g. 'K' in K8s / Kubernetes)
+        # expand to the full words rather than sub-word fragments ('8', 'ubernete').
+        while p > 0 and before[p - 1].isalnum() and after[p - 1].isalnum():
+            p -= 1
+
+        while s > 0 and (len(before) - s < len(before)) and (len(after) - s < len(after)) and before[len(before) - s].isalnum() and after[len(after) - s].isalnum():
+            s -= 1
+
+        diff_before = before[p:len(before) - s].strip(" ,.!?;:\"'()[]{}")
+        diff_after = after[p:len(after) - s].strip(" ,.!?;:\"'()[]{}")
+
+        if not diff_before or not diff_after or diff_before == diff_after:
+            return None
+        if len(diff_before.split()) > 3 or len(diff_after.split()) > 3:
+            return None
+        if len(diff_before) > 40 or len(diff_after) > 40:
+            return None
+
+        return (diff_before, diff_after)
+
+    def record_occurrence(self, heard: str, corrected: str, timestamp: Optional[float] = None) -> None:
+        import time
+        now = timestamp if timestamp is not None else time.time()
+        key = f"{heard.strip().lower()}->{corrected.strip().lower()}"
+        with self._lock:
+            if key not in self._history:
+                self._history[key] = {
+                    "heard": heard.strip(),
+                    "corrected": corrected.strip(),
+                    "timestamps": [],
+                    "dismissed_until": 0.0
+                }
+            entry = self._history[key]
+            entry["timestamps"] = [t for t in entry["timestamps"] if now - t <= self.window_sec]
+            entry["timestamps"].append(now)
+        self._save_to_disk()
+
+    def get_pending_suggestions(self, now: Optional[float] = None) -> List[Dict[str, Any]]:
+        import time
+        current_time = now if now is not None else time.time()
+        suggestions = []
+        with self._lock:
+            for key, entry in self._history.items():
+                if entry["dismissed_until"] > current_time:
+                    continue
+                valid_ts = [t for t in entry["timestamps"] if current_time - t <= self.window_sec]
+                if len(valid_ts) >= self.required_occurrences:
+                    suggestions.append({
+                        "heard": entry["heard"],
+                        "corrected": entry["corrected"],
+                        "occurrences": len(valid_ts),
+                        "last_seen": max(valid_ts)
+                    })
+        return suggestions
+
+    def dismiss_suggestion(self, heard: str, corrected: str, cooldown_days: int = 7, now: Optional[float] = None) -> None:
+        import time
+        current_time = now if now is not None else time.time()
+        key = f"{heard.strip().lower()}->{corrected.strip().lower()}"
+        with self._lock:
+            if key in self._history:
+                self._history[key]["dismissed_until"] = current_time + (cooldown_days * 86400)
+        self._save_to_disk()
+
+
+_shared_correction_detector: Optional[AutomaticCorrectionDetector] = None
+_detector_lock = threading.Lock()
+
+def get_correction_detector(storage_path: Optional[str] = None) -> AutomaticCorrectionDetector:
+    global _shared_correction_detector
+    with _detector_lock:
+        if _shared_correction_detector is None:
+            _shared_correction_detector = AutomaticCorrectionDetector(storage_path=storage_path)
+        return _shared_correction_detector
