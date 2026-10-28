@@ -615,6 +615,8 @@ class WritingIntelligence:
             text = re.sub(stutter_pattern, r"\1", text)
 
         # 4. Universal repetition loop suppression (collapses pathological 3+ token loops across all languages)
+        phrase_loop_pattern = r"(?u)(?:^|\s)(.{3,35}?)(?:\s+\1){2,}(?=\s|$)"
+        text = re.sub(phrase_loop_pattern, r" \1", text)
         loop_pattern = r"(?u)(?:^|\s)(\S+)(?:\s+\1){2,}(?=\s|$)"
         text = re.sub(loop_pattern, r" \1", text)
 

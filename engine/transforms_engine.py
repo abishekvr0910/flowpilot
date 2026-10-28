@@ -198,6 +198,8 @@ class TransformsEngine:
                 pass
         return None
 
+    extract_selected_text = get_selected_text_from_active_window
+
     def transform_text(
         self,
         text: str,

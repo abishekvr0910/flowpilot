@@ -55,6 +55,8 @@ class DictationSession:
         self.tone_mode: str = tone_mode
         self.language: str = "auto"
         self.task: str = "transcribe"
+        self.is_selection_rewrite: bool = False
+        self.selected_text: Optional[str] = None
 
         # Owned audio payload
         self.audio_bytes: Optional[bytes] = None

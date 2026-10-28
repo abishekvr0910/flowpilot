@@ -264,7 +264,17 @@ class FlowOrchestrator:
 
         threading.Thread(target=watch, daemon=True, name="FlowPilot-CaptureWatchdog").start()
 
-    def start_dictation(self, translation_mode: Optional[bool] = None):
+    def start_selection_rewrite(self) -> bool:
+        """Captures active selection from foreground window and begins voice rewrite session."""
+        if self.state != AppState.IDLE:
+            return False
+        sel_text, hwnd, title, proc_name = self.selection_rewriter.capture_selection()
+        if not sel_text or not sel_text.strip():
+            return False
+        self.start_dictation(is_selection_rewrite=True, pre_selected_text=sel_text)
+        return True
+
+    def start_dictation(self, translation_mode: Optional[bool] = None, is_selection_rewrite: bool = False, pre_selected_text: Optional[str] = None):
         self._cancel_idle_unloader()
         with self._state_lock:
             if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
@@ -292,6 +302,8 @@ class FlowOrchestrator:
         session.task = "translate" if is_translate else "transcribe"
         session.language = self.config.get("language", "auto")
         session.model_size = self.config.get("local_model_size", "base")
+        session.is_selection_rewrite = is_selection_rewrite
+        session.selected_text = pre_selected_text
         with self._state_lock:
             self._current_session = session
 
@@ -581,7 +593,39 @@ class FlowOrchestrator:
                 target_hwnd = active_session.target_window_info.get("hwnd")
                 injection_method = "clipboard_paste"
                 from engine.text_injector import InjectionStatus, InjectionResult
-                inj_res = TextInjector.inject_with_status(formatted_text, target_hwnd, verify_confirmation=True)
+                if getattr(active_session, "is_selection_rewrite", False) and getattr(active_session, "selected_text", None):
+                    print("[Orchestrator] Executing in-place selection rewrite via SelectionRewriter...")
+                    rewrite_res = self.selection_rewriter.process_and_rewrite(
+                        formatted_text,
+                        selected_text=active_session.selected_text,
+                        target_hwnd=target_hwnd
+                    )
+                    if rewrite_res.status == "applied":
+                        success = True
+                        inj_res = InjectionResult(
+                            status=InjectionStatus.CONFIRMED_INSERTED,
+                            chars_sent=len(rewrite_res.replacement_text),
+                            target_hwnd=target_hwnd
+                        )
+                        formatted_text = rewrite_res.replacement_text
+                        self._notify(AppState.SUCCESS, {
+                            "notice": f"Replaced selection ({rewrite_res.intent})",
+                            "can_undo": True,
+                            "undo_hotkey": "Alt+Shift+U"
+                        })
+                    else:
+                        success = False
+                        inj_res = InjectionResult(
+                            status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+                            target_hwnd=target_hwnd,
+                            error_message=rewrite_res.error_message or "Rewrite blocked"
+                        )
+                        self._notify(AppState.ERROR, {
+                            "notice": rewrite_res.error_message or "Selection rewrite failed",
+                            "message": rewrite_res.error_message
+                        })
+                else:
+                    inj_res = TextInjector.inject_with_status(formatted_text, target_hwnd, verify_confirmation=True)
                 success = bool(inj_res)
                 if not success and inj_res.status != InjectionStatus.FAILED_RECOVERY_AVAILABLE:
                     print("[Orchestrator] Standard clipboard paste failed. Falling back to direct SendInput Unicode typing...")
