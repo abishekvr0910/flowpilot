@@ -255,7 +255,11 @@ class FlowPilotApp:
 
     def _on_transforms_hotkey(self):
         try:
-            from engine.transforms_engine import get_transforms_engine
+            started = False
+            if hasattr(self, 'orchestrator') and self.orchestrator:
+                started = self.orchestrator.start_selection_rewrite()
+            if not started:
+                from engine.transforms_engine import get_transforms_engine
             sel_text = get_transforms_engine().get_selected_text_from_active_window()
             if hasattr(self, 'dashboard') and self.dashboard:
                 self.dashboard.open_transforms(sel_text)

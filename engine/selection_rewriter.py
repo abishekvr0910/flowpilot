@@ -143,7 +143,8 @@ class SelectionRewriter:
         Returns (selected_text, hwnd, title, process_name).
         """
         hwnd, title, proc_name = TextInjector.get_target_window_info()
-        selected_text = self.transforms_engine.extract_selected_text(timeout=timeout)
+        getter = getattr(self.transforms_engine, "get_selected_text_from_active_window", None) or getattr(self.transforms_engine, "extract_selected_text", None)
+        selected_text = getter(timeout=timeout) if callable(getter) else None
         return selected_text, hwnd, title, proc_name
 
     def process_and_rewrite(
