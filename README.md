@@ -5,7 +5,7 @@
 ### Local-first voice dictation for Windows
 CPU speech recognition, cursor insertion, and a native PySide6 desktop interface.
 
-[Get started](QUICKSTART.md) · [Evaluate trust and privacy](TRUST.md) · [Get help](SUPPORT.md) · [Verify a download](docs/release/RELEASE_ARTIFACT_MANIFEST.md)
+[Get started](QUICKSTART.md) · [Evaluate trust and privacy](TRUST.md) · [Get help](SUPPORT.md) · [Verify a download](docs/release/RELEASE_ARTIFACT_MANIFEST.md) · [Master Scope](docs/scope/FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md) · [GA Scope](docs/scope/FLOWPILOT_GA_FINAL_CLOSURE_SCOPE.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078D6.svg)](README.md)
@@ -33,14 +33,18 @@ The current Windows pilot build is listed under [GitHub Releases](https://github
 |:---|:---|
 | 🔒 **Local speech recognition** | Uses `faster-whisper` INT8 on CPU. Cloud STT branches are disabled in current source; the network regression test covers selected dictation paths. Dictation history is off by default. |
 | 🔌 **Optional local transcription API** | A separately started, token-protected subset of OpenAI-style audio endpoints on `127.0.0.1:8765`. Client compatibility must be tested individually. |
-| 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. |
+| 🛡️ **FactGuard™ & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. Includes universal repetition loop suppression for Indic (Hindi, Tamil) and multilingual speech. |
+| ✍️ **Caret-Aware Context Formatting** | Real-time Win32 `EM_GETSEL` and UIA `IUIAutomationTextPattern` inspection; avoids stray periods, eliminates duplicate punctuation, and automatically matches sentence capitalization when inserting into existing paragraphs. |
+| 🔄 **Universal Selection Rewriter & Undo** | Highlight text in any application and speak replacement or editing instructions. In-place replacements are protected by FactGuard invariants, focus shift checks, and terminal safeguards, with immediate rollback via **`Alt+Shift+U`**. |
 | 🤖 **Optional Local LLM Pass** | Current source can connect to a separately installed localhost model service for command and tone transforms. Offline behavior also depends on that service's configuration. Selected-Text Transforms (`Ctrl+Alt+T`) provide a preview and explicit Copy Output. External Replace and Revert are unavailable until document and selection verification exists; scratchpad edits have separate guarded transactions. **`Alt+Shift+Z`** requests recovery of the last dictation, subject to target-app behavior. |
 | ⚡ **Measured latency** | The [v3.0.2 release evaluation](docs/release/FLOWPILOT_V302_RELEASE_REPORT.md) reports 1,202 ms median and 1,460 ms p95 from stop action to visible text on one 8-thread Windows test host. These are historical host measurements, not a guarantee for current `master` or other hardware. |
 | 🎙️ **Flexible Voice Controls & TapLatch™** | Choose a dictation key (for example, **F9**) and select toggle or push-to-talk in Settings. Push-to-talk supports TapLatch™ double-tap hands-free mode. Existing profiles retain the former F9 and Ctrl+Alt+Space aliases until a shortcut is explicitly saved. |
 | 🔄 **Continuous Pre-Roll Ring Buffer** | A 350 ms sliding float32 buffer and background stream warmup are designed to reduce first-syllable clipping; microphone and system timing still vary. |
-| 📋 **Clipboard restoration & recovery** | Windows sequence checks help preserve newer user copies during delayed text restoration. Rich clipboard formats are not fully preserved; **Alt+Shift+Z** requests recovery. |
+| 📋 **Instant Recovery & Clipboard Safety** | Triple-action hotkeys for complete dictation safety: **`Alt+Shift+Z`** re-pastes the last dictation buffer, **`Alt+Shift+X`** copies it directly to clipboard without pasting, and **`Alt+Shift+U`** restores previous text before a rewrite. Windows sequence checks help preserve newer user copies. |
+| 🧠 **Automatic Correction Learning** | Automatically detects user edits to recent dictations, tracks correction frequency across a 7-day window, and offers one-click persistent vocabulary additions in the Dictionary View. |
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
-| 📝 **Meeting Notetaker & History Vault** | Current `master` includes meeting notes and an opt-in dictation vault for local transcripts and `.wav` audio. Meeting-note storage is separate. Check each release's notes for its included features. |
+| 📝 **Meeting Notetaker & History Vault** | Includes two-track meeting notes (microphone and WASAPI loopback system audio with acoustic energy bleed suppression) and an opt-in dictation vault for local transcripts and `.wav` audio. |
+| 📦 **1-Click Installer & Authenticode Pipeline** | Zero-admin Inno Setup installer (`installer/flowpilot_setup.iss`) targeting `{localappdata}` without UAC elevation prompts, paired with an RFC 3161 dual-digest Authenticode code signing harness. |
 | 🐾 **Customizable Desktop Companions** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **SondeR-Cat Pixel Kitty** (with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Retro Pixel Companions (Fox, Dino, Ghost, Bunny)**, and custom pixel art. Uses `WS_EX_NOACTIVATE` to preserve editor focus; validate behavior in your target apps. |
 
 ---
@@ -49,9 +53,10 @@ The current Windows pilot build is listed under [GitHub Releases](https://github
 
 *For model setup, a first dictation, and recovery instructions, see [QUICKSTART.md](QUICKSTART.md).*
 
-### Method A: Standalone Packaged Release (Windows)
+### Method A: Standalone Packaged Release or 1-Click Installer (Windows)
 *No Python or compiler required.*
 
+- **1-Click Setup Installer:** `FlowPilot-Setup.exe` installs directly to `{localappdata}\Programs\FlowPilot` without requesting administrator privileges.
 - **Distribution Archive:** Compressed Windows ZIP; size varies with bundled models ([GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases)).
 - **Primary Executable:** `FlowPilot.exe` inside the extracted Windows archive.
 
@@ -84,8 +89,12 @@ Linux and macOS adapters exist in the source, but the published artifact and pri
    - **TapLatch™ Hands-Free:** Rapid double-tap **`F9`** (<350ms) to lock dictation hands-free without holding the key. Tap **`F9`** once to finalize.
    - **Selected-Text Transforms:** Highlight text and press **`Ctrl + Alt + T`** to preview a transform. Use **Copy Output** and paste manually into the intended editor.
 3. FlowPilot transcribes, formats, and inserts text at your cursor. The 350 ms pre-roll is intended to reduce first-syllable clipping.
-4. **Instant Re-Paste Shortcut:** Press **`Alt + Shift + Z`** anywhere in Windows to immediately re-paste your last dictation buffer into the focused window.
-5. **Emergency Recovery:** If target application blocks clipboard pasting, your dictation is safely held in memory. Simply right-click the System Tray icon and select **"Copy Last Dictation"**.
+4. **Triple Recovery Hotkeys:**
+   - **`Alt + Shift + Z`**: Immediately re-pastes your last dictation buffer into the active window.
+   - **`Alt + Shift + X`**: Immediately copies your last dictation directly to the clipboard without pasting.
+   - **`Alt + Shift + U`**: Immediately undoes the last in-place selection rewrite and restores the original text.
+5. **Universal Selection Rewriter:** Highlight any text in your document and trigger dictation to replace or polish it in-place. FactGuard invariants prevent number or negation hallucinations.
+6. **Emergency Recovery:** If target application blocks clipboard pasting, your dictation is safely held in memory. Simply right-click the System Tray icon and select **"Copy Last Dictation"**.
 
 ---
 
@@ -226,6 +235,8 @@ Detailed technical and engineering documentation is structured in [`docs/`](docs
 - **[Testing](docs/testing/FLOWPILOT_BENCHMARK_PROTOCOL.md):** Benchmark methodology, plus [known issues](docs/testing/flowpilot_known_issues.md).
 - **[Release](docs/release/FLOWPILOT_V302_RELEASE_REPORT.md):** Historical v3.0.2 release evaluation; see [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) for published downloads.
 - **[Privacy](PRIVACY.md) and [security reporting](SECURITY.md):** Current-source data handling and vulnerability contact.
+- **[Whole-Product Master Scope](docs/scope/FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md):** 13 core subsystems verification standard and live runtime proofs.
+- **[GA Final Closure Scope](docs/scope/FLOWPILOT_GA_FINAL_CLOSURE_SCOPE.md):** Commercial release closure milestones (Inno Setup installer, Selection Rewriter, USB bus hot-plug, Authenticode signing, Repetition suppression).
 
 ---
 

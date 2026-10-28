@@ -2,7 +2,14 @@
 
 This page distinguishes published releases from work on `master`. Check [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) for downloadable artifacts and [GitHub Actions](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for current verification status.
 
-## Unreleased source changes
+## Unreleased source changes (GA Final Closure)
+
+- **Inno Setup 1-Click Zero-Admin Windows Installer (WP-1):** Production Inno Setup script (`installer/flowpilot_setup.iss`) and packaging pipeline (`scripts/package_installer.py`) targeting `{localappdata}\Programs\FlowPilot` without admin UAC elevation prompts, managing single-instance mutex detection, desktop/start shortcuts, and clean uninstallation.
+- **Universal Selection Rewriter & Instant Undo Latch (WP-2):** In-place selection replacement engine (`engine/selection_rewriter.py`) with instant rollback via **`Alt+Shift+U`**. Enforces FactGuard entity preservation, focus shift detection, terminal window protection, and credential window safety.
+- **Dedicated USB Audio Bus Hot-Plug Harness (WP-3):** Hardware-level PnP USB audio verification harness (`scripts/verify_usb_bus_hotplug.py`) validating hardware ID persistence and strict `DEVICE_MISSING_SENTINEL = -9999` refusal without silent microphone fallback.
+- **Authenticode Code Signing Pipeline (WP-4):** Automated Authenticode signing pipeline (`scripts/sign_authenticode.py`) with Windows SDK `signtool.exe` discovery, SHA-256 digests, dual RFC 3161 timestamping (DigiCert / Sectigo fallbacks), and signature verification.
+- **Universal Repetition Loop Suppression (WP-5):** Regex token loop suppression (`(?u)(?:^|\s)(\S+)(?:\s+\1){2,}(?=\s|$)`) eliminating acoustic repetition loops across Indic (Hindi, Tamil) and English speech.
+- **Reserved Shortcut Collision Protection:** Registered `Alt+Shift+U` in `RESERVED_FLOWPILOT_SHORTCUTS` alongside `Alt+Shift+Z` and `Alt+Shift+X`, ensuring dictation key reassignments cannot collide with recovery shortcuts.
 
 - Removed obsolete cloud controls from the optional web companion. Unsupported cloud settings are rejected by the API, and old unused cloud keys are removed from the active local config on load.
 - Moved superseded verification and agent status reports into the dated archive, removed tracked scratch probes, and replaced workstation-specific public links.

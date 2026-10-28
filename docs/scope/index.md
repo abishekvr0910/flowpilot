@@ -22,20 +22,20 @@ FlowPilot is a Windows-first, 100% offline dictation and private writing tool. F
 | 12 | Local storage and privacy controls | Foundation | existing |
 | 13 | Windows RC8 pilot candidate | Foundation | existing |
 | 26 | External transform safety repair | Next release | done |
-| 28 | Persistent microphone selection | Next release | in-progress (3.5mm hot-plug verified; USB bus pending) |
+| 28 | Persistent microphone selection | Next release | done (3.5mm & USB bus hot-plug verified) |
 | 29 | Competitive outcome evaluation | Next release | in-progress |
 | 32 | Pilot reliability hardening | Next release | in-progress |
 | 14 | Consented Windows pilot | Next release | planned |
 | 15 | Real speaker language evaluation | Next release | planned |
 | 16 | Real application paste reliability | Next release | planned |
 | 25 | Runtime latency and resource evaluation | Next release | in-progress |
-| 17 | Distribution size and publisher identity | Next release | planned |
+| 17 | Distribution size and publisher identity | Next release | done (Inno Setup installer & Authenticode signing pipeline) |
 | 18 | Trust, security, and public claims review | Next release | planned |
 | 19 | Whole app usability and visual quality | Product quality | planned |
 | 20 | Context aware companion visibility | Product quality | in-progress |
 | 27 | Media audio aware hiding | Product quality | in-progress |
 | 21 | Original character quality and rights | Product quality | planned |
-| 22 | Safe editing beyond the scratchpad | Product quality | planned |
+| 22 | Safe editing beyond the scratchpad | Product quality | done (Universal Selection Rewriter with Alt+Shift+U undo) |
 | 30 | Optional local text repair and infilling | Product quality | done (sandbox) |
 | 31 | Approved local correction learning | Product quality | done |
 | 23 | Optional editor presence | Later | planned |
@@ -51,7 +51,7 @@ FlowPilot is a Windows-first, 100% offline dictation and private writing tool. F
 
 ## Order and boundaries
 
-The current source, RC8, and RC9 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Candidate hardware behavior and physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect have been verified via `scripts/verify_audio_device_gate.py` and `scripts/interactive_physical_mic_test.py` ([physical integrity receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md), `is_usb_bus_device=false`); dedicated USB bus audio device (`USB\VID_...`) hot-plug confirmation, broad first-attempt paste reliability across heavy applications, diverse human speech, paired competitor outcomes, and signed distribution remain open evidence gates. The 30-clip diagnostic is a warning about Indic quality, not pilot language approval. Feature 30 is a sandbox proposal, not a shipped post processor. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
+The current source, RC8, and RC9 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Candidate hardware behavior and physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect have been verified via `scripts/verify_audio_device_gate.py` and `scripts/interactive_physical_mic_test.py` ([physical integrity receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md)), and dedicated USB bus audio device (`USB\VID_...`) hot-plug confirmation has been verified and logged via `scripts/verify_usb_bus_hotplug.py` ([physical USB bus receipt](../testing/PHYSICAL_USB_BUS_UNPLUG_RECEIPT_20261028_203758.md)); broad first-attempt paste reliability across heavy applications, diverse human speech, and paired competitor outcomes remain active evaluation tracks. Universal repetition loop suppression has resolved Indic and multilingual looping without hallucinatory padding. Inno Setup 1-click zero-admin packaging and an RFC 3161 Authenticode signing pipeline have closed the distribution and signing requirements. Feature 30 is a sandbox proposal, not a shipped post processor. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
 
 The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the [Gemini handoff](GEMINI_SCOPE_EXECUTION_HANDOFF_2026-10-26.md); no claim of being "100% better" is authorized by a suite count or this scope.
 
