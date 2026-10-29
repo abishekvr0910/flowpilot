@@ -219,7 +219,7 @@ class FlowOrchestrator:
                     if speech_duration >= 0.5 and silence_duration >= timeout:
                         print(f"[Orchestrator] Post-speech silence ({silence_duration:.2f}s) detected. Auto-finalizing dictation...")
                         self._speech_detected = False
-                        self.stop_dictation_and_process()
+                        self.stop_dictation_and_process(is_silence_stop=True)
 
     def _on_auto_stop(self):
         print("[Orchestrator] Maximum recording duration (120s) reached. Auto-stopping...")
@@ -275,6 +275,11 @@ class FlowOrchestrator:
         return True
 
     def start_dictation(self, translation_mode: Optional[bool] = None, is_selection_rewrite: bool = False, pre_selected_text: Optional[str] = None):
+        try:
+            from engine.update_checker import get_update_checker
+            get_update_checker().abort()
+        except Exception:
+            pass
         self._cancel_idle_unloader()
         with self._state_lock:
             if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
@@ -348,7 +353,7 @@ class FlowOrchestrator:
                         self._stop_pending = False
                         self.state = AppState.RECORDING
                         active_session.transition_to(SessionState.RECORDING)
-                        self.stop_dictation_and_process()
+                        self.stop_dictation_and_process(is_silence_stop=True)
                         return
                     self.state = AppState.RECORDING
                     active_session.transition_to(SessionState.RECORDING)
@@ -425,7 +430,7 @@ class FlowOrchestrator:
                 self._notify(AppState.IDLE)
         self._apply_pending_model_switch_if_idle()
 
-    def stop_dictation_and_process(self):
+    def stop_dictation_and_process(self, is_silence_stop: bool = False):
         t_stop_action = time.perf_counter()
         with self._state_lock:
             if self.state == AppState.STARTING_RECORDING:
@@ -450,7 +455,7 @@ class FlowOrchestrator:
             self._auto_stop_timer.cancel()
             self._auto_stop_timer = None
 
-        self.feedback.play_stop()
+
         self._notify(AppState.STOPPING_RECORDING, {"session_id": session.session_id})
 
         # Immediately restore background audio asynchronously
@@ -460,9 +465,11 @@ class FlowOrchestrator:
             try:
                 # 1. Stop recorder and get audio data
                 t_cap_start = time.perf_counter()
-                wav_bytes = self.recorder.stop_recording()
+                post_roll = 0.0 if is_silence_stop else float(self.config.get("post_roll_ms", 150))
+                wav_bytes = self.recorder.stop_recording(post_roll_ms=post_roll)
                 audio_array = self.recorder.get_last_audio_array()
                 t_cap_end = time.perf_counter()
+                self.feedback.play_stop()
 
                 with self._state_lock:
                     if active_session.is_cancelled or active_session != self._current_session:

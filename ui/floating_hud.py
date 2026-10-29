@@ -209,6 +209,21 @@ class FloatingHUD(QWidget):
         except Exception:
             pass
 
+    def show_toast(self, message: str, duration_ms: int = 3500):
+        """Displays non-intrusive HUD toast without stealing window focus."""
+        self._toast_message = message
+        self.setToolTip(f"📋 {message}")
+        if self._toast_timer is None:
+            self._toast_timer = QTimer(self)
+            self._toast_timer.setSingleShot(True)
+            self._toast_timer.timeout.connect(self._clear_toast)
+        self._toast_timer.start(duration_ms)
+        self.update()
+
+    def _clear_toast(self):
+        self._toast_message = None
+        self.update()
+
     def update_state(self, state: str, extra: Optional[Dict[str, Any]] = None):
         extra = extra or {}
         st = state.lower()
@@ -218,6 +233,11 @@ class FloatingHUD(QWidget):
             self._audio_level = max(0.0, min(1.0, lvl))
             self.level_bar.setValue(min(int(lvl * 100), 100))
             return
+
+        if extra.get("copied_to_clipboard"):
+            self.show_toast("Copied to clipboard (Press Ctrl+V)", duration_ms=3500)
+        elif extra.get("injection_status") == "FAILED_RECOVERY_AVAILABLE":
+            self.show_toast("Saved to recovery (Shift+Alt+X to copy)", duration_ms=3500)
 
         if (st in ("pasted", "success") and not extra.get("injection_confirmed", True)) or st in ("unverified", "sent_unverified"):
             st = "unverified"
@@ -573,6 +593,21 @@ class FloatingHUD(QWidget):
     # -------------------------------------------------------------
     # Procedural 60 FPS Mascot Rendering
     # -------------------------------------------------------------
+    def _draw_toast_overlay(self, p: QPainter, w: int, h: int):
+        if not getattr(self, "_toast_message", None):
+            return
+        toast_text = self._toast_message
+        font = QFont("Segoe UI", 8, QFont.Bold)
+        p.setFont(font)
+        fm = QFontMetrics(font)
+        text_w = min(float(w - 4), float(fm.horizontalAdvance(toast_text) + 14))
+        toast_rect = QRectF((w - text_w) / 2.0, max(2.0, float(h - 22)), text_w, 20.0)
+        p.setBrush(QColor(17, 24, 39, 235))
+        p.setPen(QColor(16, 185, 129))
+        p.drawRoundedRect(toast_rect, 8.0, 8.0)
+        p.setPen(QColor(249, 250, 251))
+        p.drawText(toast_rect, Qt.AlignCenter, toast_text)
+
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -585,12 +620,14 @@ class FloatingHUD(QWidget):
         # Branch Custom: User-Created Emoji, Image, or Sprite Companion
         if render_style not in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee", "edge_line", "signal_edge", "wave_bar", "signal", "mascot", "pilot", "seedling", "nimbus", "kiki"):
             self._paint_custom_companion(p, w, h, st)
+            self._draw_toast_overlay(p, w, h)
             p.end()
             return
 
         # Branch K: SondeR-Cat Pixel Kitty, Dog & Retro Companions
         if render_style in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
             self._paint_kitty(p, w, h, st)
+            self._draw_toast_overlay(p, w, h)
             p.end()
             return
 
@@ -612,6 +649,7 @@ class FloatingHUD(QWidget):
             is_preview=False,
             state_elapsed_ms=self._state_timer.elapsed()
         )
+        self._draw_toast_overlay(p, w, h)
         p.end()
         return
 

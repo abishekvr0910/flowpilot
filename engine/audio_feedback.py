@@ -31,16 +31,16 @@ class AudioFeedback:
         threading.Thread(target=worker, daemon=True, name="FlowPilot-AudioFeedback").start()
 
     def play_start(self):
-        # Ascending two-tone chime: 880Hz -> 1320Hz (A5 -> E6)
-        self._play([(880, 70), (1320, 90)])
+        # Soft ascending chime: 587Hz -> 880Hz (D5 -> A5)
+        self._play([(587, 45), (880, 50)])
 
     def play_stop(self):
-        # Descending two-tone chime: 1320Hz -> 880Hz (E6 -> A5)
-        self._play([(1320, 70), (880, 90)])
+        # Soft descending chime: 880Hz -> 587Hz (A5 -> D5)
+        self._play([(880, 45), (587, 50)])
 
     def play_cancel(self):
-        # Double low pulse: 440Hz -> 330Hz
-        self._play([(440, 90), (330, 110)])
+        # Soft low pulse: 440Hz -> 349Hz
+        self._play([(440, 45), (349, 55)])
 
     def play_error(self):
         # Low buzz: 220Hz

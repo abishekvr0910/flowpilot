@@ -54,6 +54,7 @@ class AudioRecorder:
         self._last_callback_at: float = 0.0
         self._recording_started_at: float = 0.0
         self._stream_cleanup_failed: bool = False
+        self._stop_event = threading.Event()
 
     def get_state(self) -> dict:
         """Returns the current state dictionary of the audio recorder."""
@@ -249,6 +250,7 @@ class AudioRecorder:
             self._warmup_stream_locked()
 
     def start_recording(self):
+        self._stop_event.clear()
         with self._lock:
             if self.is_recording:
                 return
@@ -344,7 +346,9 @@ class AudioRecorder:
                     print(f"[Audio Error] Failed to start stream: {e}")
                     raise e
 
-    def stop_recording(self, keep_stream_alive: bool = True) -> Optional[bytes]:
+    def stop_recording(self, keep_stream_alive: bool = True, post_roll_ms: float = 0.0) -> Optional[bytes]:
+        if post_roll_ms > 0 and self.is_recording and not self._stream_cleanup_failed:
+            self._stop_event.wait(timeout=max(0.01, float(post_roll_ms) / 1000.0))
         with self._lock:
             health_error = None
             try:
@@ -451,6 +455,7 @@ class AudioRecorder:
             return self.is_muted
 
     def close(self):
+        self._stop_event.set()
         """Cleanly terminates and releases the underlying audio device."""
         with self._lock:
             self.is_recording = False
