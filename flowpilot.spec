@@ -82,6 +82,7 @@ hidden_imports = [
     'engine.text_injector',
     'engine.personalization',
     'engine.language_registry',
+    'engine.selection_rewriter',
     'ui.companion_studio',
     'ui.companion_visibility_controller',
     'ui.companion_renderer',
