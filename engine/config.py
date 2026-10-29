@@ -52,6 +52,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "local_llm_timeout": 3.0,  # Strict wall-clock deadline in seconds
     "local_text_repair_enabled": False,  # Feature 30: Opt-in local SLM text repair sandbox (Spec 0004)
     "audio_input_selection": {"mode": "default"},  # Feature 28: Persistent endpoint identity or system default
+    "sound_effects_enabled": True,  # Subtle earcon chimes on dictation start/stop
+    "post_roll_ms": 150,  # Push-to-talk acoustic tail buffer (0 to 300ms)
+    "check_for_updates": True,  # Non-intrusive update check outside of dictation
+    "last_update_check_ts": 0,  # Timestamp of last update query
     "history": []
 }
 

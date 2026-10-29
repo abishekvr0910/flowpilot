@@ -221,6 +221,18 @@ class TextInjector:
         return False
 
     @classmethod
+    def _fallback_to_clipboard(cls, text: str) -> None:
+        """Copies text to clipboard for manual recovery and cancels any clipboard restoration timer."""
+        cls.last_injected_text = text
+        cls._safe_clipboard_copy(text)
+        if cls._restore_timer:
+            try:
+                cls._restore_timer.cancel()
+            except Exception:
+                pass
+            cls._restore_timer = None
+
+    @classmethod
     def _safe_clipboard_paste(cls, max_retries: int = 5, retry_delay: float = 0.05) -> Optional[str]:
         """Reads text from clipboard with retry backoff and lock recovery."""
         for attempt in range(max_retries):

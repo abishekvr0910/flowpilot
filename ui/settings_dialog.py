@@ -306,6 +306,34 @@ class SettingsDialog(QDialog):
         lbl_hotkeys.setWordWrap(True)
         vbox.addWidget(lbl_hotkeys)
 
+        # Software Updates Section
+        update_group = QWidget()
+        update_layout = QVBoxLayout(update_group)
+        update_layout.setContentsMargins(12, 12, 12, 12)
+        update_layout.setSpacing(8)
+        update_group.setStyleSheet("background: #0F172A; border-radius: 6px;")
+
+        update_header = QHBoxLayout()
+        lbl_update_title = QLabel("Software Updates")
+        lbl_update_title.setStyleSheet("font-weight: bold; color: #38BDF8; font-size: 12px;")
+        update_header.addWidget(lbl_update_title)
+
+        self.btn_check_updates = QPushButton("Check for Updates")
+        self.btn_check_updates.setStyleSheet("padding: 4px 12px; background: #2563EB; color: white; border-radius: 4px; font-weight: bold;")
+        self.btn_check_updates.clicked.connect(self._on_check_updates_clicked)
+        update_header.addWidget(self.btn_check_updates)
+        update_layout.addLayout(update_header)
+
+        self.lbl_update_status = QLabel("Current version: v3.1.0")
+        self.lbl_update_status.setStyleSheet("color: #94A3B8; font-size: 11px;")
+        update_layout.addWidget(self.lbl_update_status)
+
+        self.chk_auto_update = QCheckBox("Automatically check for new releases on startup (idle only)")
+        self.chk_auto_update.setChecked(self.config.get("check_for_updates", True))
+        update_layout.addWidget(self.chk_auto_update)
+
+        vbox.addWidget(update_group)
+
         vbox.addStretch()
         return widget
 
@@ -692,6 +720,8 @@ class SettingsDialog(QDialog):
         self.config["mute_hotkey"] = self.combo_mute_shortcut.currentText().strip()
         self.config["ducking_enabled"] = self.chk_ducking.isChecked()
         self.config["sound_effects_enabled"] = self.chk_sound.isChecked()
+        if hasattr(self, "chk_auto_update"):
+            self.config["check_for_updates"] = self.chk_auto_update.isChecked()
         
         # Save personalization items
         self.personalization.save()
@@ -704,3 +734,27 @@ class SettingsDialog(QDialog):
         else:
             QMessageBox.information(self, "Saved", "FlowPilot settings and personalization updated successfully!")
             self.close()
+
+    def _on_check_updates_clicked(self):
+        try:
+            from engine.update_checker import get_update_checker
+            self.lbl_update_status.setText("Checking GitHub for updates...")
+            self.btn_check_updates.setEnabled(False)
+
+            def handle_result(res: dict):
+                def update_ui():
+                    self.btn_check_updates.setEnabled(True)
+                    if res.get("update_available"):
+                        v = res.get("latest_version")
+                        url = res.get("release_url")
+                        self.lbl_update_status.setText(f"Update available: v{v}!\n{url}")
+                        self.lbl_update_status.setStyleSheet("color: #10B981; font-weight: bold; font-size: 11px;")
+                    else:
+                        self.lbl_update_status.setText("FlowPilot is up to date (v3.1.0).")
+                        self.lbl_update_status.setStyleSheet("color: #94A3B8; font-size: 11px;")
+                QTimer.singleShot(0, update_ui)
+
+            get_update_checker().check_for_updates_async(self.config, on_result=handle_result, force=True)
+        except Exception as e:
+            self.btn_check_updates.setEnabled(True)
+            self.lbl_update_status.setText(f"Check failed: {e}")
