@@ -580,6 +580,17 @@ class FlowOrchestrator:
                     except Exception as e:
                         logger.warning("LocalTextRepair execution failed, retaining Whisper text: %s", e)
 
+                # 4c. Script Transliteration (e.g. Tamil to Tanglish conversion)
+                try:
+                    from engine.transliteration import apply_transliteration_if_enabled
+                    formatted_text = apply_transliteration_if_enabled(
+                        formatted_text,
+                        format_lang or detected_lang,
+                        self.config
+                    )
+                except Exception as _tr_err:
+                    logger.debug("Transliteration step deferred: %s", _tr_err)
+
                 t_clean_end = time.perf_counter()
                 format_duration = round(t_clean_end - t_clean_start, 3)
                 active_session.candidate_text = formatted_text

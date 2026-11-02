@@ -40,6 +40,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "language": "en",  # Default English avoids ~1,060ms language-detection pass; 'auto' available in settings
     "translate_to_english": False,  # Real-time Whisper translation of foreign speech to English
     "enable_code_switching": True,
+    "tamil_script_mode": "tamil",  # "tamil" (native தமிழ் script) or "tanglish" (Latin phonetic transliteration)
     "hotkey": "<ctrl>+<shift>+<space>",  # or push-to-talk key
     "hotkey_exclusive": False,  # Preserve legacy aliases until a shortcut is explicitly chosen
     "hold_to_mute_enabled": False,

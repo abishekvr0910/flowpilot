@@ -175,6 +175,21 @@ class SettingsDialog(QDialog):
                 selected_lang_idx = idx
         self.combo_lang.setCurrentIndex(selected_lang_idx)
         vbox.addWidget(self.combo_lang)
+
+        # Tamil Output Format selector (Native Tamil script vs Tanglish Latin transliteration)
+        self.lbl_tamil_mode = QLabel("Tamil Output Format:")
+        self.combo_tamil_mode = QComboBox()
+        self.combo_tamil_mode.addItem("Tamil script (தமிழ்)", "tamil")
+        self.combo_tamil_mode.addItem("Tanglish transliteration (vanakkam)", "tanglish")
+        cur_tamil_mode = self.config.get("tamil_script_mode", "tamil")
+        for i in range(self.combo_tamil_mode.count()):
+            if self.combo_tamil_mode.itemData(i) == cur_tamil_mode:
+                self.combo_tamil_mode.setCurrentIndex(i)
+                break
+        self.lbl_tamil_mode.setVisible(False)
+        self.combo_tamil_mode.setVisible(False)
+        vbox.addWidget(self.lbl_tamil_mode)
+        vbox.addWidget(self.combo_tamil_mode)
         self.lbl_model_guidance = QLabel()
         self.lbl_model_guidance.setWordWrap(True)
         vbox.addWidget(self.lbl_model_guidance)
@@ -596,6 +611,10 @@ class SettingsDialog(QDialog):
     def _on_language_model_guidance(self, *_args):
         """Make the bundled Indic model recommendation visible and one step away."""
         language = self.combo_lang.currentData()
+        is_tamil = (language == "ta")
+        if hasattr(self, "lbl_tamil_mode") and hasattr(self, "combo_tamil_mode"):
+            self.lbl_tamil_mode.setVisible(is_tamil)
+            self.combo_tamil_mode.setVisible(is_tamil)
         if language not in ("hi", "ta", "ml"):
             self.lbl_model_guidance.setText("")
             if hasattr(self, "btn_download_small"):
@@ -716,6 +735,10 @@ class SettingsDialog(QDialog):
         lang_idx = self.combo_lang.currentIndex()
         if lang_idx >= 0:
             self.config["language"] = self.combo_lang.itemData(lang_idx)
+
+        # Tamil Output Format (Script vs Tanglish)
+        if hasattr(self, "combo_tamil_mode"):
+            self.config["tamil_script_mode"] = self.combo_tamil_mode.currentData() or "tamil"
 
         # Tone / Writing mode key
         idx = self.combo_tone.currentIndex()

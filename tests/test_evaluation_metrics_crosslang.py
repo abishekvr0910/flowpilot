@@ -47,6 +47,8 @@ def test_evaluation_metrics_crosslang():
         ("es", "Sin embargo, la reunión continúa.", "sin"),
         ("fr", "Nous n'avons pas acheté trois billets.", "pas"),
         ("fr", "Il ne reste rien à faire.", "ne"),
+        ("pl", "Ta transakcja nie podlega opłatom.", "nie"),
+        ("pl", "Nigdy nie udostępniaj hasła.", "nigdy"),
     ]
     for language, sentence, expected in negation_cases:
         found = extract_critical_entities(sentence, language=language)["negations"]
@@ -88,6 +90,7 @@ def test_evaluation_metrics_crosslang():
         ("es", "Veintidós son los pisos.", "22"),
         ("de", "Zwölf Leute kamen.", "12"),
         ("fr", "Quatre enfants jouent.", "4"),
+        ("pl", "Dwanaście osób przyszło.", "12"),
         ("en", "Twenty people came.", "20"),
     ]
     for language, sentence, expected in number_cases:
@@ -139,7 +142,7 @@ def test_evaluation_metrics_crosslang():
     if not valid:
         failures.append(f"empty corpus rejected: {errors}")
 
-    for language in ("de", "es", "fr"):
+    for language in ("de", "es", "fr", "pl"):
         from engine.real_voice_corpus import CorpusItem
         corpus = RealVoiceCorpus([CorpusItem(
             item_id=f"{language}-probe", language=language, group="clean",

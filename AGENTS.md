@@ -23,7 +23,7 @@ python desktop_app.py
 # Offline self-test (Windows only, synthesizes speech through SAPI and decodes on CPU)
 python desktop_app.py --self-test
 
-# Full audit suite, 63 suites; release promotion also requires --require-all
+# Full audit suite, 64 suites; release promotion also requires --require-all
 python -X utf8 tests/run_all_tests.py
 
 # Run single suite

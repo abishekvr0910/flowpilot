@@ -64,7 +64,7 @@ class RealVoiceCorpus:
     def validate_integrity(self) -> Tuple[bool, List[str]]:
         """Verifies schema conformance, consent, and non-empty reference strings."""
         errors = []
-        valid_languages = {"en", "hi", "ta", "ml", "de", "es", "fr"}
+        valid_languages = {"en", "hi", "ta", "ml", "de", "es", "fr", "pl"}
         seen_ids = set()
 
         for item in self.items:

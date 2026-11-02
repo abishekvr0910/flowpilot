@@ -1,0 +1,1546 @@
+[
+  {
+    "item_id": "ta-conv-01",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "வணக்கம், நீங்கள் எப்படி இருக்கிறீர்கள்?",
+    "formatted_reference": "வணக்கம், நீங்கள் எப்படி இருக்கிறீர்கள்?",
+    "tanglish_reference": "vanakkam, neengal eppadi irukkireergal?",
+    "speaker_id": "ta-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.2,
+    "critical_entities": [
+      "வணக்கம்",
+      "எப்படி"
+    ]
+  },
+  {
+    "item_id": "ta-conv-02",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "இன்று காலை வானிலை மிகவும் இனிமையாக உள்ளது.",
+    "formatted_reference": "இன்று காலை வானிலை மிகவும் இனிமையாக உள்ளது.",
+    "tanglish_reference": "indru kaalai vaanilai migavum inimaiyaaga ulladhu.",
+    "speaker_id": "ta-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.8,
+    "critical_entities": [
+      "காலை",
+      "வானிலை"
+    ]
+  },
+  {
+    "item_id": "ta-conv-03",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "நாளைக்கு காலை ஒன்பது மணிக்கு நாம் சந்திக்கலாமா?",
+    "formatted_reference": "நாளைக்கு காலை ஒன்பது மணிக்கு நாம் சந்திக்கலாமா?",
+    "tanglish_reference": "naalaikku kaalai onbadhu manikku naam sandhikkalaamaa?",
+    "speaker_id": "ta-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.1,
+    "critical_entities": [
+      "ஒன்பது",
+      "9:00"
+    ]
+  },
+  {
+    "item_id": "ta-conv-04",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "எனக்கு ஒரு கப் சூடான காபி வேண்டும்.",
+    "formatted_reference": "எனக்கு ஒரு கப் சூடான காபி வேண்டும்.",
+    "tanglish_reference": "enakku oru cup soodaana kaapi vaendum.",
+    "speaker_id": "ta-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.0,
+    "critical_entities": [
+      "காபி"
+    ]
+  },
+  {
+    "item_id": "ta-conv-05",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "இந்த யோசனை எனக்கு மிகவும் பிடித்திருக்கிறது.",
+    "formatted_reference": "இந்த யோசனை எனக்கு மிகவும் பிடித்திருக்கிறது.",
+    "tanglish_reference": "indha yoasanai enakku migavum piditthirukkiradhu.",
+    "speaker_id": "ta-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.5,
+    "critical_entities": [
+      "யோசனை"
+    ]
+  },
+  {
+    "item_id": "ta-conv-06",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "நீங்கள் சொன்னதை நான் தெளிவாக புரிந்து கொண்டேன்.",
+    "formatted_reference": "நீங்கள் சொன்னதை நான் தெளிவாக புரிந்து கொண்டேன்.",
+    "tanglish_reference": "neengal sonnadhai naan thelivaaga purindhu kondaen.",
+    "speaker_id": "ta-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "தெளிவாக"
+    ]
+  },
+  {
+    "item_id": "ta-conv-07",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "நாம் எப்போது மதிய உணவுக்கு செல்லலாம்?",
+    "formatted_reference": "நாம் எப்போது மதிய உணவுக்கு செல்லலாம்?",
+    "tanglish_reference": "naam eppoadhu madhiya unavukku sellalaam?",
+    "speaker_id": "ta-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 2.9,
+    "critical_entities": [
+      "மதிய உணவு"
+    ]
+  },
+  {
+    "item_id": "ta-conv-08",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "இன்றைய வேலை அனைத்தும் வெற்றிகரமாக முடிந்தது.",
+    "formatted_reference": "இன்றைய வேலை அனைத்தும் வெற்றிகரமாக முடிந்தது.",
+    "tanglish_reference": "indraya vaelai anaitthum vetrigaramaaga mudindhadhu.",
+    "speaker_id": "ta-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.6,
+    "critical_entities": [
+      "வெற்றிகரமாக"
+    ]
+  },
+  {
+    "item_id": "ta-conv-09",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "உங்களுடைய உதவிக்கு என் மனமார்ந்த நன்றி.",
+    "formatted_reference": "உங்களுடைய உதவிக்கு என் மனமார்ந்த நன்றி.",
+    "tanglish_reference": "ungaludaiya udhavikku en manamaarndha nandri.",
+    "speaker_id": "ta-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.3,
+    "critical_entities": [
+      "நன்றி"
+    ]
+  },
+  {
+    "item_id": "ta-conv-10",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "நேற்று இரவு பெய்த மழையால் சாலைகள் நனைந்துள்ளன.",
+    "formatted_reference": "நேற்று இரவு பெய்த மழையால் சாலைகள் நனைந்துள்ளன.",
+    "tanglish_reference": "naetru iravu peydha mazhaiyaal saalaigal nanaindhullana.",
+    "speaker_id": "ta-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.0,
+    "critical_entities": [
+      "மழை"
+    ]
+  },
+  {
+    "item_id": "ta-conv-11",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "இந்த வார இறுதியில் நாம் வெளியூர் பயணம் செல்வோம்.",
+    "formatted_reference": "இந்த வார இறுதியில் நாம் வெளியூர் பயணம் செல்வோம்.",
+    "tanglish_reference": "indha vaara irudhiyil naam veliyoor payanam selvom.",
+    "speaker_id": "ta-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.9,
+    "critical_entities": [
+      "பயணம்"
+    ]
+  },
+  {
+    "item_id": "ta-conv-12",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "உங்களுக்கு நேரம் கிடைக்கும்போது எனக்கு அழைக்கவும்.",
+    "formatted_reference": "உங்களுக்கு நேரம் கிடைக்கும்போது எனக்கு அழைக்கவும்.",
+    "tanglish_reference": "ungalukku naeram kidaikkumpoadhu enakku azhaikkavum.",
+    "speaker_id": "ta-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.4,
+    "critical_entities": [
+      "அழைக்கவும்"
+    ]
+  },
+  {
+    "item_id": "ta-conv-13",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "அடுத்த வாரம் புதன்கிழமை ஒரு முக்கியமான கூட்டம் இருக்கிறது.",
+    "formatted_reference": "அடுத்த வாரம் புதன்கிழமை ஒரு முக்கியமான கூட்டம் இருக்கிறது.",
+    "tanglish_reference": "aduttha vaaram budhankizhamai oru mukkiyamaana koottam irukkiradhu.",
+    "speaker_id": "ta-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.3,
+    "critical_entities": [
+      "புதன்கிழமை",
+      "கூட்டம்"
+    ]
+  },
+  {
+    "item_id": "ta-conv-14",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "இதைப்பற்றி நீங்கள் என்ன நினைக்கிறீர்கள் என்று சொல்லுங்கள்.",
+    "formatted_reference": "இதைப்பற்றி நீங்கள் என்ன நினைக்கிறீர்கள் என்று சொல்லுங்கள்.",
+    "tanglish_reference": "idhaippatri neengal enna ninaikkireergal endru sollungal.",
+    "speaker_id": "ta-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "சொல்லுங்கள்"
+    ]
+  },
+  {
+    "item_id": "ta-conv-15",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "புதிய திட்டத்தை தொடங்குவதற்கு இதுவே சரியான நேரம்.",
+    "formatted_reference": "புதிய திட்டத்தை தொடங்குவதற்கு இதுவே சரியான நேரம்.",
+    "tanglish_reference": "pudhiya thittatthai thodanguvadharku idhuvae sariyaana naeram.",
+    "speaker_id": "ta-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.8,
+    "critical_entities": [
+      "திட்டம்"
+    ]
+  },
+  {
+    "item_id": "ta-conv-16",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "நாம் அனைவரும் ஒன்றாக இணைந்து உழைக்க வேண்டும்.",
+    "formatted_reference": "நாம் அனைவரும் ஒன்றாக இணைந்து உழைக்க வேண்டும்.",
+    "tanglish_reference": "naam anaivarum ondraaga inaindhu uzhaikka vaendum.",
+    "speaker_id": "ta-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.6,
+    "critical_entities": [
+      "ஒன்றாக"
+    ]
+  },
+  {
+    "item_id": "ta-conv-17",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "கவலைப்பட வேண்டாம், எல்லாம் விரைவாக சரியாகிவிடும்.",
+    "formatted_reference": "கவலைப்பட வேண்டாம், எல்லாம் விரைவாக சரியாகிவிடும்.",
+    "tanglish_reference": "kavalaippada vaendaam, ellaam viraivaaga sariyaagividum.",
+    "speaker_id": "ta-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.5,
+    "critical_entities": [
+      "வேண்டாம்",
+      "சரியாகிவிடும்"
+    ]
+  },
+  {
+    "item_id": "ta-conv-18",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "உங்கள் குடும்பத்தினர் அனைவரும் நலமாக இருக்கிறார்களா?",
+    "formatted_reference": "உங்கள் குடும்பத்தினர் அனைவரும் நலமாக இருக்கிறார்களா?",
+    "tanglish_reference": "ungal kudumbatthinar anaivarum nalamaaga irukkiraargalaa?",
+    "speaker_id": "ta-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.4,
+    "critical_entities": [
+      "குடும்பத்தினர்"
+    ]
+  },
+  {
+    "item_id": "ta-conv-19",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "நேரத்திற்கு தூங்குவதும் விழிப்பதும் உடலுக்கு நல்லது.",
+    "formatted_reference": "நேரத்திற்கு தூங்குவதும் விழிப்பதும் உடலுக்கு நல்லது.",
+    "tanglish_reference": "naeratthirku thoonguvadhum vizhippadhum udalukku nalladhu.",
+    "speaker_id": "ta-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.9,
+    "critical_entities": [
+      "நல்லது"
+    ]
+  },
+  {
+    "item_id": "ta-conv-20",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "மீண்டும் உங்களை சந்தித்ததில் மிக்க மகிழ்ச்சி.",
+    "formatted_reference": "மீண்டும் உங்களை சந்தித்ததில் மிக்க மகிழ்ச்சி.",
+    "tanglish_reference": "meendum ungalai sandhitthadhil mikka magizhchi.",
+    "speaker_id": "ta-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.1,
+    "critical_entities": [
+      "மகிழ்ச்சி"
+    ]
+  },
+  {
+    "item_id": "ta-dev-01",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "புதிய Docker container ஐ build செய்து deploy பண்ணுங்க.",
+    "formatted_reference": "புதிய Docker container ஐ build செய்து deploy பண்ணுங்க.",
+    "tanglish_reference": "pudhiya Docker container ai build seydhu deploy pannunga.",
+    "speaker_id": "ta-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.8,
+    "critical_entities": [
+      "Docker",
+      "container",
+      "build",
+      "deploy"
+    ]
+  },
+  {
+    "item_id": "ta-dev-02",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Git pull பண்ணிட்டு feature branch ல checkout பண்ணுங்க.",
+    "formatted_reference": "Git pull பண்ணிட்டு feature branch ல checkout பண்ணுங்க.",
+    "tanglish_reference": "Git pull pannittu feature branch la checkout pannunga.",
+    "speaker_id": "ta-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.9,
+    "critical_entities": [
+      "Git",
+      "pull",
+      "feature branch",
+      "checkout"
+    ]
+  },
+  {
+    "item_id": "ta-dev-03",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Backend API ல 500 error வருது, logs செக் பண்ணுங்க.",
+    "formatted_reference": "Backend API ல 500 error வருது, logs செக் பண்ணுங்க.",
+    "tanglish_reference": "Backend API la 500 error varudhu, logs check pannunga.",
+    "speaker_id": "ta-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.0,
+    "critical_entities": [
+      "Backend",
+      "API",
+      "500",
+      "logs"
+    ]
+  },
+  {
+    "item_id": "ta-dev-04",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "PostgreSQL database connection pool timeout ஆகுது.",
+    "formatted_reference": "PostgreSQL database connection pool timeout ஆகுது.",
+    "tanglish_reference": "PostgreSQL database connection pool timeout aagudhu.",
+    "speaker_id": "ta-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.1,
+    "critical_entities": [
+      "PostgreSQL",
+      "database",
+      "timeout"
+    ]
+  },
+  {
+    "item_id": "ta-dev-05",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "இந்த pull request ல unit tests pass ஆகல.",
+    "formatted_reference": "இந்த pull request ல unit tests pass ஆகல.",
+    "tanglish_reference": "indha pull request la unit tests pass aagala.",
+    "speaker_id": "ta-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "pull request",
+      "unit tests",
+      "pass",
+      "ஆகல"
+    ]
+  },
+  {
+    "item_id": "ta-dev-06",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "AWS Lambda function latency அதிகமா இருக்கு, optimize பண்ணனும்.",
+    "formatted_reference": "AWS Lambda function latency அதிகமா இருக்கு, optimize பண்ணனும்.",
+    "tanglish_reference": "AWS Lambda function latency adhigamaa irukku, optimize pannanum.",
+    "speaker_id": "ta-dev-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.4,
+    "critical_entities": [
+      "AWS",
+      "Lambda",
+      "latency",
+      "optimize"
+    ]
+  },
+  {
+    "item_id": "ta-dev-07",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "React component render cycle ல memory leak இருக்கு.",
+    "formatted_reference": "React component render cycle ல memory leak இருக்கு.",
+    "tanglish_reference": "React component render cycle la memory leak irukku.",
+    "speaker_id": "ta-dev-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.9,
+    "critical_entities": [
+      "React",
+      "render",
+      "memory leak"
+    ]
+  },
+  {
+    "item_id": "ta-dev-08",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Redis cache invalidate பண்ணிட்டு reload பண்ணுங்க.",
+    "formatted_reference": "Redis cache invalidate பண்ணிட்டு reload பண்ணுங்க.",
+    "tanglish_reference": "Redis cache invalidate pannittu reload pannunga.",
+    "speaker_id": "ta-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.6,
+    "critical_entities": [
+      "Redis",
+      "cache",
+      "invalidate",
+      "reload"
+    ]
+  },
+  {
+    "item_id": "ta-dev-09",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Microservices communication gRPC protocol ல நடக்குது.",
+    "formatted_reference": "Microservices communication gRPC protocol ல நடக்குது.",
+    "tanglish_reference": "Microservices communication gRPC protocol la nadakkudhu.",
+    "speaker_id": "ta-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.1,
+    "critical_entities": [
+      "Microservices",
+      "gRPC",
+      "protocol"
+    ]
+  },
+  {
+    "item_id": "ta-dev-10",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Staging environment ல bug reproduce ஆகுது.",
+    "formatted_reference": "Staging environment ல bug reproduce ஆகுது.",
+    "tanglish_reference": "Staging environment la bug reproduce aagudhu.",
+    "speaker_id": "ta-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.4,
+    "critical_entities": [
+      "Staging",
+      "environment",
+      "bug",
+      "reproduce"
+    ]
+  },
+  {
+    "item_id": "ta-dev-11",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Kubernetes cluster pod crash loop ல இருக்கு.",
+    "formatted_reference": "Kubernetes cluster pod crash loop ல இருக்கு.",
+    "tanglish_reference": "Kubernetes cluster pod crash loop la irukku.",
+    "speaker_id": "ta-dev-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.8,
+    "critical_entities": [
+      "Kubernetes",
+      "pod",
+      "crash loop"
+    ]
+  },
+  {
+    "item_id": "ta-dev-12",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Main branch ல merge conflict வந்துருக்கு, resolve பண்ணுங்க.",
+    "formatted_reference": "Main branch ல merge conflict வந்துருக்கு, resolve பண்ணுங்க.",
+    "tanglish_reference": "Main branch la merge conflict vandhurukku, resolve pannunga.",
+    "speaker_id": "ta-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.2,
+    "critical_entities": [
+      "Main branch",
+      "merge conflict",
+      "resolve"
+    ]
+  },
+  {
+    "item_id": "ta-dev-13",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "CI/CD pipeline test stage ல fail ஆயிடுச்சு.",
+    "formatted_reference": "CI/CD pipeline test stage ல fail ஆயிடுச்சு.",
+    "tanglish_reference": "CI/CD pipeline test stage la fail aayiducchu.",
+    "speaker_id": "ta-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "CI/CD",
+      "pipeline",
+      "fail"
+    ]
+  },
+  {
+    "item_id": "ta-dev-14",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Frontend UI responsive layout flexbox ல fix பண்ணியாச்சு.",
+    "formatted_reference": "Frontend UI responsive layout flexbox ல fix பண்ணியாச்சு.",
+    "tanglish_reference": "Frontend UI responsive layout flexbox la fix panniyaacchu.",
+    "speaker_id": "ta-dev-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.1,
+    "critical_entities": [
+      "Frontend",
+      "UI",
+      "flexbox",
+      "fix"
+    ]
+  },
+  {
+    "item_id": "ta-dev-15",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "Production server CPU utilization 95% வரை போயிருச்சு.",
+    "formatted_reference": "Production server CPU utilization 95% வரை போயிருச்சு.",
+    "tanglish_reference": "Production server CPU utilization 95% varai poayirucchu.",
+    "speaker_id": "ta-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.3,
+    "critical_entities": [
+      "Production",
+      "CPU",
+      "utilization",
+      "95%"
+    ]
+  },
+  {
+    "item_id": "ta-fg-01",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "மொத்த திட்ட மதிப்பீடு ₹4,50,000 மற்றும் GST 18% ஆகும்.",
+    "formatted_reference": "மொத்த திட்ட மதிப்பீடு ₹4,50,000 மற்றும் GST 18% ஆகும்.",
+    "tanglish_reference": "mottha thitta madhippeedu ₹4,50,000 mattrum GST 18% aagum.",
+    "speaker_id": "ta-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.8,
+    "critical_entities": [
+      "₹4,50,000",
+      "18%",
+      "GST"
+    ]
+  },
+  {
+    "item_id": "ta-fg-02",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "கடைசி தேதி 2026 நவம்பர் 15 வரை நீட்டிக்கப்பட்டுள்ளது.",
+    "formatted_reference": "கடைசி தேதி 2026 நவம்பர் 15 வரை நீட்டிக்கப்பட்டுள்ளது.",
+    "tanglish_reference": "kadaisi thaedhi 2026 November 15 varai neettikkappattulladhu.",
+    "speaker_id": "ta-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.5,
+    "critical_entities": [
+      "2026",
+      "15"
+    ]
+  },
+  {
+    "item_id": "ta-fg-03",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "இந்த பரிவர்த்தனைக்கு எந்தவொரு கட்டணமும் இல்லை.",
+    "formatted_reference": "இந்த பரிவர்த்தனைக்கு எந்தவொரு கட்டணமும் இல்லை.",
+    "tanglish_reference": "indha parivartthanaiykku endhavoru kattanamum illai.",
+    "speaker_id": "ta-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.9,
+    "critical_entities": [
+      "இல்லை",
+      "எந்தவொரு"
+    ]
+  },
+  {
+    "item_id": "ta-fg-04",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "தொலைபேசி எண் +91 98765 43210 என்ற எண்ணில் தொடர்பு கொள்ளவும்.",
+    "formatted_reference": "தொலைபேசி எண் +91 98765 43210 என்ற எண்ணில் தொடர்பு கொள்ளவும்.",
+    "tanglish_reference": "tholaipaesi enn +91 98765 43210 endra ennil thodarbu kollavum.",
+    "speaker_id": "ta-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 5.0,
+    "critical_entities": [
+      "+91 98765 43210",
+      "+91"
+    ]
+  },
+  {
+    "item_id": "ta-fg-05",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "அறிக்கை எண் TR-2026-884 இன் படி 42 குறைபாடுகள் பதிவாகியுள்ளன.",
+    "formatted_reference": "அறிக்கை எண் TR-2026-884 இன் படி 42 குறைபாடுகள் பதிவாகியுள்ளன.",
+    "tanglish_reference": "arikkai enn TR-2026-884 in padi 42 kuraipaadugal padhivaagiyullana.",
+    "speaker_id": "ta-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 5.2,
+    "critical_entities": [
+      "TR-2026-884",
+      "42"
+    ]
+  },
+  {
+    "item_id": "ta-fg-06",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "இந்த ஒப்பந்தத்தில் மாதாந்திர வாடகை ₹75,000 என குறிப்பிடப்பட்டுள்ளது.",
+    "formatted_reference": "இந்த ஒப்பந்தத்தில் மாதாந்திர வாடகை ₹75,000 என குறிப்பிடப்பட்டுள்ளது.",
+    "tanglish_reference": "indha oppandhatthil maadhaandhira vaadagai ₹75,000 ena kurippidappattulladhu.",
+    "speaker_id": "ta-formal-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.9,
+    "critical_entities": [
+      "₹75,000"
+    ]
+  },
+  {
+    "item_id": "ta-fg-07",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "எந்த சூழ்நிலையிலும் கடவுச்சொல்லை பிறருடன் பகிரக்கூடாது.",
+    "formatted_reference": "எந்த சூழ்நிலையிலும் கடவுச்சொல்லை பிறருடன் பகிரக்கூடாது.",
+    "tanglish_reference": "endha soozhnilaiyilum kadavuchollai pirarudan pagirakkoodaadhu.",
+    "speaker_id": "ta-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.4,
+    "critical_entities": [
+      "பகிரக்கூடாது",
+      "கடவுச்சொல்"
+    ]
+  },
+  {
+    "item_id": "ta-fg-08",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "வங்கி கணக்கு எண் 042210010955 என்ற கணக்கிற்கு பணம் அனுப்பப்பட்டது.",
+    "formatted_reference": "வங்கி கணக்கு எண் 042210010955 என்ற கணக்கிற்கு பணம் அனுப்பப்பட்டது.",
+    "tanglish_reference": "vangi kanakku enn 042210010955 endra kanakkirku panam anuppappattadhu.",
+    "speaker_id": "ta-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 5.1,
+    "critical_entities": [
+      "042210010955"
+    ]
+  },
+  {
+    "item_id": "ta-fg-09",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "ஆய்வக சோதனை முடிவுகள் 99.8% துல்லியமாக வந்துள்ளன.",
+    "formatted_reference": "ஆய்வக சோதனை முடிவுகள் 99.8% துல்லியமாக வந்துள்ளன.",
+    "tanglish_reference": "aayvaga soadhanai mudivugal 99.8% thulliyamaaga vandhullana.",
+    "speaker_id": "ta-formal-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.2,
+    "critical_entities": [
+      "99.8%"
+    ]
+  },
+  {
+    "item_id": "ta-fg-10",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "நிறுவனத்தின் ஆண்டு வருவாய் $1.2M இலக்கை எட்டியுள்ளது.",
+    "formatted_reference": "நிறுவனத்தின் ஆண்டு வருவாய் $1.2M இலக்கை எட்டியுள்ளது.",
+    "tanglish_reference": "niruvanatthin aandu varuvaay $1.2M ilakkai ettiyulladhu.",
+    "speaker_id": "ta-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.1,
+    "critical_entities": [
+      "$1.2M"
+    ]
+  },
+  {
+    "item_id": "ta-fg-11",
+    "language": "ta",
+    "group": "developer_code",
+    "spoken_reference": "சர்வர் IP முகவரி 192.168.1.150 போர்ட் 8080 இல் இயங்குகிறது.",
+    "formatted_reference": "சர்வர் IP முகவரி 192.168.1.150 போர்ட் 8080 இல் இயங்குகிறது.",
+    "tanglish_reference": "server IP mugavari 192.168.1.150 port 8080 il iyangugiradhu.",
+    "speaker_id": "ta-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.7,
+    "critical_entities": [
+      "192.168.1.150",
+      "8080"
+    ]
+  },
+  {
+    "item_id": "ta-fg-12",
+    "language": "ta",
+    "group": "clean",
+    "spoken_reference": "விண்ணப்பம் நிராகரிக்கப்படவில்லை, பரிசீலனையில் உள்ளது.",
+    "formatted_reference": "விண்ணப்பம் நிராகரிக்கப்படவில்லை, பரிசீலனையில் உள்ளது.",
+    "tanglish_reference": "vinnappam niraagarikkappadavillai, pariseelanaiyil ulladhu.",
+    "speaker_id": "ta-formal-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.0,
+    "critical_entities": [
+      "நிராகரிக்கப்படவில்லை"
+    ]
+  },
+  {
+    "item_id": "ta-fg-13",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "வெப்பநிலை 37.5 டிகிரி செல்சியஸாக பதிவாகியுள்ளது.",
+    "formatted_reference": "வெப்பநிலை 37.5 டிகிரி செல்சியஸாக பதிவாகியுள்ளது.",
+    "tanglish_reference": "veppanilai 37.5 degree Celsius-aaga padhivaagiyulladhu.",
+    "speaker_id": "ta-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.0,
+    "critical_entities": [
+      "37.5",
+      "செல்சியஸ்"
+    ]
+  },
+  {
+    "item_id": "ta-fg-14",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "அடுத்த தணிக்கை தேதி 2027 ஜனவரி 10 என நிர்ணயிக்கப்பட்டுள்ளது.",
+    "formatted_reference": "அடுத்த தணிக்கை தேதி 2027 ஜனவரி 10 என நிர்ணயிக்கப்பட்டுள்ளது.",
+    "tanglish_reference": "aduttha thanikkai thaedhi 2027 January 10 ena nirnayikkappattulladhu.",
+    "speaker_id": "ta-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.6,
+    "critical_entities": [
+      "2027",
+      "10"
+    ]
+  },
+  {
+    "item_id": "ta-fg-15",
+    "language": "ta",
+    "group": "quantities",
+    "spoken_reference": "பாதிக்கப்பட்ட கணினிகளின் எண்ணிக்கை 12 மட்டுமே, 15 அல்ல.",
+    "formatted_reference": "பாதிக்கப்பட்ட கணினிகளின் எண்ணிக்கை 12 மட்டுமே, 15 அல்ல.",
+    "tanglish_reference": "baadhikkappatta kaninigalin ennikkai 12 mattumae, 15 alla.",
+    "speaker_id": "ta-formal-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.5,
+    "critical_entities": [
+      "12",
+      "15",
+      "அல்ல",
+      "மட்டுமே"
+    ]
+  },
+  {
+    "item_id": "pl-conv-01",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Dzień dobry, jak się dzisiaj czujesz?",
+    "formatted_reference": "Dzień dobry, jak się dzisiaj czujesz?",
+    "speaker_id": "pl-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 2.8,
+    "critical_entities": [
+      "Dzień dobry"
+    ]
+  },
+  {
+    "item_id": "pl-conv-02",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Pogoda za oknem jest dzisiaj wyjątkowo słoneczna.",
+    "formatted_reference": "Pogoda za oknem jest dzisiaj wyjątkowo słoneczna.",
+    "speaker_id": "pl-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.4,
+    "critical_entities": [
+      "słoneczna"
+    ]
+  },
+  {
+    "item_id": "pl-conv-03",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Czy możemy spotkać się jutro o godzinie dziesiątej?",
+    "formatted_reference": "Czy możemy spotkać się jutro o godzinie dziesiątej?",
+    "speaker_id": "pl-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "dziesiątej",
+      "10:00"
+    ]
+  },
+  {
+    "item_id": "pl-conv-04",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Poproszę o filiżankę gorącej kawy z mlekiem.",
+    "formatted_reference": "Poproszę o filiżankę gorącej kawy z mlekiem.",
+    "speaker_id": "pl-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.1,
+    "critical_entities": [
+      "kawy"
+    ]
+  },
+  {
+    "item_id": "pl-conv-05",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Ten pomysł bardzo mi się podoba i ma duży potencjał.",
+    "formatted_reference": "Ten pomysł bardzo mi się podoba i ma duży potencjał.",
+    "speaker_id": "pl-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.6,
+    "critical_entities": [
+      "pomysł"
+    ]
+  },
+  {
+    "item_id": "pl-conv-06",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Wszystko zrozumiałem i zgadzam się z Twoją propozycją.",
+    "formatted_reference": "Wszystko zrozumiałem i zgadzam się z Twoją propozycją.",
+    "speaker_id": "pl-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.8,
+    "critical_entities": [
+      "zrozumiałem"
+    ]
+  },
+  {
+    "item_id": "pl-conv-07",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Kiedy masz czas, żeby pójść na wspólny obiad?",
+    "formatted_reference": "Kiedy masz czas, żeby pójść na wspólny obiad?",
+    "speaker_id": "pl-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.0,
+    "critical_entities": [
+      "obiad"
+    ]
+  },
+  {
+    "item_id": "pl-conv-08",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Dzisiejsze zadania zostały zakończone z pełnym sukcesem.",
+    "formatted_reference": "Dzisiejsze zadania zostały zakończone z pełnym sukcesem.",
+    "speaker_id": "pl-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.9,
+    "critical_entities": [
+      "sukcesem"
+    ]
+  },
+  {
+    "item_id": "pl-conv-09",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Bardzo dziękuję za Twoją pomoc i poświęcony czas.",
+    "formatted_reference": "Bardzo dziękuję za Twoją pomoc i poświęcony czas.",
+    "speaker_id": "pl-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.5,
+    "critical_entities": [
+      "dziękuję"
+    ]
+  },
+  {
+    "item_id": "pl-conv-10",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Po wczorajszym deszczu powietrze jest rześkie i świeże.",
+    "formatted_reference": "Po wczorajszym deszczu powietrze jest rześkie i świeże.",
+    "speaker_id": "pl-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "powietrze"
+    ]
+  },
+  {
+    "item_id": "pl-conv-11",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "W ten weekend planujemy krótki wyjazd za miasto.",
+    "formatted_reference": "W ten weekend planujemy krótki wyjazd za miasto.",
+    "speaker_id": "pl-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.3,
+    "critical_entities": [
+      "wyjazd"
+    ]
+  },
+  {
+    "item_id": "pl-conv-12",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Zadzwoń do mnie, proszę, gdy tylko będziesz wolny.",
+    "formatted_reference": "Zadzwoń do mnie, proszę, gdy tylko będziesz wolny.",
+    "speaker_id": "pl-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.2,
+    "critical_entities": [
+      "Zadzwoń"
+    ]
+  },
+  {
+    "item_id": "pl-conv-13",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "W przyszłą środę odbędzie się ważne spotkanie zespołu.",
+    "formatted_reference": "W przyszłą środę odbędzie się ważne spotkanie zespołu.",
+    "speaker_id": "pl-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.8,
+    "critical_entities": [
+      "środę",
+      "spotkanie"
+    ]
+  },
+  {
+    "item_id": "pl-conv-14",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Co sądzisz na temat nowego harmonogramu pracy?",
+    "formatted_reference": "Co sądzisz na temat nowego harmonogramu pracy?",
+    "speaker_id": "pl-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.4,
+    "critical_entities": [
+      "harmonogramu"
+    ]
+  },
+  {
+    "item_id": "pl-conv-15",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "To jest właściwy moment na rozpoczęcie tego projektu.",
+    "formatted_reference": "To jest właściwy moment na rozpoczęcie tego projektu.",
+    "speaker_id": "pl-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.6,
+    "critical_entities": [
+      "projektu"
+    ]
+  },
+  {
+    "item_id": "pl-conv-16",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Wszyscy razem musimy skupić się na osiągnięciu celu.",
+    "formatted_reference": "Wszyscy razem musimy skupić się na osiągnięciu celu.",
+    "speaker_id": "pl-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "celu"
+    ]
+  },
+  {
+    "item_id": "pl-conv-17",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Nie martw się, wszystko wkrótce wróci do normy.",
+    "formatted_reference": "Nie martw się, wszystko wkrótce wróci do normy.",
+    "speaker_id": "pl-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.3,
+    "critical_entities": [
+      "Nie martw się"
+    ]
+  },
+  {
+    "item_id": "pl-conv-18",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Czy wszyscy w Twojej rodzinie czują się dobrze?",
+    "formatted_reference": "Czy wszyscy w Twojej rodzinie czują się dobrze?",
+    "speaker_id": "pl-native-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.2,
+    "critical_entities": [
+      "rodzinie"
+    ]
+  },
+  {
+    "item_id": "pl-conv-19",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Regularny sen jest kluczem do dobrego samopoczucia.",
+    "formatted_reference": "Regularny sen jest kluczem do dobrego samopoczucia.",
+    "speaker_id": "pl-native-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.5,
+    "critical_entities": [
+      "sen"
+    ]
+  },
+  {
+    "item_id": "pl-conv-20",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Bardzo się cieszę, że znowu mogliśmy się spotkać.",
+    "formatted_reference": "Bardzo się cieszę, że znowu mogliśmy się spotkać.",
+    "speaker_id": "pl-native-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.3,
+    "critical_entities": [
+      "cieszę"
+    ]
+  },
+  {
+    "item_id": "pl-dev-01",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Zbuduj nowy kontener Docker i wdróż go na staging.",
+    "formatted_reference": "Zbuduj nowy kontener Docker i wdróż go na staging.",
+    "speaker_id": "pl-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "Docker",
+      "staging"
+    ]
+  },
+  {
+    "item_id": "pl-dev-02",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Zrób git pull i przełącz się na gałąź feature/auth.",
+    "formatted_reference": "Zrób git pull i przełącz się na gałąź feature/auth.",
+    "speaker_id": "pl-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.1,
+    "critical_entities": [
+      "git pull",
+      "feature/auth"
+    ]
+  },
+  {
+    "item_id": "pl-dev-03",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Backendowe API zwraca błąd 500 w logach aplikacji.",
+    "formatted_reference": "Backendowe API zwraca błąd 500 w logach aplikacji.",
+    "speaker_id": "pl-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.0,
+    "critical_entities": [
+      "API",
+      "500",
+      "logach"
+    ]
+  },
+  {
+    "item_id": "pl-dev-04",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Pula połączeń bazy danych PostgreSQL osiągnęła limit.",
+    "formatted_reference": "Pula połączeń bazy danych PostgreSQL osiągnęła limit.",
+    "speaker_id": "pl-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.2,
+    "critical_entities": [
+      "PostgreSQL",
+      "limit"
+    ]
+  },
+  {
+    "item_id": "pl-dev-05",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Wszystkie testy jednostkowe w pull requeście zakończyły się sukcesem.",
+    "formatted_reference": "Wszystkie testy jednostkowe w pull requeście zakończyły się sukcesem.",
+    "speaker_id": "pl-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.5,
+    "critical_entities": [
+      "pull requeście",
+      "testy",
+      "sukcesem"
+    ]
+  },
+  {
+    "item_id": "pl-dev-06",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Funkcja AWS Lambda ma zbyt wysokie opóźnienie i wymaga optymalizacji.",
+    "formatted_reference": "Funkcja AWS Lambda ma zbyt wysokie opóźnienie i wymaga optymalizacji.",
+    "speaker_id": "pl-dev-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.8,
+    "critical_entities": [
+      "AWS Lambda",
+      "opóźnienie",
+      "optymalizacji"
+    ]
+  },
+  {
+    "item_id": "pl-dev-07",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Komponent w React ma wyciek pamięci podczas cyklu renderowania.",
+    "formatted_reference": "Komponent w React ma wyciek pamięci podczas cyklu renderowania.",
+    "speaker_id": "pl-dev-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.6,
+    "critical_entities": [
+      "React",
+      "wyciek pamięci",
+      "renderowania"
+    ]
+  },
+  {
+    "item_id": "pl-dev-08",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Wyczyść pamięć podręczną Redis i przeładuj stronę.",
+    "formatted_reference": "Wyczyść pamięć podręczną Redis i przeładuj stronę.",
+    "speaker_id": "pl-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.6,
+    "critical_entities": [
+      "Redis",
+      "przeładuj"
+    ]
+  },
+  {
+    "item_id": "pl-dev-09",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Komunikacja między mikroserwisami odbywa się przez gRPC.",
+    "formatted_reference": "Komunikacja między mikroserwisami odbywa się przez gRPC.",
+    "speaker_id": "pl-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.0,
+    "critical_entities": [
+      "mikroserwisami",
+      "gRPC"
+    ]
+  },
+  {
+    "item_id": "pl-dev-10",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Udało się odtworzyć błąd na środowisku stagingowym.",
+    "formatted_reference": "Udało się odtworzyć błąd na środowisku stagingowym.",
+    "speaker_id": "pl-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.7,
+    "critical_entities": [
+      "błąd",
+      "stagingowym"
+    ]
+  },
+  {
+    "item_id": "pl-dev-11",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Pod w klastrze Kubernetes znajduje się w stanie CrashLoopBackOff.",
+    "formatted_reference": "Pod w klastrze Kubernetes znajduje się w stanie CrashLoopBackOff.",
+    "speaker_id": "pl-dev-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.8,
+    "critical_entities": [
+      "Kubernetes",
+      "CrashLoopBackOff"
+    ]
+  },
+  {
+    "item_id": "pl-dev-12",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Na gałęzi master wystąpił konflikt scalania, który trzeba rozwiązać.",
+    "formatted_reference": "Na gałęzi master wystąpił konflikt scalania, który trzeba rozwiązać.",
+    "speaker_id": "pl-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.5,
+    "critical_entities": [
+      "master",
+      "konflikt"
+    ]
+  },
+  {
+    "item_id": "pl-dev-13",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Etap testów w potoku CI/CD zakończył się niepowodzeniem.",
+    "formatted_reference": "Etap testów w potoku CI/CD zakończył się niepowodzeniem.",
+    "speaker_id": "pl-dev-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.0,
+    "critical_entities": [
+      "CI/CD",
+      "niepowodzeniem"
+    ]
+  },
+  {
+    "item_id": "pl-dev-14",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Responsywny układ interfejsu użytkownika został naprawiony w flexbox.",
+    "formatted_reference": "Responsywny układ interfejsu użytkownika został naprawiony w flexbox.",
+    "speaker_id": "pl-dev-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.7,
+    "critical_entities": [
+      "flexbox",
+      "interfejsu"
+    ]
+  },
+  {
+    "item_id": "pl-dev-15",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Użycie procesora na serwerze produkcyjnym wzrosło do 95%.",
+    "formatted_reference": "Użycie procesora na serwerze produkcyjnym wzrosło do 95%.",
+    "speaker_id": "pl-dev-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.1,
+    "critical_entities": [
+      "procesora",
+      "95%"
+    ]
+  },
+  {
+    "item_id": "pl-fg-01",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Całkowity koszt projektu wynosi 45 000 zł plus 23% VAT.",
+    "formatted_reference": "Całkowity koszt projektu wynosi 45 000 zł plus 23% VAT.",
+    "speaker_id": "pl-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.6,
+    "critical_entities": [
+      "45 000 zł",
+      "23%",
+      "VAT"
+    ]
+  },
+  {
+    "item_id": "pl-fg-02",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Ostateczny termin upływa 15 listopada 2026 roku.",
+    "formatted_reference": "Ostateczny termin upływa 15 listopada 2026 roku.",
+    "speaker_id": "pl-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.2,
+    "critical_entities": [
+      "15 listopada 2026",
+      "2026"
+    ]
+  },
+  {
+    "item_id": "pl-fg-03",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Ta transakcja nie podlega żadnym dodatkowym opłatom.",
+    "formatted_reference": "Ta transakcja nie podlega żadnym dodatkowym opłatom.",
+    "speaker_id": "pl-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 3.9,
+    "critical_entities": [
+      "nie podlega",
+      "żadnym"
+    ]
+  },
+  {
+    "item_id": "pl-fg-04",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "W razie pytań prosimy o kontakt pod numerem +48 601 234 567.",
+    "formatted_reference": "W razie pytań prosimy o kontakt pod numerem +48 601 234 567.",
+    "speaker_id": "pl-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 5.0,
+    "critical_entities": [
+      "+48 601 234 567",
+      "+48"
+    ]
+  },
+  {
+    "item_id": "pl-fg-05",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Według raportu technicznego TR-2026-884 wykryto dokładnie 42 usterki.",
+    "formatted_reference": "Według raportu technicznego TR-2026-884 wykryto dokładnie 42 usterki.",
+    "speaker_id": "pl-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 5.1,
+    "critical_entities": [
+      "TR-2026-884",
+      "42"
+    ]
+  },
+  {
+    "item_id": "pl-fg-06",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Miesięczny koszt wynajmu lokalu wynosi dokładnie 7 500 PLN.",
+    "formatted_reference": "Miesięczny koszt wynajmu lokalu wynosi dokładnie 7 500 PLN.",
+    "speaker_id": "pl-formal-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.7,
+    "critical_entities": [
+      "7 500 PLN",
+      "PLN"
+    ]
+  },
+  {
+    "item_id": "pl-fg-07",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Nigdy pod żadnym pozorem nie udostępniaj hasła osobom trzecim.",
+    "formatted_reference": "Nigdy pod żadnym pozorem nie udostępniaj hasła osobom trzecim.",
+    "speaker_id": "pl-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.5,
+    "critical_entities": [
+      "Nigdy",
+      "nie udostępniaj",
+      "hasła"
+    ]
+  },
+  {
+    "item_id": "pl-fg-08",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Przelew został wysłany na numer konta 42 1090 2402 0000 0001 2345 6789.",
+    "formatted_reference": "Przelew został wysłany na numer konta 42 1090 2402 0000 0001 2345 6789.",
+    "speaker_id": "pl-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 5.4,
+    "critical_entities": [
+      "42 1090 2402 0000 0001 2345 6789"
+    ]
+  },
+  {
+    "item_id": "pl-fg-09",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Dokładność pomiaru w laboratorium wynosi 99,8% według normy ISO.",
+    "formatted_reference": "Dokładność pomiaru w laboratorium wynosi 99,8% według normy ISO.",
+    "speaker_id": "pl-formal-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.6,
+    "critical_entities": [
+      "99,8%",
+      "ISO"
+    ]
+  },
+  {
+    "item_id": "pl-fg-10",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Roczny przychód firmy osiągnął 1,2 mln USD w czwartym kwartale.",
+    "formatted_reference": "Roczny przychód firmy osiągnął 1,2 mln USD w czwartym kwartale.",
+    "speaker_id": "pl-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.3,
+    "critical_entities": [
+      "1,2 mln USD",
+      "USD"
+    ]
+  },
+  {
+    "item_id": "pl-fg-11",
+    "language": "pl",
+    "group": "developer_code",
+    "spoken_reference": "Adres IP serwera to 192.168.1.150 na porcie 8080.",
+    "formatted_reference": "Adres IP serwera to 192.168.1.150 na porcie 8080.",
+    "speaker_id": "pl-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.4,
+    "critical_entities": [
+      "192.168.1.150",
+      "8080"
+    ]
+  },
+  {
+    "item_id": "pl-fg-12",
+    "language": "pl",
+    "group": "clean",
+    "spoken_reference": "Wniosek nie został odrzucony, lecz przekazany do dalszej weryfikacji.",
+    "formatted_reference": "Wniosek nie został odrzucony, lecz przekazany do dalszej weryfikacji.",
+    "speaker_id": "pl-formal-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.5,
+    "critical_entities": [
+      "nie został odrzucony"
+    ]
+  },
+  {
+    "item_id": "pl-fg-13",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Temperatura pacjenta wynosiła dokładnie 37,5 stopnia Celsjusza.",
+    "formatted_reference": "Temperatura pacjenta wynosiła dokładnie 37,5 stopnia Celsjusza.",
+    "speaker_id": "pl-formal-02",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.2,
+    "critical_entities": [
+      "37,5",
+      "Celsjusza"
+    ]
+  },
+  {
+    "item_id": "pl-fg-14",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Kolejny audyt zaplanowano na dzień 10 stycznia 2027 roku.",
+    "formatted_reference": "Kolejny audyt zaplanowano na dzień 10 stycznia 2027 roku.",
+    "speaker_id": "pl-formal-01",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.5,
+    "critical_entities": [
+      "10 stycznia 2027",
+      "2027"
+    ]
+  },
+  {
+    "item_id": "pl-fg-15",
+    "language": "pl",
+    "group": "quantities",
+    "spoken_reference": "Liczba uszkodzonych pakietów wynosi 12, a nie 15.",
+    "formatted_reference": "Liczba uszkodzonych pakietów wynosi 12, a nie 15.",
+    "speaker_id": "pl-formal-03",
+    "consent_verified": true,
+    "audio_file": null,
+    "duration_sec": 4.1,
+    "critical_entities": [
+      "12",
+      "15",
+      "nie 15"
+    ]
+  }
+]

@@ -70,6 +70,20 @@ NUMBER_WORDS = {
         "vingt": "20", "trente": "30", "quarante": "40", "cinquante": "50",
         "soixante": "60", "septante": "70", "quatre-vingt": "80",
     },
+    "pl": {
+        "zero": "0", "jeden": "1", "jedna": "1", "jedno": "1", "dwa": "2", "dwie": "2",
+        "trzy": "3", "cztery": "4", "pięć": "5", "piec": "5", "sześć": "6", "szesc": "6",
+        "siedem": "7", "osiem": "8", "dziewięć": "9", "dziewiec": "9", "dziesięć": "10", "dziesiec": "10",
+        "jedenaście": "11", "jedenascie": "11", "dwanaście": "12", "dwanascie": "12",
+        "trzynaście": "13", "trzynascie": "13", "czternaście": "14", "czternascie": "14",
+        "piętnaście": "15", "pietnascie": "15", "szesnaście": "16", "szesnascie": "16",
+        "siedemnaście": "17", "siedemnascie": "17", "osiemnaście": "18", "osiemnascie": "18",
+        "dziewiętnaście": "19", "dziewietnascie": "19", "dwadzieścia": "20", "dwadziescia": "20",
+        "trzydzieści": "30", "trzydziesci": "30", "czterdzieści": "40", "czterdziesci": "40",
+        "pięćdziesiąt": "50", "piecdziesiat": "50", "sześćdziesiąt": "60", "szescdziesiat": "60",
+        "siedemdziesiąt": "70", "siedemdziesiat": "70", "osiemdziesiąt": "80", "osiemdziesiat": "80",
+        "dziewięćdziesiąt": "90", "dziewiecdziesiat": "90", "sto": "100",
+    },
 }
 
 # Negation terms across prioritized languages.
@@ -99,6 +113,11 @@ NEGATION_DICTIONARY = {
     "fr": [
         "ne", "pas", "jamais", "rien", "personne", "aucun", "aucune",
         "sans", "ni", "nul", "nulle",
+    ],
+    "pl": [
+        "nie", "nigdy", "nic", "nikt", "nigdzie", "żaden", "zaden",
+        "żadna", "zadna", "żadne", "zadne", "żadnych", "zadnych",
+        "żadnym", "zadnym", "bez", "ani",
     ],
 }
 

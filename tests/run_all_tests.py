@@ -80,6 +80,7 @@ TESTS = [
     ("Caret Observer & Text Correction Integration", "tests/test_caret_and_corrections_integration.py"),
     ("Selection Rewriter & In-Place Text Transactions", "tests/test_selection_rewriter.py"),
     ("Strict PEP 440 Semantic Versioning & Update Checker", "tests/test_update_checker.py"),
+    ("Deterministic Tamil & Tanglish Transliteration", "tests/test_transliteration.py"),
 ]
 
 
