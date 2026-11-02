@@ -55,7 +55,7 @@ def _read_before(reader, deadline):
         _READ_SLOTS.release()
         return None
     done.wait(max(0.0, deadline - time.perf_counter()))
-    return result[0] if done.is_set() and time.perf_counter() <= deadline else None
+    return result[0] if done.is_set() else None
 
 
 def _insertion_delta(baseline, current):

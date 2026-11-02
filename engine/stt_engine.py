@@ -362,6 +362,19 @@ class STTEngine:
         vocab = custom_vocabulary or self.config.get("custom_vocabulary", [])
         lang = language if language is not None else self.config.get("language", "auto")
 
+        # Specialist ASR Harness (AI4Bharat IndicConformer for Tamil)
+        if lang == "ta" and task != "translate" and self.config.get("use_specialist_asr", True):
+            try:
+                from engine.onnx_asr.harness import get_specialist_harness
+                harness = get_specialist_harness()
+                if harness.is_available("ta"):
+                    res = harness.transcribe(audio_data, language="ta")
+                    if res and not res.get("error"):
+                        return res
+            except Exception as e:
+                import logging
+                logging.getLogger("FlowPilot.STTEngine").warning(f"Specialist ASR failed, falling back to Whisper: {e}")
+
         strategy = self.config.get("biasing_strategy", "initial_prompt")
 
         if strategy == "hotwords":
