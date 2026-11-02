@@ -12,6 +12,7 @@ import re
 import sys
 import time
 import threading
+import unicodedata
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, Tuple, List
@@ -56,18 +57,24 @@ KNOWN_TAMIL_TECH_MAP: Dict[str, str] = {
 
 def repair_tamil_unicode(text: str) -> str:
     """
-    Normalizes and repairs Tamil Unicode sequences resulting from subword token joining.
-    Fixes stacked combining vowel signs, viramas followed by vowel signs, and orphaned marks.
+    Repairs Tamil spelling damage left by joining subword tokens.
+
+    The vocabulary contains bare vowel-sign pieces (U+0BC6, U+0BC7, U+0BBE, U+0BD7), so
+    the model can spell கொ as கெ + ா. Composing to NFC first keeps those vowels whole;
+    the rules below then only touch sequences that are never valid Tamil.
     """
     if not text:
         return text
-    # 1. Virama followed by dependent vowel sign (e.g. க்ொ -> கொ, த்ா -> தா)
-    text = re.sub(r'\u0BCD([\u0BBE-\u0BCC])', r'\1', text)
+    text = unicodedata.normalize("NFC", text)
+    # 1. Consonant + virama + vowel sign: a doubled consonant was lost at a token boundary
+    #    (தாவிக்ொண்டு -> தாவிக்கொண்டு). Restore it rather than deleting the virama, which
+    #    would leave a valid-looking but misspelled word (தாவிகொண்டு).
+    text = re.sub(r'([\u0B95-\u0BB9])\u0BCD([\u0BBE-\u0BCC])', '\\1\u0BCD\\1\\2', text)
     # 2. Vowel sign followed by virama (e.g. கா் -> கா)
     text = re.sub(r'([\u0BBE-\u0BCC])\u0BCD', r'\1', text)
-    # 3. Multiple consecutive combining vowel signs (e.g. ிி -> ி)
+    # 3. Stacked vowel signs (e.g. ிி -> ி)
     text = re.sub(r'([\u0BBE-\u0BCC])[\u0BBE-\u0BCC]+', r'\1', text)
-    # 4. Multiple viramas
+    # 4. Repeated viramas
     text = re.sub(r'\u0BCD+', '\u0BCD', text)
     # 5. Combining sign at start of word (following space or start of string)
     vowel_map = {
@@ -76,7 +83,7 @@ def repair_tamil_unicode(text: str) -> str:
         '\u0BC7': 'ஏ', '\u0BC8': 'ஐ', '\u0BCA': 'ஒ',
         '\u0BCB': 'ஓ', '\u0BCC': 'ஔ'
     }
-    text = re.sub(r'(?:(?<=[\s\b])|^)([\u0BBE-\u0BCD])', lambda m: vowel_map.get(m.group(1), ''), text)
+    text = re.sub(r'(?:(?<=\s)|^)([\u0BBE-\u0BCD])', lambda m: vowel_map.get(m.group(1), ''), text)
     return text
 
 
@@ -105,6 +112,42 @@ def _levenshtein(s1: str, s2: str) -> int:
             curr.append(min(insert, delete, sub))
         prev = curr
     return prev[-1]
+
+
+# Everyday Tamil words that are also common given names or brand-like words. A dictionary
+# entry such as "Mani" or "Anbu" must never rewrite these: the ordinary word is far more
+# likely in dictation, and leaving it in Tamil script is still correct Tamil.
+_COMMON_TAMIL_WORDS = frozenset({
+    'மணி', 'அன்பு', 'பெரிய', 'சின்ன', 'மலர்', 'நிலா', 'முத்து', 'செல்வம்', 'செல்வி',
+    'அழகு', 'இன்பம்', 'ராஜா', 'ராணி', 'தேவி', 'தங்கம்', 'அருள்', 'ஜோதி', 'வேல்',
+    'கண்ணு', 'பொன்னு', 'சூரியன்', 'கவிதை', 'ரவை',
+})
+
+# Fuzzy (one-edit) matching is only safe for long entries; short names collide with
+# ordinary words (பெரிய "big" is one edit from "Priya").
+_FUZZY_MIN_LEN = 6
+
+
+def _collapse_epenthesis(s: str) -> str:
+    """Tamil breaks word-initial clusters with a vowel (Priya -> பிரியா, 'piriya'). Undo it."""
+    return re.sub(r'^(th|[kgcjpbsfv])[iu](?=[rl])', r'\1', s)
+
+
+def _match_user_term(tamil_word: str, user_vocab_norms: List[Tuple[str, str]]) -> Optional[str]:
+    """Returns the dictionary entry a Tamil word spells, or None. Conservative by design."""
+    from engine.transliteration import transliterate_tamil_to_tanglish
+    if not tamil_word or tamil_word in _COMMON_TAMIL_WORDS:
+        return None
+    tang = transliterate_tamil_to_tanglish(tamil_word)
+    norm = _phonetic_normalize(tang)
+    candidates = {norm, _collapse_epenthesis(norm)}
+    for orig_v, norm_v in user_vocab_norms:
+        if tang.lower() == orig_v.lower() or norm_v in candidates:
+            return orig_v
+        if (len(norm_v) >= _FUZZY_MIN_LEN and len(norm) >= _FUZZY_MIN_LEN
+                and _levenshtein(norm, norm_v) <= 1):
+            return orig_v
+    return None
 
 
 def apply_custom_vocabulary_biasing(text: str, custom_vocabulary: Optional[List[str]]) -> str:
@@ -167,24 +210,14 @@ def apply_custom_vocabulary_biasing(text: str, custom_vocabulary: Optional[List[
                     base_candidate = tok[:-len(tam_sfx)].rstrip('-')
                     if not base_candidate:
                         continue
-                    tang = transliterate_tamil_to_tanglish(base_candidate)
-                    norm_tang = _phonetic_normalize(tang)
-                    for orig_v, norm_v in user_vocab_norms:
-                        if tang.lower() == orig_v.lower() or norm_tang == norm_v or (len(norm_v) >= 4 and _levenshtein(norm_tang, norm_v) <= 1):
-                            matched_term = orig_v
-                            matched_suffix = eng_sfx
-                            break
+                    matched_term = _match_user_term(base_candidate, user_vocab_norms)
                     if matched_term:
+                        matched_suffix = eng_sfx
                         break
 
             if not matched_term:
-                tang = transliterate_tamil_to_tanglish(tok)
-                norm_tang = _phonetic_normalize(tang)
-                for orig_v, norm_v in user_vocab_norms:
-                    if tang.lower() == orig_v.lower() or norm_tang == norm_v or (len(norm_v) >= 4 and _levenshtein(norm_tang, norm_v) <= 1):
-                        matched_term = orig_v
-                        matched_suffix = ""
-                        break
+                matched_term = _match_user_term(tok, user_vocab_norms)
+                matched_suffix = ""
 
             if matched_term:
                 out_tokens.append(f"{matched_term}{matched_suffix}")

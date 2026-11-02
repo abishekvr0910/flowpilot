@@ -112,7 +112,9 @@ class TestOnnxSpecialistASR(unittest.TestCase):
         # ta-cv-006 bug case: stacked vowel signs and virama + vowel
         corrupt = "அது தாவிிக்ொண்டு சந்தோஷமாக"
         clean = repair_tamil_unicode(corrupt)
-        self.assertEqual(clean, "அது தாவிகொண்டு சந்தோஷமாக")
+        # The doubled consonant lost at the token boundary is restored, giving the real
+        # word (Common Voice reference for ta-cv-006), not the misspelling தாவிகொண்டு.
+        self.assertEqual(clean, "அது தாவிக்கொண்டு சந்தோஷமாக")
         self.assertNotIn("ிி", clean)
         self.assertNotIn("்ொ", clean)
 
@@ -126,6 +128,44 @@ class TestOnnxSpecialistASR(unittest.TestCase):
         self.assertIn("Abishek", biased)
         self.assertIn("Kavitha-ukku", biased)
         self.assertIn("Vercel-il", biased)
+
+    def test_09_repair_leaves_valid_tamil_unchanged_in_either_encoding(self):
+        """Valid Tamil must survive repair whether composed (NFC) or typed decomposed (NFD)."""
+        import unicodedata
+        sentences = [
+            "பாலாஜி என்பது பாலன் என்ற பொருளுடையது.",
+            "பகலில் இயங்கிக் கொண்டே இருப்பர்.",
+            "சீக்கிரத்தில் ஐநூறு ரூபாய் செலவழித்து அவரது முழு உருவப்படமொன்று சபையில் வைத்தோம்.",
+            "வணக்கம், நீங்க எப்படி இருக்கீங்க?",
+            "கௌரவம் போகும் ஓடம் கோயில் தோட்டம்",
+        ]
+        for s in sentences:
+            nfc = unicodedata.normalize("NFC", s)
+            self.assertEqual(repair_tamil_unicode(nfc), nfc)
+            self.assertEqual(repair_tamil_unicode(unicodedata.normalize("NFD", s)), nfc,
+                             "a decomposed o/oo vowel must not be cut down to e/ee")
+
+    def test_10_vocabulary_never_rewrites_everyday_words(self):
+        """Names that are also ordinary words (Mani, Anbu, Priya...) must not replace them."""
+        vocab = ["Kubernetes", "GraphQL", "FastAPI", "Pydantic", "PostgreSQL", "Next.js",
+                 "TypeScript", "Python", "Whisper", "Docker", "AWS Lambda",
+                 "Abishek", "Kavitha", "Vercel", "Supabase", "Ravi", "Priya", "Kumar",
+                 "Mani", "Anbu", "Sundar"]
+        everyday = [
+            "நாளைக்கு காலைல ஒன்பது மணிக்கு நாம மீட் பண்ணலாமா?",
+            "இது ரொம்ப பெரிய வேலை",
+            "அம்மா மேல அன்பு அதிகம்",
+            "காலையில ரவை உப்புமா செஞ்சேன்",
+            "அவள் ஒரு அழகான கவிதை எழுதினாள்",
+        ]
+        for s in everyday:
+            self.assertEqual(apply_custom_vocabulary_biasing(s, vocab), s)
+
+    def test_11_vocabulary_matches_tamil_cluster_spelling(self):
+        """Tamil inserts a vowel into initial clusters (Priya -> பிரியா); the entry still matches."""
+        vocab = ["Priya", "Kavitha"]
+        self.assertIn("Priya", apply_custom_vocabulary_biasing("பிரியா வந்தாங்க", vocab))
+        self.assertIn("Priya-ukku", apply_custom_vocabulary_biasing("பிரியாவுக்கு சொல்லு", vocab))
 
 
 if __name__ == "__main__":
