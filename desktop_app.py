@@ -171,6 +171,7 @@ class FlowPilotApp:
 
         # Language and Translation triggers
         self.tray.language_changed.connect(self._on_tray_language_changed)
+        self.tray.cycle_language_requested.connect(self.cycle_language_quick_switch)
         self.tray.translate_toggled.connect(self._on_tray_translate_toggled)
 
         # Companion Studio triggers
@@ -225,6 +226,11 @@ class FlowPilotApp:
             self.orchestrator.add_auxiliary_hotkey("Ctrl+Alt+T", self._on_transforms_hotkey)
         except Exception as _e:
             print(f"[FlowPilot Warning] Transforms hotkey registration deferred: {_e}")
+
+        try:
+            self.orchestrator.add_auxiliary_hotkey("Ctrl+Alt+L", self.cycle_language_quick_switch)
+        except Exception as _e:
+            print(f"[FlowPilot Warning] Language quick-switch hotkey registration deferred: {_e}")
 
         # 5. Start Global Win32 Hotkey Service
         self.orchestrator.start_hotkey_listener()
@@ -366,13 +372,41 @@ class FlowPilotApp:
         )
         return True
 
+    def cycle_language_quick_switch(self):
+        """Quickly cycles dictation language between English (en) -> Tamil (ta) -> Polish (pl) -> Auto."""
+        cycle = ["en", "ta", "pl", "auto"]
+        current = self.config.get("language", "auto").lower()
+        try:
+            next_idx = (cycle.index(current) + 1) % len(cycle)
+        except ValueError:
+            next_idx = 0
+        self._on_tray_language_changed(cycle[next_idx])
+
     def _on_tray_language_changed(self, lang_code: str):
+        NAMES = {
+            "en": "English",
+            "ta": "Tamil (Tanglish)",
+            "pl": "Polish (Polski)",
+            "auto": "Auto-Detect (99 Languages)"
+        }
         self.config["language"] = lang_code
+        # Auto-promote to small model if switching to Tamil/Polish and small model is present
+        from engine.stt_engine import STTEngine
+        if lang_code in ("ta", "pl") and self.config.get("local_model_size") in ("tiny", "base"):
+            try:
+                small_path = STTEngine.resolve_model_path("small")
+                import os
+                if os.path.isdir(small_path):
+                    self.config["local_model_size"] = "small"
+            except Exception:
+                pass
+
         save_config(self.config)
         self.orchestrator.update_config(self.config)
         self.tray.set_language_info(lang_code, self.config.get("translate_to_english", False))
-        lang_name = lang_code.upper() if lang_code != "auto" else "Auto-Detect"
-        self.tray.show_notification("FlowPilot Language Updated", f"Speech recognition set to: {lang_name}")
+        lang_name = NAMES.get(lang_code, lang_code.upper())
+        self.tray.show_notification("Dictation Language Updated", f"Active: {lang_name} (Cycle: Ctrl+Alt+L)")
+        print(f"[FlowPilot] Dictation language switched to: {lang_name} [{lang_code}]")
 
     def _on_tray_translate_toggled(self, enabled: bool):
         self.config["translate_to_english"] = enabled

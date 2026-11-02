@@ -23,6 +23,7 @@ class TrayManager(QObject):
     quit_requested = Signal()
     ducking_toggled = Signal(bool)
     language_changed = Signal(str)
+    cycle_language_requested = Signal()
     translate_toggled = Signal(bool)
 
     def __init__(self, parent=None):
@@ -130,12 +131,17 @@ class TrayManager(QObject):
         self.action_recopy = self.menu.addAction("📄 Copy Last Dictation (Shift+Alt+X)")
         self.action_recopy.triggered.connect(self.recopy_requested.emit)
 
-        # Language & Live Translation Submenu
-        self.lang_menu = self.menu.addMenu("🌐 Language & Translation")
+        # Language Quick Switch Action & Submenu
+        self.action_cycle_lang = self.menu.addAction("🌐 Quick Switch Language (Ctrl+Alt+L)")
+        self.action_cycle_lang.triggered.connect(self.cycle_language_requested.emit)
+
+        self.lang_menu = self.menu.addMenu("🌐 Language Selection")
         self.lang_actions = {}
         top_languages = [
             ("auto", "Auto-Detect (99 Languages)"),
             ("en", "English"),
+            ("ta", "Tamil (தமிழ் / Tanglish)"),
+            ("pl", "Polish (Polski)"),
             ("es", "Spanish (Español)"),
             ("fr", "French (Français)"),
             ("de", "German (Deutsch)"),
@@ -182,6 +188,9 @@ class TrayManager(QObject):
             self.lang_actions[cur].setChecked(True)
         if hasattr(self, 'action_translate'):
             self.action_translate.setChecked(is_translate)
+        display = {"en": "English", "ta": "Tamil", "pl": "Polish", "auto": "Auto"}.get(cur, cur.upper())
+        if hasattr(self, 'action_cycle_lang'):
+            self.action_cycle_lang.setText(f"🌐 Quick Switch Language [Active: {display}] (Ctrl+Alt+L)")
 
     def set_hotkey_info(self, hotkey_str: str, mode: str = "toggle"):
         clean_hk = hotkey_str.replace("<", "").replace(">", "").strip()
