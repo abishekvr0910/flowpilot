@@ -22,7 +22,7 @@ comtypes>=1.2.0; sys_platform == 'win32'
 
 # Cross-Platform Desktop & Input Utilities
 pyperclip>=1.8.2
-psutil>=5.9.0
+psutil>=7.2.2
 pynput>=1.7.6
 packaging>=23.0
 
