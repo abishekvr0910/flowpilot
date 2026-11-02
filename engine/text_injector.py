@@ -1052,6 +1052,17 @@ class TextInjector:
         """
         if not HAS_WIN32 or not target_hwnd or sys.platform != "win32":
             return None
+
+        # Terminal consoles (Windows Terminal, conhost, mintty) fault on UIA TextPattern
+        target_proc = cls._get_target_process_name(target_hwnd)
+        if target_proc in cls.TERMINAL_APP_PROCESSES:
+            return None
+        try:
+            cname = win32gui.GetClassName(target_hwnd).lower()
+            if any(x in cname for x in ("consolewindowclass", "cascadia", "terminal", "mintty", "virtualconsoleclass")):
+                return None
+        except Exception:
+            pass
         try:
             import pythoncom
             pythoncom.CoInitialize()
@@ -1202,6 +1213,17 @@ class TextInjector:
             return None, None
         if not win32gui.IsWindow(target_hwnd):
             return None, None
+
+        # Terminal consoles (Windows Terminal, conhost, mintty) fault on UIA TextPattern
+        target_proc = cls._get_target_process_name(target_hwnd)
+        if target_proc in cls.TERMINAL_APP_PROCESSES:
+            return None, None
+        try:
+            cname = win32gui.GetClassName(target_hwnd).lower()
+            if any(x in cname for x in ("consolewindowclass", "cascadia", "terminal", "mintty", "virtualconsoleclass")):
+                return None, None
+        except Exception:
+            pass
 
         # 1. Win32 EM_GETSEL on Edit / RichEdit controls
         try:

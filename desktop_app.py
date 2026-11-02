@@ -554,12 +554,64 @@ def run_self_test() -> int:
         traceback.print_exc()
         return 1
 
+def run_self_test_tamil() -> int:
+    """Headless self-test validating offline Tamil dictation and Tanglish transliteration on authentic speech."""
+    import time
+    import os
+    print("=" * 65)
+    print("FLOWPILOT OFFLINE TAMIL & TANGLISH DICTATION SELF-TEST")
+    print("=" * 65)
+    try:
+        from engine.stt_engine import STTEngine
+        from engine.context_processor import ContextProcessor
+        from engine.transliteration import apply_transliteration_if_enabled
+
+        resolved_path = STTEngine.resolve_model_path("small")
+        print(f"[Self-Test Tamil] Resolved offline model path: {resolved_path}")
+        assert os.path.exists(resolved_path), f"Resolved model path does not exist: {resolved_path}"
+
+        stt = STTEngine({"local_model_size": "small", "cpu_threads": min(4, os.cpu_count() or 2)})
+        stt.preload_model()
+
+        fixture_path = os.path.join(os.path.dirname(__file__), "private", "corpus", "ta", "ta-conv-01.wav")
+        if not os.path.isfile(fixture_path):
+            print(f"[Self-Test Tamil] SKIP: fixture {fixture_path} not found")
+            return 0
+
+        with open(fixture_path, "rb") as f:
+            wav_bytes = f.read()
+
+        print(f"[Self-Test Tamil] Transcribing authentic Tamil dialogue clip ({len(wav_bytes)} bytes)...")
+        t0 = time.time()
+        res = stt.transcribe(wav_bytes, language="ta")
+        t_trans = time.time() - t0
+        raw_text = res.get("text", "")
+        print(f"[Self-Test Tamil] Raw Tamil output: '{raw_text}' (in {t_trans:.2f}s)")
+        assert any(k in raw_text for k in ("வணக்கம்", "எப்படி", "இருக்கீ")), f"Unexpected Tamil text: {raw_text}"
+
+        proc = ContextProcessor({"active_tone_mode": "conversational"})
+        formatted = proc.process(raw_text, language="ta")
+
+        tanglish = apply_transliteration_if_enabled(formatted, "ta", {"tamil_script_mode": "tanglish"})
+        print(f"[Self-Test Tamil] Tanglish transliteration: '{tanglish}'")
+        assert any(k in tanglish.lower() for k in ("vanakkam", "eppadi", "iruk")), f"Unexpected Tanglish text: {tanglish}"
+
+        print("[Self-Test Tamil] PASSED: Offline Tamil recognition and Tanglish transliteration verified.")
+        return 0
+    except Exception as e:
+        print(f"[Self-Test Tamil] FAILED: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
 def main():
     # Handle Ctrl+C in terminal cleanly
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     if "--version" in sys.argv or "-v" in sys.argv:
         print(f"FlowPilot {__version__}")
         sys.exit(0)
+    if "--self-test-tamil" in sys.argv:
+        sys.exit(run_self_test_tamil())
     if "--self-test" in sys.argv or "--smoke-test" in sys.argv:
         sys.exit(run_self_test())
     app = FlowPilotApp()
