@@ -8,13 +8,16 @@ import os
 import sys
 import json
 import time
+import re
 import urllib.request
 import threading
 from typing import Optional, Dict, Any, Callable
+from packaging.version import Version, InvalidVersion
+
+from engine import __version__ as CURRENT_VERSION
 
 GITHUB_REPO = "abishekvr0910/flowpilot"
-LATEST_RELEASE_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-CURRENT_VERSION = "3.1.0"
+RELEASES_LIST_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases?per_page=20"
 CHECK_INTERVAL_SECONDS = 86400  # 24 hours
 
 
@@ -26,21 +29,71 @@ def is_network_testing_active() -> bool:
     )
 
 
-def compare_versions(current: str, remote: str) -> bool:
-    """Returns True if remote version is newer than current version."""
-    import re
-    def normalize(v: str):
-        v = v.lstrip("v").strip()
-        nums = [int(x) for x in re.findall(r"\d+", v)]
-        is_rc = "-rc" in v.lower() or "rc" in v.lower()
-        return (nums, 0 if is_rc else 1)
-
+def parse_release_version(tag_or_version: str) -> Optional[Version]:
+    """Parses arbitrary GitHub release tags into strict PEP 440 / SemVer Version objects."""
+    if not tag_or_version:
+        return None
+    raw = str(tag_or_version).strip()
+    raw = re.sub(r'^[vV]', '', raw)
+    raw = re.sub(r'[-_]release$', '', raw, flags=re.IGNORECASE)
     try:
-        cur_norm = normalize(current)
-        rem_norm = normalize(remote)
-        return rem_norm > cur_norm
-    except Exception:
-        return remote.lstrip("v") != current.lstrip("v")
+        return Version(raw)
+    except InvalidVersion:
+        # Fallback for non-standard tags: extract dotted numbers + rc
+        m = re.search(r'(\d+(?:\.\d+)+(?:[-._]?(?:rc|a|b|preview)\.?\d*)?)', raw, flags=re.IGNORECASE)
+        if m:
+            try:
+                return Version(m.group(1))
+            except InvalidVersion:
+                pass
+        return None
+
+
+def compare_versions(current: str, remote: str) -> bool:
+    """Returns True if remote version is strictly newer than current version."""
+    v_cur = parse_release_version(current)
+    v_rem = parse_release_version(remote)
+    if v_cur is not None and v_rem is not None:
+        return v_rem > v_cur
+    return False
+
+
+def select_best_release(
+    releases: list,
+    current_version: str,
+    include_prereleases: bool = False
+) -> Optional[Dict[str, Any]]:
+    """
+    Selects the newest eligible release matching channel preferences.
+    Ignores draft releases. Only considers pre-releases if include_prereleases=True
+    or if current_version is itself a pre-release.
+    """
+    cur_ver = parse_release_version(current_version)
+    if cur_ver is None:
+        return None
+
+    allow_prereleases = include_prereleases or bool(cur_ver.is_prerelease)
+    best_ver: Optional[Version] = None
+    best_release: Optional[Dict[str, Any]] = None
+
+    for rel in releases:
+        if not isinstance(rel, dict) or rel.get("draft"):
+            continue
+        is_pre = bool(rel.get("prerelease", False))
+        if is_pre and not allow_prereleases:
+            continue
+
+        tag = rel.get("tag_name", "")
+        v = parse_release_version(tag)
+        if v is None:
+            continue
+
+        if v > cur_ver:
+            if best_ver is None or v > best_ver:
+                best_ver = v
+                best_release = rel
+
+    return best_release
 
 
 class UpdateChecker:
@@ -97,30 +150,40 @@ class UpdateChecker:
         }
         try:
             req = urllib.request.Request(
-                LATEST_RELEASE_API,
+                RELEASES_LIST_API,
                 headers={
                     "User-Agent": f"FlowPilot-Desktop/{self.current_version} (Windows NT 10.0; x64)",
                     "Accept": "application/vnd.github.v3+json"
                 }
             )
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
+            with urllib.request.urlopen(req, timeout=6.0) as resp:
                 if self._abort_requested:
                     return
                 if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    tag = data.get("tag_name", "").lstrip("v")
-                    url = data.get("html_url", result["release_url"])
-                    name = data.get("name", tag)
-
-                    if tag and compare_versions(self.current_version, tag):
+                    releases = json.loads(resp.read().decode("utf-8"))
+                    channel_pre = bool(config.get("update_channel_prerelease", False))
+                    best = select_best_release(
+                        releases,
+                        current_version=self.current_version,
+                        include_prereleases=channel_pre
+                    )
+                    if best:
+                        tag_clean = best.get("tag_name", "").lstrip("v")
                         result["update_available"] = True
-                        result["latest_version"] = tag
-                        result["release_url"] = url
-                        result["release_name"] = name
-                    config["last_update_check_ts"] = time.time()
+                        result["latest_version"] = tag_clean
+                        result["release_url"] = best.get("html_url", result["release_url"])
+                        result["release_name"] = best.get("name", tag_clean)
         except Exception:
             # Silent failure: unauthenticated GitHub rate limits or offline network
             pass
+        finally:
+            if not self._abort_requested:
+                config["last_update_check_ts"] = int(time.time())
+                try:
+                    from engine.config import save_config
+                    save_config(config)
+                except Exception:
+                    pass
 
         if not self._abort_requested and on_result:
             try:

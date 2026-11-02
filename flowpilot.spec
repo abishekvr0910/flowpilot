@@ -23,8 +23,10 @@ added_files = [
     ('assets', 'assets'),
     ('assets', 'faster_whisper/assets'),
 ]
-if os.path.isdir('models'):
-    added_files.append(('models', 'models'))
+# Default GA distribution bundles only faster-whisper-base (141 MB) to keep installer size <= 300 MB.
+# Additional models (e.g. small, medium) are downloaded on-demand by the user via Settings.
+if os.path.isdir('models/faster-whisper-base'):
+    added_files.append(('models/faster-whisper-base', 'models/faster-whisper-base'))
 added_files += collect_data_files('faster_whisper')
 added_files += collect_data_files('onnxruntime')
 
@@ -162,6 +164,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version='version_info.txt',
+    icon='assets/flowpilot.ico',
 )
 
 coll = COLLECT(

@@ -60,6 +60,9 @@ class MediaAudioPresence:
         self._suspect_since = None
         self._established = False
         self._unavailable = False
+        self._cached_speakers = None
+        self._cached_master_meter = None
+        self._last_speaker_query_ts = 0.0
 
     def is_active(self) -> bool:
         if self._unavailable:
@@ -101,15 +104,48 @@ class MediaAudioPresence:
 
         co_init = False
         try:
-            comtypes.CoInitialize()
-            co_init = True
+            try:
+                comtypes.CoInitialize()
+                co_init = True
+            except Exception:
+                pass
             samples: List[SessionSample] = []
-            speakers = AudioUtilities.GetSpeakers()
+
+            # Refresh speaker endpoint reference once every 10 seconds or on failure
+            now = time.monotonic()
+            if self._cached_speakers is None or (now - self._last_speaker_query_ts > 10.0):
+                try:
+                    self._cached_speakers = AudioUtilities.GetSpeakers()
+                    self._last_speaker_query_ts = now
+                    if self._cached_speakers and hasattr(self._cached_speakers, "_dev") and self._cached_speakers._dev:
+                        m_act = self._cached_speakers._dev.Activate(IAudioMeterInformation._iid_, comtypes.CLSCTX_ALL, None)
+                        self._cached_master_meter = m_act.QueryInterface(IAudioMeterInformation)
+                    else:
+                        self._cached_master_meter = None
+                except Exception:
+                    self._cached_speakers = None
+                    self._cached_master_meter = None
+
+            speakers = self._cached_speakers
             endpoint_muted = False
             if speakers and speakers.EndpointVolume:
-                endpoint_muted = bool(speakers.EndpointVolume.GetMute())
+                try:
+                    endpoint_muted = bool(speakers.EndpointVolume.GetMute())
+                except Exception:
+                    self._cached_speakers = None
+                    self._cached_master_meter = None
             if endpoint_muted:
                 return samples
+
+            # Master endpoint peak gate: avoid expensive session enumeration if hardware is silent
+            if self._cached_master_meter:
+                try:
+                    if float(self._cached_master_meter.GetPeakValue()) <= PEAK_THRESHOLD:
+                        return samples
+                except Exception:
+                    self._cached_speakers = None
+                    self._cached_master_meter = None
+
             my_pid = os.getpid()
             for session in AudioUtilities.GetAllSessions():
                 pid = int(getattr(session, "ProcessId", 0) or 0)
@@ -187,13 +223,28 @@ class SampledMediaPresence:
             return self._active
 
     def _run(self):
-        while not self._stop_event.is_set():
-            try:
-                active = self._probe.is_active()
-            except Exception as exc:
-                log.warning("Media presence sampler stopped after error: %s", exc)
-                active = False
-                self._stop_event.set()
-            with self._lock:
-                self._active = active and not self._stop_event.is_set()
-            self._stop_event.wait(self._interval_seconds)
+        import comtypes
+        co_init = False
+        try:
+            comtypes.CoInitialize()
+            co_init = True
+        except Exception:
+            pass
+
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    active = self._probe.is_active()
+                except Exception as exc:
+                    log.warning("Media presence sampler stopped after error: %s", exc)
+                    active = False
+                    self._stop_event.set()
+                with self._lock:
+                    self._active = active and not self._stop_event.is_set()
+                self._stop_event.wait(self._interval_seconds)
+        finally:
+            if co_init:
+                try:
+                    comtypes.CoUninitialize()
+                except Exception:
+                    pass

@@ -171,6 +171,12 @@ class STTEngine:
 
         return size_clean
 
+    @classmethod
+    def is_model_available(cls, size: str) -> bool:
+        """Checks if offline model directory and model.bin exist for the given size."""
+        resolved = cls.resolve_model_path(size)
+        return bool(resolved and os.path.isdir(resolved) and os.path.isfile(os.path.join(resolved, "model.bin")))
+
     def preload_model(self):
         """Asynchronously preloads the local faster-whisper model on CPU off the GUI thread."""
         try:
@@ -188,6 +194,10 @@ class STTEngine:
                 raise RuntimeError("STTEngine is shut down.")
 
             requested_size = self.config.get("local_model_size", "base")
+            if requested_size != "base" and not self.is_model_available(requested_size) and self.is_model_available("base"):
+                print(f"[STT] Configured model '{requested_size}' not found locally. Gracefully falling back to bundled 'base'.")
+                requested_size = "base"
+                self.config["local_model_size"] = "base"
             model_target = self.resolve_model_path(requested_size)
             threads = self.config.get("cpu_threads") or min(8, os.cpu_count() or 4)
             key = self.get_model_key(model_target, "cpu", "int8", threads)

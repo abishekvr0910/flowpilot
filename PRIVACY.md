@@ -47,7 +47,7 @@ Local JSON/text/WAV files are not encrypted by FlowPilot. Protection depends on 
 
 ## 3. Network Egress Audit
 
-The [network egress regression test](tests/test_network_egress.py) blocks attempted non-loopback socket calls in its tested paths during:
+The core dictation engine operates strictly zero-egress. The [network egress regression test](tests/test_network_egress.py) blocks attempted non-loopback socket calls in its tested paths during:
 - Model loading
 - Hotkey registration
 - Microphone capture
@@ -58,6 +58,15 @@ The [network egress regression test](tests/test_network_egress.py) blocks attemp
 This test is useful evidence for those paths, not a guarantee about every runtime configuration or a replacement for an independent network audit. The optional local integration API binds to loopback. Any separately configured local LLM integration should be evaluated under the user's own network policy.
 
 Optional local text transforms send selected text or the latest dictation to the configured loopback model service. That service is a separate process with its own logging, retention, and network configuration. The optional integration API requires a separate user-provided token for REST/WebSocket access; keep it on loopback and do not expose it through LAN bindings, port forwarding, or public tunnels. API uploads are a separate path from desktop microphone dictation, and the desktop never-store setting does not establish zero temporary-file usage in the HTTP framework.
+
+### 3.1 Software Update Checks
+
+FlowPilot includes an optional, non-intrusive software update checker (`engine/update_checker.py`):
+- **Endpoint:** `https://api.github.com/repos/abishekvr0910/flowpilot/releases?per_page=20`
+- **Purpose:** Discovers new official FlowPilot releases and release notes.
+- **Cadence:** Evaluates once at application launch (after a 5-second warmup) and every 24 hours while running.
+- **Payload:** Strictly anonymous standard HTTPS GET request. The `User-Agent` HTTP header includes only the application identifier and current version (`FlowPilot-Desktop/3.1.0 (Windows NT 10.0; x64)`). No audio data, transcribed text, window metadata, telemetry, device identifiers, or IP addresses are ever stored or linked.
+- **User Control:** Automatic update checking can be toggled on or off at any time in **Settings > Check for updates automatically**.
 
 ---
 

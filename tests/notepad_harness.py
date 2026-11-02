@@ -18,6 +18,9 @@ def open_test_notepad(timeout: float = 10.0) -> tuple[int, subprocess.Popen, Pat
     """Open a unique test file and select only its initialized Notepad editor."""
     from engine.text_injector import TextInjector
 
+    if not is_interactive_desktop():
+        raise RuntimeError("Interactive input desktop not attached; physical Notepad launch skipped.")
+
     fd, filename = tempfile.mkstemp(prefix="flowpilot-audit-", suffix=".txt")
     os.close(fd)
     fixture = Path(filename)
@@ -128,7 +131,21 @@ def is_interactive_desktop() -> bool:
         u.GetUserObjectInformationW(h_cur, 2, name_cur, 256, ctypes.byref(needed))
         u.GetUserObjectInformationW(h_input, 2, name_input, 256, ctypes.byref(needed))
         u.CloseDesktop(h_input)
-        return name_cur.value.lower() == name_input.value.lower()
+        if name_cur.value.lower() != name_input.value.lower():
+            return False
+        if name_input.value.lower() in ('winlogon', 'screen-saver'):
+            return False
+        # Also check foreground window: if locked or logon screen, not interactive
+        try:
+            fg = win32gui.GetForegroundWindow()
+            if fg and win32gui.IsWindow(fg):
+                title = (win32gui.GetWindowText(fg) or '').lower()
+                cls = (win32gui.GetClassName(fg) or '').lower()
+                if 'lock screen' in title or 'lockscreen' in cls or 'logon' in title or 'logonui' in cls:
+                    return False
+        except Exception:
+            pass
+        return True
     except Exception:
         return False
 

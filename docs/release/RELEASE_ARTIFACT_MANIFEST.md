@@ -1,6 +1,27 @@
 # FlowPilot release artifact manifest
 
-Updated 2026-10-28. A locally verified candidate is not a published general release.
+Updated 2026-11-02. A locally verified candidate is not a published general release.
+
+## General Availability release: v3.1.0, Windows x64
+
+**Production GA Release package.** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15. FlowPilot v3.1.0 GA delivers a fully offline, zero-cloud-egress desktop dictation platform for Windows 10/11 x64. Incorporates streamlined base-only distribution (<250 MB installer footprint), asynchronous GitHub Releases update notifications with 24-hour throttling and zero cloud egress during dictation, automatic fallback for unprovisioned models, stamped Windows PE version metadata (3.1.0.0), terminal-agnostic console injection, lock-screen session detection, and 63 automated audit test suites.
+
+| Item | Measured value |
+|---|---|
+| Installer Executable | `dist/FlowPilot-Setup-v3.1.0.exe` |
+| Installer size | 259,384,559 bytes (247.37 MB) |
+| Installer SHA-256 | `05545E2F10B1929C5BA8D6DF73F10BD57FC142B9B1722157EF0DF7FA49648913` |
+| Archive | `dist/FlowPilot-v3.1.0-windows-x64.zip` |
+| Archive size | 330,028,521 bytes (314.74 MB) |
+| Archive SHA-256 | `D98EF718BEC7A88F3B6D7C463CA63FCFDC31C5D99CFE6ACA74AE1E7EAFD11DC8` |
+| Embedded executable | `FlowPilot.exe`, 27,647,811 bytes (26.37 MB) |
+| Embedded executable SHA-256 | `1E19FF22EADEAEFED612611AB364D81C52326007D4C96673BB0595A0F9B79A21` |
+| Archive integrity | 1,354 members, CRC passed; embedded executable hash matched the tested bundle |
+| License notices | 93 files under `licenses/` |
+| PE Version Stamp | `FileVersion: 3.1.0.0`, `ProductVersion: 3.1.0.0`, `CompanyName: FlowPilot Open Source`, `FileDescription: FlowPilot Voice Intelligence` |
+| Authenticode | `NotSigned` (Unsigned pilot/GA package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
+| Local automated audit | 63 suites registered in `tests/run_all_tests.py` |
+| Offline packaged self test | `%LOCALAPPDATA%\Programs\FlowPilot\FlowPilot.exe --self-test` exited `0` with SAPI speech synthesis fixture verified in 10.98 s |
 
 ## Pilot release candidate: v3.1.0-RC11, Windows x64
 

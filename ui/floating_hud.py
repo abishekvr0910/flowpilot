@@ -160,10 +160,19 @@ class FloatingHUD(QWidget):
         if not hasattr(self, "_anim_timer"):
             return
         animate = self.isVisible() and not self._reduced_motion and self._presentation_style != "edge"
-        if animate and not self._anim_timer.isActive():
-            self._anim_timer.start(33)
-        elif not animate and self._anim_timer.isActive():
-            self._anim_timer.stop()
+        if not animate:
+            if self._anim_timer.isActive():
+                self._anim_timer.stop()
+            return
+
+        st = getattr(self, "_current_state", "idle")
+        active = st in ("listening", "recording", "processing", "transcribing", "validating", "pasted", "success")
+        target_interval = 33 if active else 300
+
+        if not self._anim_timer.isActive():
+            self._anim_timer.start(target_interval)
+        elif self._anim_timer.interval() != target_interval:
+            self._anim_timer.setInterval(target_interval)
 
     def set_presentation(self, presentation: str):
         """Change only live rendering; never mutate the selected companion or placement."""
@@ -284,20 +293,30 @@ class FloatingHUD(QWidget):
         elif self._current_state in ("idle", "error", "cancelled"):
             self.level_bar.hide()
 
+        self._sync_animation_timer()
         self.update()
 
     def _on_anim_tick(self):
         self._tick += 1
 
+        prev_frame = getattr(self, "_cat_frame", None)
+        prev_blinking = getattr(self, "_is_blinking", False)
+        prev_audio = self._audio_level
+
         # Smooth audio decay
         self._audio_level = max(0.0, self._audio_level * 0.90)
 
+        st = self._current_state
+        is_active = st in ("listening", "recording", "processing", "transcribing", "validating", "pasted", "success")
+        is_idle_rate = hasattr(self, "_anim_timer") and self._anim_timer.interval() > 50
+
         # Natural random eye blinking
-        if self._current_state not in ("pasted", "success", "processing", "transcribing", "validating"):
+        if st not in ("pasted", "success", "processing", "transcribing", "validating"):
             if not self._is_blinking:
-                if random.random() < 0.018:
+                blink_chance = 0.08 if is_idle_rate else 0.018
+                if random.random() < blink_chance:
                     self._is_blinking = True
-                    self._blink_counter = 4
+                    self._blink_counter = 1 if is_idle_rate else 4
             else:
                 self._blink_counter -= 1
                 if self._blink_counter <= 0:
@@ -309,7 +328,6 @@ class FloatingHUD(QWidget):
                 self._cat_frame = "sit_a"
                 self._is_blinking = False
             else:
-                st = self._current_state
                 if st in ("listening", "recording"):
                     # Knead/type paws responsive to microphone audio level
                     speed = max(1, int(3 - (self._audio_level * 2.2)))
@@ -326,10 +344,30 @@ class FloatingHUD(QWidget):
                     if self._is_blinking:
                         self._cat_frame = "blink"
                     else:
-                        cycle = self._tick % 120
-                        self._cat_frame = "sit_b" if cycle > 105 else "sit_a"
+                        cycle = self._tick % 24 if is_idle_rate else self._tick % 120
+                        threshold = 21 if is_idle_rate else 105
+                        self._cat_frame = "sit_b" if cycle > threshold else "sit_a"
 
-        self.update()
+        # Determine whether repaint is necessary to avoid burning CPU on static frames
+        needs_update = False
+        if is_active:
+            needs_update = True
+        elif self._visual_style in ("kitty", "dog", "fox", "dino", "ghost", "bunny", "pikachu", "charmander", "gengar", "eevee"):
+            if self._cat_frame != prev_frame or self._is_blinking != prev_blinking or self._audio_level > 0.01 or prev_audio > 0.01:
+                needs_update = True
+        elif getattr(self, "_toast_message", None) or getattr(self, "_toast_timer", None):
+            needs_update = True
+        else:
+            if self._visual_style in ("pilot", "mascot"):
+                elapsed_ms = self._elapsed_timer.elapsed() if hasattr(self, "_elapsed_timer") else (self._tick * 150.0)
+                cycle = int(elapsed_ms) % 3500
+                if cycle < 200:
+                    needs_update = True
+            elif self._audio_level > 0.01 or prev_audio > 0.01:
+                needs_update = True
+
+        if needs_update:
+            self.update()
 
     # -------------------------------------------------------------
     # Mouse Interaction: Draggable anywhere & Single-Click Dictate

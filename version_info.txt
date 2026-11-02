@@ -1,0 +1,34 @@
+# UTF-8
+#
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(3, 1, 0, 0),
+    prodvers=(3, 1, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          '040904b0',
+          [
+            StringStruct('CompanyName', 'FlowPilot Open Source'),
+            StringStruct('FileDescription', 'FlowPilot Voice Intelligence'),
+            StringStruct('FileVersion', '3.1.0.0'),
+            StringStruct('InternalName', 'FlowPilot'),
+            StringStruct('LegalCopyright', 'Copyright (c) 2026 FlowPilot Contributors. MIT License.'),
+            StringStruct('OriginalFilename', 'FlowPilot.exe'),
+            StringStruct('ProductName', 'FlowPilot'),
+            StringStruct('ProductVersion', '3.1.0.0')
+          ]
+        )
+      ]
+    ),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)

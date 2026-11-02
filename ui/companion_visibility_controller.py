@@ -33,7 +33,7 @@ class CompanionVisibilityController(QObject):
         self._candidate_count = 0
         self._show_now_hwnd = 0
         self._timer = QTimer(self)
-        self._timer.setInterval(350)
+        self._timer.setInterval(500)
         self._timer.timeout.connect(self.refresh)
 
     def start(self):

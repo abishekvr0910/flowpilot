@@ -31,6 +31,13 @@ SetupIconFile=..\assets\flowpilot.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 CloseApplications=yes
 AppMutex=Global\FlowPilot_Desktop_SingleInstance_Mutex
+VersionInfoVersion=3.1.0.0
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription={#MyAppName} Setup
+VersionInfoTextVersion={#MyAppVersion}
+VersionInfoCopyright=Copyright (C) 2026 FlowPilot Contributors
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion=3.1.0.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

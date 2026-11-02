@@ -80,6 +80,21 @@ def test_stt_model():
     print("\n[RESULT] Local STT model verified and functioning properly.")
     return True
 
+def test_missing_model_fallback():
+    """Verify that an absent model size gracefully falls back to bundled 'base' without network egress."""
+    config = load_config()
+    config["engine_mode"] = "local"
+    config["local_model_size"] = "nonexistent_model_xyz"
+    stt = STTEngine(config)
+    assert STTEngine.is_model_available("nonexistent_model_xyz") is False
+    model = stt._get_local_model()
+    assert model is not None
+    status = stt.get_model_status()
+    assert status["status"] == "ready"
+    assert status["active_size"] == "base"
+    stt.unload_model()
+
 if __name__ == "__main__":
-    success = test_stt_model()
-    sys.exit(0 if success else 1)
+    s1 = test_stt_model()
+    test_missing_model_fallback()
+    sys.exit(0 if s1 else 1)

@@ -77,6 +77,9 @@ TESTS = [
     ("Pilot Capture, Integrity, and Local Metrics", "tests/test_pilot_reliability.py"),
     ("Transparent Dictation Recovery & Visual Feedback", "tests/test_recovery_feedback.py"),
     ("Local Text Repair Sandbox & Three-Tier Guard Protocol", "tests/test_local_text_repair.py"),
+    ("Caret Observer & Text Correction Integration", "tests/test_caret_and_corrections_integration.py"),
+    ("Selection Rewriter & In-Place Text Transactions", "tests/test_selection_rewriter.py"),
+    ("Strict PEP 440 Semantic Versioning & Update Checker", "tests/test_update_checker.py"),
 ]
 
 

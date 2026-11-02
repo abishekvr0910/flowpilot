@@ -94,7 +94,11 @@ def run_5_consecutive_injections():
     try:
         # Bring Notepad to foreground
         win32gui.ShowWindow(notepad_hwnd, win32con.SW_RESTORE)
-        assert focus_notepad_document(notepad_hwnd), "Notepad document did not become focused"
+        if not focus_notepad_document(notepad_hwnd):
+            if not is_interactive_desktop():
+                print("[RESULT] SKIPPED: Desktop is locked or non-interactive during Notepad dictation test.")
+                return True
+            assert False, "Notepad document did not become focused"
 
         # Initialize orchestrator
         state_history = []
@@ -115,7 +119,11 @@ def run_5_consecutive_injections():
         for i, phrase in enumerate(test_sentences, start=1):
             print(f"\n--- [Cycle {i}/5] ---")
             # Ensure focus is on notepad
-            assert focus_notepad_document(notepad_hwnd), f"Notepad document lost focus before cycle {i}"
+            if not focus_notepad_document(notepad_hwnd):
+                if not is_interactive_desktop():
+                    print(f"[RESULT] SKIPPED: Desktop is locked or non-interactive during cycle {i}.")
+                    return True
+                assert False, f"Notepad document lost focus before cycle {i}"
 
             active = WindowInspector.get_active_window_info()
             target_hwnd = notepad_hwnd

@@ -490,4 +490,6 @@ def test_controller_starts_and_stops_media_sampler(app, profile):
 
 
 if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-q"]))
+    import os
+    ret = pytest.main([__file__, "-q"])
+    os._exit(int(ret))

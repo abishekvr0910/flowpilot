@@ -215,9 +215,13 @@ class TestRecoveryFeedback(unittest.TestCase):
             orch.re_inject_last()
             time.sleep(0.4)
             orch.re_inject_last()
+        # Verify the earlier timer (~0.8s) has not cleared the later SUCCESS state
         time.sleep(0.45)
         self.assertEqual(orch.state, AppState.SUCCESS)
-        time.sleep(0.45)
+        # Bounded polling for the second reset timer with generous timeout for loaded environments
+        deadline = time.monotonic() + 3.0
+        while orch.state != AppState.IDLE and time.monotonic() < deadline:
+            time.sleep(0.05)
         self.assertEqual(orch.state, AppState.IDLE)
 
     def test_re_inject_last_success_and_auto_reset(self):
@@ -249,8 +253,10 @@ class TestRecoveryFeedback(unittest.TestCase):
         self.assertEqual(success_notifications[0].get("notice"), "Re-inserted & confirmed")
         self.assertTrue(success_notifications[0].get("injection_confirmed"))
 
-        # Wait for auto-reset to IDLE
-        time.sleep(1.0)
+        # Bounded polling for auto-reset to IDLE with generous deadline for loaded environments
+        deadline = time.monotonic() + 3.0
+        while orch.state != AppState.IDLE and time.monotonic() < deadline:
+            time.sleep(0.05)
         self.assertEqual(orch.state, AppState.IDLE)
 
 

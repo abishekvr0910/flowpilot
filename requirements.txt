@@ -24,6 +24,7 @@ comtypes>=1.2.0; sys_platform == 'win32'
 pyperclip>=1.8.2
 psutil>=5.9.0
 pynput>=1.7.6
+packaging>=23.0
 
 # Web/API Services (Optional Dashboard & Extension Bridge)
 fastapi>=0.100.0

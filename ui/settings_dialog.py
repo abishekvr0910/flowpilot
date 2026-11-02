@@ -128,11 +128,14 @@ class SettingsDialog(QDialog):
         lbl_model = QLabel("Speech model")
         vbox.addWidget(lbl_model)
         self.combo_model = QComboBox()
+        from engine.stt_engine import STTEngine
+        has_small_w = STTEngine.is_model_available("small")
+        has_med_w = STTEngine.is_model_available("medium")
         self.combo_model.addItems([
             "tiny — smallest model",
-            "base — bundled model",
-            "small — larger model, more CPU and memory",
-            "medium — largest option, more CPU and memory"
+            "base — bundled model (default)",
+            f"small — larger model{' (download required)' if not has_small_w else ' (installed)'}",
+            f"medium — largest option{' (download required)' if not has_med_w else ' (installed)'}"
         ])
         current_model = self.config.get("local_model_size", "base")
         for i in range(self.combo_model.count()):
@@ -324,7 +327,8 @@ class SettingsDialog(QDialog):
         update_header.addWidget(self.btn_check_updates)
         update_layout.addLayout(update_header)
 
-        self.lbl_update_status = QLabel("Current version: v3.1.0")
+        from engine import __version__
+        self.lbl_update_status = QLabel(f"Current version: v{__version__}")
         self.lbl_update_status.setStyleSheet("color: #94A3B8; font-size: 11px;")
         update_layout.addWidget(self.lbl_update_status)
 
@@ -628,7 +632,7 @@ class SettingsDialog(QDialog):
                     self.btn_download_small.setVisible(True)
         else:
             self.lbl_model_guidance.setText(
-                "The bundled small model is recommended for Hindi, Tamil, and Malayalam. "
+                "The small model (optional download) is recommended for Hindi, Tamil, and Malayalam. "
                 "Select small above; these languages are experimental and need your own voice check."
             )
             self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
@@ -750,7 +754,8 @@ class SettingsDialog(QDialog):
                         self.lbl_update_status.setText(f"Update available: v{v}!\n{url}")
                         self.lbl_update_status.setStyleSheet("color: #10B981; font-weight: bold; font-size: 11px;")
                     else:
-                        self.lbl_update_status.setText("FlowPilot is up to date (v3.1.0).")
+                        from engine import __version__
+                        self.lbl_update_status.setText(f"FlowPilot is up to date (v{__version__}).")
                         self.lbl_update_status.setStyleSheet("color: #94A3B8; font-size: 11px;")
                 QTimer.singleShot(0, update_ui)
 

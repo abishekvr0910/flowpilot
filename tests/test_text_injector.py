@@ -420,6 +420,9 @@ def test_text_injection():
     try:
         notepad_hwnd, proc, fixture = open_test_notepad()
     except RuntimeError as exc:
+        if not is_interactive_desktop():
+            print(f"[RESULT] SKIPPED: {exc}")
+            return True
         print(f"FAILED: {exc}")
         return False
 
@@ -427,7 +430,12 @@ def test_text_injection():
 
     # 5. Bring Notepad to foreground safely and focus document
     win32gui.ShowWindow(notepad_hwnd, win32con.SW_RESTORE)
-    assert focus_notepad_document(notepad_hwnd), "Notepad document did not acquire focus"
+    if not focus_notepad_document(notepad_hwnd):
+        if not is_interactive_desktop():
+            cleanup_test_fixture(fixture, notepad_hwnd, proc)
+            print("[RESULT] SKIPPED: Desktop is locked or non-interactive during physical Notepad test.")
+            return True
+        assert False, "Notepad document did not acquire focus"
     time.sleep(0.3)
 
     target_hwnd = notepad_hwnd

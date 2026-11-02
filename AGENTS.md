@@ -23,7 +23,7 @@ python desktop_app.py
 # Offline self-test (Windows only, synthesizes speech through SAPI and decodes on CPU)
 python desktop_app.py --self-test
 
-# Full audit suite, 60 suites; release promotion also requires --require-all
+# Full audit suite, 63 suites; release promotion also requires --require-all
 python -X utf8 tests/run_all_tests.py
 
 # Run single suite
@@ -33,7 +33,7 @@ python -X utf8 tests/test_writing_intelligence.py
 python -m PyInstaller flowpilot.spec --noconfirm
 
 # Package release archive with Authenticode signing and checksum manifests
-python scripts/package_windows_release.py --version v3.1.0-RC8
+python scripts/package_windows_release.py --bundle dist/FlowPilot --archive dist/FlowPilot-v3.1.0-windows-x64.zip
 ```
 
 ## Specifications

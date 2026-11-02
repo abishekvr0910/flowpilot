@@ -20,7 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QObject, Signal, Qt
+from PySide6.QtCore import QObject, Signal, Qt, QTimer
 
 from engine import __version__
 from engine.single_instance import SingleInstance
@@ -91,6 +91,15 @@ class FlowPilotApp:
         self.bridge = StateBridge()
         self.config = load_config()
 
+        # If a non-bundled model (e.g. small) is configured but absent, fall back to bundled base on launch
+        requested_model = self.config.get("local_model_size", "base")
+        if requested_model != "base":
+            from engine.stt_engine import STTEngine
+            if not STTEngine.is_model_available(requested_model) and STTEngine.is_model_available("base"):
+                print(f"[FlowPilot] Configured model '{requested_model}' not found on disk; falling back to bundled 'base'.")
+                self.config["local_model_size"] = "base"
+                save_config(self.config)
+
         # 1. Initialize Core Engine Orchestrator
         self.orchestrator = FlowOrchestrator(on_state_change=self._on_engine_state_change)
 
@@ -114,7 +123,7 @@ class FlowPilotApp:
         )
         self.visibility = CompanionVisibilityController(
             self.hud, get_companion_store(), get_learning_engine(),
-            media=SampledMediaPresence(),
+            media=SampledMediaPresence(interval_seconds=2.0),
         )
         self.visibility.decision_changed.connect(self._on_visibility_changed)
         self.visibility.error.connect(self._on_visibility_error)
@@ -191,6 +200,16 @@ class FlowPilotApp:
                 y = geom.bottom() - self.hud.height() - 140
                 self.hud.move(x, y)
         self.visibility.start()
+
+        # 5. Background Software Update Checker (Startup + 24h periodic check)
+        self._update_timer = QTimer(self.app)
+        self._update_timer.setInterval(86400 * 1000)  # 24 hours
+        self._update_timer.timeout.connect(self._trigger_background_update_check)
+        self._update_timer.start()
+
+        # Warmup check: runs 5 seconds after startup if enabled
+        if self.config.get("check_for_updates", True):
+            QTimer.singleShot(5000, self._trigger_background_update_check)
 
         # Show setup wizard on first run, or master application dashboard window
         if enforce_single_instance and not os.environ.get("CI") and not os.environ.get("FLOWPILOT_HEADLESS"):
@@ -423,6 +442,30 @@ class FlowPilotApp:
         self.hud.update()
         self.visibility.refresh(force=True)
 
+    def _trigger_background_update_check(self):
+        if not self.config.get("check_for_updates", True):
+            return
+        try:
+            from engine.update_checker import get_update_checker
+            get_update_checker().check_for_updates_async(
+                self.config,
+                on_result=self._on_background_update_result,
+                force=False
+            )
+        except Exception as exc:
+            print(f"[FlowPilot Warning] Update check failed to initiate: {exc}")
+
+    def _on_background_update_result(self, result: dict):
+        if result.get("update_available"):
+            v = result.get("latest_version")
+            url = result.get("release_url")
+            print(f"[FlowPilot] Update available: v{v} ({url})")
+            if hasattr(self, "tray") and self.tray:
+                self.tray.show_notification(
+                    "FlowPilot Update Available",
+                    f"FlowPilot v{v} is available. Open Settings to view release details."
+                )
+
     def quit(self):
         print("[FlowPilot] Shutting down cleanly...")
         self.visibility.stop()
@@ -512,6 +555,9 @@ def run_self_test() -> int:
 def main():
     # Handle Ctrl+C in terminal cleanly
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+    if "--version" in sys.argv or "-v" in sys.argv:
+        print(f"FlowPilot {__version__}")
+        sys.exit(0)
     if "--self-test" in sys.argv or "--smoke-test" in sys.argv:
         sys.exit(run_self_test())
     app = FlowPilotApp()
