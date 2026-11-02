@@ -1,0 +1,447 @@
+{
+  "timestamp": "2026-11-02 22:30:45",
+  "tamil": {
+    "num_clips": 10,
+    "indicconformer_medium": {
+      "avg_wer": 0.2397,
+      "avg_cer": 0.0556,
+      "avg_latency_sec": 0.905
+    },
+    "whisper_small": {
+      "avg_wer": 0.6502,
+      "avg_cer": 0.1926,
+      "avg_latency_sec": 2.994
+    },
+    "whisper_base": {
+      "avg_wer": 0.827,
+      "avg_latency_sec": 0.983
+    },
+    "speedup_factor": 3.31,
+    "items": [
+      {
+        "item_id": "ta-cv-001",
+        "duration_sec": 6.696,
+        "reference": "பாலாஜி என்பது பாலன் என்ற பொருளுடையது.",
+        "indicconformer": {
+          "text": "பாலாஜி என்பது பாலன் என்ற பொருளுடையது",
+          "time_sec": 0.999,
+          "wer": 0.0,
+          "cer": 0.03
+        },
+        "whisper_small": {
+          "text": "Balaji என்பது, Palan, என்ற பிருளுடியது.",
+          "time_sec": 3.529,
+          "wer": 0.6,
+          "cer": 0.455
+        },
+        "whisper_base": {
+          "text": "BALAG-INBAD, PALEN, UNRHA, PURULUDYAD.",
+          "time_sec": 1.231,
+          "wer": 1.0,
+          "cer": 1.03
+        },
+        "speedup": 3.53
+      },
+      {
+        "item_id": "ta-cv-002",
+        "duration_sec": 7.38,
+        "reference": "சீக்கிரத்தில் ஐநூறு ரூபாய் செலவழித்து அவரது முழு உருவப்படமொன்று சபையில் வைத்தோம்.",
+        "indicconformer": {
+          "text": "சீக்கிரத்தில் ஐநூறு ரூபாய் செலவழைத்து அவரது முழு உருவப்படம் ஒன்று சபையில் வைத்தோம்",
+          "time_sec": 1.182,
+          "wer": 0.333,
+          "cer": 0.055
+        },
+        "whisper_small": {
+          "text": "சீக்கிரத்தில் 500 ரோபாய் சலவழித்து அவருது முழு உருவப்படம் என்று சபையில் வைத்தோம்.",
+          "time_sec": 3.324,
+          "wer": 0.667,
+          "cer": 0.137
+        },
+        "whisper_base": {
+          "text": "CKRTHL, INOROROV, OSLAVAL, Tha, அவருத்த முلுurுவப் படமானும் சபைகள் வைத்தோம்.",
+          "time_sec": 1.018,
+          "wer": 0.889,
+          "cer": 0.644
+        },
+        "speedup": 2.81
+      },
+      {
+        "item_id": "ta-cv-003",
+        "duration_sec": 3.96,
+        "reference": "பகலில் இயங்கிக் கொண்டே இருப்பர்.",
+        "indicconformer": {
+          "text": "பகலில் இயங்கிக் கொண்டே இருப்பர்",
+          "time_sec": 0.614,
+          "wer": 0.0,
+          "cer": 0.035
+        },
+        "whisper_small": {
+          "text": "பகலில் எங்கிக்கும்டையிருப்பேன்.",
+          "time_sec": 2.612,
+          "wer": 0.75,
+          "cer": 0.31
+        },
+        "whisper_base": {
+          "text": "பகலில் எங்கே கொண்டே இருப்பர்.",
+          "time_sec": 0.944,
+          "wer": 0.25,
+          "cer": 0.172
+        },
+        "speedup": 4.25
+      },
+      {
+        "item_id": "ta-cv-004",
+        "duration_sec": 3.456,
+        "reference": "மிகுதியும் பயன் விளையும்.",
+        "indicconformer": {
+          "text": "மிகுதியும் பயன் விளையும்",
+          "time_sec": 0.546,
+          "wer": 0.0,
+          "cer": 0.043
+        },
+        "whisper_small": {
+          "text": "நிகுதியம் பயன் விளையம்",
+          "time_sec": 2.251,
+          "wer": 0.667,
+          "cer": 0.174
+        },
+        "whisper_base": {
+          "text": "மிகுடியம் பயன் பலையம்.",
+          "time_sec": 0.885,
+          "wer": 0.667,
+          "cer": 0.261
+        },
+        "speedup": 4.12
+      },
+      {
+        "item_id": "ta-cv-005",
+        "duration_sec": 4.428,
+        "reference": "புதுப்புனலில் பாய்ந்து நீந்தி விளையாடுகிறாள்.",
+        "indicconformer": {
+          "text": "புது புனலல் பாய்ந்து நீந்தி விளையாடுகிறாள்",
+          "time_sec": 0.797,
+          "wer": 0.5,
+          "cer": 0.095
+        },
+        "whisper_small": {
+          "text": "புதுப் புனலில் பாய்ந்து நீந்தி விளியாடகராள்.",
+          "time_sec": 2.891,
+          "wer": 0.75,
+          "cer": 0.095
+        },
+        "whisper_base": {
+          "text": "புது புன்னல் பயந்தி நீந்தி விளியாடக்கராள்.",
+          "time_sec": 0.837,
+          "wer": 1.0,
+          "cer": 0.286
+        },
+        "speedup": 3.63
+      },
+      {
+        "item_id": "ta-cv-006",
+        "duration_sec": 5.256,
+        "reference": "அது தாவிக்கொண்டு சந்தோஷமாக அவர்கள் அருகில் வந்தது.",
+        "indicconformer": {
+          "text": "அது தாவிிக்ொண்டு சந்தோஷமாக அவர்கள் அருகில் வந்தது",
+          "time_sec": 0.789,
+          "wer": 0.167,
+          "cer": 0.067
+        },
+        "whisper_small": {
+          "text": "அது தாபிக்கொண்டு சந்தோஷமாக அவர்கள் அறைக்குள் வந்தது.",
+          "time_sec": 2.854,
+          "wer": 0.333,
+          "cer": 0.156
+        },
+        "whisper_base": {
+          "text": "அது தாபிக்கொண்டு சந்தோஷமாஸா அவர்கள் அடுக்கில் வந்தது.",
+          "time_sec": 0.91,
+          "wer": 0.5,
+          "cer": 0.133
+        },
+        "speedup": 3.62
+      },
+      {
+        "item_id": "ta-cv-007",
+        "duration_sec": 5.256,
+        "reference": "கோடைக்கானல் பல நாட்டு மக்களுக்கும் ஒரு தங்கல்மனை போன்றது.",
+        "indicconformer": {
+          "text": "கோடைக்கானல் பல நாட்டு மக்களுக்கும் ஒரு தங்கள்ல் மனை போன்றது",
+          "time_sec": 0.892,
+          "wer": 0.286,
+          "cer": 0.059
+        },
+        "whisper_small": {
+          "text": "குடைக்கானல் பல நாட்டு மக்களுக்கும் ஒரு தங்கள் மனைப்போன்றது.",
+          "time_sec": 2.835,
+          "wer": 0.429,
+          "cer": 0.078
+        },
+        "whisper_base": {
+          "text": "கோடைக்கான்கள் பலை நாட்டு மக்கிள்ளுக்கும் ஒரு தங்கள் மனைப்போன்றுவது.",
+          "time_sec": 0.93,
+          "wer": 0.714,
+          "cer": 0.235
+        },
+        "speedup": 3.18
+      },
+      {
+        "item_id": "ta-cv-008",
+        "duration_sec": 5.4,
+        "reference": "நாற்காற் பிராணிகளிலே எருமை இருத்தலைப்போல!",
+        "indicconformer": {
+          "text": "நாற்காட பிராணிகளிலே எருமை இருத்தலைப் போல",
+          "time_sec": 0.896,
+          "wer": 0.75,
+          "cer": 0.079
+        },
+        "whisper_small": {
+          "text": "நாட்கார் பிராணிகளிலே ஏறுமை இருத்தலை போல.",
+          "time_sec": 2.599,
+          "wer": 1.0,
+          "cer": 0.184
+        },
+        "whisper_base": {
+          "text": "நாட்காட் பிரானிக்கலிலே இரும்மை இருத்தலைப் போலர்.",
+          "time_sec": 0.889,
+          "wer": 1.25,
+          "cer": 0.316
+        },
+        "speedup": 2.9
+      },
+      {
+        "item_id": "ta-cv-009",
+        "duration_sec": 7.848,
+        "reference": "பெரிய உலையிலிட்டு வறுக்கப்பட்டு, மாபெரும் இரும்பு உலக்கைகளினால் பொடி செய்யப்படுகிறது.",
+        "indicconformer": {
+          "text": "பெரிய உளையலிட்டு வறுக்கப்பட்டு மாபெரும் இரும்பு உலக்ககளினால் பொடி செய்யப்படுகிறது",
+          "time_sec": 1.253,
+          "wer": 0.25,
+          "cer": 0.064
+        },
+        "whisper_small": {
+          "text": "பெரிய உளையில் எட்டு வர்க்கப்பட்டு மாபரம் இரும்பு உளக்கழினால் பொடி செய்யப்படுக்குறது.",
+          "time_sec": 3.524,
+          "wer": 0.75,
+          "cer": 0.192
+        },
+        "whisper_base": {
+          "text": "பெரிய உளையில் துவர்கப்பட்டு, மாபரம் இரும்பு உளக்கைகளை நால் புடி செய்யப் படுகிறாக்குராது.",
+          "time_sec": 1.159,
+          "wer": 1.0,
+          "cer": 0.256
+        },
+        "speedup": 2.81
+      },
+      {
+        "item_id": "ta-cv-010",
+        "duration_sec": 6.516,
+        "reference": "பள்ளிக்கூடங்களில் வாசிக்கும் மாணவர்கள் இதை எளிதில் ஆடலாம் என்பது என் கருத்து.",
+        "indicconformer": {
+          "text": "பள்ளிகக்கூடங்களில் வாசிக்கும் மாணவர்கள் இதை எளிதில் ஆடலாம் என்பது என் கருத்து",
+          "time_sec": 1.085,
+          "wer": 0.111,
+          "cer": 0.029
+        },
+        "whisper_small": {
+          "text": "பள்ளிக்குடங்களில் வாசிக்கும் மானவர்கள் இதை எடுதில் ஆடலாம் என்பது என்பது",
+          "time_sec": 3.519,
+          "wer": 0.556,
+          "cer": 0.145
+        },
+        "whisper_base": {
+          "text": "Pallikudan, Vasiq, Manavar, Idai, Edithyl, Adalam, NBadu, NKarath.",
+          "time_sec": 1.022,
+          "wer": 1.0,
+          "cer": 0.986
+        },
+        "speedup": 3.24
+      }
+    ]
+  },
+  "polish": {
+    "num_clips": 10,
+    "whisper_small": {
+      "avg_wer": 0.18,
+      "avg_cer": 0.0647,
+      "avg_latency_sec": 2.409
+    },
+    "whisper_base": {
+      "avg_wer": 0.5462,
+      "avg_latency_sec": 0.794
+    },
+    "items": [
+      {
+        "item_id": "pl-cv-001",
+        "duration_sec": 4.104,
+        "reference": "Usiadł na szyszce i wsłuchał się.",
+        "whisper_small": {
+          "text": "Usiadł na szyżce i słuchał się.",
+          "time_sec": 2.711,
+          "wer": 0.333,
+          "cer": 0.107
+        },
+        "whisper_base": {
+          "text": "Usiad nasz istę i słuchał się.",
+          "time_sec": 0.761,
+          "wer": 0.667,
+          "cer": 0.214
+        }
+      },
+      {
+        "item_id": "pl-cv-002",
+        "duration_sec": 3.336,
+        "reference": "Wydawało mu się, że jest martwy.",
+        "whisper_small": {
+          "text": "Wydawało mu się, że jest martwy.",
+          "time_sec": 2.419,
+          "wer": 0.0,
+          "cer": 0.0
+        },
+        "whisper_base": {
+          "text": "Bydała umusierze jest martwy.",
+          "time_sec": 0.749,
+          "wer": 0.667,
+          "cer": 0.259
+        }
+      },
+      {
+        "item_id": "pl-cv-003",
+        "duration_sec": 2.904,
+        "reference": "Inżynier nie rozumiał.",
+        "whisper_small": {
+          "text": "Inżynier nie rozumiał.",
+          "time_sec": 2.108,
+          "wer": 0.0,
+          "cer": 0.0
+        },
+        "whisper_base": {
+          "text": "I Zhenier nie rozumiał.",
+          "time_sec": 0.677,
+          "wer": 0.667,
+          "cer": 0.15
+        }
+      },
+      {
+        "item_id": "pl-cv-004",
+        "duration_sec": 3.216,
+        "reference": "Dokończę jeden poziom i idę spać.",
+        "whisper_small": {
+          "text": "Do końca jeden poziom i despatch.",
+          "time_sec": 2.147,
+          "wer": 0.667,
+          "cer": 0.25
+        },
+        "whisper_base": {
+          "text": "W końcu jeden poziomie spadzi.",
+          "time_sec": 0.764,
+          "wer": 1.0,
+          "cer": 0.357
+        }
+      },
+      {
+        "item_id": "pl-cv-005",
+        "duration_sec": 3.624,
+        "reference": "To jest nieokreślone, ale pewne.",
+        "whisper_small": {
+          "text": "To jest nieukryślone, ale pewne.",
+          "time_sec": 2.309,
+          "wer": 0.2,
+          "cer": 0.071
+        },
+        "whisper_base": {
+          "text": "To jest nieokryślone, ale pewne.",
+          "time_sec": 0.808,
+          "wer": 0.2,
+          "cer": 0.036
+        }
+      },
+      {
+        "item_id": "pl-cv-006",
+        "duration_sec": 3.864,
+        "reference": "Król odbywa dalekie wycieczki łodzią.",
+        "whisper_small": {
+          "text": "Król odbywa dalekie wycieczki łodziom.",
+          "time_sec": 2.522,
+          "wer": 0.2,
+          "cer": 0.061
+        },
+        "whisper_base": {
+          "text": "Król odbywa dalekie wycieczki łodzią.",
+          "time_sec": 0.807,
+          "wer": 0.0,
+          "cer": 0.0
+        }
+      },
+      {
+        "item_id": "pl-cv-007",
+        "duration_sec": 3.984,
+        "reference": "Pośliznąłeś się, więc wolniej, ostrożniej.",
+        "whisper_small": {
+          "text": "Poszli znowu się, więc wolniej, ostrożniej.",
+          "time_sec": 2.528,
+          "wer": 0.4,
+          "cer": 0.158
+        },
+        "whisper_base": {
+          "text": "Poczli z nościa, więc wolniej ostrożniej.",
+          "time_sec": 0.814,
+          "wer": 0.6,
+          "cer": 0.21
+        }
+      },
+      {
+        "item_id": "pl-cv-008",
+        "duration_sec": 4.056,
+        "reference": "Zaczęliśmy mówić o tresowanych zwierzętach, co kto widział.",
+        "whisper_small": {
+          "text": "Zaczęliśmy mówić o tresowanych zwierzętach, co kto widział.",
+          "time_sec": 2.512,
+          "wer": 0.0,
+          "cer": 0.0
+        },
+        "whisper_base": {
+          "text": "Zaczyliśmy mówić o trusowanych zwierzętach, co kto widzą.",
+          "time_sec": 0.853,
+          "wer": 0.375,
+          "cer": 0.096
+        }
+      },
+      {
+        "item_id": "pl-cv-009",
+        "duration_sec": 2.976,
+        "reference": "Tak jak gdybyśmy się zupełnie nie znali.",
+        "whisper_small": {
+          "text": "Tak jak gdybyśmy się zupełnie nie znali.",
+          "time_sec": 2.275,
+          "wer": 0.0,
+          "cer": 0.0
+        },
+        "whisper_base": {
+          "text": "Tak jak gdy wyśmy się zupełnie nie znali.",
+          "time_sec": 0.799,
+          "wer": 0.286,
+          "cer": 0.029
+        }
+      },
+      {
+        "item_id": "pl-cv-010",
+        "duration_sec": 8.568,
+        "reference": "Jednak musimy zwrócić uwagę, w jaki sposób wodór będzie pozyskiwany.",
+        "whisper_small": {
+          "text": "Jednak musimy zwrócić uwagę, w jaki sposób wodór będzie pozyskiwany.",
+          "time_sec": 2.563,
+          "wer": 0.0,
+          "cer": 0.0
+        },
+        "whisper_base": {
+          "text": "Przed na konuczeny z Brutijubar.g. X, w sposób Vodorbandy Provesquibane.",
+          "time_sec": 0.911,
+          "wer": 1.0,
+          "cer": 0.61
+        }
+      }
+    ]
+  }
+}

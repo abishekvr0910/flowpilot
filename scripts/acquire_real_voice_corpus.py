@@ -47,7 +47,7 @@ REPO = f"https://huggingface.co/datasets/fixie-ai/common_voice_17_0/resolve/{DAT
 FFMPEG = os.environ.get("FLOWPILOT_FFMPEG") or shutil.which("ffmpeg")
 
 LANGUAGES = ("de", "es", "fr")
-SUPPORTED_LANGUAGES = ("de", "es", "fr", "en", "hi", "ta", "ml")
+SUPPORTED_LANGUAGES = ("de", "es", "fr", "en", "hi", "ta", "ml", "pl")
 TARGET_PER_LANGUAGE = 40
 # Half the sample must carry a critical entity (a negation or a number), so
 # the fact-retention gate is actually exercised rather than measuring an
@@ -73,6 +73,7 @@ NEGATIONS = {
     "hi": {"नहीं", "ना", "मत", "बिना", "कभी"},
     "ta": {"இல்லை", "வேண்டாம்", "கூடாது"},
     "ml": {"ഇല്ല", "വേണ്ട", "അല്ല", "പാടില്ല"},
+    "pl": {"nie", "nigdy", "żaden", "żadna", "żadne", "nic", "nikt", "bez"},
 }
 
 CODE_TOKENS = {
