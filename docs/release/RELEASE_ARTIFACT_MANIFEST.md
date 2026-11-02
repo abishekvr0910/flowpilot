@@ -9,14 +9,14 @@ Updated 2026-11-02. A locally verified candidate is not a published general rele
 | Item | Measured value |
 |---|---|
 | Installer Executable | `dist/FlowPilot-Setup-v3.1.0.exe` |
-| Installer size | 259,384,559 bytes (247.37 MB) |
-| Installer SHA-256 | `05545E2F10B1929C5BA8D6DF73F10BD57FC142B9B1722157EF0DF7FA49648913` |
+| Installer size | 259,395,547 bytes (247.38 MB) |
+| Installer SHA-256 | `444FE8A431C9C4E904A471BF7E235FC44B55C35BE01334B51E3C447ED2D06105` |
 | Archive | `dist/FlowPilot-v3.1.0-windows-x64.zip` |
-| Archive size | 330,028,521 bytes (314.74 MB) |
-| Archive SHA-256 | `D98EF718BEC7A88F3B6D7C463CA63FCFDC31C5D99CFE6ACA74AE1E7EAFD11DC8` |
-| Embedded executable | `FlowPilot.exe`, 27,647,811 bytes (26.37 MB) |
-| Embedded executable SHA-256 | `1E19FF22EADEAEFED612611AB364D81C52326007D4C96673BB0595A0F9B79A21` |
-| Archive integrity | 1,354 members, CRC passed; embedded executable hash matched the tested bundle |
+| Archive size | 330,031,288 bytes (314.74 MB) |
+| Archive SHA-256 | `68E0A7527B0ADDEE55C734C83F2A16A27D97ACDEE8F76EB6B2A8E22355C664BD` |
+| Embedded executable | `FlowPilot.exe`, 27,632,756 bytes (26.35 MB) |
+| Embedded executable SHA-256 | `F512031BF6404DFEE32785FC2444AADC61D577167F44FAE2A939027E8462A890` |
+| Archive integrity | 1,358 members, CRC passed; embedded executable hash matched the tested bundle |
 | License notices | 93 files under `licenses/` |
 | PE Version Stamp | `FileVersion: 3.1.0.0`, `ProductVersion: 3.1.0.0`, `CompanyName: FlowPilot Open Source`, `FileDescription: FlowPilot Voice Intelligence` |
 | Authenticode | `NotSigned` (Unsigned pilot/GA package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
