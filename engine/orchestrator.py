@@ -634,7 +634,7 @@ class FlowOrchestrator:
                 else:
                     inj_res = TextInjector.inject_with_status(formatted_text, target_hwnd, verify_confirmation=True)
                 success = bool(inj_res)
-                if not success and inj_res.status != InjectionStatus.FAILED_RECOVERY_AVAILABLE:
+                if not success and getattr(inj_res, "recovery_available", True) and inj_res.status != InjectionStatus.FAILED_RECOVERY_AVAILABLE:
                     print("[Orchestrator] Standard clipboard paste failed. Falling back to direct SendInput Unicode typing...")
                     injection_method = "sendinput_unicode"
                     typed_ok = TextInjector.inject_unicode_sendinput(formatted_text, target_hwnd)
@@ -691,7 +691,9 @@ class FlowOrchestrator:
 
                 # 6. Save into history and recovery buffer
                 total_duration = round(time.time() - active_session.created_at, 2)
-                save_text = self.config.get("save_history_text") is True
+                is_recovery_allowed = bool(getattr(inj_res, "recovery_available", True))
+                save_text = (self.config.get("save_history_text") is True) and is_recovery_allowed
+
                 history_entry = {
                     "id": int(time.time() * 1000),
                     "session_id": active_session.session_id,
@@ -705,12 +707,16 @@ class FlowOrchestrator:
                     "injection_confirmed": inj_res.is_confirmed(),
                     "injection_method": injection_method
                 }
-                # Keep active formatted_text and raw_text in volatile memory for Tray 'Copy Last Dictation'
-                self.last_dictation = {
-                    **history_entry,
-                    "formatted_text": formatted_text,
-                    "raw_text": raw_text
-                }
+                if is_recovery_allowed:
+                    # Keep active formatted_text and raw_text in volatile memory for Tray 'Copy Last Dictation'
+                    self.last_dictation = {
+                        **history_entry,
+                        "formatted_text": formatted_text,
+                        "raw_text": raw_text
+                    }
+                else:
+                    # Security: never hold spoken credentials or password field text in volatile memory
+                    self.last_dictation = {}
 
                 telemetry_event = {
                     "timestamp": time.time(),
@@ -722,7 +728,7 @@ class FlowOrchestrator:
                     "format_duration_sec": format_duration,
                     "total_duration_sec": total_duration,
                     **delivery_timing,
-                    "char_count": len(formatted_text),
+                    "char_count": len(formatted_text) if is_recovery_allowed else 0,
                     "injection_method": injection_method,
                     "injection_status": inj_res.status.value,
                     "injection_confirmed": inj_res.is_confirmed(),
@@ -731,9 +737,9 @@ class FlowOrchestrator:
                 self._persist_completed_dictation(
                     enabled=save_text,
                     history_entry=history_entry,
-                    raw_text=raw_text,
-                    formatted_text=formatted_text,
-                    wav_bytes=wav_bytes,
+                    raw_text=raw_text if is_recovery_allowed else "",
+                    formatted_text=formatted_text if is_recovery_allowed else "",
+                    wav_bytes=wav_bytes if is_recovery_allowed else b"",
                     duration_sec=total_duration,
                     language=detected_lang,
                     session=active_session,
@@ -743,7 +749,13 @@ class FlowOrchestrator:
                 if not success or inj_res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE:
                     err_msg = inj_res.error_message or "Paste failed; text held for recovery"
                     print(f"[Orchestrator Warning] {err_msg}")
-                    TextInjector.last_injected_text = formatted_text
+                    if is_recovery_allowed:
+                        TextInjector.last_injected_text = formatted_text
+                        notice_text = "Text held in recovery. Shift+Alt+X copies it."
+                    else:
+                        TextInjector.last_injected_text = ""
+                        notice_text = "Dictation into password or credential field is blocked for security."
+
                     with self._state_lock:
                         active_session.transition_to(SessionState.ERROR)
                         self.state = AppState.ERROR
@@ -751,9 +763,9 @@ class FlowOrchestrator:
                     self.feedback.play_error()
                     self._notify(AppState.ERROR, {
                         "message": err_msg,
-                        "notice": "Text held in recovery. Shift+Alt+X copies it.",
+                        "notice": notice_text,
                         "session_id": active_session.session_id,
-                        "recovery_available": True
+                        "recovery_available": is_recovery_allowed
                     })
                     time.sleep(2.0)
                     with self._state_lock:
