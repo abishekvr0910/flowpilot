@@ -54,17 +54,72 @@ KNOWN_TAMIL_TECH_MAP: Dict[str, str] = {
 }
 
 
+def repair_tamil_unicode(text: str) -> str:
+    """
+    Normalizes and repairs Tamil Unicode sequences resulting from subword token joining.
+    Fixes stacked combining vowel signs, viramas followed by vowel signs, and orphaned marks.
+    """
+    if not text:
+        return text
+    # 1. Virama followed by dependent vowel sign (e.g. க்ொ -> கொ, த்ா -> தா)
+    text = re.sub(r'\u0BCD([\u0BBE-\u0BCC])', r'\1', text)
+    # 2. Vowel sign followed by virama (e.g. கா் -> கா)
+    text = re.sub(r'([\u0BBE-\u0BCC])\u0BCD', r'\1', text)
+    # 3. Multiple consecutive combining vowel signs (e.g. ிி -> ி)
+    text = re.sub(r'([\u0BBE-\u0BCC])[\u0BBE-\u0BCC]+', r'\1', text)
+    # 4. Multiple viramas
+    text = re.sub(r'\u0BCD+', '\u0BCD', text)
+    # 5. Combining sign at start of word (following space or start of string)
+    vowel_map = {
+        '\u0BBE': 'ஆ', '\u0BBF': 'இ', '\u0BC0': 'ஈ',
+        '\u0BC1': 'உ', '\u0BC2': 'ஊ', '\u0BC6': 'எ',
+        '\u0BC7': 'ஏ', '\u0BC8': 'ஐ', '\u0BCA': 'ஒ',
+        '\u0BCB': 'ஓ', '\u0BCC': 'ஔ'
+    }
+    text = re.sub(r'(?:(?<=[\s\b])|^)([\u0BBE-\u0BCD])', lambda m: vowel_map.get(m.group(1), ''), text)
+    return text
+
+
+def _phonetic_normalize(s: str) -> str:
+    """Normalizes phonological variants between spoken Tamil transliteration and English."""
+    s = s.lower()
+    s = re.sub(r'c(?=[eiy])', 's', s)
+    s = s.replace('c', 'k').replace('b', 'p').replace('d', 'th').replace('dh', 'th')
+    s = s.replace('ee', 'i').replace('oo', 'u').replace('aa', 'a')
+    s = s.replace('z', 's').replace('sh', 's').replace('v', 'w').replace('w', 'v')
+    return s
+
+
+def _levenshtein(s1: str, s2: str) -> int:
+    if len(s1) < len(s2):
+        return _levenshtein(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    prev = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        curr = [i + 1]
+        for j, c2 in enumerate(s2):
+            insert = prev[j + 1] + 1
+            delete = curr[j] + 1
+            sub = prev[j] + (0 if c1 == c2 else 1)
+            curr.append(min(insert, delete, sub))
+        prev = curr
+    return prev[-1]
+
+
 def apply_custom_vocabulary_biasing(text: str, custom_vocabulary: Optional[List[str]]) -> str:
     """
     Applies custom vocabulary restoration and case normalization to ASR transcript.
-    Restores technical terms and proper nouns in Tamil/Tanglish dictation.
+    Restores technical terms, brand names, and user-defined entities in Tamil/Tanglish dictation.
     """
     if not text or not custom_vocabulary:
         return text
 
+    from engine.transliteration import transliterate_tamil_to_tanglish, is_tamil_script
+
     vocab_lower_map = {v.lower(): v for v in custom_vocabulary}
 
-    # 1. Map known Tamil loanword phonetic spellings with case suffixes
+    # 1. Map known common Tamil loanword phonetic spellings with case suffixes
     for tam, eng in KNOWN_TAMIL_TECH_MAP.items():
         if eng.lower() in vocab_lower_map:
             canonical = vocab_lower_map[eng.lower()]
@@ -80,7 +135,66 @@ def apply_custom_vocabulary_biasing(text: str, custom_vocabulary: Optional[List[
             text = re.sub(r'(?<!\w)' + p_oda + r'(?!\w)', f'{canonical}-oda', text)
             text = re.sub(r'(?<!\w)' + p_base + r'(?!\w)', canonical, text)
 
-    # 2. Case normalization for ASCII terms in vocabulary
+    # 2. Dynamic arbitrary user vocabulary biasing
+    tokens = re.split(r'(\s+|[.,!?;:"\'()\[\]{}]+)', text)
+    out_tokens = []
+    user_vocab_norms = [(v, _phonetic_normalize(v)) for v in custom_vocabulary]
+
+    for tok in tokens:
+        if not tok or not any(c.isalnum() for c in tok):
+            out_tokens.append(tok)
+            continue
+
+        # Case A: Exact case-insensitive ASCII match
+        if tok.lower() in vocab_lower_map:
+            out_tokens.append(vocab_lower_map[tok.lower()])
+            continue
+
+        # Case B: Tamil Unicode token matching user custom vocabulary
+        if is_tamil_script(tok):
+            matched_term = None
+            matched_suffix = ""
+
+            suffixes = [
+                ('-வுக்கு', '-ukku'), ('-ுக்கு', '-ukku'), ('-க்கு', '-ukku'),
+                ('-இல்', '-il'), ('-ல்', '-il'), ('-ல', '-la'), ('-ோட', '-oda'),
+                ('வுக்கு', '-ukku'), ('ுக்கு', '-ukku'), ('க்கு', '-ukku'),
+                ('இல்', '-il'), ('ல்', '-il'), ('ல', '-la'), ('ோட', '-oda'),
+            ]
+
+            for tam_sfx, eng_sfx in suffixes:
+                if tok.endswith(tam_sfx) and len(tok) > len(tam_sfx):
+                    base_candidate = tok[:-len(tam_sfx)].rstrip('-')
+                    if not base_candidate:
+                        continue
+                    tang = transliterate_tamil_to_tanglish(base_candidate)
+                    norm_tang = _phonetic_normalize(tang)
+                    for orig_v, norm_v in user_vocab_norms:
+                        if tang.lower() == orig_v.lower() or norm_tang == norm_v or (len(norm_v) >= 4 and _levenshtein(norm_tang, norm_v) <= 1):
+                            matched_term = orig_v
+                            matched_suffix = eng_sfx
+                            break
+                    if matched_term:
+                        break
+
+            if not matched_term:
+                tang = transliterate_tamil_to_tanglish(tok)
+                norm_tang = _phonetic_normalize(tang)
+                for orig_v, norm_v in user_vocab_norms:
+                    if tang.lower() == orig_v.lower() or norm_tang == norm_v or (len(norm_v) >= 4 and _levenshtein(norm_tang, norm_v) <= 1):
+                        matched_term = orig_v
+                        matched_suffix = ""
+                        break
+
+            if matched_term:
+                out_tokens.append(f"{matched_term}{matched_suffix}")
+                continue
+
+        out_tokens.append(tok)
+
+    text = "".join(out_tokens)
+
+    # 3. Final regex casing pass for all custom vocab terms
     for v in custom_vocabulary:
         pattern = r'(?i)\b' + re.escape(v) + r'\b'
         text = re.sub(pattern, v, text)
@@ -301,6 +415,10 @@ class OnnxASRHarness:
                 prev_id = idx
 
         raw_text = "".join(tokens).replace("\u2581", " ").replace("▁", " ").strip()
+
+        # Normalization: repair broken Unicode sequences
+        if language == "ta":
+            raw_text = repair_tamil_unicode(raw_text)
 
         # Apply custom vocabulary biasing & case normalization if provided
         if custom_vocabulary:

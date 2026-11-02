@@ -1,7 +1,8 @@
 """
 Suite: ONNX Runtime Specialist ASR Harness (IndicConformer Medium).
 Validates offline specialist model discovery, NeMo log-mel feature extraction,
-CTC greedy decoding, STTEngine integration, custom vocabulary biasing, and zero network egress.
+CTC greedy decoding, STTEngine integration, custom vocabulary biasing,
+Tamil Unicode spelling repair, and zero network egress.
 Specification: docs/specs/0006-onnx-multilingual-specialist-asr-harness.md
 """
 import os
@@ -15,7 +16,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import soundfile as sf
 import numpy as np
-from engine.onnx_asr.harness import OnnxASRHarness, get_specialist_harness, apply_custom_vocabulary_biasing
+from engine.onnx_asr.harness import (
+    OnnxASRHarness, get_specialist_harness,
+    apply_custom_vocabulary_biasing, repair_tamil_unicode
+)
 from engine.stt_engine import STTEngine
 from engine.transliteration import apply_transliteration_if_enabled
 
@@ -102,6 +106,26 @@ class TestOnnxSpecialistASR(unittest.TestCase):
         biased_ascii = apply_custom_vocabulary_biasing(ascii_input, vocab)
         self.assertIn("Docker", biased_ascii)
         self.assertIn("FlowPilot", biased_ascii)
+
+    def test_07_repair_tamil_unicode_spelling_bugs(self):
+        """Verifies that stacked combining vowel signs and illegal virama sequences are normalized."""
+        # ta-cv-006 bug case: stacked vowel signs and virama + vowel
+        corrupt = "அது தாவிிக்ொண்டு சந்தோஷமாக"
+        clean = repair_tamil_unicode(corrupt)
+        self.assertEqual(clean, "அது தாவிகொண்டு சந்தோஷமாக")
+        self.assertNotIn("ிி", clean)
+        self.assertNotIn("்ொ", clean)
+
+    def test_08_dynamic_arbitrary_user_vocabulary_biasing(self):
+        """Verifies dynamic arbitrary user-defined terms (names, new frameworks) bias correctly."""
+        user_vocab = ["Abishek", "Vercel", "Supabase", "Kavitha", "Sridhar"]
+        
+        # Arbitrary names with and without suffixes
+        input_text = "அபிஷேக் மற்றும் கவிதாவுக்கு வெர்சல்-ல் deploy செய்யப்பட்டது"
+        biased = apply_custom_vocabulary_biasing(input_text, user_vocab)
+        self.assertIn("Abishek", biased)
+        self.assertIn("Kavitha-ukku", biased)
+        self.assertIn("Vercel-il", biased)
 
 
 if __name__ == "__main__":
