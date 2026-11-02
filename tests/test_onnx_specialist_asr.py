@@ -1,7 +1,7 @@
 """
-Suite: ONNX Runtime Specialist ASR Harness (IndicConformer-600M).
+Suite: ONNX Runtime Specialist ASR Harness (IndicConformer Medium).
 Validates offline specialist model discovery, NeMo log-mel feature extraction,
-CTC greedy decoding, STTEngine integration, and zero network egress.
+CTC greedy decoding, STTEngine integration, custom vocabulary biasing, and zero network egress.
 Specification: docs/specs/0006-onnx-multilingual-specialist-asr-harness.md
 """
 import os
@@ -15,7 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import soundfile as sf
 import numpy as np
-from engine.onnx_asr.harness import OnnxASRHarness, get_specialist_harness
+from engine.onnx_asr.harness import OnnxASRHarness, get_specialist_harness, apply_custom_vocabulary_biasing
 from engine.stt_engine import STTEngine
 from engine.transliteration import apply_transliteration_if_enabled
 
@@ -86,6 +86,22 @@ class TestOnnxSpecialistASR(unittest.TestCase):
 
         self.assertEqual(res.get("engine"), "local_faster_whisper")
         self.assertIn("வணக்கம்", res["text"])
+
+    def test_06_custom_vocabulary_biasing(self):
+        """Verifies custom dictionary term preservation and case restoration in Tamil dictation."""
+        vocab = ["Docker", "Kubernetes", "GraphQL", "Python", "FlowPilot"]
+        
+        # Test phonetic loanword with suffix replacement
+        sample_input = "இங்கே டாக்கருக்கு ரன் பண்ணு மற்றும் பைதான் ஸ்கிரிப்ட் இயக்கு"
+        biased = apply_custom_vocabulary_biasing(sample_input, vocab)
+        self.assertIn("Docker-ukku", biased)
+        self.assertIn("Python", biased)
+
+        # Test ASCII casing restoration
+        ascii_input = "docker image build pannu flowpilot start"
+        biased_ascii = apply_custom_vocabulary_biasing(ascii_input, vocab)
+        self.assertIn("Docker", biased_ascii)
+        self.assertIn("FlowPilot", biased_ascii)
 
 
 if __name__ == "__main__":

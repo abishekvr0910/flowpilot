@@ -23,7 +23,7 @@ This specification establishes the architecture for an offline **ONNX Runtime Sp
 
 | Language | Target Specialist Model | Original Architecture | Quantized Target | Size on Disk | Primary Strength |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tamil (`ta`)** | **IndicConformer-600M** (AI4Bharat) | Conformer-CTC / RNN-T | ONNX INT8 Dynamic | ~620 MB | Trained on 10,000+ hours of authentic Indian regional dialects; native Tamil phoneme boundary modeling. |
+| **Tamil (`ta`)** | **IndicConformer Medium (~120M parameters)** (AI4Bharat) | Conformer-CTC | ONNX INT8 Dynamic | 137 MB | Trained on 10,000+ hours of authentic Indian regional dialects; native Tamil phoneme boundary modeling. Bundled checkpoint is 137 MB quantized INT8. |
 | **Polish (`pl`)** | **Parakeet-TDT 0.6B** (NVIDIA NeMo) | FastConformer-TDT | ONNX INT8 Dynamic | ~590 MB | Token-and-Duration Transducer (TDT); 3-4x faster decoding than standard autoregressive models with high diacritic precision. |
 | **Fallback** | **Whisper Small** (OpenAI / CTranslate2) | Encoder-Decoder Transformer | CTranslate2 INT8 | 461 MB | General purpose bundled multilingual fallback. |
 

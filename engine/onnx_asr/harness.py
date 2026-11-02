@@ -3,11 +3,12 @@ ONNX Runtime Multilingual Specialist ASR Harness.
 Specification: docs/specs/0006-onnx-multilingual-specialist-asr-harness.md
 
 Provides high-accuracy offline CPU speech recognition for specialist languages:
-- Tamil ('ta'): AI4Bharat IndicConformer-600M Conformer-CTC (INT8 Quantized, 131 MB)
+- Tamil ('ta'): AI4Bharat IndicConformer Medium (~120M parameters, INT8 Quantized, 137 MB)
 - Cross-platform, 100% offline, zero cloud egress.
 """
 import io
 import os
+import re
 import sys
 import time
 import threading
@@ -31,6 +32,60 @@ except ImportError:
     HAS_SOUNDFILE = False
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# Phonetic loanword mappings for common developer terms in Tamil dictation
+KNOWN_TAMIL_TECH_MAP: Dict[str, str] = {
+    'டாக்கர்': 'Docker',
+    'டாகர்': 'Docker',
+    'குபர்னெடிஸ்': 'Kubernetes',
+    'குபர்நெட்டிஸ்': 'Kubernetes',
+    'குபெர்னெட்டீஸ்': 'Kubernetes',
+    'பைதான்': 'Python',
+    'பைத்தான்': 'Python',
+    'கிராஃப்கியூஎல்': 'GraphQL',
+    'கிராப்கியூஎல்': 'GraphQL',
+    'பாஸ்டேபிஐ': 'FastAPI',
+    'போஸ்ட்கிரெஸ்': 'PostgreSQL',
+    'போஸ்ட்கிரெஸ்கியூஎல்': 'PostgreSQL',
+    'நெக்ஸ்ட்ஜேஎஸ்': 'Next.js',
+    'டைப்ஸ்கிரிப்ட்': 'TypeScript',
+    'விஸ்பர்': 'Whisper',
+    'சர்வர்': 'Server',
+}
+
+
+def apply_custom_vocabulary_biasing(text: str, custom_vocabulary: Optional[List[str]]) -> str:
+    """
+    Applies custom vocabulary restoration and case normalization to ASR transcript.
+    Restores technical terms and proper nouns in Tamil/Tanglish dictation.
+    """
+    if not text or not custom_vocabulary:
+        return text
+
+    vocab_lower_map = {v.lower(): v for v in custom_vocabulary}
+
+    # 1. Map known Tamil loanword phonetic spellings with case suffixes
+    for tam, eng in KNOWN_TAMIL_TECH_MAP.items():
+        if eng.lower() in vocab_lower_map:
+            canonical = vocab_lower_map[eng.lower()]
+            stem = tam[:-1] if tam.endswith('்') else tam
+            p_ukku = re.escape(stem + 'ுக்கு')
+            p_il = re.escape(stem + 'ில்')
+            p_la = re.escape(stem + 'ல')
+            p_oda = re.escape(stem + 'ோட')
+            p_base = re.escape(tam)
+            text = re.sub(r'(?<!\w)' + p_ukku + r'(?!\w)', f'{canonical}-ukku', text)
+            text = re.sub(r'(?<!\w)' + p_il + r'(?!\w)', f'{canonical}-il', text)
+            text = re.sub(r'(?<!\w)' + p_la + r'(?!\w)', f'{canonical}-la', text)
+            text = re.sub(r'(?<!\w)' + p_oda + r'(?!\w)', f'{canonical}-oda', text)
+            text = re.sub(r'(?<!\w)' + p_base + r'(?!\w)', canonical, text)
+
+    # 2. Case normalization for ASCII terms in vocabulary
+    for v in custom_vocabulary:
+        pattern = r'(?i)\b' + re.escape(v) + r'\b'
+        text = re.sub(pattern, v, text)
+
+    return text
 
 
 class OnnxASRHarness:
@@ -182,7 +237,8 @@ class OnnxASRHarness:
     def transcribe(
         self,
         audio_data: Union[bytes, np.ndarray],
-        language: str = "ta"
+        language: str = "ta",
+        custom_vocabulary: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Executes end-to-end transcription of audio using the local ONNX specialist model.
@@ -245,6 +301,11 @@ class OnnxASRHarness:
                 prev_id = idx
 
         raw_text = "".join(tokens).replace("\u2581", " ").replace("▁", " ").strip()
+
+        # Apply custom vocabulary biasing & case normalization if provided
+        if custom_vocabulary:
+            raw_text = apply_custom_vocabulary_biasing(raw_text, custom_vocabulary)
+
         elapsed = time.perf_counter() - t0
 
         return {

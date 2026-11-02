@@ -368,7 +368,7 @@ class STTEngine:
                 from engine.onnx_asr.harness import get_specialist_harness
                 harness = get_specialist_harness()
                 if harness.is_available("ta"):
-                    res = harness.transcribe(audio_data, language="ta")
+                    res = harness.transcribe(audio_data, language="ta", custom_vocabulary=vocab)
                     if res and not res.get("error"):
                         return res
             except Exception as e:
