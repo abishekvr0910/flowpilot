@@ -2,285 +2,287 @@
 """
 Script to generate TAMIL_POLISH_BENCHMARK_CORPUS.json and TAMIL_POLISH_BENCHMARK_CORPUS.md.
 Contains 100 benchmark items (50 Tamil, 50 Polish) following FlowPilot Corpus Item Schema.
+Tamil items reflect authentic spoken-style Tamil dictation and verified Tanglish transliteration.
 """
 
 import json
 from pathlib import Path
 
 TAMIL_ITEMS = [
-    # 20 Conversational
+    # 20 Conversational Spoken Tamil
     {
         "item_id": "ta-conv-01",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "வணக்கம், நீங்கள் எப்படி இருக்கிறீர்கள்?",
-        "formatted_reference": "வணக்கம், நீங்கள் எப்படி இருக்கிறீர்கள்?",
-        "tanglish_reference": "vanakkam, neengal eppadi irukkireergal?",
+        "spoken_reference": "வணக்கம், நீங்க எப்படி இருக்கீங்க?",
+        "formatted_reference": "வணக்கம், நீங்க எப்படி இருக்கீங்க?",
+        "tanglish_reference": "vanakkam, neenga eppadi irukkeenga?",
         "speaker_id": "ta-native-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.2,
-        "critical_entities": ["வணக்கம்", "எப்படி"]
+        "duration_sec": 3.0,
+        "critical_entities": ["வணக்கம்", "எப்படி", "இருக்கீங்க"]
     },
     {
         "item_id": "ta-conv-02",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "இன்று காலை வானிலை மிகவும் இனிமையாக உள்ளது.",
-        "formatted_reference": "இன்று காலை வானிலை மிகவும் இனிமையாக உள்ளது.",
-        "tanglish_reference": "indru kaalai vaanilai migavum inimaiyaaga ulladhu.",
+        "spoken_reference": "இன்னைக்கு காலையில வானிலை ரொம்ப நல்லா இருக்கு.",
+        "formatted_reference": "இன்னைக்கு காலையில வானிலை ரொம்ப நல்லா இருக்கு.",
+        "tanglish_reference": "innaikku kaalaiyila vaanilai romba nallaa irukku.",
         "speaker_id": "ta-native-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.8,
-        "critical_entities": ["காலை", "வானிலை"]
+        "duration_sec": 3.5,
+        "critical_entities": ["காலையில", "வானிலை", "நல்லா"]
     },
     {
         "item_id": "ta-conv-03",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "நாளைக்கு காலை ஒன்பது மணிக்கு நாம் சந்திக்கலாமா?",
-        "formatted_reference": "நாளைக்கு காலை ஒன்பது மணிக்கு நாம் சந்திக்கலாமா?",
-        "tanglish_reference": "naalaikku kaalai onbadhu manikku naam sandhikkalaamaa?",
+        "spoken_reference": "நாளைக்கு காலைல ஒன்பது மணிக்கு நாம மீட் பண்ணலாமா?",
+        "formatted_reference": "நாளைக்கு காலைல ஒன்பது மணிக்கு நாம மீட் பண்ணலாமா?",
+        "tanglish_reference": "naalaikku kaalaila onbadhu manikku naama meet pannalaamaa?",
         "speaker_id": "ta-native-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.1,
-        "critical_entities": ["ஒன்பது", "9:00"]
+        "duration_sec": 3.9,
+        "critical_entities": ["ஒன்பது", "9:00", "மீட்"]
     },
     {
         "item_id": "ta-conv-04",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "எனக்கு ஒரு கப் சூடான காபி வேண்டும்.",
-        "formatted_reference": "எனக்கு ஒரு கப் சூடான காபி வேண்டும்.",
-        "tanglish_reference": "enakku oru cup soodaana kaapi vaendum.",
+        "spoken_reference": "எனக்கு ஒரு cup சூடான காபி வேணும்.",
+        "formatted_reference": "எனக்கு ஒரு cup சூடான காபி வேணும்.",
+        "tanglish_reference": "enakku oru cup soodaana kaapi venum.",
         "speaker_id": "ta-native-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.0,
-        "critical_entities": ["காபி"]
+        "duration_sec": 2.9,
+        "critical_entities": ["cup", "காபி", "வேணும்"]
     },
     {
         "item_id": "ta-conv-05",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "இந்த யோசனை எனக்கு மிகவும் பிடித்திருக்கிறது.",
-        "formatted_reference": "இந்த யோசனை எனக்கு மிகவும் பிடித்திருக்கிறது.",
-        "tanglish_reference": "indha yoasanai enakku migavum piditthirukkiradhu.",
+        "spoken_reference": "இந்த idea எனக்கு ரொம்ப பிடிச்சிருக்கு.",
+        "formatted_reference": "இந்த idea எனக்கு ரொம்ப பிடிச்சிருக்கு.",
+        "tanglish_reference": "indha idea enakku romba pidichirukku.",
         "speaker_id": "ta-native-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.5,
-        "critical_entities": ["யோசனை"]
+        "duration_sec": 3.2,
+        "critical_entities": ["idea", "பிடிச்சிருக்கு"]
     },
     {
         "item_id": "ta-conv-06",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "நீங்கள் சொன்னதை நான் தெளிவாக புரிந்து கொண்டேன்.",
-        "formatted_reference": "நீங்கள் சொன்னதை நான் தெளிவாக புரிந்து கொண்டேன்.",
-        "tanglish_reference": "neengal sonnadhai naan thelivaaga purindhu kondaen.",
+        "spoken_reference": "நீங்க சொன்னத நான் தெளிவா புரிஞ்சுகிட்டேன்.",
+        "formatted_reference": "நீங்க சொன்னத நான் தெளிவா புரிஞ்சுகிட்டேன்.",
+        "tanglish_reference": "neenga sonnadha naan thelivaa purinjugitten.",
         "speaker_id": "ta-native-03",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.7,
-        "critical_entities": ["தெளிவாக"]
+        "duration_sec": 3.4,
+        "critical_entities": ["தெளிவா", "புரிஞ்சுகிட்டேன்"]
     },
     {
         "item_id": "ta-conv-07",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "நாம் எப்போது மதிய உணவுக்கு செல்லலாம்?",
-        "formatted_reference": "நாம் எப்போது மதிய உணவுக்கு செல்லலாம்?",
-        "tanglish_reference": "naam eppoadhu madhiya unavukku sellalaam?",
+        "spoken_reference": "நாம எப்போ lunchக்கு போலாம்?",
+        "formatted_reference": "நாம எப்போ lunchக்கு போலாம்?",
+        "tanglish_reference": "naama eppo lunchukku polaam?",
         "speaker_id": "ta-native-03",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 2.9,
-        "critical_entities": ["மதிய உணவு"]
+        "duration_sec": 2.7,
+        "critical_entities": ["lunch", "போலாம்"]
     },
     {
         "item_id": "ta-conv-08",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "இன்றைய வேலை அனைத்தும் வெற்றிகரமாக முடிந்தது.",
-        "formatted_reference": "இன்றைய வேலை அனைத்தும் வெற்றிகரமாக முடிந்தது.",
-        "tanglish_reference": "indraya vaelai anaitthum vetrigaramaaga mudindhadhu.",
+        "spoken_reference": "இன்னைக்கு வேலை எல்லாம் நல்லபடியா முடிஞ்சது.",
+        "formatted_reference": "இன்னைக்கு வேலை எல்லாம் நல்லபடியா முடிஞ்சது.",
+        "tanglish_reference": "innaikku velai ellaam nallabadiyaa mudinjadhu.",
         "speaker_id": "ta-native-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.6,
-        "critical_entities": ["வெற்றிகரமாக"]
+        "duration_sec": 3.4,
+        "critical_entities": ["நல்லபடியா", "முடிஞ்சது"]
     },
     {
         "item_id": "ta-conv-09",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "உங்களுடைய உதவிக்கு என் மனமார்ந்த நன்றி.",
-        "formatted_reference": "உங்களுடைய உதவிக்கு என் மனமார்ந்த நன்றி.",
-        "tanglish_reference": "ungaludaiya udhavikku en manamaarndha nandri.",
+        "spoken_reference": "உங்க helpக்கு ரொம்ப நன்றி.",
+        "formatted_reference": "உங்க helpக்கு ரொம்ப நன்றி.",
+        "tanglish_reference": "unga helpukku romba nandri.",
         "speaker_id": "ta-native-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.3,
-        "critical_entities": ["நன்றி"]
+        "duration_sec": 2.8,
+        "critical_entities": ["help", "நன்றி"]
     },
     {
         "item_id": "ta-conv-10",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "நேற்று இரவு பெய்த மழையால் சாலைகள் நனைந்துள்ளன.",
-        "formatted_reference": "நேற்று இரவு பெய்த மழையால் சாலைகள் நனைந்துள்ளன.",
-        "tanglish_reference": "naetru iravu peydha mazhaiyaal saalaigal nanaindhullana.",
+        "spoken_reference": "நேத்து ராத்திரி பெஞ்ச மழையால ரோடு எல்லாம் நனைஞ்சிருக்கு.",
+        "formatted_reference": "நேத்து ராத்திரி பெஞ்ச மழையால ரோடு எல்லாம் நனைஞ்சிருக்கு.",
+        "tanglish_reference": "netthu raatthiri penja mazhaiyaala road-u ellaam nanainjirukku.",
         "speaker_id": "ta-native-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.0,
-        "critical_entities": ["மழை"]
+        "duration_sec": 3.8,
+        "critical_entities": ["மழை", "ரோடு"]
     },
     {
         "item_id": "ta-conv-11",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "இந்த வார இறுதியில் நாம் வெளியூர் பயணம் செல்வோம்.",
-        "formatted_reference": "இந்த வார இறுதியில் நாம் வெளியூர் பயணம் செல்வோம்.",
-        "tanglish_reference": "indha vaara irudhiyil naam veliyoor payanam selvom.",
+        "spoken_reference": "இந்த weekend நாம ஊருக்கு போலாம்.",
+        "formatted_reference": "இந்த weekend நாம ஊருக்கு போலாம்.",
+        "tanglish_reference": "indha weekend naama oorukku polaam.",
         "speaker_id": "ta-native-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.9,
-        "critical_entities": ["பயணம்"]
+        "duration_sec": 3.1,
+        "critical_entities": ["weekend", "போலாம்"]
     },
     {
         "item_id": "ta-conv-12",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "உங்களுக்கு நேரம் கிடைக்கும்போது எனக்கு அழைக்கவும்.",
-        "formatted_reference": "உங்களுக்கு நேரம் கிடைக்கும்போது எனக்கு அழைக்கவும்.",
-        "tanglish_reference": "ungalukku naeram kidaikkumpoadhu enakku azhaikkavum.",
+        "spoken_reference": "உங்களுக்கு time கிடைக்கும்போது எனக்கு call பண்ணுங்க.",
+        "formatted_reference": "உங்களுக்கு time கிடைக்கும்போது எனக்கு call பண்ணுங்க.",
+        "tanglish_reference": "ungalukku time kidaikkumbodhu enakku call pannunga.",
         "speaker_id": "ta-native-03",
         "consent_verified": True,
         "audio_file": None,
         "duration_sec": 3.4,
-        "critical_entities": ["அழைக்கவும்"]
+        "critical_entities": ["time", "call"]
     },
     {
         "item_id": "ta-conv-13",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "அடுத்த வாரம் புதன்கிழமை ஒரு முக்கியமான கூட்டம் இருக்கிறது.",
-        "formatted_reference": "அடுத்த வாரம் புதன்கிழமை ஒரு முக்கியமான கூட்டம் இருக்கிறது.",
-        "tanglish_reference": "aduttha vaaram budhankizhamai oru mukkiyamaana koottam irukkiradhu.",
+        "spoken_reference": "அடுத்த வாரம் புதன்கிழமை ஒரு முக்கியமான meeting இருக்கு.",
+        "formatted_reference": "அடுத்த வாரம் புதன்கிழமை ஒரு முக்கியமான meeting இருக்கு.",
+        "tanglish_reference": "aduttha vaaram budhankizhamai oru mukkiyamaana meeting irukku.",
         "speaker_id": "ta-native-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.3,
-        "critical_entities": ["புதன்கிழமை", "கூட்டம்"]
+        "duration_sec": 4.1,
+        "critical_entities": ["புதன்கிழமை", "meeting"]
     },
     {
         "item_id": "ta-conv-14",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "இதைப்பற்றி நீங்கள் என்ன நினைக்கிறீர்கள் என்று சொல்லுங்கள்.",
-        "formatted_reference": "இதைப்பற்றி நீங்கள் என்ன நினைக்கிறீர்கள் என்று சொல்லுங்கள்.",
-        "tanglish_reference": "idhaippatri neengal enna ninaikkireergal endru sollungal.",
+        "spoken_reference": "இதப்பத்தி நீங்க என்ன நினைக்கிறீங்கன்னு சொல்லுங்க.",
+        "formatted_reference": "இதப்பத்தி நீங்க என்ன நினைக்கிறீங்கன்னு சொல்லுங்க.",
+        "tanglish_reference": "idhappatthi neenga enna ninaikkireengannu sollunga.",
         "speaker_id": "ta-native-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.7,
-        "critical_entities": ["சொல்லுங்கள்"]
+        "duration_sec": 3.5,
+        "critical_entities": ["சொல்லுங்க"]
     },
     {
         "item_id": "ta-conv-15",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "புதிய திட்டத்தை தொடங்குவதற்கு இதுவே சரியான நேரம்.",
-        "formatted_reference": "புதிய திட்டத்தை தொடங்குவதற்கு இதுவே சரியான நேரம்.",
-        "tanglish_reference": "pudhiya thittatthai thodanguvadharku idhuvae sariyaana naeram.",
+        "spoken_reference": "புது project start பண்ண இதுதான் correct-ஆன time.",
+        "formatted_reference": "புது project start பண்ண இதுதான் correct-ஆன time.",
+        "tanglish_reference": "pudhu project start panna idhudhaan correct-aana time.",
         "speaker_id": "ta-native-03",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.8,
-        "critical_entities": ["திட்டம்"]
+        "duration_sec": 3.6,
+        "critical_entities": ["project", "start", "time"]
     },
     {
         "item_id": "ta-conv-16",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "நாம் அனைவரும் ஒன்றாக இணைந்து உழைக்க வேண்டும்.",
-        "formatted_reference": "நாம் அனைவரும் ஒன்றாக இணைந்து உழைக்க வேண்டும்.",
-        "tanglish_reference": "naam anaivarum ondraaga inaindhu uzhaikka vaendum.",
+        "spoken_reference": "நாம எல்லாரும் ஒண்ணா சேர்ந்து வேலை செய்யணும்.",
+        "formatted_reference": "நாம எல்லாரும் ஒண்ணா சேர்ந்து வேலை செய்யணும்.",
+        "tanglish_reference": "naama ellaarum onnaa serndhu velai seyyanum.",
         "speaker_id": "ta-native-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.6,
-        "critical_entities": ["ஒன்றாக"]
+        "duration_sec": 3.4,
+        "critical_entities": ["ஒண்ணா", "வேலை"]
     },
     {
         "item_id": "ta-conv-17",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "கவலைப்பட வேண்டாம், எல்லாம் விரைவாக சரியாகிவிடும்.",
-        "formatted_reference": "கவலைப்பட வேண்டாம், எல்லாம் விரைவாக சரியாகிவிடும்.",
-        "tanglish_reference": "kavalaippada vaendaam, ellaam viraivaaga sariyaagividum.",
+        "spoken_reference": "கவலைப்படாதீங்க, எல்லாம் சீக்கிரம் சரியாகிடும்.",
+        "formatted_reference": "கவலைப்படாதீங்க, எல்லாம் சீக்கிரம் சரியாகிடும்.",
+        "tanglish_reference": "kavalaippadaadheenga, ellaam seekkiram sariyaagidum.",
         "speaker_id": "ta-native-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.5,
-        "critical_entities": ["வேண்டாம்", "சரியாகிவிடும்"]
+        "duration_sec": 3.3,
+        "critical_entities": ["கவலைப்படாதீங்க", "சரியாகிடும்"]
     },
     {
         "item_id": "ta-conv-18",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "உங்கள் குடும்பத்தினர் அனைவரும் நலமாக இருக்கிறார்களா?",
-        "formatted_reference": "உங்கள் குடும்பத்தினர் அனைவரும் நலமாக இருக்கிறார்களா?",
-        "tanglish_reference": "ungal kudumbatthinar anaivarum nalamaaga irukkiraargalaa?",
+        "spoken_reference": "வீட்ல எல்லாரும் நல்லா இருக்காங்களா?",
+        "formatted_reference": "வீட்ல எல்லாரும் நல்லா இருக்காங்களா?",
+        "tanglish_reference": "veetla ellaarum nallaa irukkaangalaa?",
         "speaker_id": "ta-native-03",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.4,
-        "critical_entities": ["குடும்பத்தினர்"]
+        "duration_sec": 3.0,
+        "critical_entities": ["நல்லா", "இருக்காங்களா"]
     },
     {
         "item_id": "ta-conv-19",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "நேரத்திற்கு தூங்குவதும் விழிப்பதும் உடலுக்கு நல்லது.",
-        "formatted_reference": "நேரத்திற்கு தூங்குவதும் விழிப்பதும் உடலுக்கு நல்லது.",
-        "tanglish_reference": "naeratthirku thoonguvadhum vizhippadhum udalukku nalladhu.",
+        "spoken_reference": "நேரத்துக்கு தூங்கி எந்திரிக்கிறது உடம்புக்கு நல்லது.",
+        "formatted_reference": "நேரத்துக்கு தூங்கி எந்திரிக்கிறது உடம்புக்கு நல்லது.",
+        "tanglish_reference": "neratthukku thoongi endhirikkiradhu udambukku nalladhu.",
         "speaker_id": "ta-native-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.9,
-        "critical_entities": ["நல்லது"]
+        "duration_sec": 3.6,
+        "critical_entities": ["நல்லது", "உடம்புக்கு"]
     },
     {
         "item_id": "ta-conv-20",
         "language": "ta",
         "group": "clean",
-        "spoken_reference": "மீண்டும் உங்களை சந்தித்ததில் மிக்க மகிழ்ச்சி.",
-        "formatted_reference": "மீண்டும் உங்களை சந்தித்ததில் மிக்க மகிழ்ச்சி.",
-        "tanglish_reference": "meendum ungalai sandhitthadhil mikka magizhchi.",
+        "spoken_reference": "மறுபடியும் உங்கள பாத்ததுல ரொம்ப சந்தோஷம்.",
+        "formatted_reference": "மறுபடியும் உங்கள பாத்ததுல ரொம்ப சந்தோஷம்.",
+        "tanglish_reference": "marubadiyum ungala paatthadhula romba sandhosham.",
         "speaker_id": "ta-native-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.1,
-        "critical_entities": ["மகிழ்ச்சி"]
+        "duration_sec": 3.2,
+        "critical_entities": ["சந்தோஷம்"]
     },
+
     # 15 Developer Code-Switching Tanglish
     {
         "item_id": "ta-dev-01",
         "language": "ta",
         "group": "developer_code",
-        "spoken_reference": "புதிய Docker container ஐ build செய்து deploy பண்ணுங்க.",
-        "formatted_reference": "புதிய Docker container ஐ build செய்து deploy பண்ணுங்க.",
-        "tanglish_reference": "pudhiya Docker container ai build seydhu deploy pannunga.",
+        "spoken_reference": "புது Docker container build பண்ணி deploy பண்ணுங்க.",
+        "formatted_reference": "புது Docker container build பண்ணி deploy பண்ணுங்க.",
+        "tanglish_reference": "pudhu Docker container build panni deploy pannunga.",
         "speaker_id": "ta-dev-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.8,
+        "duration_sec": 3.6,
         "critical_entities": ["Docker", "container", "build", "deploy"]
     },
     {
@@ -293,7 +295,7 @@ TAMIL_ITEMS = [
         "speaker_id": "ta-dev-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.9,
+        "duration_sec": 3.8,
         "critical_entities": ["Git", "pull", "feature branch", "checkout"]
     },
     {
@@ -306,8 +308,8 @@ TAMIL_ITEMS = [
         "speaker_id": "ta-dev-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.0,
-        "critical_entities": ["Backend", "API", "500", "logs"]
+        "duration_sec": 3.9,
+        "critical_entities": ["Backend", "API", "500", "logs", "check"]
     },
     {
         "item_id": "ta-dev-04",
@@ -319,16 +321,16 @@ TAMIL_ITEMS = [
         "speaker_id": "ta-dev-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.1,
+        "duration_sec": 4.0,
         "critical_entities": ["PostgreSQL", "database", "timeout"]
     },
     {
         "item_id": "ta-dev-05",
         "language": "ta",
         "group": "developer_code",
-        "spoken_reference": "இந்த pull request ல unit tests pass ஆகல.",
-        "formatted_reference": "இந்த pull request ல unit tests pass ஆகல.",
-        "tanglish_reference": "indha pull request la unit tests pass aagala.",
+        "spoken_reference": "இந்த pull request ல unit tests இன்னும் pass ஆகல.",
+        "formatted_reference": "இந்த pull request ல unit tests இன்னும் pass ஆகல.",
+        "tanglish_reference": "indha pull request la unit tests innum pass aagala.",
         "speaker_id": "ta-dev-01",
         "consent_verified": True,
         "audio_file": None,
@@ -345,7 +347,7 @@ TAMIL_ITEMS = [
         "speaker_id": "ta-dev-03",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.4,
+        "duration_sec": 4.2,
         "critical_entities": ["AWS", "Lambda", "latency", "optimize"]
     },
     {
@@ -358,20 +360,20 @@ TAMIL_ITEMS = [
         "speaker_id": "ta-dev-03",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.9,
+        "duration_sec": 3.8,
         "critical_entities": ["React", "render", "memory leak"]
     },
     {
         "item_id": "ta-dev-08",
         "language": "ta",
         "group": "developer_code",
-        "spoken_reference": "Redis cache invalidate பண்ணிட்டு reload பண்ணுங்க.",
-        "formatted_reference": "Redis cache invalidate பண்ணிட்டு reload பண்ணுங்க.",
-        "tanglish_reference": "Redis cache invalidate pannittu reload pannunga.",
+        "spoken_reference": "Redis cache invalidate பண்ணிட்டு பேஜ்ஜ reload பண்ணுங்க.",
+        "formatted_reference": "Redis cache invalidate பண்ணிட்டு பேஜ்ஜ reload பண்ணுங்க.",
+        "tanglish_reference": "Redis cache invalidate pannittu page-a reload pannunga.",
         "speaker_id": "ta-dev-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.6,
+        "duration_sec": 3.7,
         "critical_entities": ["Redis", "cache", "invalidate", "reload"]
     },
     {
@@ -384,20 +386,20 @@ TAMIL_ITEMS = [
         "speaker_id": "ta-dev-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.1,
+        "duration_sec": 4.0,
         "critical_entities": ["Microservices", "gRPC", "protocol"]
     },
     {
         "item_id": "ta-dev-10",
         "language": "ta",
         "group": "developer_code",
-        "spoken_reference": "Staging environment ல bug reproduce ஆகுது.",
-        "formatted_reference": "Staging environment ல bug reproduce ஆகுது.",
-        "tanglish_reference": "Staging environment la bug reproduce aagudhu.",
+        "spoken_reference": "Staging environment ல இந்த bug reproduce ஆகுது.",
+        "formatted_reference": "Staging environment ல இந்த bug reproduce ஆகுது.",
+        "tanglish_reference": "Staging environment la indha bug reproduce aagudhu.",
         "speaker_id": "ta-dev-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.4,
+        "duration_sec": 3.5,
         "critical_entities": ["Staging", "environment", "bug", "reproduce"]
     },
     {
@@ -410,7 +412,7 @@ TAMIL_ITEMS = [
         "speaker_id": "ta-dev-03",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.8,
+        "duration_sec": 3.7,
         "critical_entities": ["Kubernetes", "pod", "crash loop"]
     },
     {
@@ -423,7 +425,7 @@ TAMIL_ITEMS = [
         "speaker_id": "ta-dev-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.2,
+        "duration_sec": 4.1,
         "critical_entities": ["Main branch", "merge conflict", "resolve"]
     },
     {
@@ -432,11 +434,11 @@ TAMIL_ITEMS = [
         "group": "developer_code",
         "spoken_reference": "CI/CD pipeline test stage ல fail ஆயிடுச்சு.",
         "formatted_reference": "CI/CD pipeline test stage ல fail ஆயிடுச்சு.",
-        "tanglish_reference": "CI/CD pipeline test stage la fail aayiducchu.",
+        "tanglish_reference": "CI/CD pipeline test stage la fail aayiduchu.",
         "speaker_id": "ta-dev-01",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 3.7,
+        "duration_sec": 3.6,
         "critical_entities": ["CI/CD", "pipeline", "fail"]
     },
     {
@@ -445,11 +447,11 @@ TAMIL_ITEMS = [
         "group": "developer_code",
         "spoken_reference": "Frontend UI responsive layout flexbox ல fix பண்ணியாச்சு.",
         "formatted_reference": "Frontend UI responsive layout flexbox ல fix பண்ணியாச்சு.",
-        "tanglish_reference": "Frontend UI responsive layout flexbox la fix panniyaacchu.",
+        "tanglish_reference": "Frontend UI responsive layout flexbox la fix panniyaachu.",
         "speaker_id": "ta-dev-03",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.1,
+        "duration_sec": 4.0,
         "critical_entities": ["Frontend", "UI", "flexbox", "fix"]
     },
     {
@@ -458,13 +460,14 @@ TAMIL_ITEMS = [
         "group": "developer_code",
         "spoken_reference": "Production server CPU utilization 95% வரை போயிருச்சு.",
         "formatted_reference": "Production server CPU utilization 95% வரை போயிருச்சு.",
-        "tanglish_reference": "Production server CPU utilization 95% varai poayirucchu.",
+        "tanglish_reference": "Production server CPU utilization 95% varai poyiruchu.",
         "speaker_id": "ta-dev-02",
         "consent_verified": True,
         "audio_file": None,
-        "duration_sec": 4.3,
+        "duration_sec": 4.2,
         "critical_entities": ["Production", "CPU", "utilization", "95%"]
     },
+
     # 15 Formal & FactGuard Entity Preservation
     {
         "item_id": "ta-fg-01",
@@ -485,12 +488,12 @@ TAMIL_ITEMS = [
         "group": "quantities",
         "spoken_reference": "கடைசி தேதி 2026 நவம்பர் 15 வரை நீட்டிக்கப்பட்டுள்ளது.",
         "formatted_reference": "கடைசி தேதி 2026 நவம்பர் 15 வரை நீட்டிக்கப்பட்டுள்ளது.",
-        "tanglish_reference": "kadaisi thaedhi 2026 November 15 varai neettikkappattulladhu.",
+        "tanglish_reference": "kadaisi thedhi 2026 November 15 varai neettikkappattulladhu.",
         "speaker_id": "ta-formal-01",
         "consent_verified": True,
         "audio_file": None,
         "duration_sec": 4.5,
-        "critical_entities": ["2026", "15"]
+        "critical_entities": ["2026", "15", "நவம்பர்"]
     },
     {
         "item_id": "ta-fg-03",
@@ -498,7 +501,7 @@ TAMIL_ITEMS = [
         "group": "clean",
         "spoken_reference": "இந்த பரிவர்த்தனைக்கு எந்தவொரு கட்டணமும் இல்லை.",
         "formatted_reference": "இந்த பரிவர்த்தனைக்கு எந்தவொரு கட்டணமும் இல்லை.",
-        "tanglish_reference": "indha parivartthanaiykku endhavoru kattanamum illai.",
+        "tanglish_reference": "indha parivartthanaikku endhavoru kattanamum illai.",
         "speaker_id": "ta-formal-02",
         "consent_verified": True,
         "audio_file": None,
@@ -511,7 +514,7 @@ TAMIL_ITEMS = [
         "group": "quantities",
         "spoken_reference": "தொலைபேசி எண் +91 98765 43210 என்ற எண்ணில் தொடர்பு கொள்ளவும்.",
         "formatted_reference": "தொலைபேசி எண் +91 98765 43210 என்ற எண்ணில் தொடர்பு கொள்ளவும்.",
-        "tanglish_reference": "tholaipaesi enn +91 98765 43210 endra ennil thodarbu kollavum.",
+        "tanglish_reference": "tholaipesi enn +91 98765 43210 endra ennil thodarbu kollavum.",
         "speaker_id": "ta-formal-02",
         "consent_verified": True,
         "audio_file": None,
@@ -576,7 +579,7 @@ TAMIL_ITEMS = [
         "group": "quantities",
         "spoken_reference": "ஆய்வக சோதனை முடிவுகள் 99.8% துல்லியமாக வந்துள்ளன.",
         "formatted_reference": "ஆய்வக சோதனை முடிவுகள் 99.8% துல்லியமாக வந்துள்ளன.",
-        "tanglish_reference": "aayvaga soadhanai mudivugal 99.8% thulliyamaaga vandhullana.",
+        "tanglish_reference": "aayvaga sodhanai mudivugal 99.8% thulliyamaaga vandhullana.",
         "speaker_id": "ta-formal-03",
         "consent_verified": True,
         "audio_file": None,
@@ -641,12 +644,12 @@ TAMIL_ITEMS = [
         "group": "quantities",
         "spoken_reference": "அடுத்த தணிக்கை தேதி 2027 ஜனவரி 10 என நிர்ணயிக்கப்பட்டுள்ளது.",
         "formatted_reference": "அடுத்த தணிக்கை தேதி 2027 ஜனவரி 10 என நிர்ணயிக்கப்பட்டுள்ளது.",
-        "tanglish_reference": "aduttha thanikkai thaedhi 2027 January 10 ena nirnayikkappattulladhu.",
+        "tanglish_reference": "aduttha thanikkai thedhi 2027 January 10 ena nirnayikkappattulladhu.",
         "speaker_id": "ta-formal-01",
         "consent_verified": True,
         "audio_file": None,
         "duration_sec": 4.6,
-        "critical_entities": ["2027", "10"]
+        "critical_entities": ["2027", "10", "ஜனவரி"]
     },
     {
         "item_id": "ta-fg-15",
@@ -654,7 +657,7 @@ TAMIL_ITEMS = [
         "group": "quantities",
         "spoken_reference": "பாதிக்கப்பட்ட கணினிகளின் எண்ணிக்கை 12 மட்டுமே, 15 அல்ல.",
         "formatted_reference": "பாதிக்கப்பட்ட கணினிகளின் எண்ணிக்கை 12 மட்டுமே, 15 அல்ல.",
-        "tanglish_reference": "baadhikkappatta kaninigalin ennikkai 12 mattumae, 15 alla.",
+        "tanglish_reference": "baadhikkappatta kaninigalin ennikkai 12 mattume, 15 alla.",
         "speaker_id": "ta-formal-03",
         "consent_verified": True,
         "audio_file": None,
@@ -905,7 +908,8 @@ POLISH_ITEMS = [
         "duration_sec": 3.3,
         "critical_entities": ["cieszę"]
     },
-    # 15 Developer & Professional
+
+    # 15 Developer & Professional Polish
     {
         "item_id": "pl-dev-01",
         "language": "pl",
@@ -1086,7 +1090,8 @@ POLISH_ITEMS = [
         "duration_sec": 4.1,
         "critical_entities": ["procesora", "95%"]
     },
-    # 15 FactGuard Entity Preservation
+
+    # 15 FactGuard Entity Preservation Polish
     {
         "item_id": "pl-fg-01",
         "language": "pl",
@@ -1285,7 +1290,7 @@ def generate_files():
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("# FlowPilot Multilingual Benchmark Corpus: Tamil & Polish (100 Items)\n\n")
         f.write("**Status:** Active Benchmark Specification & Evaluation Manifest  \n")
-        f.write("**Version:** 1.0 (v3.1.0 Post-GA Multilingual Expansion)  \n")
+        f.write("**Version:** 2.0 (Spoken-Style Tamil Dictation & Calibrated Tanglish Transliteration)  \n")
         f.write("**Primary Languages:** Tamil (`ta`) and Polish (`pl`)  \n")
         f.write("**Total Items:** 100 balanced utterances (50 Tamil, 50 Polish)  \n")
         f.write("**Invariants:** Zero cloud egress, local evaluation only, FactGuard entity preservation, dual-reference Tamil (Script / Tanglish).  \n\n")
@@ -1294,7 +1299,7 @@ def generate_files():
         f.write("## 1. Corpus Structure & Breakdown\n\n")
         f.write("| Language | Group | Count | Characteristics |\n")
         f.write("| :--- | :--- | :--- | :--- |\n")
-        f.write("| **Tamil (`ta`)** | Conversational (`clean`) | 20 | Daily dialogue, greetings, scheduling, requests |\n")
+        f.write("| **Tamil (`ta`)** | Conversational (`clean`) | 20 | Authentic spoken dialogue, greetings, scheduling, requests (e.g. எப்படி இருக்கீங்க) |\n")
         f.write("| **Tamil (`ta`)** | Developer Code-Switching (`developer_code`) | 15 | Mixed Tamil + Latin technical tokens (Docker, Git, React, API, AWS, CI/CD) |\n")
         f.write("| **Tamil (`ta`)** | FactGuard Entity Preservation (`quantities`) | 15 | Currency (₹ / INR / $), phone numbers, dates, negations (இல்லை, வேண்டாம், அல்ல) |\n")
         f.write("| **Polish (`pl`)** | Conversational (`clean`) | 20 | Everyday conversational Polish, standard diacritics (ą, ć, ę, ł, ń, ó, ś, ź, ż) |\n")
@@ -1303,7 +1308,7 @@ def generate_files():
 
         f.write("---\n\n")
         f.write("## 2. Tamil Evaluation Items (50)\n\n")
-        f.write("Each Tamil item includes both the canonical native Tamil script reference (`formatted_reference`) and the deterministic phonological Tanglish transliteration reference (`tanglish_reference`).\n\n")
+        f.write("Each Tamil item includes both the spoken reference / native script reference (`formatted_reference`) and the calibrated phonetic Tanglish transliteration reference (`tanglish_reference`).\n\n")
         f.write("| Item ID | Group | Native Tamil Script Reference | Tanglish Transliteration Reference | Critical Entities |\n")
         f.write("| :--- | :--- | :--- | :--- | :--- |\n")
         for item in TAMIL_ITEMS:

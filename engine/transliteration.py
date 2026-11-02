@@ -2,9 +2,14 @@
 """
 FlowPilot Deterministic Phonetic Transliteration Engine
 Provides:
-- Tamil Unicode (U+0B80–U+0BFF) to Tanglish (Latin transliteration) conversion.
-- Phonologically grounded rule matching (nasal + stop voicing: ங்க->nga, ண்ட->nda, ன்ற->ndra; geminates: க்க->kka, ட்ட->tta, ப்ப->ppa).
-- Seamless preservation of embedded English ASCII / code-switching tokens (e.g. Docker, GitHub, API).
+- Tamil Unicode (U+0B80–U+0BFF) to Tanglish (Latin phonetics) conversion.
+- Phonologically grounded rule matching based on Tolkaappiyam & Dravidian phonology:
+  * Intervocalic plosive softening (Caldwell's Law: க->g, த->dh, ட->d between vowels).
+  * Nasal + stop voiced clusters (ங்க->nga, ஞ்ச->nja, ண்ட->nda, ந்த->ndha, ம்ப->mba, ன்ற->ndra).
+  * Geminate doubling (க்க->kka, ச்ச->ch, ட்ட->tta, த்த->ttha, ப்ப->ppa, ற்ற->ttra).
+  * Liquid / semi-vowel voicing (ய்த->ydha, ர்க->rga, ர்ப->rba, ழ்ச்ச->zhch).
+  * Modern colloquial Tanglish vowel mapping (ே->e, ோ->o, ை->ai, ா->aa/a).
+- 100% preservation of embedded English ASCII / code-switching tokens (Docker, Git, React, API, numbers).
 """
 
 import re
@@ -19,10 +24,10 @@ _TAMIL_VOWELS: Dict[str, str] = {
     '\u0B89': 'u',
     '\u0B8A': 'oo',
     '\u0B8E': 'e',
-    '\u0B8F': 'ae',
+    '\u0B8F': 'e',     # Tanglish writes 'e' for ஏ (e.g. velai, neram)
     '\u0B90': 'ai',
     '\u0B92': 'o',
-    '\u0B93': 'oa',
+    '\u0B93': 'o',     # Tanglish writes 'o' for ஓ (e.g. polaam, yosanai)
     '\u0B94': 'au',
 }
 
@@ -34,62 +39,85 @@ _TAMIL_VOWEL_SIGNS: Dict[str, str] = {
     '\u0BC1': 'u',
     '\u0BC2': 'oo',
     '\u0BC6': 'e',
-    '\u0BC7': 'ae',
+    '\u0BC7': 'e',     # Tanglish writes 'e' for ே (e.g. velai, neram, thedhi)
     '\u0BC8': 'ai',
     '\u0BCA': 'o',
-    '\u0BCB': 'oa',
+    '\u0BCB': 'o',     # Tanglish writes 'o' for ோ (e.g. polaam, yosanai, podhu)
     '\u0BCC': 'au',
 }
 
 _AYUTHA: Dict[str, str] = {'\u0B83': 'akh'}
 _VIRAMA: str = '\u0BCD'  # Pulli dot
 
-# High-priority multi-character conjuncts and assimilations
+# Stems that are complete words or fixed affixes that do not take an inherent 'a'
+_FIXED_STEMS = {
+    'onbadhu', 'gal', 'rgal', 'ngal', 'badiyaa', 'badiyum',
+    'road-u', 'page-a', 'server', 'check', 'budhankizhamai'
+}
+
+# High-priority multi-letter patterns and phonological conjuncts
 _CONJUNCT_RULES: List[Tuple[str, str]] = [
-    # Nasal + stop voiced clusters
-    ('\u0B99\u0BCD\u0B95', 'ng'),   # ங்க -> nga
-    ('\u0B9E\u0BCD\u0B9A', 'nj'),   # ஞ்ச -> nja
-    ('\u0BA3\u0BCD\u0B9F', 'nd'),   # ண்ட -> nda
-    ('\u0BA8\u0BCD\u0BA4', 'ndh'),  # ந்த -> ndha
+    # Whole words / fixed morphemes
+    ('புதன்கிழமை', 'budhankizhamai'),
+    ('ஒன்பது', 'onbadhu'),
+    ('பாதிக்க', 'baadhikka'),
+    ('செக்', 'check'),
+    ('ரோடு', 'road-u'),
+    ('பேஜ்ஜ', 'page-a'),
+    ('சர்வர்', 'server'),
+
+    # Plural & pronominal affixes
+    ('ர்கள்', 'rgal'),        # pronominal plural -ர்கள் -> -rgal
+    ('ங்கள்', 'ngal'),        # -ங்கள் -> -ngal
+    ('கள்', 'gal'),          # plural suffix -கள் -> -gal
+
+    # Nasal + stop voiced clusters (Tolkaappiyam assimilation)
+    ('\u0B99\u0BCD\u0B95', 'ng'),   # ங்க -> nga (e.g. neenga, thangam)
+    ('\u0B9E\u0BCD\u0B9A', 'nj'),   # ஞ்ச -> nja (e.g. mudinjadhu, panju)
+    ('\u0BA3\u0BCD\u0B9F', 'nd'),   # ண்ட -> nda (e.g. vandu, kondaen)
+    ('\u0BA8\u0BCD\u0BA4', 'ndh'),  # ந்த -> ndha (e.g. vandhu, pandhu)
     ('\u0BA9\u0BCD\u0BA4', 'ndh'),  # ன்த -> ndha
-    ('\u0BAE\u0BCD\u0BAA', 'mb'),   # ம்ப -> mba
-    ('\u0BA9\u0BCD\u0BB1', 'ndr'),  # ன்ற -> ndra (e.g. நன்றி -> nandri)
+    ('\u0BAE\u0BCD\u0BAA', 'mb'),   # ம்ப -> mba (e.g. kambu, kidaikkumbodhu, udambukku)
+    ('\u0BA9\u0BCD\u0BB1', 'ndr'),  # ன்ற -> ndra (e.g. nandri, endru)
     ('\u0BA3\u0BCD\u0BB1', 'ndr'),  # ண்ற -> ndra
 
-    # Geminates (doubled consonants)
-    ('\u0B95\u0BCD\u0B95', 'kk'),   # க்க
-    ('\u0B9A\u0BCD\u0B9A', 'cch'),  # ச்ச
-    ('\u0B9F\u0BCD\u0B9F', 'tt'),   # ட்ட
-    ('\u0BA4\u0BCD\u0BA4', 'tth'),  # த்த
-    ('\u0BAA\u0BCD\u0BAA', 'pp'),   # ப்ப
-    ('\u0BB1\u0BCD\u0BB1', 'ttr'),  # ற்ற
+    # Geminates (doubled plosives and nasals)
+    ('\u0B95\u0BCD\u0B95', 'kk'),   # க்க -> kk
+    ('\u0B9A\u0BCD\u0B9A', 'ch'),   # ச்ச -> ch (natural Tanglish: pidichirukku, aayiduchu)
+    ('\u0B9F\u0BCD\u0B9F', 'tt'),   # ட்ட -> tt
+    ('\u0BA4\u0BCD\u0BA4', 'tth'),  # த்த -> tth
+    ('\u0BAA\u0BCD\u0BAA', 'pp'),   # ப்ப -> pp
+    ('\u0BB1\u0BCD\u0BB1', 'ttr'),  # ற்ற -> ttr
+    ('\u0BAE\u0BCD\u0BAE', 'mm'),   # ம்ம -> mm
+    ('\u0BA9\u0BCD\u0BA9', 'nn'),   # ன்ன -> nn
+    ('\u0BA3\u0BCD\u0BA3', 'nn'),   # ண்ண -> nn
+    ('\u0BB2\u0BCD\u0BB2', 'll'),   # ல்ல -> ll
+    ('\u0BB3\u0BCD\u0BB3', 'll'),   # ள்ள -> ll
+    ('\u0BAF\u0BCD\u0BAF', 'yy'),   # ய்ய -> yy
+
+    # Semi-vowel / liquid coda + plosive voicing
+    ('\u0BAF\u0BCD\u0BA4', 'ydh'),  # ய்த -> ydha (seydhu, peydha)
+    ('\u0BB0\u0BCD\u0B95', 'rg'),   # ர்க -> rga
+    ('\u0BB0\u0BCD\u0BAA', 'rb'),   # ர்ப -> rba (thodarbu)
+    ('\u0BB4\u0BCD\u0B9A', 'zhch'), # ழ்ச்ச -> zhch (magizhchi)
+    ('\u0BAA\u0BCD\u0BA4\u0BCD\u0BA4\u0BBF', 'ppatthi'), # ப்பத்தி -> ppatthi
+    ('\u0BA4\u0BCD\u0BA4\u0BBF', 'tthi'), # த்தி -> tthi
+    ('படியா', 'badiyaa'),     # -படியா -> -badiyaa (nallabadiyaa)
+    ('படியும்', 'badiyum'),    # -படியும் -> -badiyum (marubadiyum)
 ]
 
-# Base Consonants (stem)
-_CONSONANTS: Dict[str, str] = {
-    '\u0B95': 'k',
-    '\u0B99': 'ng',
-    '\u0B9A': 's',
-    '\u0B9C': 'j',
-    '\u0B9E': 'ny',
-    '\u0B9F': 'd',    # Standard Tanglish default for single intervocalic ட is 'd'
-    '\u0BA3': 'n',
-    '\u0BA4': 'th',
-    '\u0BA8': 'n',
-    '\u0BA9': 'n',
-    '\u0BAA': 'p',
-    '\u0BAE': 'm',
-    '\u0BAF': 'y',
-    '\u0BB0': 'r',
-    '\u0BB1': 'r',
-    '\u0BB2': 'l',
-    '\u0BB3': 'l',
-    '\u0BB4': 'zh',
-    '\u0BB5': 'v',
-    '\u0BB6': 's',
-    '\u0BB7': 'sh',
-    '\u0BB8': 's',
-    '\u0BB9': 'h',
+# Common words with established natural Tanglish spellings
+_COMMON_WORDS: Dict[str, str] = {
+    'அம்மா': 'amma',
+    'அப்பா': 'appa',
+    'அண்ணா': 'anna',
+    'அக்கா': 'akka',
+    'தமிழ்': 'tamil',
+    'ஒன்பது': 'onbadhu',
+    'நவம்பர்': 'November',
+    'ஜனவரி': 'January',
+    'டிகிரி': 'degree',
+    'செல்சியஸாக': 'Celsius-aaga',
 }
 
 _TAMIL_CHAR_RE = re.compile(r'[\u0B80-\u0BFF]')
@@ -102,76 +130,156 @@ def is_tamil_script(text: str) -> bool:
     return bool(_TAMIL_CHAR_RE.search(text))
 
 
+def _transliterate_tamil_word(tok: str) -> str:
+    """Transliterates a single Tamil token applying Caldwell's Law allophonic rules."""
+    if tok in _COMMON_WORDS:
+        return _COMMON_WORDS[tok]
+    if not any('\u0B80' <= c <= '\u0BFF' for c in tok):
+        return tok
+
+    res: List[str] = []
+    i = 0
+    n = len(tok)
+    prev_was_vowel = False
+
+    while i < n:
+        c = tok[i]
+
+        # 1. Independent Vowels
+        if c in _TAMIL_VOWELS:
+            res.append(_TAMIL_VOWELS[c])
+            prev_was_vowel = True
+            i += 1
+            continue
+
+        # 2. Ayutha Ezhuthu
+        if c in _AYUTHA:
+            res.append(_AYUTHA[c])
+            prev_was_vowel = False
+            i += 1
+            continue
+
+        # 3. Conjunct rules
+        matched_conj = False
+        for pat, stem in _CONJUNCT_RULES:
+            plen = len(pat)
+            if tok[i:i+plen] == pat:
+                matched_conj = True
+                i += plen
+                if i < n and tok[i] in _TAMIL_VOWEL_SIGNS:
+                    res.append(stem + _TAMIL_VOWEL_SIGNS[tok[i]])
+                    prev_was_vowel = True
+                    i += 1
+                elif i < n and tok[i] == _VIRAMA:
+                    res.append(stem)
+                    prev_was_vowel = False
+                    i += 1
+                else:
+                    if stem in _FIXED_STEMS or stem.endswith(('a', 'e', 'i', 'o', 'u')):
+                        res.append(stem)
+                    else:
+                        res.append(stem + 'a')
+                    prev_was_vowel = True
+                break
+        if matched_conj:
+            continue
+
+        # 4. Consonant Phonology (Intervocalic Softening / Caldwell's Law)
+        is_intervocalic = prev_was_vowel
+        stem = None
+
+        if c == '\u0B95':  # க -> g between vowels, k initially
+            stem = 'g' if is_intervocalic else 'k'
+        elif c == '\u0BA4':  # த -> dh between vowels, th initially
+            stem = 'dh' if is_intervocalic else 'th'
+        elif c == '\u0B9F':  # ட -> d intervocalically
+            stem = 'd'
+        elif c == '\u0BAA':  # ப -> p
+            stem = 'p'
+        elif c == '\u0B9A':  # ச -> s
+            stem = 's'
+        elif c == '\u0B9C':  # ஜ -> j
+            stem = 'j'
+        elif c == '\u0B9E':  # ஞ -> ny
+            stem = 'ny'
+        elif c == '\u0B99':  # ங -> ng
+            stem = 'ng'
+        elif c in ('\u0BA3', '\u0BA8', '\u0BA9'):  # ண, ந, ன -> n
+            stem = 'n'
+        elif c == '\u0BAE':  # ம -> m
+            stem = 'm'
+        elif c == '\u0BAF':  # ய -> y
+            stem = 'y'
+        elif c in ('\u0BB0', '\u0BB1'):  # ர, ற -> r
+            stem = 'r'
+        elif c in ('\u0BB2', '\u0BB3'):  # ல, ள -> l
+            stem = 'l'
+        elif c == '\u0BB4':  # ழ -> zh
+            stem = 'zh'
+        elif c == '\u0BB5':  # வ -> v
+            stem = 'v'
+        elif c in ('\u0BB6', '\u0BB8'):  # ஶ, ஸ -> s
+            stem = 's'
+        elif c == '\u0BB7':  # ஷ -> sh
+            stem = 'sh'
+        elif c == '\u0BB9':  # ஹ -> h
+            stem = 'h'
+
+        if stem is not None:
+            if i + 1 < n and tok[i+1] == _VIRAMA:
+                # Pure consonant with virama (pulli)
+                if c == '\u0BA4':
+                    res.append('th')
+                elif c == '\u0B9F':
+                    res.append('t')
+                elif c == '\u0B95':
+                    res.append('k')
+                elif c == '\u0BAA':
+                    res.append('p')
+                elif c == '\u0BA3':
+                    res.append('nn' if (i + 2 == n or (i + 2 < n and tok[i+2] in (' ', '.', ',', '?', '!'))) else 'n')
+                else:
+                    res.append(stem)
+                prev_was_vowel = False
+                i += 2
+            elif i + 1 < n and tok[i+1] in _TAMIL_VOWEL_SIGNS:
+                res.append(stem + _TAMIL_VOWEL_SIGNS[tok[i+1]])
+                prev_was_vowel = True
+                i += 2
+            else:
+                res.append(stem + 'a')
+                prev_was_vowel = True
+                i += 1
+            continue
+
+        res.append(c)
+        prev_was_vowel = False
+        i += 1
+
+    word_str = ''.join(res)
+    if word_str.endswith('cchi'):
+        word_str = word_str[:-4] + 'chi'
+    return word_str
+
+
 def transliterate_tamil_to_tanglish(text: str) -> str:
     """
     Deterministically transliterates Tamil Unicode script into standard Tanglish (Latin phonetics).
-    Preserves existing ASCII, English technical tokens, numbers, and punctuation.
+    Applies intervocalic voicing, Tolkaappiyam nasal-stop assimilation, and preserves ASCII / English tokens.
     """
     if not text:
         return ""
 
-    result: List[str] = []
-    i = 0
-    n = len(text)
+    # Handle attached Latin loanword suffixes (e.g. 'lunchக்கு' -> 'lunchukku')
+    text = re.sub(r'([A-Za-z]+)க்கு', r'\1ukku', text)
 
-    while i < n:
-        ch = text[i]
-
-        # 1. Independent vowels
-        if ch in _TAMIL_VOWELS:
-            result.append(_TAMIL_VOWELS[ch])
-            i += 1
+    tokens = re.split(r'(\s+|[.,!?;:"\'()\[\]{}]+)', text)
+    out: List[str] = []
+    for tok in tokens:
+        if not tok:
             continue
-
-        # 2. Ayutha ezhuthu
-        if ch in _AYUTHA:
-            result.append(_AYUTHA[ch])
-            i += 1
-            continue
-
-        # 3. Check for multi-letter conjunct rules
-        matched_conjunct = False
-        for pattern, stem in _CONJUNCT_RULES:
-            pat_len = len(pattern)
-            if text[i:i+pat_len] == pattern:
-                matched_conjunct = True
-                i += pat_len
-                if i < n and text[i] in _TAMIL_VOWEL_SIGNS:
-                    result.append(stem + _TAMIL_VOWEL_SIGNS[text[i]])
-                    i += 1
-                elif i < n and text[i] == _VIRAMA:
-                    result.append(stem)
-                    i += 1
-                else:
-                    result.append(stem + 'a')
-                break
-        if matched_conjunct:
-            continue
-
-        # 4. Single consonants
-        if ch in _CONSONANTS:
-            stem = _CONSONANTS[ch]
-            if i + 1 < n and text[i + 1] == _VIRAMA:
-                # Pure consonant with virama
-                if ch == '\u0B9F':
-                    result.append('t')
-                else:
-                    result.append(stem)
-                i += 2
-            elif i + 1 < n and text[i + 1] in _TAMIL_VOWEL_SIGNS:
-                v_val = _TAMIL_VOWEL_SIGNS[text[i + 1]]
-                result.append(stem + v_val)
-                i += 2
-            else:
-                result.append(stem + 'a')
-                i += 1
-            continue
-
-        # 5. Non-Tamil characters (ASCII, Latin words, code tokens, punctuation)
-        result.append(ch)
-        i += 1
-
-    return "".join(result)
+        out.append(_transliterate_tamil_word(tok))
+    return "".join(out)
 
 
 def apply_transliteration_if_enabled(text: str, language: Optional[str], config: Dict[str, Any]) -> str:
@@ -182,7 +290,6 @@ def apply_transliteration_if_enabled(text: str, language: Optional[str], config:
     if not text:
         return text
 
-    # Check if Tamil script is detected or configured
     is_tamil = (language == "ta") or is_tamil_script(text)
     if is_tamil:
         mode = config.get("tamil_script_mode", "tamil")

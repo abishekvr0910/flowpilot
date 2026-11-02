@@ -4,14 +4,19 @@ Tests for FlowPilot Deterministic Phonetic Transliteration Engine
 Covers:
 - Tamil Unicode independent vowels and ayutha ezhuthu
 - Consonants, virama (pulli), and dependent vowel signs
-- Nasal + stop voiced clusters (Tolkaappiyam assimilation)
-- Geminate doubling
+- Intervocalic plosive softening (Caldwell's Law: adhu, ulladhu, migavum, seydhu)
+- Nasal + stop voiced clusters (Tolkaappiyam assimilation: thangam, panju, nandri)
+- Geminate doubling (akka, pattam, appa)
+- Natural Tanglish vowel mappings (velai, polaam, amma)
 - Code-switching preservation of English ASCII technical tokens
-- Colloquial phrases (vanakkam, nandri, eppadi irukkeenga)
-- Mode toggling ("tamil" script vs "tanglish" transliteration)
+- Colloquial spoken phrases (vanakkam, neenga eppadi irukkeenga, romba nallaa irukku)
+- Dual-mode toggle ("tamil" script vs "tanglish" transliteration)
+- UI SettingsDialog integration
+- 50-sentence benchmark corpus 100% pass/fail validation
 """
 
 import sys
+import json
 from pathlib import Path
 
 # Add project root to sys.path
@@ -36,14 +41,14 @@ def test_is_tamil_script():
 
 
 def test_independent_vowels():
-    # Uyir vowels: அ (a), ஆ (aa), இ (i), ஈ (ee), உ (u), ஊ (oo), எ (e), ஏ (ae), ஐ (ai), ஒ (o), ஓ (oa), ஔ (au)
-    assert transliterate_tamil_to_tanglish("அம்மா") == "ammaa"
+    # Uyir vowels
+    assert transliterate_tamil_to_tanglish("அம்மா") == "amma"
     assert transliterate_tamil_to_tanglish("ஆடு") == "aadu"
     assert transliterate_tamil_to_tanglish("இலை") == "ilai"
     assert transliterate_tamil_to_tanglish("ஈட்டி") == "eetti"
     assert transliterate_tamil_to_tanglish("உண்மை") == "unmai"
     assert transliterate_tamil_to_tanglish("எலி") == "eli"
-    assert transliterate_tamil_to_tanglish("ஏணி") == "aeni"
+    assert transliterate_tamil_to_tanglish("ஏணி") == "eni"
     assert transliterate_tamil_to_tanglish("ஐந்து") == "aindhu"
     assert transliterate_tamil_to_tanglish("ஒன்று") == "ondru"
 
@@ -53,64 +58,105 @@ def test_ayutha_ezhuthu():
     assert "akh" in transliterate_tamil_to_tanglish("அஃது")
 
 
+def test_intervocalic_softening_caldwells_law():
+    # க between vowels softens to 'g' (e.g. மிகவும் -> migavum, ஆகும் -> aagum, இனிமையாக -> inimaiyaaga)
+    assert transliterate_tamil_to_tanglish("மிகவும்") == "migavum"
+    assert transliterate_tamil_to_tanglish("ஆகும்") == "aagum"
+    assert "inimaiyaaga" in transliterate_tamil_to_tanglish("இனிமையாக")
+
+    # த between vowels softens to 'dh' (e.g. அது -> adhu, உள்ளது -> ulladhu, செய்து -> seydhu, தேதி -> thedhi)
+    assert transliterate_tamil_to_tanglish("அது") == "adhu"
+    assert transliterate_tamil_to_tanglish("இது") == "idhu"
+    assert transliterate_tamil_to_tanglish("உள்ளது") == "ulladhu"
+    assert transliterate_tamil_to_tanglish("செய்து") == "seydhu"
+    assert transliterate_tamil_to_tanglish("தேதி") == "thedhi"
+
+    # ட between vowels softens to 'd' (e.g. படம் -> padam, ஆடு -> aadu, வீடு -> veedu)
+    assert transliterate_tamil_to_tanglish("படம்") == "padam"
+    assert transliterate_tamil_to_tanglish("ஆடு") == "aadu"
+
+
+def test_natural_tanglish_vowels():
+    # Long 'e' (ே) maps to 'e' in natural Tanglish, not archaic 'ae' (வேலை -> velai, நேரம் -> neram)
+    assert transliterate_tamil_to_tanglish("வேலை") == "velai"
+    assert transliterate_tamil_to_tanglish("நேரம்") == "neram"
+
+    # Long 'o' (ோ) maps to 'o' in natural Tanglish, not archaic 'oa' (போலாம் -> polaam, யோசனை -> yosanai)
+    assert transliterate_tamil_to_tanglish("போலாம்") == "polaam"
+    assert transliterate_tamil_to_tanglish("யோசனை") == "yosanai"
+
+    # Word-final kinship terms (அம்மா -> amma, அப்பா -> appa, அண்ணா -> anna, அக்கா -> akka)
+    assert transliterate_tamil_to_tanglish("அம்மா") == "amma"
+    assert transliterate_tamil_to_tanglish("அப்பா") == "appa"
+    assert transliterate_tamil_to_tanglish("அண்ணா") == "anna"
+    assert transliterate_tamil_to_tanglish("அக்கா") == "akka"
+
+
 def test_nasal_stop_voicing():
     # ங்க -> nga (e.g. தங்கம் -> thangam)
     assert transliterate_tamil_to_tanglish("தங்கம்") == "thangam"
-    # ஞ்ச -> nja (e.g. பஞ்சு -> panju)
+    # ஞ்ச -> nja (e.g. பஞ்சு -> panju, முடிஞ்சது -> mudinjadhu)
     assert transliterate_tamil_to_tanglish("பஞ்சு") == "panju"
+    assert transliterate_tamil_to_tanglish("முடிஞ்சது") == "mudinjadhu"
     # ண்ட -> nda (e.g. வண்டு -> vandu)
     assert transliterate_tamil_to_tanglish("வண்டு") == "vandu"
     # ந்த -> ndha (e.g. பந்து -> pandhu)
     assert transliterate_tamil_to_tanglish("பந்து") == "pandhu"
-    # ம்ப -> mba (e.g. கம்பு -> kambu)
+    # ம்ப -> mba (e.g. கம்பு -> kambu, உடம்புக்கு -> udambukku)
     assert transliterate_tamil_to_tanglish("கம்பு") == "kambu"
+    assert transliterate_tamil_to_tanglish("உடம்புக்கு") == "udambukku"
     # ன்ற -> ndra (e.g. நன்றி -> nandri)
     assert transliterate_tamil_to_tanglish("நன்றி") == "nandri"
 
 
 def test_geminates():
-    # க்க -> kka (e.g. அக்கா -> akkaa)
-    assert transliterate_tamil_to_tanglish("அக்கா") == "akkaa"
-    # ச்ச -> ccha (e.g. பச்சை -> pacchai)
-    assert transliterate_tamil_to_tanglish("பச்சை") == "pacchai"
-    # ட்ட -> tta (e.g. பட்டம் -> pattam)
+    # க்க -> kk (e.g. அக்கா -> akka)
+    assert transliterate_tamil_to_tanglish("அக்கா") == "akka"
+    # ச்ச -> ch (e.g. பச்சை -> pachai, பிடிச்சிருக்கு -> pidichirukku)
+    assert transliterate_tamil_to_tanglish("பிடிச்சிருக்கு") == "pidichirukku"
+    # ட்ட -> tt (e.g. பட்டம் -> pattam, திட்டம் -> thittam)
     assert transliterate_tamil_to_tanglish("பட்டம்") == "pattam"
-    # த்த -> ttha (e.g. பத்து -> patthu)
+    assert transliterate_tamil_to_tanglish("திட்டம்") == "thittam"
+    # த்த -> tth (e.g. பத்து -> patthu, மொத்தம் -> mottham)
     assert transliterate_tamil_to_tanglish("பத்து") == "patthu"
-    # ப்ப -> ppa (e.g. அப்பா -> appaa)
-    assert transliterate_tamil_to_tanglish("அப்பா") == "appaa"
+    assert transliterate_tamil_to_tanglish("மொத்தம்") == "mottham"
+    # ப்ப -> pp (e.g. அப்பா -> appa, எப்படி -> eppadi)
+    assert transliterate_tamil_to_tanglish("அப்பா") == "appa"
+    assert transliterate_tamil_to_tanglish("எப்படி") == "eppadi"
 
 
-def test_conversational_phrases():
-    # வணக்கம் -> vanakkam
-    assert transliterate_tamil_to_tanglish("வணக்கம்") == "vanakkam"
-    # எப்படி இருக்கீங்க -> eppadi irukkeenga
-    res_eppadi = transliterate_tamil_to_tanglish("எப்படி இருக்கீங்க")
-    assert "eppadi" in res_eppadi
-    assert "irukkeenga" in res_eppadi
+def test_conversational_spoken_phrases():
+    # வணக்கம், நீங்க எப்படி இருக்கீங்க? -> vanakkam, neenga eppadi irukkeenga?
+    res1 = transliterate_tamil_to_tanglish("வணக்கம், நீங்க எப்படி இருக்கீங்க?")
+    assert res1 == "vanakkam, neenga eppadi irukkeenga?"
+
+    # இன்னைக்கு வேலை எல்லாம் நல்லபடியா முடிஞ்சது -> innaikku velai ellaam nallabadiyaa mudinjadhu
+    res2 = transliterate_tamil_to_tanglish("இன்னைக்கு வேலை எல்லாம் நல்லபடியா முடிஞ்சது.")
+    assert res2 == "innaikku velai ellaam nallabadiyaa mudinjadhu."
+
     # சரி -> sari
     assert transliterate_tamil_to_tanglish("சரி") == "sari"
 
 
 def test_code_switching_ascii_preservation():
     # Technical English words, commands, and numbers must remain 100% untouched
-    mixed = "தயவுசெய்து Docker container ஐ restart செய்யவும்."
+    mixed = "புது Docker container build பண்ணி deploy பண்ணுங்க."
     tanglish = transliterate_tamil_to_tanglish(mixed)
     assert "Docker" in tanglish
     assert "container" in tanglish
-    assert "restart" in tanglish
-    # Non-Tamil text alone returns unchanged
+    assert "build" in tanglish
+    assert "deploy" in tanglish
     assert transliterate_tamil_to_tanglish("git push origin master") == "git push origin master"
     assert transliterate_tamil_to_tanglish("User id is 4092.") == "User id is 4092."
 
 
 def test_apply_transliteration_modes():
-    tamil_text = "வணக்கம் நண்பா"
+    tamil_text = "வணக்கம், நீங்க எப்படி இருக்கீங்க?"
 
     # 1. Config set to "tanglish": transforms to Latin phonetics
     cfg_tanglish = {"tamil_script_mode": "tanglish"}
     res_tanglish = apply_transliteration_if_enabled(tamil_text, "ta", cfg_tanglish)
-    assert "vanakkam" in res_tanglish
+    assert "vanakkam, neenga eppadi irukkeenga?" in res_tanglish
     assert not is_tamil_script(res_tanglish)
 
     # 2. Config set to "tamil": keeps native script untouched
@@ -183,6 +229,40 @@ def test_ui_settings_integration():
         dialog.close()
 
 
+def test_full_benchmark_corpus_pass_fail():
+    """
+    Evaluates transliterate_tamil_to_tanglish against all 50 Tamil items in the benchmark corpus.
+    Every sentence must match its reference 100%.
+    """
+    corpus_file = PROJECT_ROOT / "docs" / "evaluation" / "TAMIL_POLISH_BENCHMARK_CORPUS.json"
+    assert corpus_file.exists(), f"Benchmark corpus not found at {corpus_file}"
+
+    with open(corpus_file, "r", encoding="utf-8") as f:
+        items = json.load(f)
+
+    ta_items = [it for it in items if it.get("language") == "ta"]
+    assert len(ta_items) == 50, f"Expected 50 Tamil items, found {len(ta_items)}"
+
+    failures = []
+    for it in ta_items:
+        spoken = it["spoken_reference"]
+        ref = it.get("tanglish_reference", "")
+        gen = transliterate_tamil_to_tanglish(spoken)
+        if gen.strip().lower() != ref.strip().lower():
+            failures.append((it["item_id"], spoken, gen, ref))
+
+    if failures:
+        print(f"\n[FAIL] {len(failures)} corpus items failed transliteration match:")
+        for fid, tam, gen, ref in failures:
+            print(f"  [{fid}]")
+            print(f"    TAM: {tam}")
+            print(f"    GEN: {gen}")
+            print(f"    REF: {ref}")
+        assert len(failures) == 0, f"{len(failures)} Tamil benchmark items failed Tanglish match!"
+
+    print(f"✓ All 50 Tamil benchmark items matched Tanglish references 100% (50/50).")
+
+
 def run_all():
     print("=" * 60)
     print("TEST: TAMIL & TANGLISH PHONETIC TRANSLITERATION ENGINE")
@@ -197,14 +277,20 @@ def run_all():
     test_ayutha_ezhuthu()
     print("✓ Ayutha ezhuthu transliteration verified.")
 
+    test_intervocalic_softening_caldwells_law()
+    print("✓ Intervocalic plosive softening verified (Caldwell's Law: migavum, adhu, ulladhu).")
+
+    test_natural_tanglish_vowels()
+    print("✓ Natural Tanglish vowel mappings verified (velai, polaam, amma).")
+
     test_nasal_stop_voicing()
     print("✓ Nasal-stop voiced clusters verified (Tolkaappiyam rules).")
 
     test_geminates()
     print("✓ Consonant geminates doubling verified.")
 
-    test_conversational_phrases()
-    print("✓ Common conversational phrases verified (vanakkam, nandri, eppadi irukkeenga).")
+    test_conversational_spoken_phrases()
+    print("✓ Common conversational spoken phrases verified (vanakkam, neenga eppadi irukkeenga).")
 
     test_code_switching_ascii_preservation()
     print("✓ Code-switching & ASCII technical token preservation verified.")
@@ -214,6 +300,9 @@ def run_all():
 
     test_ui_settings_integration()
     print("✓ UI SettingsDialog Tamil Output Format integration verified.")
+
+    test_full_benchmark_corpus_pass_fail()
+    print("✓ 50-sentence benchmark corpus pass/fail suite PASSED 100%.")
 
     print("\n[RESULT] All Transliteration Engine tests PASSED successfully.")
 
