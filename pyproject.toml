@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "flowpilot"
 version = "3.1.0"
-description = "High-performance, 100% offline universal voice dictation assistant for Windows"
+description = "High-performance, zero-cloud-egress offline voice dictation assistant for Windows"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
