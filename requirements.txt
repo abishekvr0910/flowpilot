@@ -13,7 +13,7 @@ onnxruntime>=1.16.0
 # Audio Capture & Waveform I/O
 sounddevice>=0.4.6
 soundfile>=0.12.1
-numpy>=1.24.0
+numpy>=2.2.6
 
 # OS-Specific Integrations (Windows)
 pywin32>=306; sys_platform == 'win32'

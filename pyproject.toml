@@ -31,7 +31,7 @@ dependencies = [
     "onnxruntime>=1.16.0",
     "sounddevice>=0.4.6",
     "soundfile>=0.12.1",
-    "numpy>=1.24.0",
+    "numpy>=2.2.6",
     "pywin32>=306; sys_platform == 'win32'",
     "pycaw>=20240210; sys_platform == 'win32'",
     "comtypes>=1.2.0; sys_platform == 'win32'",
