@@ -513,7 +513,54 @@ def test_physical_modifier_release_gate():
     print("  -> Physical modifier release gate test PASSED.")
 
 
+
+def test_password_field_detection_and_injection_blocking():
+    """Verify password and credential fields are detected and text injection is safely blocked."""
+    print("Testing password field detection and injection blocking...")
+
+    # 1. Process name heuristic detection
+    with patch.object(TextInjector, "_get_target_process_name", return_value="keepass.exe"), \
+         patch("engine.text_injector.win32gui.IsWindow", return_value=True):
+        is_pwd, reason = TextInjector._is_password_target(hwnd=1001)
+        assert is_pwd is True
+        assert "password manager" in reason
+
+    # 2. Window title heuristic detection
+    with patch.object(TextInjector, "_get_target_process_name", return_value="app.exe"), \
+         patch("engine.text_injector.win32gui.IsWindow", return_value=True), \
+         patch("engine.text_injector.win32gui.GetWindowText", return_value="Windows Security - Enter Credentials"), \
+         patch("engine.text_injector.win32gui.GetClassName", return_value="CustomClass"):
+        is_pwd, reason = TextInjector._is_password_target(hwnd=1002)
+        assert is_pwd is True
+        assert "credential prompt" in reason
+
+    # 3. Direct Win32 ES_PASSWORD style detection
+    with patch.object(TextInjector, "_get_target_process_name", return_value="notepad.exe"), \
+         patch("engine.text_injector.win32gui.IsWindow", return_value=True), \
+         patch("engine.text_injector.win32gui.GetWindowText", return_value="Editor"), \
+         patch("engine.text_injector.win32gui.GetClassName", return_value="Edit"), \
+         patch.object(TextInjector, "_find_edit_control", return_value=1003), \
+         patch("engine.text_injector.win32gui.GetWindowLong", return_value=win32con.ES_PASSWORD):
+        is_pwd, reason = TextInjector._is_password_target(hwnd=1003)
+        assert is_pwd is True
+        assert "ES_PASSWORD" in reason
+
+    # 4. TextInjector.inject_with_status blocks injection and does NOT store credential in recovery buffer
+    TextInjector.last_injected_text = ""
+    with patch.object(TextInjector, "_resolve_verified_foreground", return_value=(True, 2001, None)), \
+         patch.object(TextInjector, "_is_password_target", return_value=(True, "password field detected")), \
+         patch("engine.text_injector.target_has_higher_integrity", return_value=False), \
+         patch("engine.text_injector.win32gui.IsWindow", return_value=True):
+        res = TextInjector.inject_with_status("SuperSecretToken12345", target_hwnd=2001)
+        assert bool(res) is False
+        assert res.recovery_available is False
+        assert "SuperSecretToken12345" not in (TextInjector.last_injected_text or "")
+        assert "password or credential field" in (res.error_message or "").lower()
+
+    print("  -> Password field detection and injection blocking PASSED.")
+
 if __name__ == "__main__":
     test_physical_modifier_release_gate()
+    test_password_field_detection_and_injection_blocking()
     success = test_text_injection()
     sys.exit(0 if success else 1)

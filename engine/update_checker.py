@@ -149,6 +149,8 @@ class UpdateChecker:
             "checked_at": time.time()
         }
         try:
+            if not RELEASES_LIST_API.startswith("https://"):
+                raise ValueError(f"Insecure update URL scheme: {RELEASES_LIST_API}")
             req = urllib.request.Request(
                 RELEASES_LIST_API,
                 headers={
@@ -156,11 +158,11 @@ class UpdateChecker:
                     "Accept": "application/vnd.github.v3+json"
                 }
             )
-            with urllib.request.urlopen(req, timeout=6.0) as resp:
+            with urllib.request.urlopen(req, timeout=6.0) as resp:  # nosec B310
                 if self._abort_requested:
                     return
                 if resp.status == 200:
-                    releases = json.loads(resp.read().decode("utf-8"))
+                    releases = json.loads(resp.read(1024 * 1024).decode("utf-8"))
                     channel_pre = bool(config.get("update_channel_prerelease", False))
                     best = select_best_release(
                         releases,

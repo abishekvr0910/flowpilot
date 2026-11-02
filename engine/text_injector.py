@@ -183,7 +183,7 @@ class TextInjector:
             try:
                 import hashlib
                 clip = cls._safe_clipboard_paste() or ""
-                return int(hashlib.md5(clip.encode("utf-8", errors="ignore")).hexdigest()[:8], 16)
+                return int(hashlib.sha256(clip.encode("utf-8", errors="ignore")).hexdigest()[:8], 16)
             except Exception:
                 return None
 
@@ -434,6 +434,74 @@ class TextInjector:
         return found[0]
 
     @classmethod
+    def _is_password_target(cls, hwnd: Optional[int] = None) -> Tuple[bool, str]:
+        """
+        Detects whether the target window or focused control is a password or credential input.
+        Defense against accidental dictation leakage into credential fields:
+        1. Process identity (known password managers and credential brokers)
+        2. Window title and class heuristics (credential dialogues, security prompts)
+        3. Direct Win32 edit control styles (ES_PASSWORD, EM_GETPASSWORDCHAR)
+        4. Microsoft UI Automation IsPassword property on the active focused element
+        Returns (is_password, reason).
+        """
+        if not HAS_WIN32 or sys.platform != "win32":
+            return False, ""
+
+        target_hwnd = hwnd or win32gui.GetForegroundWindow() or 0
+        if not target_hwnd or not win32gui.IsWindow(target_hwnd):
+            return False, ""
+
+        # 1. Known password managers and Windows security credential prompts
+        proc_name = cls._get_target_process_name(target_hwnd)
+        known_credential_procs = {
+            "keepass.exe", "keepassxc.exe", "1password.exe", "bitwarden.exe",
+            "lastpass.exe", "credentialuibroker.exe", "lockapp.exe", "consent.exe"
+        }
+        if proc_name in known_credential_procs:
+            return True, f"Target application '{proc_name}' is a password manager or credential broker."
+
+        # 2. Window title and class heuristics
+        try:
+            title = (win32gui.GetWindowText(target_hwnd) or "").lower()
+            class_name = (win32gui.GetClassName(target_hwnd) or "").lower()
+            if any(term in title for term in ("windows security", "enter credentials", "unlock database", "master password")):
+                return True, f"Target window title '{title}' indicates a credential prompt."
+            if "credential dialog" in class_name:
+                return True, f"Target window class '{class_name}' is a credential dialog."
+        except Exception:
+            pass
+
+        # 3. Direct Win32 control style checks on edit controls
+        try:
+            child = cls._find_edit_control(target_hwnd)
+            if child and win32gui.IsWindow(child):
+                style = win32gui.GetWindowLong(child, win32con.GWL_STYLE)
+                if style & win32con.ES_PASSWORD:
+                    return True, "Target control has Win32 ES_PASSWORD style."
+                try:
+                    pwd_char = win32gui.SendMessage(child, win32con.EM_GETPASSWORDCHAR, 0, 0)
+                    if pwd_char != 0:
+                        return True, "Target control has Win32 password mask character set."
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # 4. Microsoft UI Automation CurrentIsPassword check on active focused element
+        try:
+            import comtypes.client
+            mod = comtypes.client.GetModule("UIAutomationCore.dll")
+            if not hasattr(cls, "_uia_instance") or cls._uia_instance is None:
+                cls._uia_instance = comtypes.client.CreateObject(mod.CUIAutomation)
+            focused = cls._uia_instance.GetFocusedElement()
+            if focused and bool(getattr(focused, "CurrentIsPassword", 0)):
+                return True, "Target control exposes UIA IsPassword property."
+        except Exception:
+            pass
+
+        return False, ""
+
+    @classmethod
     def inject_with_status(
         cls,
         text: str,
@@ -493,6 +561,17 @@ class TextInjector:
                     target_hwnd=target_hwnd or cur_fg,
                     error_message=reason,
                     recovery_available=True,
+                )
+
+            # Credential and password field protection: never inject passwords or retain in recovery
+            is_pwd, pwd_reason = cls._is_password_target(target_hwnd or cur_fg)
+            if is_pwd:
+                print(f"[Injector Security] Password target detected ({pwd_reason}). Text injection aborted to prevent credential leakage.")
+                return InjectionResult(
+                    status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+                    target_hwnd=target_hwnd or cur_fg,
+                    error_message=f"Target is a password or credential field ({pwd_reason}). Dictation is blocked for security.",
+                    recovery_available=False,
                 )
 
         # A token that was already in the document is not proof this paste
@@ -875,6 +954,11 @@ class TextInjector:
         if target_has_higher_integrity(target_hwnd or cur_fg) is not False:
             cls.last_injected_text = text
             print("[Injector Security] Target integrity is higher or unknown. SendInput aborted.")
+            return False
+
+        is_pwd, pwd_reason = cls._is_password_target(target_hwnd or cur_fg)
+        if is_pwd:
+            print(f"[Injector Security] Password target detected ({pwd_reason}). SendInput aborted.")
             return False
 
         try:

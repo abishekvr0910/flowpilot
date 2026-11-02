@@ -244,11 +244,13 @@ def download_model(
                 prefix=f".{spec.name}.", suffix=".tmp", dir=dest, delete=False
             ) as temp_file:
                 temp_dest = Path(temp_file.name)
+            if not spec.url.startswith("https://"):
+                raise ValueError(f"Insecure model URL scheme: {spec.url}")
             req = urllib.request.Request(
                 spec.url,
                 headers={"User-Agent": "FlowPilot-Model-Downloader/3.1 (Windows; OfflineDictation)"},
             )
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
                 file_size = int(response.headers.get("content-length", spec.size))
                 downloaded_file_bytes = 0
                 hasher = hashlib.sha256()

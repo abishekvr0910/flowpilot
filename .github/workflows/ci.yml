@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Full-Stack Master Regression & Verification
@@ -40,7 +43,13 @@ jobs:
         run: |
           python -m PyInstaller flowpilot.spec --noconfirm
 
-      - name: Run Python Automated Master Regression Suite (60 Suites)
+      - name: Automated Security & SAST Audit (Bandit & pip-audit)
+        run: |
+          pip install bandit pip-audit
+          bandit -r engine/ -ll -ii
+          pip-audit -r requirements.txt
+
+      - name: Run Python Automated Master Regression Suite (63 Suites)
         run: |
           python -X utf8 tests/run_all_tests.py
 

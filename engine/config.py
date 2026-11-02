@@ -1,11 +1,22 @@
 """Feature 28: Atomic configuration and persistent input migration."""
 import json
+
 import logging
 import os
 import tempfile
 import threading
 from pathlib import Path
 from typing import List, Dict, Any
+import sys
+
+def _secure_file_permissions(path: Path, is_dir: bool = False):
+    """Enforces owner-only permissions (0o700 for directories, 0o600 for config files) on POSIX."""
+    if sys.platform != "win32":
+        try:
+            mode = 0o700 if is_dir else 0o600
+            os.chmod(path, mode)
+        except OSError:
+            pass
 
 logger = logging.getLogger("FlowPilot.Config")
 
@@ -73,6 +84,7 @@ def load_config() -> Dict[str, Any]:
     cfg_file = get_config_file()
     if not cfg_file.exists():
         cfg_file.parent.mkdir(parents=True, exist_ok=True)
+        _secure_file_permissions(cfg_file.parent, is_dir=True)
         save_config(DEFAULT_CONFIG)
         return DEFAULT_CONFIG.copy()
     try:
@@ -101,6 +113,7 @@ def save_config(config: Dict[str, Any]) -> bool:
     try:
         with _CONFIG_WRITE_LOCK:
             cfg_file.parent.mkdir(parents=True, exist_ok=True)
+            _secure_file_permissions(cfg_file.parent, is_dir=True)
             with tempfile.NamedTemporaryFile(
                 mode="w", encoding="utf-8", dir=cfg_file.parent,
                 prefix=f".{cfg_file.name}.", suffix=".tmp", delete=False
@@ -110,6 +123,7 @@ def save_config(config: Dict[str, Any]) -> bool:
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(temp_path, cfg_file)
+            _secure_file_permissions(cfg_file, is_dir=False)
         return True
     except Exception as e:
         print(f"[Config] Error saving config: {e}")

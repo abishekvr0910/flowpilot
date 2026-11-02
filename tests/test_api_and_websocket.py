@@ -116,6 +116,45 @@ async def client_test():
     assert m_data.get("object") == "list"
     print(f"  Status: {m_req.status}, Models: {[m['id'] for m in m_data.get('data', [])]}")
 
+    # 2c. Test Static Files Allowlist Security
+    print("\n[Step 2c] Testing Static File Allowlist Security...")
+    try:
+        urllib.request.urlopen("http://127.0.0.1:8765/AGENTS.md")
+        raise AssertionError("Unrestricted access to ui/AGENTS.md unexpectedly succeeded")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 403, f"Expected 403 Forbidden for .md file, got {exc.code}"
+
+    html_res = urllib.request.urlopen("http://127.0.0.1:8765/index.html")
+    assert html_res.status == 200, "GET /index.html failed"
+    print("  Static file allowlist: .md blocked (403), .html served (200).")
+
+    # 2d. Test /v1/audio/transcriptions Upload Size Limits
+    print("\n[Step 2d] Testing /v1/audio/transcriptions Upload Limits...")
+    boundary = "---------------------------FlowPilotBoundaryTest"
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="test.wav"\r\n'
+        f"Content-Type: audio/wav\r\n\r\n"
+        f"{'A' * 2048}\r\n"
+        f"--{boundary}--\r\n"
+    ).encode("utf-8")
+
+    with patch("engine.server.MAX_AUDIO_UPLOAD_BYTES", 512):
+        req_oversized = urllib.request.Request(
+            "http://127.0.0.1:8765/v1/audio/transcriptions",
+            data=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                **authorized
+            }
+        )
+        try:
+            urllib.request.urlopen(req_oversized)
+            raise AssertionError("Oversized audio upload unexpectedly succeeded")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 413, f"Expected 413 Payload Too Large, got {exc.code}"
+            print("  Oversized audio upload rejected with HTTP 413 as expected.")
+
     # 3. Test WebSocket connection and events
     print("\n[Step 3] Testing WebSocket (/ws) communication...")
     uri = "ws://127.0.0.1:8765/ws"

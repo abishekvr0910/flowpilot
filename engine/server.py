@@ -205,6 +205,8 @@ async def list_models():
         ]
     }
 
+MAX_AUDIO_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB DoS protection ceiling
+
 @app.post("/v1/audio/transcriptions")
 async def openai_compatible_transcribe(
     file: UploadFile = File(...),
@@ -222,8 +224,23 @@ async def openai_compatible_transcribe(
     if not file:
         raise HTTPException(status_code=400, detail="Missing audio file in form upload.")
 
+    max_limit = MAX_AUDIO_UPLOAD_BYTES
     try:
-        audio_bytes = await file.read()
+        chunks = []
+        total_read = 0
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            total_read += len(chunk)
+            if total_read > max_limit:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Audio payload exceeds maximum size limit of {max_limit // (1024 * 1024)}MB."
+                )
+            chunks.append(chunk)
+
+        audio_bytes = b"".join(chunks)
         if not audio_bytes:
             raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
 
@@ -249,16 +266,25 @@ async def openai_compatible_transcribe(
             }
         else:
             return {"text": final_text}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[Server Error] /v1/audio/transcriptions failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error during audio transcription.")
 
-# Mount UI static files safely (disallow raw Python source and sensitive config disclosure)
+# Allowed static web file extensions for UI serving
+ALLOWED_STATIC_EXTENSIONS = frozenset({
+    ".html", ".htm", ".js", ".mjs", ".css", ".png", ".jpg", ".jpeg",
+    ".gif", ".svg", ".ico", ".webp", ".woff", ".woff2", ".ttf", ".eot",
+    ".map", ".mp3", ".wav", ".ogg"
+})
+
+# Mount UI static files safely (enforce strict extension allowlist to prevent arbitrary file disclosure)
 class SafeStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
-        lower_path = path.lower()
-        if lower_path.endswith((".py", ".pyc", ".pyd", ".json", ".lock", ".toml", ".spec")):
-            raise HTTPException(status_code=403, detail="Access to source files is prohibited.")
+        suffix = Path(path).suffix.lower()
+        if suffix and suffix not in ALLOWED_STATIC_EXTENSIONS:
+            raise HTTPException(status_code=403, detail="Access to this file type is prohibited.")
         return await super().get_response(path, scope)
 
 ui_dir = Path(__file__).parent.parent / "ui"
