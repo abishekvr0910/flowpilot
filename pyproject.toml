@@ -38,7 +38,7 @@ dependencies = [
     "pyperclip>=1.8.2",
     "psutil>=5.9.0",
     "pynput>=1.7.6",
-    "packaging>=23.0",
+    "packaging>=26.3",
 ]
 
 [project.optional-dependencies]
