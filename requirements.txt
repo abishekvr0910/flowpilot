@@ -8,7 +8,7 @@ Pillow>=10.0.0
 # Speech Recognition & Inference
 faster-whisper>=1.1.0
 av>=12.0.0
-onnxruntime>=1.16.0
+onnxruntime>=1.24.3
 
 # Audio Capture & Waveform I/O
 sounddevice>=0.4.6
