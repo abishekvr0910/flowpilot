@@ -607,7 +607,8 @@ def run_self_test_tamil() -> int:
         stt = STTEngine({"local_model_size": "small", "cpu_threads": min(4, os.cpu_count() or 2)})
         stt.preload_model()
 
-        fixture_path = os.path.join(os.path.dirname(__file__), "private", "corpus", "ta", "ta-conv-01.wav")
+        cv_fixture = os.path.join(os.path.dirname(__file__), "private", "corpus", "ta", "ta-conv-01.commonvoice-fixture.wav")
+        fixture_path = cv_fixture if os.path.isfile(cv_fixture) else os.path.join(os.path.dirname(__file__), "private", "corpus", "ta", "ta-conv-01.wav")
         if not os.path.isfile(fixture_path):
             print(f"[Self-Test Tamil] SKIP: fixture {fixture_path} not found")
             return 0

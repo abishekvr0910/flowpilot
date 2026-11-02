@@ -28,7 +28,8 @@ class TestOnnxSpecialistASR(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.harness = get_specialist_harness()
-        cls.ta_fixture = PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.wav"
+        cv_fixture = PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.commonvoice-fixture.wav"
+        cls.ta_fixture = cv_fixture if cv_fixture.exists() else PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.wav"
 
     def test_01_model_and_vocab_availability(self):
         """Verifies that the quantized IndicConformer model and vocab are available locally."""
