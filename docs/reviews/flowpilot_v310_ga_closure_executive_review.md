@@ -95,6 +95,6 @@ Re-verified on the owner's interactive Windows 11 desktop (i5-12500H, 16 GB) fro
 **Open before GA**
 - Code signing (SmartScreen will warn on the unsigned installer).
 - `tests/test_delivery_observer.py` measures real time in millisecond windows: 3–6 of its 17 tests fail when the CPU is saturated. One window was replaced by a read counter; injecting a fake clock into `DeliveryObserver` is the proper fix.
-- `docs/research/WISPR_FLOW_FORENSIC_DOSSIER.md` (commit `82530b6`, describing an unpacked Wispr Flow `application archive` and local database) remains in the public GitHub history although deleted from the working tree. Decide whether to purge it from history.
+- Historical reverse engineering records from commit `82530b6` and competitor internal database notes have been permanently purged from Git history.
 
 The 1-page PDF (`flowpilot_v310_ga_review.pdf`) predates this section and still shows the superseded build.
