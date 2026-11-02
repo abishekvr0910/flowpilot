@@ -31,9 +31,9 @@ BUILTIN_COMPANIONS = [
     },
     {
         "id": "kitty",
-        "name": "SondeR-Cat Pixel Kitty",
+        "name": "Pixel Kitty (based on SondeR cat)",
         "type": "builtin",
-        "description": "Authentic multi-palette desktop kitty with kneading, blinking, and stretching.",
+        "description": "Multi-palette desktop kitty with kneading, blinking, and stretching. Adapted from SondeR cat by Verisonder (Apache-2.0).",
         "icon": "🐾",
         "available_palettes": [
             "orange tabby", "calico", "black", "gray", "siamese",

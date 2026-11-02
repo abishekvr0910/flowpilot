@@ -203,7 +203,7 @@ class FloatingHUD(QWidget):
         self._hotkey_str = hotkey_str
         self._hotkey_mode = mode
         clean_hk = hotkey_str.replace("<", "").replace(">", "").strip()
-        companion_name = "SondeR-Cat" if self._visual_style == "kitty" else "Pilot"
+        companion_name = "Pixel Kitty" if self._visual_style == "kitty" else "Pilot"
         tip = f"{companion_name} — Click or hold {clean_hk} to dictate"
         self.setToolTip(tip)
 
@@ -565,7 +565,7 @@ class FloatingHUD(QWidget):
         act_kiki.triggered.connect(lambda: self.set_visual_style("kiki"))
         act_nimbus = style_menu.addAction("☁️ Nimbus Cloud Sprite")
         act_nimbus.triggered.connect(lambda: self.set_visual_style("nimbus"))
-        act_kitty = style_menu.addAction("🐾 SondeR-Cat Pixel Kitty")
+        act_kitty = style_menu.addAction("🐾 Pixel Kitty (based on SondeR cat)")
         act_kitty.triggered.connect(lambda: self.set_visual_style("kitty"))
         act_dog = style_menu.addAction("🐶 Pixel Pup & Shiba")
         act_dog.triggered.connect(lambda: self.set_visual_style("dog"))

@@ -108,25 +108,29 @@ class UpdateChecker:
         config: Dict[str, Any],
         on_result: Optional[Callable[[Dict[str, Any]], None]] = None,
         force: bool = False
-    ) -> None:
+    ) -> bool:
         """
         Asynchronously checks for new releases on GitHub.
         Preempted immediately if network test environment is detected or dictation starts.
+
+        on_result is invoked on the worker thread. GUI callers must marshal it to the
+        Qt main thread (for example by passing a Qt Signal's ``emit``).
+        Returns True when a check was started, False when it was skipped.
         """
         if is_network_testing_active():
-            return
+            return False
 
         if not force and not config.get("check_for_updates", True):
-            return
+            return False
 
         now = time.time()
         last_check = config.get("last_update_check_ts", 0)
         if not force and (now - last_check < CHECK_INTERVAL_SECONDS):
-            return
+            return False
 
         with self._lock:
             if self._active_thread and self._active_thread.is_alive():
-                return
+                return False
             self._abort_requested = False
             self._active_thread = threading.Thread(
                 target=self._worker,
@@ -135,6 +139,7 @@ class UpdateChecker:
                 name="FlowPilot-UpdateChecker"
             )
             self._active_thread.start()
+        return True
 
     def abort(self) -> None:
         """Immediately aborts any active update check when dictation begins."""
@@ -146,7 +151,8 @@ class UpdateChecker:
             "latest_version": self.current_version,
             "release_url": f"https://github.com/{GITHUB_REPO}/releases",
             "release_name": "",
-            "checked_at": time.time()
+            "checked_at": time.time(),
+            "error": None,
         }
         try:
             if not RELEASES_LIST_API.startswith("https://"):
@@ -161,7 +167,9 @@ class UpdateChecker:
             with urllib.request.urlopen(req, timeout=6.0) as resp:  # nosec B310
                 if self._abort_requested:
                     return
-                if resp.status == 200:
+                if resp.status != 200:
+                    result["error"] = f"GitHub returned HTTP {resp.status}"
+                else:
                     releases = json.loads(resp.read(1024 * 1024).decode("utf-8"))
                     channel_pre = bool(config.get("update_channel_prerelease", False))
                     best = select_best_release(
@@ -175,15 +183,20 @@ class UpdateChecker:
                         result["latest_version"] = tag_clean
                         result["release_url"] = best.get("html_url", result["release_url"])
                         result["release_name"] = best.get("name", tag_clean)
-        except Exception:
-            # Silent failure: unauthenticated GitHub rate limits or offline network
-            pass
+        except Exception as exc:
+            # Offline network or unauthenticated GitHub rate limits: report, never raise.
+            result["error"] = f"{type(exc).__name__}: {exc}"[:200]
         finally:
             if not self._abort_requested:
-                config["last_update_check_ts"] = int(time.time())
+                ts = int(time.time())
+                config["last_update_check_ts"] = ts
                 try:
-                    from engine.config import save_config
-                    save_config(config)
+                    # Persist only the throttle timestamp onto a fresh copy of the saved
+                    # config so settings saved meanwhile by the UI are never overwritten.
+                    from engine.config import load_config, save_config
+                    fresh = load_config()
+                    fresh["last_update_check_ts"] = ts
+                    save_config(fresh)
                 except Exception:
                     pass
 

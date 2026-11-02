@@ -15,13 +15,18 @@ from PySide6.QtWidgets import (
     QTextEdit, QFileDialog, QSplitter, QRadioButton, QButtonGroup, QScrollArea,
     QSizePolicy, QProgressBar
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtGui import QFont
 import pyperclip
 import json
 import logging
 
 logger = logging.getLogger("FlowPilot.SettingsDialog")
+
+
+class _UpdateResultRelay(QObject):
+    """Carries update-check results from the worker thread to the Qt GUI thread."""
+    result_ready = Signal(dict)
 
 from engine.language_registry import LanguageRegistry
 from engine.personalization import PersonalizationEngine
@@ -739,27 +744,40 @@ class SettingsDialog(QDialog):
             QMessageBox.information(self, "Saved", "FlowPilot settings and personalization updated successfully!")
             self.close()
 
+    def _apply_update_result(self, res: dict):
+        """Runs on the GUI thread (queued signal delivery)."""
+        self.btn_check_updates.setEnabled(True)
+        if res.get("update_available"):
+            v = res.get("latest_version")
+            url = res.get("release_url")
+            self.lbl_update_status.setText(f"Update available: v{v}!\n{url}")
+            self.lbl_update_status.setStyleSheet("color: #10B981; font-weight: bold; font-size: 11px;")
+        elif res.get("error"):
+            self.lbl_update_status.setText("Couldn't reach GitHub. Check your connection and try again.")
+            self.lbl_update_status.setStyleSheet("color: #F59E0B; font-size: 11px;")
+        else:
+            from engine import __version__
+            self.lbl_update_status.setText(f"FlowPilot is up to date (v{__version__}).")
+            self.lbl_update_status.setStyleSheet("color: #94A3B8; font-size: 11px;")
+
     def _on_check_updates_clicked(self):
         try:
             from engine.update_checker import get_update_checker
+            if getattr(self, "_update_relay", None) is None:
+                self._update_relay = _UpdateResultRelay(self)
+                self._update_relay.result_ready.connect(self._apply_update_result)
             self.lbl_update_status.setText("Checking GitHub for updates...")
             self.btn_check_updates.setEnabled(False)
 
-            def handle_result(res: dict):
-                def update_ui():
-                    self.btn_check_updates.setEnabled(True)
-                    if res.get("update_available"):
-                        v = res.get("latest_version")
-                        url = res.get("release_url")
-                        self.lbl_update_status.setText(f"Update available: v{v}!\n{url}")
-                        self.lbl_update_status.setStyleSheet("color: #10B981; font-weight: bold; font-size: 11px;")
-                    else:
-                        from engine import __version__
-                        self.lbl_update_status.setText(f"FlowPilot is up to date (v{__version__}).")
-                        self.lbl_update_status.setStyleSheet("color: #94A3B8; font-size: 11px;")
-                QTimer.singleShot(0, update_ui)
-
-            get_update_checker().check_for_updates_async(self.config, on_result=handle_result, force=True)
+            started = get_update_checker().check_for_updates_async(
+                self.config, on_result=self._update_relay.result_ready.emit, force=True
+            )
+            if not started:
+                self.btn_check_updates.setEnabled(True)
+                self.lbl_update_status.setText(
+                    "Update check didn't start (network checks are disabled here, or a check is already running)."
+                )
+                self.lbl_update_status.setStyleSheet("color: #F59E0B; font-size: 11px;")
         except Exception as e:
             self.btn_check_updates.setEnabled(True)
             self.lbl_update_status.setText(f"Check failed: {e}")

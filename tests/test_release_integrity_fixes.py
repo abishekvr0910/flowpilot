@@ -258,6 +258,14 @@ def test_release_notices_exist_in_a_fresh_checkout():
         assert (PROJECT_ROOT / relative_path).is_file(), relative_path
 
 
+def test_installer_ships_third_party_notices():
+    """The Inno Setup installer must carry the same license notices as the portable ZIP."""
+    iss = (PROJECT_ROOT / "installer" / "flowpilot_setup.iss").read_text(encoding="utf-8")
+    assert 'Source: "..\\licenses\\*"; DestDir: "{app}\\licenses"' in iss
+    assert 'Source: "..\\THIRD_PARTY_LICENSES.md"' in iss
+    assert "recursesubdirs" in iss.split('Source: "..\\licenses\\*"', 1)[1].splitlines()[0]
+
+
 if __name__ == "__main__":
     test_injector_process_detection_is_live()
     test_failed_config_write_keeps_last_good_file()
@@ -269,4 +277,5 @@ if __name__ == "__main__":
     test_requested_signing_failure_never_creates_archive()
     test_packager_help_imports_cleanly()
     test_release_notices_exist_in_a_fresh_checkout()
+    test_installer_ships_third_party_notices()
     print("[RESULT] Release integrity regression guards PASSED.")

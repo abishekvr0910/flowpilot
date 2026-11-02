@@ -1,6 +1,6 @@
 # FlowPilot v3.1.0 GA — Release Verification & Closure Audit Report
 
-**Verdict:** `SHIP APPROVED (GA READY)`  
+**Verdict:** `READY TO PUBLISH AS AN UNSIGNED RELEASE` — see §5 for the independent verification and the two items still open before calling it GA  
 **Target Architecture:** Windows 10/11 x64 (Non-elevated user-space)  
 **PDF Review Document:** [flowpilot_v310_ga_review.pdf](file:///S:/APPs/New%20folder/docs/reviews/flowpilot_v310_ga_review.pdf)  
 **Date:** 2026-11-02  
@@ -29,7 +29,7 @@ graph LR
 | **Gate A** | E2E Reliability | Clean audit across all test suites without flakiness or hotkey collision | **PASS** | **63/63 suites registered:** Native `conhost.exe` execution + Windows Terminal Cascadia fallback for console injection; lock-screen state awareness prevents false assertion crashes; S13 hotkey contention isolated. |
 | **Gate B** | Offline Security | Zero cloud egress during dictation; offline Faster-Whisper CPU int8 inference | **PASS** | SAPI speech synthesis fixture transcribed offline in 10.98s on CPU via installed binary. Zero outbound network traffic during dictation. |
 | **Gate C** | Resource Footprint | Idle CPU consumption < 2% of one core; low memory footprint | **PASS** | Running binary sampled over 20 seconds: **1.46% of one core** (0.09% of 16-core system), 113.4 MB RSS. 300ms idle timer gating & static HUD repaint gating active. |
-| **Gate D** | Installer & Recovery | Slimmed distribution (<250 MB) with automatic fallback for missing models | **PASS** | **247.37 MB installer (`FlowPilot-Setup-v3.1.0.exe`):** Bundles only `faster-whisper-base`. Non-elevated install to `%LOCALAPPDATA%\Programs\FlowPilot` verified. Absent model (`small`) gracefully resets to `base`. |
+| **Gate D** | Installer & Recovery | Slimmed distribution (<250 MB) with automatic fallback for missing models | **PASS** | **220.98 MB installer (`FlowPilot-Setup-v3.1.0.exe`, post-fix rebuild):** Bundles only `faster-whisper-base`. Non-elevated install to `%LOCALAPPDATA%\Programs\FlowPilot` verified. Absent model (`small`) gracefully resets to `base`. |
 | **Gate E** | Updates & Privacy | Non-tracking PEP 440 background update check; exact PRIVACY.md alignment | **PASS** | Background updater wired (5s startup warmup + 24h timer + atomic disk persistence of `last_update_check_ts` + dictation abort latch). Windows PE VersionInfo stamped (3.1.0.0). |
 
 ---
@@ -62,10 +62,39 @@ graph LR
 
 | Artifact | Path | Size | SHA-256 Checksum |
 | :--- | :--- | :---: | :--- |
-| **Inno Setup Installer** | `dist/FlowPilot-Setup-v3.1.0.exe` | 247.37 MB (259,384,559 B) | `05545E2F10B1929C5BA8D6DF73F10BD57FC142B9B1722157EF0DF7FA49648913` |
-| **Portable Zip Archive** | `dist/FlowPilot-v3.1.0-windows-x64.zip` | 314.74 MB (330,028,521 B) | `D98EF718BEC7A88F3B6D7C463CA63FCFDC31C5D99CFE6ACA74AE1E7EAFD11DC8` |
-| **Desktop Executable** | `dist/FlowPilot/FlowPilot.exe` | 26.37 MB (27,647,811 B) | `1E19FF22EADEAEFED612611AB364D81C52326007D4C96673BB0595A0F9B79A21` |
+| **Inno Setup Installer** | `dist/FlowPilot-Setup-v3.1.0.exe` | 220.98 MB (231,719,502 B) | `823D8C526E6FE412A404C4C16B3D8BE07B6DB4D132687FA74F6AC6EE047B451E` |
+| **Portable Zip Archive** | `dist/FlowPilot-v3.1.0-windows-x64.zip` | 274.01 MB (287,320,231 B) | `91A410F1ABADE1D0CA3AFE812ACB23196B0F59687AC16B85D02A3F85F007BE40` |
+| **Desktop Executable** | `dist/FlowPilot/FlowPilot.exe` | 15.73 MB (16,494,567 B) | `BD8536EAD63DB13A05F16CFA7757298A5B69340A33CDFA996251A80D7823A88A` |
 | **1-Page Review PDF** | `docs/reviews/flowpilot_v310_ga_review.pdf` | 6.5 KB | Generated via ReportLab |
 
 > [!NOTE]
 > Code signing certificate is pending owner certificate decision; binary packages are marked `UNSIGNED_PILOT` as expected per Release Gate E.
+
+---
+
+## 5. Independent Verification & Post-Fix Rebuild (2026-11-02)
+
+Re-verified on the owner's interactive Windows 11 desktop (i5-12500H, 16 GB) from a clean Python 3.11.15 environment built from `requirements.txt`.
+
+| Check | Result |
+| :--- | :--- |
+| Full suite, original source (05:36) | 63 total, 63 passed, 0 skipped, 0 failed (271 s) |
+| Full suite, post-fix source (final) | 63 total, 62 passed, 0 skipped, 1 failed (191 s); the failure was the timing-sensitive delivery-observer suite, which then passed 12/12 re-runs |
+| Tests the runner never executed | 4 functions in `tests/test_release_integrity_fixes.py`; all pass and are now called |
+| Offline self-test of rebuilt `FlowPilot.exe` | Exit 0; fixture transcribed correctly in 0.76 s |
+| Authenticode | `NotSigned` |
+
+**Defects found and fixed before this rebuild**
+1. *Settings → Check for Updates never finished.* The result callback ran on the worker thread, used `QTimer` (not imported in `ui/settings_dialog.py`), and the error was swallowed. Results now travel through a Qt signal; offline and "check didn't start" states are reported. Covered by new tests and a click-through check.
+2. *Background update notification touched the tray icon from a worker thread.* Now marshalled through `StateBridge.update_result`.
+3. *The update checker saved a stale copy of the whole config from its thread,* which could overwrite settings saved meanwhile. It now writes only `last_update_check_ts` onto a freshly loaded config. Covered by a new test.
+4. *The installer shipped no third-party notices* (the ZIP did). `installer/flowpilot_setup.iss` now installs `licenses/`, `THIRD_PARTY_LICENSES.md` and `PRIVACY.md`; guarded by a new test.
+5. *User-facing "SondeR-Cat" branding* changed to "Pixel Kitty (based on SondeR cat)", per the upstream NOTICE.
+6. *Release build environment* contained unrelated packages; the rebuild uses only declared dependencies (installer 220.98 MB, was 247.38 MB).
+
+**Open before GA**
+- Code signing (SmartScreen will warn on the unsigned installer).
+- `tests/test_delivery_observer.py` measures real time in millisecond windows: 3–6 of its 17 tests fail when the CPU is saturated. One window was replaced by a read counter; injecting a fake clock into `DeliveryObserver` is the proper fix.
+- `docs/research/WISPR_FLOW_FORENSIC_DOSSIER.md` (commit `82530b6`, describing an unpacked Wispr Flow `application archive` and local database) remains in the public GitHub history although deleted from the working tree. Decide whether to purge it from history.
+
+The 1-page PDF (`flowpilot_v310_ga_review.pdf`) predates this section and still shows the superseded build.

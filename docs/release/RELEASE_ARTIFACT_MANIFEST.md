@@ -4,24 +4,24 @@ Updated 2026-11-02. A locally verified candidate is not a published general rele
 
 ## General Availability release: v3.1.0, Windows x64
 
-**Production GA Release package.** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15. FlowPilot v3.1.0 GA delivers a fully offline, zero-cloud-egress desktop dictation platform for Windows 10/11 x64. Incorporates streamlined base-only distribution (<250 MB installer footprint), asynchronous GitHub Releases update notifications with 24-hour throttling and zero cloud egress during dictation, automatic fallback for unprovisioned models, stamped Windows PE version metadata (3.1.0.0), terminal-agnostic console injection, lock-screen session detection, and 63 automated audit test suites.
+**Production GA Release package (post-fix rebuild, 2026-11-02 05:53).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created from `requirements.txt` only. The earlier 05:17 build was made in an environment with unrelated packages (scipy, cryptography, aiohttp, aioquic and others) and is superseded; it did not include the update-check threading fix or the installer license notices. FlowPilot v3.1.0 GA delivers a fully offline, zero-cloud-egress desktop dictation platform for Windows 10/11 x64. Incorporates streamlined base-only distribution (<250 MB installer footprint), asynchronous GitHub Releases update notifications with 24-hour throttling and zero cloud egress during dictation, automatic fallback for unprovisioned models, stamped Windows PE version metadata (3.1.0.0), terminal-agnostic console injection, lock-screen session detection, and 63 automated audit test suites.
 
 | Item | Measured value |
 |---|---|
 | Installer Executable | `dist/FlowPilot-Setup-v3.1.0.exe` |
-| Installer size | 259,395,547 bytes (247.38 MB) |
-| Installer SHA-256 | `444FE8A431C9C4E904A471BF7E235FC44B55C35BE01334B51E3C447ED2D06105` |
+| Installer size | 231,719,502 bytes (220.98 MB) |
+| Installer SHA-256 | `823D8C526E6FE412A404C4C16B3D8BE07B6DB4D132687FA74F6AC6EE047B451E` |
 | Archive | `dist/FlowPilot-v3.1.0-windows-x64.zip` |
-| Archive size | 330,031,288 bytes (314.74 MB) |
-| Archive SHA-256 | `68E0A7527B0ADDEE55C734C83F2A16A27D97ACDEE8F76EB6B2A8E22355C664BD` |
-| Embedded executable | `FlowPilot.exe`, 27,632,756 bytes (26.35 MB) |
-| Embedded executable SHA-256 | `F512031BF6404DFEE32785FC2444AADC61D577167F44FAE2A939027E8462A890` |
-| Archive integrity | 1,358 members, CRC passed; embedded executable hash matched the tested bundle |
-| License notices | 93 files under `licenses/` |
+| Archive size | 287,320,231 bytes (274.01 MB) |
+| Archive SHA-256 | `91A410F1ABADE1D0CA3AFE812ACB23196B0F59687AC16B85D02A3F85F007BE40` |
+| Embedded executable | `FlowPilot.exe`, 16,494,567 bytes (15.73 MB) |
+| Embedded executable SHA-256 | `BD8536EAD63DB13A05F16CFA7757298A5B69340A33CDFA996251A80D7823A88A` |
+| Archive integrity | 549 members, CRC passed; embedded executable hash matched the tested bundle |
+| License notices | 93 files under `licenses/` in both the ZIP and (from this build) the installer |
 | PE Version Stamp | `FileVersion: 3.1.0.0`, `ProductVersion: 3.1.0.0`, `CompanyName: FlowPilot Open Source`, `FileDescription: FlowPilot Voice Intelligence` |
 | Authenticode | `NotSigned` (Unsigned pilot/GA package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
-| Local automated audit | 63 suites registered in `tests/run_all_tests.py` |
-| Offline packaged self test | `%LOCALAPPDATA%\Programs\FlowPilot\FlowPilot.exe --self-test` exited `0` with SAPI speech synthesis fixture verified in 10.98 s |
+| Local automated audit | Interactive Windows 11 desktop, post-fix source: 63 total, 62 passed, 0 skipped, 1 failed (191 s); the failure was the timing-sensitive delivery-observer suite, which then passed 12/12 re-runs |
+| Offline packaged self test | `%LOCALAPPDATA%\Programs\FlowPilot\FlowPilot.exe --self-test` exited `0`; SAPI fixture transcribed as "FlowPilot offline dictation verified." in 0.76 s (bundle self-test, 2026-11-02) |
 
 ## Pilot release candidate: v3.1.0-RC11, Windows x64
 

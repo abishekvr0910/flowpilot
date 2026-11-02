@@ -39,6 +39,7 @@ from engine.preference_learning import get_learning_engine
 
 class StateBridge(QObject):
     state_changed = Signal(dict)
+    update_result = Signal(dict)  # emitted from the update-checker thread, delivered on the GUI thread
 
 class FlowPilotApp:
     def __init__(self, enforce_single_instance: bool = True):
@@ -89,6 +90,7 @@ class FlowPilotApp:
         _ensure_wheel_guard(self.app)
 
         self.bridge = StateBridge()
+        self.bridge.update_result.connect(self._on_background_update_result)
         self.config = load_config()
 
         # If a non-bundled model (e.g. small) is configured but absent, fall back to bundled base on launch
@@ -449,7 +451,7 @@ class FlowPilotApp:
             from engine.update_checker import get_update_checker
             get_update_checker().check_for_updates_async(
                 self.config,
-                on_result=self._on_background_update_result,
+                on_result=self.bridge.update_result.emit,
                 force=False
             )
         except Exception as exc:

@@ -295,8 +295,13 @@ class TestDeliveryObserver(unittest.TestCase):
         observer = DeliveryObserver("removed")
         observer.capture_baseline(lambda: "")
         start = time.perf_counter()
-        record = observer.observe_delivery(start,
-            lambda: "text" if time.perf_counter() - start < 0.01 else "",
+        # Count reads instead of using a 10 ms wall-clock window, which a busy
+        # machine can miss entirely (the text would then never be observed).
+        reads = {"n": 0}
+        def reader():
+            reads["n"] += 1
+            return "text" if reads["n"] <= 3 else ""
+        record = observer.observe_delivery(start, reader,
             injected_text="text", timeout_sec=0.05, settle_window_sec=0.03,
             poll_interval_sec=0.002)
         self.assertEqual(record.status, ObservedDeliveryStatus.TIMEOUT)

@@ -45,7 +45,7 @@ The current Windows pilot build is listed under [GitHub Releases](https://github
 | 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
 | 📝 **Meeting Notetaker & History Vault** | Includes two-track meeting notes (microphone and WASAPI loopback system audio with acoustic energy bleed suppression) and an opt-in dictation vault for local transcripts and `.wav` audio. |
 | 📦 **1-Click Installer & Authenticode Pipeline** | Zero-admin Inno Setup installer (`installer/flowpilot_setup.iss`) targeting `{localappdata}` without UAC elevation prompts, paired with an RFC 3161 dual-digest Authenticode code signing harness. |
-| 🐾 **Customizable Desktop Companions** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **SondeR-Cat Pixel Kitty** (with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Retro Pixel Companions (Fox, Dino, Ghost, Bunny)**, and custom pixel art. Uses `WS_EX_NOACTIVATE` to preserve editor focus; validate behavior in your target apps. |
+| 🐾 **Customizable Desktop Companions** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **Pixel Kitty** (adapted from SondeR cat by Verisonder, Apache-2.0; with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Retro Pixel Companions (Fox, Dino, Ghost, Bunny)**, and custom pixel art. Uses `WS_EX_NOACTIVATE` to preserve editor focus; validate behavior in your target apps. |
 
 ---
 
@@ -104,7 +104,7 @@ FlowPilot gives you multiple visual companion options to match your workflow:
 
 | Visual Style | Appearance & Behavior | Interaction |
 |:---|:---|:---|
-| 🐾 **SondeR-Cat Pixel Kitty** | Upright 26x28 pixel cat with 10 fur palettes (Orange Tabby, Calico, Black, Gray, Siamese, Pink, White, Mint, Chocolate, Cream). Paws knead at voice speed when speaking, eyes glow during transcription, and floating hearts appear on paste with optional cheerful meows! | Right-click → **Appearance Style → SondeR-Cat Pixel Kitty**; choose fur color from **Kitty Fur Color...** |
+| 🐾 **Pixel Kitty** (based on SondeR cat by Verisonder) | Upright 26x28 pixel cat with 10 fur palettes (Orange Tabby, Calico, Black, Gray, Siamese, Pink, White, Mint, Chocolate, Cream). Paws knead at voice speed when speaking, eyes glow during transcription, and floating hearts appear on paste with optional cheerful meows! | Right-click → **Appearance Style → Pixel Kitty (based on SondeR cat)**; choose fur color from **Kitty Fur Color...** |
 | 🤖 **Robot Mascot ("Pilot")** | Cute rounded companion robot with radiating acoustic antenna, expressive blinking eyes with real-time voice-reactive pupil dilation, thinking spiral eyes during transcription, and happy smile on paste. | Right-click → **Appearance Style → Robot Mascot Companion ('Pilot')** |
 | 🐶 **Pixel Pup & Shiba** | Playful pixelated dog companion with multiple breeds and tail-wag animation. | Right-click → **Appearance Style → Pixel Pup & Shiba** |
 | 🦊 **Retro Companion Series** | Pixel Fox, Dino, Ghost, and Bunny retro companion sprites with animated tail wags, hops, and glows. | Selected via Companion Studio dialog or Dashboard |
@@ -192,7 +192,7 @@ flowchart TD
 
 ## 🧪 Testing and limitations
 
-The current source defines 60 test suites in [`tests/run_all_tests.py`](tests/run_all_tests.py). Check the [live CI results](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the status of `master`; historical release results do not establish the status of newer source. Hosted, non-interactive Windows CI skips physical microphone, audio-ducking, clipboard-sequence, and real-editor insertion checks; those skips are not hardware or paste passes. Run the physical checks separately on an interactive Windows desktop. Simulated editor tests alone do not prove compatibility with every application. See [known issues](docs/testing/flowpilot_known_issues.md) and the [benchmark protocol](docs/testing/FLOWPILOT_BENCHMARK_PROTOCOL.md) for scope and limitations.
+The current source defines 63 test suites in [`tests/run_all_tests.py`](tests/run_all_tests.py). Check the [live CI results](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the status of `master`; historical release results do not establish the status of newer source. Hosted, non-interactive Windows CI skips physical microphone, audio-ducking, clipboard-sequence, and real-editor insertion checks; those skips are not hardware or paste passes. Run the physical checks separately on an interactive Windows desktop. Simulated editor tests alone do not prove compatibility with every application. See [known issues](docs/testing/flowpilot_known_issues.md) and the [benchmark protocol](docs/testing/FLOWPILOT_BENCHMARK_PROTOCOL.md) for scope and limitations.
 
 ---
 

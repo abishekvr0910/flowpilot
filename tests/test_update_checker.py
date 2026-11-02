@@ -107,5 +107,61 @@ class TestUpdateChecker(unittest.TestCase):
                 self.assertEqual(reloaded["last_update_check_ts"], cfg["last_update_check_ts"])
 
 
+    def test_async_reports_skip_when_network_disabled(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, {"FLOWPILOT_NO_NETWORK": "1"}):
+            started = UpdateChecker("3.1.0").check_for_updates_async({}, on_result=None, force=True)
+        self.assertFalse(started)
+
+    def test_worker_reports_error_when_offline(self):
+        import tempfile, os
+        from unittest.mock import patch
+        from engine.config import load_config
+        received = []
+        with tempfile.TemporaryDirectory() as td:
+            with patch.dict(os.environ, {"FLOWPILOT_CONFIG_FILE": os.path.join(td, "config.json")}):
+                cfg = load_config()
+                with patch("urllib.request.urlopen", side_effect=OSError("offline test")):
+                    UpdateChecker("3.1.0")._worker(cfg, on_result=received.append)
+        self.assertEqual(len(received), 1)
+        self.assertFalse(received[0]["update_available"])
+        self.assertTrue(received[0]["error"])
+
+    def test_worker_keeps_settings_saved_meanwhile(self):
+        """The throttle write must not overwrite settings the UI saved after the check began."""
+        import tempfile, os
+        from unittest.mock import patch
+        from engine.config import load_config, save_config
+        with tempfile.TemporaryDirectory() as td:
+            with patch.dict(os.environ, {"FLOWPILOT_CONFIG_FILE": os.path.join(td, "config.json")}):
+                stale = load_config()
+                newer = load_config()
+                newer["hotkey"] = "F9"
+                save_config(newer)
+                with patch("urllib.request.urlopen", side_effect=OSError("offline test")):
+                    UpdateChecker("3.1.0")._worker(stale, on_result=None)
+                reloaded = load_config()
+        self.assertEqual(reloaded["hotkey"], "F9")
+        self.assertGreater(reloaded["last_update_check_ts"], 0)
+
+    def test_settings_relay_delivers_result_on_gui_thread(self):
+        """Regression: results from the worker thread must reach the Qt GUI thread."""
+        import os, threading
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QTimer
+        from ui.settings_dialog import _UpdateResultRelay
+        app = QApplication.instance() or QApplication([])
+        relay = _UpdateResultRelay()
+        seen = []
+        relay.result_ready.connect(lambda res: seen.append((res, threading.current_thread() is threading.main_thread())))
+        threading.Thread(target=relay.result_ready.emit, args=({"update_available": False, "error": None},)).start()
+        QTimer.singleShot(800, app.quit)
+        app.exec()
+        self.assertEqual(len(seen), 1)
+        self.assertTrue(seen[0][1], "result was not delivered on the GUI thread")
+
+
 if __name__ == "__main__":
     unittest.main()

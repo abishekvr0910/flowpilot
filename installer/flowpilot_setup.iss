@@ -51,6 +51,11 @@ Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesub
 ; Exclude scratch, local debug dumps, and logs from distribution
 Source: "..\README.md"; DestDir: "{app}"; Flags: isreadme ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+; Third-party notices (Qt LGPL/GPL, Whisper, Silero VAD, SondeR cat Apache-2.0 NOTICE, Python wheels).
+; The portable ZIP already ships these; the installer must ship the same set.
+Source: "..\THIRD_PARTY_LICENSES.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\PRIVACY.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
