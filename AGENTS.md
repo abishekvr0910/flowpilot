@@ -43,6 +43,8 @@ Stored in `docs/specs/` as `NNNN-title.md`:
 - `0002-persistent-audio-input-identity.md`: Persistent audio device selection and USB hot-plug guard.
 - `0003-visible-delivery-benchmark-observer.md`: High-precision visible text delivery observation.
 - `0004-local-text-repair-sandbox.md`: Local SLM text repair, slot-locking, and FactGuard veto protocol.
+- `0005-fluidvoice-parity-tranche.md`: Streaming partials, direct sound synthesis, and real-time response.
+- `0006-onnx-multilingual-specialist-asr-harness.md`: ONNX Runtime specialist ASR harness (IndicConformer & Parakeet-TDT).
 
 ## Core Invariants
 
