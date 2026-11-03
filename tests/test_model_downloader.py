@@ -192,5 +192,25 @@ class TestModelDownloader(unittest.TestCase):
         self.assertEqual(events, [(False, "Model download failed: disk full")])
 
 
+    def test_live_registered_model_urls_reachable(self):
+        """Pre-release network gate: verifies that all URLs in MODEL_REGISTRY are reachable via HTTP and match expected sizes."""
+        import urllib.request
+        from engine.model_downloader import MODEL_REGISTRY
+        for model_name, specs in MODEL_REGISTRY.items():
+            for spec in specs:
+                req = urllib.request.Request(
+                    spec.url,
+                    headers={"User-Agent": "FlowPilot-Downloader/3.1.1"}
+                )
+                try:
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        self.assertEqual(resp.status, 200, f"URL for {spec.name} returned {resp.status}: {spec.url}")
+                        cl = resp.headers.get("Content-Length")
+                        if cl:
+                            self.assertEqual(int(cl), spec.size, f"Size mismatch for {spec.name} at {spec.url}")
+                except Exception as e:
+                    self.fail(f"Failed to access registered model URL for {model_name}/{spec.name}: {spec.url} ({e})")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -17,6 +17,7 @@ REQUIRED_NOTICES = (
     "licenses/qt/GPL-3.0-only.txt",
     "licenses/models/OpenAI-Whisper-LICENSE.txt",
     "licenses/models/Silero-VAD-LICENSE.txt",
+    "licenses/models/AI4Bharat-IndicConformer-LICENSE.txt",
     "licenses/companions/SondeR-Cat-LICENSE.txt",
     "licenses/companions/SondeR-Cat-NOTICE.txt",
     "licenses/python/MANIFEST.json",

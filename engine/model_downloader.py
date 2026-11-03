@@ -33,13 +33,13 @@ MODEL_REGISTRY: Dict[str, List[ModelFileSpec]] = {
     "indicconformer-ta": [
         ModelFileSpec(
             name="model.int8.onnx",
-            url="https://huggingface.co/ai4bharat/indicconformer_stt_ta_hybrid_rnnt_large/resolve/main/model.int8.onnx",
+            url="https://github.com/abishekvr0910/flowpilot/releases/download/models-v1/model.int8.onnx",
             size=137677313,
             sha256="b96af48383b0bd4b31014cddf3810e253c89865776264562a88926bfec339b48",
         ),
         ModelFileSpec(
             name="vocab.txt",
-            url="https://huggingface.co/ai4bharat/indicconformer_stt_ta_hybrid_rnnt_large/resolve/main/vocab.txt",
+            url="https://github.com/abishekvr0910/flowpilot/releases/download/models-v1/vocab.txt",
             size=3042,
             sha256="f5a7955261f7eb7156521eecaf17a89521a507d2b740a3a60a2e6f6fb9b3ad36",
         ),

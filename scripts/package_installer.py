@@ -74,7 +74,8 @@ def main():
         print("STDERR:\n", res.stderr)
         sys.exit(res.returncode)
 
-    installer_path = DIST_DIR / "FlowPilot-Setup-v3.1.0.exe"
+    from engine import __version__
+    installer_path = DIST_DIR / f"FlowPilot-Setup-v{__version__}.exe"
     if not installer_path.exists():
         print(f"[Error] Expected installer output missing: {installer_path}")
         sys.exit(1)
