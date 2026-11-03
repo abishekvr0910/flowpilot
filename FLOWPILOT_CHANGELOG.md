@@ -15,6 +15,13 @@ This page distinguishes published releases from work on `master`. Check [GitHub 
 - Removed obsolete cloud controls from the optional web companion. Unsupported cloud settings are rejected by the API, and old unused cloud keys are removed from the active local config on load.
 - Moved superseded verification and agent status reports into the dated archive, removed tracked scratch probes, and replaced workstation-specific public links.
 
+## v3.1.2 — November 3, 2026
+
+- **Clean Minimal Runtime Rebuild:** Built exclusively in a clean Python 3.11 virtual environment from 
+equirements.txt, eliminating extraneous dependencies (scipy, cryptography, aiohttp, aioquic) and restoring the streamlined ~221 MB installer footprint and ~16 MB executable size.
+- **Accurate Model Provisioning & Benchmark Metrics:** Clarified that the Tamil specialist ASR model is provisioned on demand via Settings from public release assets (models-v1) rather than bundled. Updated benchmark figures to 22.0% WER / 3.0% CER on Mozilla Common Voice read speech and 4.3x CPU speedup over Whisper small.
+- **Regression Test Verification:** Formally integrated pre-flight URL verification in 	ests/test_model_downloader.py.
+
 ## v3.1.1 — November 3, 2026
 
 - **Password Field Dictation & History Safety:** Enforced strict non-retention and blocked dictation in password fields (`ES_PASSWORD`, `UIA_IsPasswordPropertyId`). Text spoken into password fields is discarded immediately and never retained for re-paste or written to the History Vault.

@@ -200,7 +200,7 @@ class TestModelDownloader(unittest.TestCase):
             for spec in specs:
                 req = urllib.request.Request(
                     spec.url,
-                    headers={"User-Agent": "FlowPilot-Downloader/3.1.1"}
+                    headers={"User-Agent": "FlowPilot-Downloader/3.1.2"}
                 )
                 try:
                     with urllib.request.urlopen(req, timeout=10) as resp:

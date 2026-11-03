@@ -74,6 +74,7 @@ def main():
         print("STDERR:\n", res.stderr)
         sys.exit(res.returncode)
 
+    sys.path.insert(0, str(REPO_ROOT))
     from engine import __version__
     installer_path = DIST_DIR / f"FlowPilot-Setup-v{__version__}.exe"
     if not installer_path.exists():

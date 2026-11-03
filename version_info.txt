@@ -2,8 +2,8 @@
 #
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(3, 1, 1, 0),
-    prodvers=(3, 1, 1, 0),
+    filevers=(3, 1, 2, 0),
+    prodvers=(3, 1, 2, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -19,12 +19,12 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'FlowPilot Open Source'),
             StringStruct('FileDescription', 'FlowPilot Voice Intelligence'),
-            StringStruct('FileVersion', '3.1.1.0'),
+            StringStruct('FileVersion', '3.1.2.0'),
             StringStruct('InternalName', 'FlowPilot'),
             StringStruct('LegalCopyright', 'Copyright (c) 2026 FlowPilot Contributors. MIT License.'),
             StringStruct('OriginalFilename', 'FlowPilot.exe'),
             StringStruct('ProductName', 'FlowPilot'),
-            StringStruct('ProductVersion', '3.1.1.0')
+            StringStruct('ProductVersion', '3.1.2.0')
           ]
         )
       ]
