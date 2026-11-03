@@ -123,7 +123,6 @@ _COMMON_WORDS: Dict[str, str] = {
 # English loanwords frequently used in colloquial spoken Tamil & Tanglish
 _LOANWORD_MAP: Dict[str, str] = {
     'டைம்': 'time',
-    'கால்': 'call',
     'ஸ்டார்ட்': 'start',
     'ப்ராஜெக்ட்': 'project',
     'பிராஜெக்ட்': 'project',
@@ -161,7 +160,6 @@ _LOANWORD_MAP: Dict[str, str] = {
     'லாகவுட்': 'logout',
     'டெஸ்ட்': 'test',
     'கோட்': 'code',
-    'கோடு': 'code',
     'சர்வர்': 'server',
     'சிஸ்டம்': 'system',
     'பாஸ்வேர்ட்': 'password',
@@ -383,6 +381,7 @@ def transliterate_tamil_to_tanglish(text: str) -> str:
     """
     Deterministically transliterates Tamil Unicode script into standard Tanglish (Latin phonetics).
     Applies intervocalic voicing, Tolkaappiyam nasal-stop assimilation, and preserves ASCII / English tokens.
+    Includes context-aware disambiguation for homophones like கால் (leg/quarter vs English call).
     """
     if not text:
         return ""
@@ -392,9 +391,40 @@ def transliterate_tamil_to_tanglish(text: str) -> str:
 
     tokens = re.split(r'(\s+|[.,!?;:"\'()\[\]{}]+)', text)
     out: List[str] = []
-    for tok in tokens:
+    n = len(tokens)
+    for i, tok in enumerate(tokens):
         if not tok:
             continue
+
+        # Context-aware disambiguation for 'கால்' (leg/quarter vs English 'call')
+        if tok == 'கால்':
+            # Check previous non-delimiter token
+            prev_tok = ""
+            for j in range(i - 1, -1, -1):
+                p = tokens[j].strip()
+                if p and not re.match(r'^[.,!?;:"\'()\[\]{}]+$', p):
+                    prev_tok = p
+                    break
+
+            # Check next non-delimiter token
+            next_tok = ""
+            for j in range(i + 1, n):
+                nxt = tokens[j].strip()
+                if nxt and not re.match(r'^[.,!?;:"\'()\[\]{}]+$', nxt):
+                    next_tok = nxt
+                    break
+
+            is_call = False
+            # 1. Verbal auxiliaries following 'call': பண்ணு, பண்ற, செய், வந்து, வரு, வந்த, கட், எடு, பேசு, அட்டெண்ட்
+            if next_tok.startswith(('பண்ண', 'பண்ற', 'செய்', 'வந்து', 'வரு', 'வந்த', 'கட்', 'எடு', 'பேசு', 'அட்டெண்ட்')):
+                is_call = True
+            # 2. English / call noun compounds: போன் கால், மிஸ்டு கால், வீடியோ கால், ஆடியோ கால், கான்பரன்ஸ் கால்
+            elif prev_tok.lower() in ('போன்', 'phone', 'மிஸ்டு', 'missed', 'வீடியோ', 'video', 'ஆடியோ', 'audio', 'கான்பரன்ஸ்', 'conference'):
+                is_call = True
+
+            out.append('call' if is_call else 'kaal')
+            continue
+
         out.append(_transliterate_tamil_word(tok))
     return "".join(out)
 

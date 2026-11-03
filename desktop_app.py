@@ -403,6 +403,8 @@ class FlowPilotApp:
 
         save_config(self.config)
         self.orchestrator.update_config(self.config)
+        if lang_code == "ta" and hasattr(self.orchestrator, "stt"):
+            self.orchestrator.stt.preload_specialist_model("ta")
         self.tray.set_language_info(lang_code, self.config.get("translate_to_english", False))
         lang_name = NAMES.get(lang_code, lang_code.upper())
         self.tray.show_notification("Dictation Language Updated", f"Active: {lang_name} (Cycle: Ctrl+Alt+L)")

@@ -38,6 +38,11 @@ class TestModelDownloader(unittest.TestCase):
         base_specs = get_model_specs("base")
         self.assertEqual(len(base_specs), 4)
 
+        indic_specs = get_model_specs("indicconformer-ta")
+        self.assertEqual(len(indic_specs), 2)
+        names = {s.name for s in indic_specs}
+        self.assertEqual(names, {"model.int8.onnx", "vocab.txt"})
+
         with self.assertRaises(ValueError):
             get_model_specs("nonexistent_model")
 
@@ -48,6 +53,13 @@ class TestModelDownloader(unittest.TestCase):
         real_small = Path(__file__).resolve().parent.parent / "models" / "faster-whisper-small"
         if (real_small / "model.bin").is_file():
             is_valid, msg, per_file = verify_model_integrity(real_small, size="small", check_hashes=True)
+            self.assertTrue(is_valid, f"Verification failed: {msg}")
+            self.assertTrue(all(per_file.values()))
+
+    def test_verify_real_local_indicconformer_model(self):
+        real_indic = Path(__file__).resolve().parent.parent / "models" / "indicconformer-ta"
+        if (real_indic / "model.int8.onnx").is_file():
+            is_valid, msg, per_file = verify_model_integrity(real_indic, size="indicconformer-ta", check_hashes=True)
             self.assertTrue(is_valid, f"Verification failed: {msg}")
             self.assertTrue(all(per_file.values()))
 

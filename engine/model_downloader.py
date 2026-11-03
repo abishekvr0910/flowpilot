@@ -30,6 +30,20 @@ class ModelFileSpec:
 
 
 MODEL_REGISTRY: Dict[str, List[ModelFileSpec]] = {
+    "indicconformer-ta": [
+        ModelFileSpec(
+            name="model.int8.onnx",
+            url="https://huggingface.co/ai4bharat/indicconformer_stt_ta_hybrid_rnnt_large/resolve/main/model.int8.onnx",
+            size=137677313,
+            sha256="b96af48383b0bd4b31014cddf3810e253c89865776264562a88926bfec339b48",
+        ),
+        ModelFileSpec(
+            name="vocab.txt",
+            url="https://huggingface.co/ai4bharat/indicconformer_stt_ta_hybrid_rnnt_large/resolve/main/vocab.txt",
+            size=3042,
+            sha256="f5a7955261f7eb7156521eecaf17a89521a507d2b740a3a60a2e6f6fb9b3ad36",
+        ),
+    ],
     "small": [
         ModelFileSpec(
             name="config.json",
@@ -119,22 +133,24 @@ def get_target_model_dir(size: str = "small") -> Path:
     size_clean = str(size).strip().lower()
     get_model_specs(size_clean)
 
+    dir_name = f"indicconformer-{size_clean.split('-')[-1]}" if size_clean.startswith("indicconformer") else f"faster-whisper-{size_clean}"
+
     env_dir = os.environ.get("FLOWPILOT_MODEL_DIR")
     if env_dir:
         p = Path(env_dir)
-        if p.name.lower() in (f"faster-whisper-{size_clean}", size_clean):
+        if p.name.lower() in (dir_name, size_clean):
             return p
-        return p / f"faster-whisper-{size_clean}"
+        return p / dir_name
 
     proj_root = Path(__file__).resolve().parent.parent
     dev_models = proj_root / "models"
     if not (getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS")) and dev_models.is_dir() and os.access(dev_models, os.W_OK):
-        target = dev_models / f"faster-whisper-{size_clean}"
+        target = dev_models / dir_name
         return target
 
     user_models = Path(os.path.expanduser("~/.flowpilot/models"))
     user_models.mkdir(parents=True, exist_ok=True)
-    return user_models / f"faster-whisper-{size_clean}"
+    return user_models / dir_name
 
 
 def verify_model_integrity(

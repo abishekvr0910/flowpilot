@@ -186,16 +186,28 @@ class STTEngine:
         except Exception as e:
             print(f"[STT Warning] Whisper preload failed: {e}")
 
-        # Preload specialist ASR (IndicConformer for Tamil) if enabled
-        if self.config.get("use_specialist_asr", True):
+        # Preload specialist ASR (IndicConformer for Tamil) if enabled and active language is Tamil or auto
+        current_lang = str(self.config.get("language") or "").strip().lower()
+        if self.config.get("use_specialist_asr", True) and current_lang in ("ta", "auto"):
+            self.preload_specialist_model("ta")
+
+    def preload_specialist_model(self, language: str = "ta"):
+        """Preloads specialist ASR session in background when language is switched to a specialist language."""
+        if not self.config.get("use_specialist_asr", True):
+            return
+
+        def _bg_preload():
             try:
                 from engine.onnx_asr.harness import get_specialist_harness
                 harness = get_specialist_harness()
-                if harness.is_available("ta"):
-                    harness._get_session("ta")
-                    logging.getLogger("FlowPilot.STTEngine").info("Preloaded offline ONNX Specialist ASR for Tamil ('ta').")
+                if harness.is_available(language):
+                    harness._get_session(language)
+                    logging.getLogger("FlowPilot.STTEngine").info(f"Preloaded offline ONNX Specialist ASR for '{language}'.")
             except Exception as e:
-                logging.getLogger("FlowPilot.STTEngine").warning(f"Specialist ASR preload failed: {e}")
+                logging.getLogger("FlowPilot.STTEngine").warning(f"Specialist ASR preload failed for '{language}': {e}")
+
+        t = threading.Thread(target=_bg_preload, name=f"PreloadSpecialist-{language}", daemon=True)
+        t.start()
 
     def _get_local_model(self):
         if not HAS_FASTER_WHISPER:

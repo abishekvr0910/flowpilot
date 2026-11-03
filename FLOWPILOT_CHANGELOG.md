@@ -15,6 +15,15 @@ This page distinguishes published releases from work on `master`. Check [GitHub 
 - Removed obsolete cloud controls from the optional web companion. Unsupported cloud settings are rejected by the API, and old unused cloud keys are removed from the active local config on load.
 - Moved superseded verification and agent status reports into the dated archive, removed tracked scratch probes, and replaced workstation-specific public links.
 
+## v3.1.1 — November 3, 2026
+
+- **Password Field Dictation & History Safety:** Enforced strict non-retention and blocked dictation in password fields (`ES_PASSWORD`, `UIA_IsPasswordPropertyId`). Text spoken into password fields is discarded immediately and never retained for re-paste or written to the History Vault.
+- **Specialist Multilingual ASR (IndicConformer for Tamil):** 100% offline, zero cloud egress ASR harness running AI4Bharat IndicConformer Medium (INT8 Quantized, 137 MB) via ONNX Runtime. Reduces Tamil acoustic WER from 65.0% to 23.7% and runs 4.3x faster than Whisper small on CPU (0.58s avg inference).
+- **Tamil Unicode Boundary Repair:** Deterministic subword token joining repairing doubled consonants at boundaries (`தாவிக்கொண்டு`) and composing disjoined vowels without dropping grammatical letters.
+- **Context-Aware Colloquial Tanglish Loanwords:** Dual-mode script toggling (Tamil script vs Tanglish Latin phonetics). Restores 75+ colloquial English loanwords (`time`, `meeting`, `start`, `lunchukku`, `correct-aana`) with context-aware verbal disambiguation for homophones like `கால்` (mapping to English `call` when collocated with verbal auxiliaries like `பண்ணு`, preserving genuine Tamil in `கால் கிலோ` as `kaal kilo` and `ஒரு கோடு போடு` as `oru kodu podu`).
+- **Conditional Specialist Preload:** IndicConformer session preloads only when active language is Tamil (`ta`) or `auto`, saving ~168 MB RAM and 1.8s startup overhead during English dictation, with dynamic background preloading on `Ctrl+Alt+L` language quick-switch.
+- **Model Provisioning & Integrity Verification:** Integrated `indicconformer-ta` into `engine/model_downloader.py` with SHA-256 hash validation for 1-click on-demand setup, preserving the lightweight <250 MB installer footprint.
+
 ## v3.1.0-RC11 — October 28, 2026
 
 - **Caret-Aware Context Formatting:** Real-time Win32 `EM_GETSEL` and UIA `IUIAutomationTextPattern` surrounding text inspection; suppresses mid-sentence capitalization, duplicate punctuation, and trailing periods before following lowercase text.

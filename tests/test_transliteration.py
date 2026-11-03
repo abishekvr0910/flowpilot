@@ -233,17 +233,28 @@ def test_english_loanwords_in_tanglish():
     """Verifies that common English loanwords written in Tamil script restore proper English spelling in Tanglish."""
     # Isolated loanwords
     assert transliterate_tamil_to_tanglish("டைம்") == "time"
-    assert transliterate_tamil_to_tanglish("கால்") == "call"
     assert transliterate_tamil_to_tanglish("மீட்டிங்") == "meeting"
     assert transliterate_tamil_to_tanglish("ஸ்டார்ட்") == "start"
     assert transliterate_tamil_to_tanglish("ப்ராஜெக்ட்") == "project"
     assert transliterate_tamil_to_tanglish("ப்ரோ") == "bro"
     assert transliterate_tamil_to_tanglish("ஆபிஸ்") == "office"
     assert transliterate_tamil_to_tanglish("ரோடு") == "road-u"
+    assert transliterate_tamil_to_tanglish("கோட்") == "code"
+
+    # Context-aware disambiguation for கால் (call vs leg/quarter)
+    assert transliterate_tamil_to_tanglish("கால் பண்ணுங்க") == "call pannunga"
+    assert transliterate_tamil_to_tanglish("கால் பண்றேன்") == "call pandren"
+    assert transliterate_tamil_to_tanglish("போன் கால்") == "phone call"
+    assert transliterate_tamil_to_tanglish("கால் கிலோ") == "kaal kilo"
+    assert transliterate_tamil_to_tanglish("கால் வலிக்குது") == "kaal valikkudhu"
+    assert transliterate_tamil_to_tanglish("கால்") == "kaal"
+
+    # Preserving native Tamil words like கோடு (line) vs English கோட் (code)
+    assert transliterate_tamil_to_tanglish("ஒரு கோடு போடு") == "oru kodu podu"
+    assert transliterate_tamil_to_tanglish("கோட்") == "code"
 
     # Loanwords with Tamil grammatical suffixes
     assert transliterate_tamil_to_tanglish("டைம்ல") == "time-la"
-    assert transliterate_tamil_to_tanglish("கால் பண்ணுங்க") == "call pannunga"
     assert transliterate_tamil_to_tanglish("கரெக்டான") == "correct-aana"
     assert transliterate_tamil_to_tanglish("மீட்டிங்ல") == "meeting-la"
     assert transliterate_tamil_to_tanglish("ப்ராஜெக்ட்ல") == "project-la"
