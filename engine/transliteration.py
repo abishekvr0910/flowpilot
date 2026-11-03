@@ -120,6 +120,120 @@ _COMMON_WORDS: Dict[str, str] = {
     'செல்சியஸாக': 'Celsius-aaga',
 }
 
+# English loanwords frequently used in colloquial spoken Tamil & Tanglish
+_LOANWORD_MAP: Dict[str, str] = {
+    'டைம்': 'time',
+    'கால்': 'call',
+    'ஸ்டார்ட்': 'start',
+    'ப்ராஜெக்ட்': 'project',
+    'பிராஜெக்ட்': 'project',
+    'ப்ராஜக்ட்': 'project',
+    'கரெக்ட்': 'correct',
+    'மீட்டிங்': 'meeting',
+    'ப்ரோ': 'bro',
+    'லன்ச்': 'lunch',
+    'லஞ்ச்': 'lunch',
+    'லன்ஞ்சு': 'lunch',
+    'லஞ்சு': 'lunch',
+    'ரோடு': 'road-u',
+    'ரோட்': 'road',
+    'போன்': 'phone',
+    'மெசேஜ்': 'message',
+    'ஹெல்ப்': 'help',
+    'ஐடியா': 'idea',
+    'காபி': 'kaapi',
+    'கப்': 'cup',
+    'வீக்கெண்ட்': 'weekend',
+    'வீக்எண்ட்': 'weekend',
+    'ஆபிஸ்': 'office',
+    'ஆபீஸ்': 'office',
+    'டீம்': 'team',
+    'பிளான்': 'plan',
+    'ப்ளான்': 'plan',
+    'ப்ராப்ளம்': 'problem',
+    'பிராப்ளம்': 'problem',
+    'செக்': 'check',
+    'அப்டேட்': 'update',
+    'லிங்க்': 'link',
+    'ஃபைல்': 'file',
+    'பைல்': 'file',
+    'லாகின்': 'login',
+    'லாகவுட்': 'logout',
+    'டெஸ்ட்': 'test',
+    'கோட்': 'code',
+    'கோடு': 'code',
+    'சர்வர்': 'server',
+    'சிஸ்டம்': 'system',
+    'பாஸ்வேர்ட்': 'password',
+    'ஸ்கிரீன்': 'screen',
+    'ரெடி': 'ready',
+    'பிஸி': 'busy',
+    'பிசி': 'busy',
+    'ஓகே': 'okay',
+    'தேங்க்ஸ்': 'thanks',
+    'க்ளையன்ட்': 'client',
+    'கிளைன்ட்': 'client',
+    'மேனேஜர்': 'manager',
+    'கம்ப்யூட்டர்': 'computer',
+    'லேப்டாப்': 'laptop',
+    'மொபைல்': 'mobile',
+    'சாஃப்ட்வேர்': 'software',
+    'இன்டர்நெட்': 'internet',
+    'மெயில்': 'mail',
+    'ஈமெயில்': 'email',
+    'ஆப்': 'app',
+    'யூசர்': 'user',
+    'டேட்டா': 'data',
+    'டேட்டாபேஸ்': 'database',
+    'வெப்சைட்': 'website',
+    'சைட்': 'site',
+    'ஆன்லைன்': 'online',
+    'ஆஃப்லைன்': 'offline',
+    'ஸ்கிரிப்ட்': 'script',
+    'டவுன்லோட்': 'download',
+    'அப்லோட்': 'upload',
+    'கிளிக்': 'click',
+    'டைப்': 'type',
+    'ஓபன்': 'open',
+    'குளோஸ்': 'close',
+    'டாக்கர்': 'Docker',
+    'பைதான்': 'Python',
+    'கிட்ஹப்': 'GitHub',
+    'கிட்': 'Git',
+    'விஸ்பர்': 'Whisper',
+    'ரிலீஸ்': 'release',
+    'மாடல்': 'model',
+}
+
+_LOANWORD_SUFFIXES: List[Tuple[str, str]] = [
+    ('க்கு', 'ukku'),
+    ('ுக்கு', 'ukku'),
+    ('வுக்கு', 'vukku'),
+    ('ல', '-la'),
+    ('இல்', '-il'),
+    ('ல்', '-il'),
+    ('ோட', '-oda'),
+    ('ஆன', '-aana'),
+    ('ான', '-aana'),
+    ('ஆ', '-aa'),
+]
+
+
+def _match_loanword(tok: str) -> Optional[str]:
+    """Matches Tamil-script English loanwords and returns clean English spelling with suffixes."""
+    if tok in _LOANWORD_MAP:
+        return _LOANWORD_MAP[tok]
+    for sfx_tam, sfx_eng in _LOANWORD_SUFFIXES:
+        if tok.endswith(sfx_tam) and len(tok) > len(sfx_tam):
+            base = tok[:-len(sfx_tam)]
+            if base in _LOANWORD_MAP:
+                return _LOANWORD_MAP[base] + sfx_eng
+            if (base + _VIRAMA) in _LOANWORD_MAP:
+                return _LOANWORD_MAP[base + _VIRAMA] + sfx_eng
+            if base.rstrip(_VIRAMA) in _LOANWORD_MAP:
+                return _LOANWORD_MAP[base.rstrip(_VIRAMA)] + sfx_eng
+    return None
+
 _TAMIL_CHAR_RE = re.compile(r'[\u0B80-\u0BFF]')
 
 
@@ -134,6 +248,9 @@ def _transliterate_tamil_word(tok: str) -> str:
     """Transliterates a single Tamil token applying Caldwell's Law allophonic rules."""
     if tok in _COMMON_WORDS:
         return _COMMON_WORDS[tok]
+    loan = _match_loanword(tok)
+    if loan is not None:
+        return loan
     if not any('\u0B80' <= c <= '\u0BFF' for c in tok):
         return tok
 

@@ -229,6 +229,29 @@ def test_ui_settings_integration():
         dialog.close()
 
 
+def test_english_loanwords_in_tanglish():
+    """Verifies that common English loanwords written in Tamil script restore proper English spelling in Tanglish."""
+    # Isolated loanwords
+    assert transliterate_tamil_to_tanglish("டைம்") == "time"
+    assert transliterate_tamil_to_tanglish("கால்") == "call"
+    assert transliterate_tamil_to_tanglish("மீட்டிங்") == "meeting"
+    assert transliterate_tamil_to_tanglish("ஸ்டார்ட்") == "start"
+    assert transliterate_tamil_to_tanglish("ப்ராஜெக்ட்") == "project"
+    assert transliterate_tamil_to_tanglish("ப்ரோ") == "bro"
+    assert transliterate_tamil_to_tanglish("ஆபிஸ்") == "office"
+    assert transliterate_tamil_to_tanglish("ரோடு") == "road-u"
+
+    # Loanwords with Tamil grammatical suffixes
+    assert transliterate_tamil_to_tanglish("டைம்ல") == "time-la"
+    assert transliterate_tamil_to_tanglish("கால் பண்ணுங்க") == "call pannunga"
+    assert transliterate_tamil_to_tanglish("கரெக்டான") == "correct-aana"
+    assert transliterate_tamil_to_tanglish("மீட்டிங்ல") == "meeting-la"
+    assert transliterate_tamil_to_tanglish("ப்ராஜெக்ட்ல") == "project-la"
+    assert transliterate_tamil_to_tanglish("லஞ்சுக்கு") == "lunchukku"
+    assert transliterate_tamil_to_tanglish("ஆபீஸ்ல") == "office-la"
+    assert transliterate_tamil_to_tanglish("ரோட்ல") == "road-la"
+
+
 def test_full_benchmark_corpus_pass_fail():
     """
     Evaluates transliterate_tamil_to_tanglish against all 50 Tamil items in the benchmark corpus.
@@ -300,6 +323,9 @@ def run_all():
 
     test_ui_settings_integration()
     print("✓ UI SettingsDialog Tamil Output Format integration verified.")
+
+    test_english_loanwords_in_tanglish()
+    print("✓ English loanwords restoration in Tanglish verified (time, call, meeting, lunchukku, project).")
 
     test_full_benchmark_corpus_pass_fail()
     print("✓ 50-sentence benchmark corpus pass/fail suite PASSED 100%.")

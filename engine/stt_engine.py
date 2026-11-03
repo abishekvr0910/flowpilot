@@ -3,6 +3,7 @@
 import io
 import os
 import sys
+import logging
 import threading
 from contextlib import contextmanager
 from pathlib import Path
@@ -178,12 +179,23 @@ class STTEngine:
         return bool(resolved and os.path.isdir(resolved) and os.path.isfile(os.path.join(resolved, "model.bin")))
 
     def preload_model(self):
-        """Asynchronously preloads the local faster-whisper model on CPU off the GUI thread."""
+        """Asynchronously preloads local models (Faster-Whisper and specialist ASR) on CPU off the GUI thread."""
         try:
             with self._model_lock:
                 self._get_local_model()
         except Exception as e:
-            print(f"[STT Warning] Preload failed: {e}")
+            print(f"[STT Warning] Whisper preload failed: {e}")
+
+        # Preload specialist ASR (IndicConformer for Tamil) if enabled
+        if self.config.get("use_specialist_asr", True):
+            try:
+                from engine.onnx_asr.harness import get_specialist_harness
+                harness = get_specialist_harness()
+                if harness.is_available("ta"):
+                    harness._get_session("ta")
+                    logging.getLogger("FlowPilot.STTEngine").info("Preloaded offline ONNX Specialist ASR for Tamil ('ta').")
+            except Exception as e:
+                logging.getLogger("FlowPilot.STTEngine").warning(f"Specialist ASR preload failed: {e}")
 
     def _get_local_model(self):
         if not HAS_FASTER_WHISPER:

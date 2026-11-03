@@ -8,8 +8,8 @@
     "tanglish_reference": "vanakkam, neenga eppadi irukkeenga?",
     "speaker_id": "ta-native-01",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.0,
+    "audio_file": "../../private/corpus/ta/ta-conv-01.wav",
+    "duration_sec": 2.99,
     "critical_entities": [
       "வணக்கம்",
       "எப்படி",
@@ -25,8 +25,8 @@
     "tanglish_reference": "innaikku kaalaiyila vaanilai romba nallaa irukku.",
     "speaker_id": "ta-native-01",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.5,
+    "audio_file": "../../private/corpus/ta/ta-conv-02.wav",
+    "duration_sec": 2.184,
     "critical_entities": [
       "காலையில",
       "வானிலை",
@@ -42,8 +42,8 @@
     "tanglish_reference": "naalaikku kaalaila onbadhu manikku naama meet pannalaamaa?",
     "speaker_id": "ta-native-02",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.9,
+    "audio_file": "../../private/corpus/ta/ta-conv-03.wav",
+    "duration_sec": 2.288,
     "critical_entities": [
       "ஒன்பது",
       "9:00",
@@ -59,8 +59,8 @@
     "tanglish_reference": "enakku oru cup soodaana kaapi venum.",
     "speaker_id": "ta-native-02",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 2.9,
+    "audio_file": "../../private/corpus/ta/ta-conv-04.wav",
+    "duration_sec": 1.196,
     "critical_entities": [
       "cup",
       "காபி",
@@ -76,8 +76,8 @@
     "tanglish_reference": "indha idea enakku romba pidichirukku.",
     "speaker_id": "ta-native-01",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.2,
+    "audio_file": "../../private/corpus/ta/ta-conv-05.wav",
+    "duration_sec": 1.716,
     "critical_entities": [
       "idea",
       "பிடிச்சிருக்கு"
@@ -92,8 +92,8 @@
     "tanglish_reference": "neenga sonnadha naan thelivaa purinjugitten.",
     "speaker_id": "ta-native-03",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.4,
+    "audio_file": "../../private/corpus/ta/ta-conv-06.wav",
+    "duration_sec": 1.846,
     "critical_entities": [
       "தெளிவா",
       "புரிஞ்சுகிட்டேன்"
@@ -108,8 +108,8 @@
     "tanglish_reference": "naama eppo lunchukku polaam?",
     "speaker_id": "ta-native-03",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 2.7,
+    "audio_file": "../../private/corpus/ta/ta-conv-07.wav",
+    "duration_sec": 1.69,
     "critical_entities": [
       "lunch",
       "போலாம்"
@@ -124,8 +124,8 @@
     "tanglish_reference": "innaikku velai ellaam nallabadiyaa mudinjadhu.",
     "speaker_id": "ta-native-01",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.4,
+    "audio_file": "../../private/corpus/ta/ta-conv-08.wav",
+    "duration_sec": 2.444,
     "critical_entities": [
       "நல்லபடியா",
       "முடிஞ்சது"
@@ -140,8 +140,8 @@
     "tanglish_reference": "unga helpukku romba nandri.",
     "speaker_id": "ta-native-02",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 2.8,
+    "audio_file": "../../private/corpus/ta/ta-conv-09.wav",
+    "duration_sec": 1.82,
     "critical_entities": [
       "help",
       "நன்றி"
@@ -156,8 +156,8 @@
     "tanglish_reference": "netthu raatthiri penja mazhaiyaala road-u ellaam nanainjirukku.",
     "speaker_id": "ta-native-02",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.8,
+    "audio_file": "../../private/corpus/ta/ta-conv-10.wav",
+    "duration_sec": 3.874,
     "critical_entities": [
       "மழை",
       "ரோடு"
@@ -172,8 +172,8 @@
     "tanglish_reference": "indha weekend naama oorukku polaam.",
     "speaker_id": "ta-native-01",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.1,
+    "audio_file": "../../private/corpus/ta/ta-conv-11.wav",
+    "duration_sec": 1.69,
     "critical_entities": [
       "weekend",
       "போலாம்"
@@ -188,8 +188,8 @@
     "tanglish_reference": "ungalukku time kidaikkumbodhu enakku call pannunga.",
     "speaker_id": "ta-native-03",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.4,
+    "audio_file": "../../private/corpus/ta/ta-conv-12.wav",
+    "duration_sec": 2.158,
     "critical_entities": [
       "time",
       "call"
@@ -204,8 +204,8 @@
     "tanglish_reference": "aduttha vaaram budhankizhamai oru mukkiyamaana meeting irukku.",
     "speaker_id": "ta-native-02",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 4.1,
+    "audio_file": "../../private/corpus/ta/ta-conv-13.wav",
+    "duration_sec": 2.73,
     "critical_entities": [
       "புதன்கிழமை",
       "meeting"
@@ -220,8 +220,8 @@
     "tanglish_reference": "idhappatthi neenga enna ninaikkireengannu sollunga.",
     "speaker_id": "ta-native-01",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.5,
+    "audio_file": "../../private/corpus/ta/ta-conv-14.wav",
+    "duration_sec": 2.938,
     "critical_entities": [
       "சொல்லுங்க"
     ]
@@ -235,8 +235,8 @@
     "tanglish_reference": "pudhu project start panna idhudhaan correct-aana time.",
     "speaker_id": "ta-native-03",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.6,
+    "audio_file": "../../private/corpus/ta/ta-conv-15.wav",
+    "duration_sec": 3.302,
     "critical_entities": [
       "project",
       "start",
@@ -252,8 +252,8 @@
     "tanglish_reference": "naama ellaarum onnaa serndhu velai seyyanum.",
     "speaker_id": "ta-native-02",
     "consent_verified": true,
-    "audio_file": null,
-    "duration_sec": 3.4,
+    "audio_file": "../../private/corpus/ta/ta-conv-16.wav",
+    "duration_sec": 2.366,
     "critical_entities": [
       "ஒண்ணா",
       "வேலை"
