@@ -191,6 +191,16 @@ class STTEngine:
         if self.config.get("use_specialist_asr", True) and current_lang in ("ta", "auto"):
             self.preload_specialist_model("ta")
 
+    def is_specialist_available(self, language: str = "ta") -> bool:
+        """Returns True if specialist ASR is enabled and installed locally for the language."""
+        if not self.config.get("use_specialist_asr", True):
+            return False
+        try:
+            from engine.onnx_asr.harness import get_specialist_harness
+            return get_specialist_harness().is_available(language)
+        except Exception:
+            return False
+
     def preload_specialist_model(self, language: str = "ta"):
         """Preloads specialist ASR session in background when language is switched to a specialist language."""
         if not self.config.get("use_specialist_asr", True):

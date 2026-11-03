@@ -1,9 +1,9 @@
 ; FlowPilot Inno Setup Script
-; Generates standalone FlowPilot-Setup-v3.1.2.exe installer for Windows 10/11 x64
+; Generates standalone FlowPilot-Setup-v3.1.3.exe installer for Windows 10/11 x64
 ; Non-elevated (installs into user AppData without requiring Administrator privileges)
 
 #define MyAppName "FlowPilot"
-#define MyAppVersion "3.1.2"
+#define MyAppVersion "3.1.3"
 #define MyAppPublisher "FlowPilot Open Source"
 #define MyAppURL "https://github.com/abishekvr0910/flowpilot"
 #define MyAppExeName "FlowPilot.exe"
@@ -31,13 +31,13 @@ SetupIconFile=..\assets\flowpilot.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 CloseApplications=yes
 AppMutex=Global\FlowPilot_Desktop_SingleInstance_Mutex
-VersionInfoVersion=3.1.2.0
+VersionInfoVersion=3.1.3.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} Setup
 VersionInfoTextVersion={#MyAppVersion}
 VersionInfoCopyright=Copyright (C) 2026 FlowPilot Contributors
 VersionInfoProductName={#MyAppName}
-VersionInfoProductVersion=3.1.2.0
+VersionInfoProductVersion=3.1.3.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

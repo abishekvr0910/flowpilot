@@ -49,6 +49,7 @@ class SettingsDialog(QDialog):
         self.config = dict(config)
         self.on_save = on_save
         self.personalization = personalization or PersonalizationEngine()
+        self._active_download_size = "small"
         self.setWindowTitle("FlowPilot - Settings & Personalization")
         self.resize(900, 720)
         self.setMinimumSize(640, 480)
@@ -194,12 +195,20 @@ class SettingsDialog(QDialog):
         self.lbl_model_guidance.setWordWrap(True)
         vbox.addWidget(self.lbl_model_guidance)
 
+        self.btn_download_tamil_specialist = QPushButton("Download Tamil Specialist Model — IndicConformer (131 MB)")
+        self.btn_download_tamil_specialist.setStyleSheet(
+            "background-color: #059669; color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px; margin-top: 6px;"
+        )
+        self.btn_download_tamil_specialist.setVisible(False)
+        self.btn_download_tamil_specialist.clicked.connect(lambda: self._start_model_download("indicconformer-ta"))
+        vbox.addWidget(self.btn_download_tamil_specialist)
+
         self.btn_download_small = QPushButton("Download Multilingual Model (461 MB)")
         self.btn_download_small.setStyleSheet(
             "background-color: #2563EB; color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px; margin-top: 6px;"
         )
         self.btn_download_small.setVisible(False)
-        self.btn_download_small.clicked.connect(self._start_model_download)
+        self.btn_download_small.clicked.connect(lambda: self._start_model_download("small"))
         vbox.addWidget(self.btn_download_small)
 
         self.progress_download_small = QProgressBar()
@@ -218,6 +227,7 @@ class SettingsDialog(QDialog):
         vbox.addWidget(self.lbl_download_status)
 
         self.combo_lang.currentIndexChanged.connect(self._on_language_model_guidance)
+        self.combo_model.currentIndexChanged.connect(self._on_language_model_guidance)
         self._on_language_model_guidance()
 
         # Tone / Format Style
@@ -609,32 +619,104 @@ class SettingsDialog(QDialog):
         return avail
 
     def _on_language_model_guidance(self, *_args):
-        """Make the bundled Indic model recommendation visible and one step away."""
+        """Make specialist and multilingual model provisioning visible and one step away."""
         language = self.combo_lang.currentData()
         is_tamil = (language == "ta")
         if hasattr(self, "lbl_tamil_mode") and hasattr(self, "combo_tamil_mode"):
             self.lbl_tamil_mode.setVisible(is_tamil)
             self.combo_tamil_mode.setVisible(is_tamil)
-        if language not in ("hi", "ta", "ml"):
+
+        worker = getattr(self, "_download_worker", None)
+        is_downloading = bool(worker is not None and worker.isRunning())
+
+        if language not in ("hi", "ta", "ml", "pl"):
             self.lbl_model_guidance.setText("")
+            if hasattr(self, "btn_download_tamil_specialist"):
+                self.btn_download_tamil_specialist.setVisible(False)
             if hasattr(self, "btn_download_small"):
                 self.btn_download_small.setVisible(False)
-            if hasattr(self, "progress_download_small"):
-                self.progress_download_small.setVisible(False)
-            if hasattr(self, "lbl_download_status"):
-                self.lbl_download_status.setVisible(False)
+            if not is_downloading:
+                if hasattr(self, "progress_download_small"):
+                    self.progress_download_small.setVisible(False)
+                if hasattr(self, "lbl_download_status"):
+                    self.lbl_download_status.setVisible(False)
             return
+
         if (language != self.config.get("language") and not self._model_chosen_by_user
                 and self.combo_model.currentText().startswith("base")):
             for index in range(self.combo_model.count()):
                 if self.combo_model.itemText(index).startswith("small"):
                     self.combo_model.setCurrentIndex(index)
                     break
+
         selected_small = self.combo_model.currentText().startswith("small")
         import os
         from engine.stt_engine import STTEngine
         small_path = STTEngine.resolve_model_path("small")
         has_small = bool(small_path and os.path.isfile(os.path.join(small_path, "model.bin")))
+
+        if is_tamil:
+            has_tamil_specialist = False
+            try:
+                from engine.onnx_asr.harness import get_specialist_harness
+                has_tamil_specialist = get_specialist_harness().is_available("ta")
+            except Exception:
+                has_tamil_specialist = False
+
+            if hasattr(self, "btn_download_tamil_specialist"):
+                self.btn_download_tamil_specialist.setVisible(not has_tamil_specialist)
+            if hasattr(self, "btn_download_small"):
+                self.btn_download_small.setVisible(not has_small)
+
+            if has_tamil_specialist:
+                self.lbl_model_guidance.setText(
+                    "✓ Tamil Specialist ASR (IndicConformer, 131 MB) installed and active for native Tamil & Tanglish. "
+                    "This language is experimental; test your own speech before relying on it."
+                )
+            elif selected_small and has_small:
+                self.lbl_model_guidance.setText(
+                    "✓ Local small model file found, and the Tamil Specialist ASR (IndicConformer, 131 MB) is available below for 4× faster, higher-accuracy Tamil & Tanglish. "
+                    "This language is experimental; test your own speech before relying on it."
+                )
+            else:
+                self.lbl_model_guidance.setText(
+                    "Tamil Specialist ASR (IndicConformer, 131 MB) is not yet installed. Click 'Download Tamil Specialist Model' below for accurate offline Tamil & Tanglish dictation. "
+                    "This language is experimental; test your own speech before relying on it."
+                )
+            self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
+            if has_tamil_specialist and has_small and not is_downloading:
+                if hasattr(self, "progress_download_small"):
+                    self.progress_download_small.setVisible(False)
+                if hasattr(self, "lbl_download_status"):
+                    self.lbl_download_status.setVisible(False)
+            return
+
+        if hasattr(self, "btn_download_tamil_specialist"):
+            self.btn_download_tamil_specialist.setVisible(False)
+
+        if language == "pl":
+            if selected_small and has_small:
+                self.lbl_model_guidance.setText(
+                    "✓ Local small model file found and selected for Polish diacritic accuracy."
+                )
+                self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #10B981;")
+                if hasattr(self, "btn_download_small"):
+                    self.btn_download_small.setVisible(False)
+                if not is_downloading:
+                    if hasattr(self, "progress_download_small"):
+                        self.progress_download_small.setVisible(False)
+                    if hasattr(self, "lbl_download_status"):
+                        self.lbl_download_status.setVisible(False)
+            else:
+                self.lbl_model_guidance.setText(
+                    "Polish accuracy is much stronger with the multilingual small model (18% WER vs ~50% on bundled base). "
+                    "Select small above and download the 461 MB weights if not yet installed."
+                )
+                self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
+                if hasattr(self, "btn_download_small"):
+                    self.btn_download_small.setVisible(not has_small)
+            return
+
         if selected_small:
             if has_small:
                 self.lbl_model_guidance.setText(
@@ -643,10 +725,11 @@ class SettingsDialog(QDialog):
                 self.lbl_model_guidance.setStyleSheet("font-size: 11px; color: #F59E0B;")
                 if hasattr(self, "btn_download_small"):
                     self.btn_download_small.setVisible(False)
-                if hasattr(self, "progress_download_small"):
-                    self.progress_download_small.setVisible(False)
-                if hasattr(self, "lbl_download_status"):
-                    self.lbl_download_status.setVisible(False)
+                if not is_downloading:
+                    if hasattr(self, "progress_download_small"):
+                        self.progress_download_small.setVisible(False)
+                    if hasattr(self, "lbl_download_status"):
+                        self.lbl_download_status.setVisible(False)
             else:
                 self.lbl_model_guidance.setText(
                     "Local small model file was not found. Download or install the model before relying on this language. This language is experimental; test your own speech before relying on it."
@@ -663,7 +746,7 @@ class SettingsDialog(QDialog):
             if hasattr(self, "btn_download_small"):
                 self.btn_download_small.setVisible(not has_small)
 
-    def _start_model_download(self):
+    def _start_model_download(self, target_size: str = "small"):
         try:
             from engine.model_downloader import ModelDownloadWorker
         except ImportError:
@@ -673,14 +756,28 @@ class SettingsDialog(QDialog):
             QMessageBox.warning(self, "Download Unavailable", "Background download worker is unavailable.")
             return
 
+        if not isinstance(target_size, str):
+            target_size = "small"
+        self._active_download_size = target_size
+
+        if hasattr(self, "btn_download_tamil_specialist"):
+            self.btn_download_tamil_specialist.setEnabled(False)
         self.btn_download_small.setEnabled(False)
-        self.btn_download_small.setText("Downloading model...")
+
+        if target_size == "indicconformer-ta":
+            self.btn_download_tamil_specialist.setText("Downloading Tamil Specialist (131 MB)...")
+            status_msg = "Connecting to FlowPilot GitHub release (models-v1)..."
+        else:
+            self.btn_download_small.setText("Downloading model...")
+            status_msg = "Connecting to Hugging Face model repository..."
+
         self.progress_download_small.setVisible(True)
         self.progress_download_small.setValue(0)
+        self.lbl_download_status.setStyleSheet("font-size: 11px; color: #94A3B8; margin-top: 2px;")
         self.lbl_download_status.setVisible(True)
-        self.lbl_download_status.setText("Connecting to Hugging Face model repository...")
+        self.lbl_download_status.setText(status_msg)
 
-        self._download_worker = ModelDownloadWorker(size="small")
+        self._download_worker = ModelDownloadWorker(size=target_size)
         self._download_worker.progress.connect(self._on_download_progress)
         self._download_worker.download_finished.connect(self._on_download_finished)
         self._download_worker.start()
@@ -692,14 +789,27 @@ class SettingsDialog(QDialog):
         self.lbl_download_status.setText(f"Downloading {fname}: {mb_done:.1f} MB / {mb_total:.1f} MB ({pct}%)")
 
     def _on_download_finished(self, success, message, dest):
+        target_size = getattr(self, "_active_download_size", "small")
+        if hasattr(self, "btn_download_tamil_specialist"):
+            self.btn_download_tamil_specialist.setEnabled(True)
+            self.btn_download_tamil_specialist.setText("Download Tamil Specialist Model — IndicConformer (131 MB)")
         self.btn_download_small.setEnabled(True)
+        self.btn_download_small.setText("Download Multilingual Model (461 MB)")
+
         if success:
-            self.btn_download_small.setVisible(False)
+            if target_size == "small":
+                for i in range(self.combo_model.count()):
+                    if self.combo_model.itemText(i).startswith("small"):
+                        self.combo_model.setItemText(i, "small — larger model (installed)")
+                        break
             self.progress_download_small.setVisible(False)
             self.lbl_download_status.setVisible(False)
             self._on_language_model_guidance()
         else:
-            self.btn_download_small.setText("Retry Download")
+            if target_size == "indicconformer-ta" and hasattr(self, "btn_download_tamil_specialist"):
+                self.btn_download_tamil_specialist.setText("Retry Tamil Specialist Download (131 MB)")
+            else:
+                self.btn_download_small.setText("Retry Download")
             self.lbl_download_status.setText(f"Download error: {message}")
             self.lbl_download_status.setStyleSheet("font-size: 11px; color: #EF4444;")
 

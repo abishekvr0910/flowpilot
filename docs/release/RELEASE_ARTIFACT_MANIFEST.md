@@ -1,6 +1,28 @@
 # FlowPilot release artifact manifest
 
-Updated 2026-11-02. A locally verified candidate is not a published general release.
+Updated 2026-11-04. Verify downloaded installers and archives against the SHA-256 digests below.
+
+## General Availability release: v3.1.3, Windows x64
+
+**Production GA Maintenance Release package (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6, and Python 3.11.15 in a clean virtual environment created strictly from 
+equirements.txt. FlowPilot v3.1.3 wires 1-click SHA-256-verified UI model provisioning in Settings and the first-run Setup Wizard for AI4Bharat IndicConformer Tamil Specialist (131 MB on-demand from models-v1) and Whisper Small (461 MB on-demand for Polish and Indic languages), resolves ~/.flowpilot/models/indicconformer-{lang} in frozen FlowPilot.exe installations, upgrades OnnxASRHarness to NVIDIA NeMo's exact Slaney mel frontend + CTC subword lateral geminate boundary repair (reducing Mozilla Common Voice Tamil WER to 18.5% / 4.4% CER and casual conversational Tanglish WER to 42.4%), replaces optional scipy resampling with pure-NumPy resampling, isolates live Notepad test fixtures from user sessions, and provisions CI specialist models post-bundle.
+
+| Item | Measured value |
+|---|---|
+| Installer Executable | dist/FlowPilot-Setup-v3.1.3.exe |
+| Installer size | 231,522,941 bytes (220.80 MB) |
+| Installer SHA-256 | 8930E37FDCF55854AAF22FA9885F43779219DDB379BBB7798E7A498125C3632E |
+| Archive | dist/FlowPilot-v3.1.3-windows-x64.zip |
+| Archive size | 287,257,747 bytes (273.95 MB) |
+| Archive SHA-256 | 4A17A2CEC7494C1AC2D1AADE42F4580666F89C12DCBF1F95ABF40950AB8180C3 |
+| Embedded executable | FlowPilot.exe, 16,530,617 bytes (15.76 MB) |
+| Embedded executable SHA-256 | 9FD1BE7004C7A7D4D8C35CE1262C5A4F490E4EC0192FD02C2041901B560ED476 |
+| Archive integrity | 550 members, CRC passed; zero extraneous packages (scipy, cryptography, iohttp, ioquic); embedded executable hash matched the tested bundle |
+| License notices | 94 files under licenses/ (including AI4Bharat-IndicConformer-LICENSE.txt) in both the ZIP and the installer |
+| PE Version Stamp | FileVersion: 3.1.3.0, ProductVersion: 3.1.3.0, CompanyName: FlowPilot Open Source, FileDescription: FlowPilot Voice Intelligence |
+| Authenticode | NotSigned (Unsigned package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
+| Local automated audit | Headless audit across 67 suites: 62 passed, 5 honest interactive-desktop skips, 0 failed (202.97 s); standalone binary smoke passed at 90.95 MB resident RAM; 
+pm test full-stack REST + WebSocket passed |
 
 ## General Availability release: v3.1.0, Windows x64
 

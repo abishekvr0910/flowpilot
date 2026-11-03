@@ -76,7 +76,12 @@ def repair_tamil_unicode(text: str) -> str:
     text = re.sub(r'([\u0BBE-\u0BCC])[\u0BBE-\u0BCC]+', r'\1', text)
     # 4. Repeated viramas
     text = re.sub(r'\u0BCD+', '\u0BCD', text)
-    # 5. Combining sign at start of word (following space or start of string)
+    # 5. Repeated identical pure consonants (C + virama + C + virama) or adjacent pure laterals
+    #    (ள்ல் / ல்ள், e.g. தங்கள்ல் -> தங்கள்), which are phonotactically impossible in Tamil
+    #    and arise only at CTC subword boundaries.
+    text = re.sub(r'([\u0B95-\u0BB9]\u0BCD)\1+', r'\1', text)
+    text = re.sub(r'([\u0BB2\u0BB3]\u0BCD)[\u0BB2\u0BB3]\u0BCD', r'\1', text)
+    # 6. Combining sign at start of word (following space or start of string)
     vowel_map = {
         '\u0BBE': 'ஆ', '\u0BBF': 'இ', '\u0BC0': 'ஈ',
         '\u0BC1': 'உ', '\u0BC2': 'ஊ', '\u0BC6': 'எ',
@@ -238,13 +243,14 @@ def apply_custom_vocabulary_biasing(text: str, custom_vocabulary: Optional[List[
 class OnnxASRHarness:
     """
     Offline Specialist ASR Harness using ONNX Runtime.
-    Executes quantized NeMo/Conformer CTC models on CPU with pure NumPy/SciPy audio preprocessing.
+    Executes quantized NeMo/Conformer CTC models on CPU with pure NumPy audio preprocessing.
     """
     _instance: Optional["OnnxASRHarness"] = None
     _init_lock = threading.Lock()
 
     def __init__(self, models_dir: Optional[Path] = None):
-        self.models_dir = models_dir or (PROJECT_ROOT / "models")
+        self._custom_models_dir = models_dir is not None
+        self.models_dir = Path(models_dir) if models_dir is not None else (PROJECT_ROOT / "models")
         self._sessions: Dict[str, Any] = {}
         self._vocabs: Dict[str, Dict[int, str]] = {}
         self._mel_filterbanks: Dict[Tuple[int, int, int], np.ndarray] = {}
@@ -258,12 +264,36 @@ class OnnxASRHarness:
             return cls._instance
 
     def _resolve_model_files(self, language: str) -> Tuple[Optional[Path], Optional[Path]]:
-        """Resolves the ONNX model and vocab.txt paths for a target language."""
-        candidates = [
-            self.models_dir / f"indicconformer-{language}",
-            PROJECT_ROOT / "assets" / "models" / "onnx" / language,
-            Path.home() / ".cache" / "flowpilot" / "onnx" / language,
-        ]
+        """Resolves the ONNX model and vocab.txt paths for a target language across dev, user-profile, and frozen layouts."""
+        dir_name = f"indicconformer-{language}"
+        if self._custom_models_dir:
+            candidates = [self.models_dir / dir_name, self.models_dir]
+        else:
+            candidates = []
+            env_dir = os.environ.get("FLOWPILOT_MODEL_DIR", "").strip()
+            if env_dir:
+                env_path = Path(env_dir)
+                if env_path.name.lower() == dir_name.lower():
+                    candidates.append(env_path)
+                candidates.append(env_path / dir_name)
+
+            user_models = Path(os.path.expanduser("~/.flowpilot/models")) / dir_name
+            candidates.append(user_models)
+
+            if getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS"):
+                meipass = getattr(sys, "_MEIPASS", None)
+                if meipass:
+                    candidates.append(Path(meipass) / "models" / dir_name)
+                exe_dir = Path(sys.executable).resolve().parent
+                candidates.append(exe_dir / "_internal" / "models" / dir_name)
+                candidates.append(exe_dir / "models" / dir_name)
+
+            candidates.extend([
+                self.models_dir / dir_name,
+                PROJECT_ROOT / "assets" / "models" / "onnx" / language,
+                Path(os.path.expanduser("~")) / ".cache" / "flowpilot" / "onnx" / language,
+            ])
+
         for dir_path in candidates:
             if not dir_path.is_dir():
                 continue
@@ -295,29 +325,50 @@ class OnnxASRHarness:
         return vocab
 
     def _get_or_create_mel_filterbank(self, sr: int = 16000, n_fft: int = 512, n_mels: int = 80) -> np.ndarray:
+        """Computes Slaney-scale, area-normalized mel filterbanks matching NeMo AudioToMelSpectrogramPreprocessor."""
         key = (sr, n_fft, n_mels)
         if key in self._mel_filterbanks:
             return self._mel_filterbanks[key]
 
-        def hz_to_mel(f: float) -> float:
-            return 2595.0 * np.log10(1.0 + f / 700.0)
+        f_min = 0.0
+        f_sp = 200.0 / 3.0
+        min_log_hz = 1000.0
+        min_log_mel = (min_log_hz - f_min) / f_sp
+        logstep = np.log(6.4) / 27.0
 
-        def mel_to_hz(m: float) -> float:
-            return 700.0 * (10.0 ** (m / 2595.0) - 1.0)
+        def hz_to_mel(freq: Union[float, np.ndarray]) -> np.ndarray:
+            freq_arr = np.asanyarray(freq, dtype=np.float64)
+            mels = (freq_arr - f_min) / f_sp
+            mask = freq_arr >= min_log_hz
+            if np.ndim(mels) == 0:
+                if mask:
+                    mels = np.asarray(min_log_mel + np.log(freq_arr / min_log_hz) / logstep, dtype=np.float64)
+            else:
+                mels[mask] = min_log_mel + np.log(freq_arr[mask] / min_log_hz) / logstep
+            return mels
 
-        mel_min, mel_max = hz_to_mel(0.0), hz_to_mel(sr / 2.0)
-        mel_points = np.linspace(mel_min, mel_max, n_mels + 2)
-        hz_points = mel_to_hz(mel_points)
-        bin_points = np.floor((n_fft + 1) * hz_points / sr).astype(int)
+        def mel_to_hz(mels: np.ndarray) -> np.ndarray:
+            mel_arr = np.asanyarray(mels, dtype=np.float64)
+            freqs = f_min + f_sp * mel_arr
+            mask = mel_arr >= min_log_mel
+            freqs[mask] = min_log_hz * np.exp(logstep * (mel_arr[mask] - min_log_mel))
+            return freqs
 
-        filters = np.zeros((n_mels, n_fft // 2 + 1), dtype=np.float32)
-        for i in range(1, n_mels + 1):
-            left, center, right = bin_points[i - 1], bin_points[i], bin_points[i + 1]
-            if center > left:
-                filters[i - 1, left:center] = (np.arange(left, center) - left) / (center - left)
-            if right > center:
-                filters[i - 1, center:right] = (right - np.arange(center, right)) / (right - center)
+        mels = np.linspace(float(hz_to_mel(0.0)), float(hz_to_mel(sr / 2.0)), n_mels + 2)
+        hz = mel_to_hz(mels)
+        fft_freqs = np.linspace(0.0, sr / 2.0, n_fft // 2 + 1)
 
+        weights = np.zeros((n_mels, n_fft // 2 + 1), dtype=np.float64)
+        for i in range(n_mels):
+            fdiff_lower = hz[i + 1] - hz[i]
+            fdiff_upper = hz[i + 2] - hz[i + 1]
+            lower = (fft_freqs - hz[i]) / fdiff_lower
+            upper = (hz[i + 2] - fft_freqs) / fdiff_upper
+            weights[i] = np.maximum(0.0, np.minimum(lower, upper))
+            enorm = 2.0 / (hz[i + 2] - hz[i])
+            weights[i] *= enorm
+
+        filters = weights.astype(np.float32)
         self._mel_filterbanks[key] = filters
         return filters
 
@@ -328,33 +379,48 @@ class OnnxASRHarness:
         n_mels: int = 80,
         n_fft: int = 512,
         hop_len: int = 160,
-        win_len: int = 400
+        win_len: int = 400,
+        preemph: float = 0.97,
     ) -> np.ndarray:
         """
-        Computes NeMo-compliant 80-channel log-mel filterbanks with per-feature CMVN.
-        Output shape: (80, num_frames) float32.
+        Computes NeMo-exact 80-channel Slaney log-mel filterbanks with pre-emphasis (0.97)
+        and per-feature CMVN. Output shape: (80, num_frames) float32.
         """
-        if audio.ndim > 1:
-            audio = np.mean(audio, axis=1)
+        audio_arr = np.asarray(audio, dtype=np.float32)
+        if audio_arr.ndim > 1:
+            audio_arr = np.mean(audio_arr, axis=1, dtype=np.float32)
 
-        window = np.hanning(win_len).astype(np.float32)
-        pad_len = n_fft - hop_len
-        padded = np.pad(audio, (pad_len // 2, pad_len // 2), mode="reflect")
-        num_frames = 1 + (len(padded) - win_len) // hop_len
+        if sr != 16000 and len(audio_arr) > 0:
+            from engine.audio_recorder import resample_audio
+            audio_arr = resample_audio(audio_arr, int(sr), 16000)
+            sr = 16000
+
+        if len(audio_arr) == 0:
+            return np.zeros((n_mels, 1), dtype=np.float32)
+
+        if preemph > 0.0 and len(audio_arr) > 1:
+            audio_arr = np.concatenate((audio_arr[:1], audio_arr[1:] - preemph * audio_arr[:-1])).astype(np.float32)
+
+        padded = np.pad(audio_arr, (n_fft // 2, n_fft // 2), mode="constant")
+        num_frames = max(1, 1 + (len(padded) - n_fft) // hop_len)
 
         frames = np.lib.stride_tricks.as_strided(
             padded,
-            shape=(num_frames, win_len),
-            strides=(padded.strides[0] * hop_len, padded.strides[0])
+            shape=(num_frames, n_fft),
+            strides=(padded.strides[0] * hop_len, padded.strides[0]),
         )
-        windowed = frames * window
-        spectrogram = np.abs(np.fft.rfft(windowed, n=n_fft)) ** 2
+        window = np.hanning(win_len).astype(np.float32)
+        pad_left = (n_fft - win_len) // 2
+        pad_right = n_fft - win_len - pad_left
+        window_padded = np.pad(window, (pad_left, pad_right), mode="constant")
+
+        spectrogram = np.abs(np.fft.rfft(frames * window_padded, n=n_fft)) ** 2
 
         fb = self._get_or_create_mel_filterbank(sr, n_fft, n_mels)
         mel_spec = np.dot(spectrogram, fb.T)
-        log_mel = np.log(np.maximum(mel_spec, 1e-5)).T  # (n_mels, num_frames)
+        log_mel = np.log(np.maximum(mel_spec, 0.0) + (2.0 ** -24)).T  # (n_mels, num_frames)
 
-        # Per-feature normalization
+        # Per-feature cepstral mean and variance normalization (CMVN)
         mean = np.mean(log_mel, axis=1, keepdims=True)
         std = np.std(log_mel, axis=1, keepdims=True)
         norm = (log_mel - mean) / (std + 1e-5)
@@ -407,12 +473,10 @@ class OnnxASRHarness:
         if audio_arr.ndim > 1:
             audio_arr = np.mean(audio_arr, axis=1)
 
-        # Resample if not 16 kHz
+        # Resample if not 16 kHz (pure NumPy; avoids optional scipy dependency)
         if sr != 16000 and len(audio_arr) > 0:
-            import math
-            gcd = math.gcd(int(sr), 16000)
-            from scipy.signal import resample_poly
-            audio_arr = resample_poly(audio_arr, 16000 // gcd, int(sr) // gcd).astype(np.float32)
+            from engine.audio_recorder import resample_audio
+            audio_arr = resample_audio(audio_arr, int(sr), 16000)
             sr = 16000
 
         duration_sec = len(audio_arr) / float(sr) if sr > 0 else 0.0

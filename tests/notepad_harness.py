@@ -36,42 +36,82 @@ import win32api
 import win32con
 
 
+_OWNED_TEST_HWNDS: set[int] = set()
+_OWNED_NEW_PIDS: set[int] = set()
+
+
+def _snapshot_existing_notepads() -> tuple[set[int], set[int]]:
+    """Record pre-existing Notepad HWNDs and PIDs so tests never hijack or kill user sessions."""
+    hwnds: set[int] = set()
+    pids: set[int] = set()
+
+    def _collect(hwnd, _):
+        try:
+            if win32gui.IsWindow(hwnd) and win32gui.GetClassName(hwnd) == "Notepad":
+                hwnds.add(int(hwnd))
+                _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                if pid:
+                    pids.add(int(pid))
+        except Exception:
+            pass
+        return True
+
+    try:
+        win32gui.EnumWindows(_collect, None)
+    except Exception:
+        pass
+    return hwnds, pids
+
+
 def open_test_notepad(timeout: float = 10.0) -> tuple[int, subprocess.Popen, Path]:
-    """Open a unique test file and select only its initialized Notepad editor."""
+    """Open a unique test file and select only its initialized Notepad editor without touching user windows."""
     from engine.text_injector import TextInjector
 
     if not is_interactive_desktop():
         raise RuntimeError("Interactive input desktop not attached; physical Notepad launch skipped.")
 
+    preexisting_hwnds, preexisting_pids = _snapshot_existing_notepads()
+
     fd, filename = tempfile.mkstemp(prefix="flowpilot-audit-", suffix=".txt")
     os.close(fd)
     fixture = Path(filename)
     try:
-        process = subprocess.Popen(["explorer.exe", r"shell:appsFolder\Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"])
-    except Exception:
         process = subprocess.Popen(["notepad.exe", str(fixture)])
+    except Exception:
+        process = subprocess.Popen(["explorer.exe", r"shell:appsFolder\Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"])
     deadline = time.monotonic() + timeout
     observed = []
     while time.monotonic() < deadline:
-        candidates = []
+        exact_candidates = []
+        new_window_candidates = []
         observed = []
 
         def _find(hwnd, _):
             try:
                 if win32gui.IsWindowVisible(hwnd) and win32gui.GetClassName(hwnd) == "Notepad":
-                    title = win32gui.GetWindowText(hwnd)
+                    title = win32gui.GetWindowText(hwnd) or ""
                     edit = TextInjector._find_edit_control(hwnd)
                     ready = edit != hwnd and win32gui.GetClassName(edit) in ("RichEditD2DPT", "Edit", "NotepadTextBox")
-                    if (fixture.name.casefold() in title.casefold() or "notepad" in title.casefold() or not title) and ready:
-                        observed.append((hwnd, title, ready))
-                        candidates.append(hwnd)
+                    observed.append((hwnd, title, ready, hwnd in preexisting_hwnds))
+                    if not ready:
+                        return True
+                    if fixture.name.casefold() in title.casefold():
+                        exact_candidates.append(hwnd)
+                    elif hwnd not in preexisting_hwnds:
+                        new_window_candidates.append(hwnd)
             except Exception:
                 pass
             return True
 
         win32gui.EnumWindows(_find, None)
-        if candidates:
-            return candidates[0], process, fixture
+        chosen = exact_candidates[0] if exact_candidates else (new_window_candidates[0] if new_window_candidates else 0)
+        if chosen:
+            if chosen not in preexisting_hwnds:
+                _OWNED_TEST_HWNDS.add(int(chosen))
+            _, chosen_pid = win32process.GetWindowThreadProcessId(chosen)
+            if chosen_pid and int(chosen_pid) not in preexisting_pids:
+                _OWNED_NEW_PIDS.add(int(chosen_pid))
+            return chosen, process, fixture
         time.sleep(0.1)
 
     cleanup_test_fixture(fixture, process=process)
@@ -79,28 +119,48 @@ def open_test_notepad(timeout: float = 10.0) -> tuple[int, subprocess.Popen, Pat
 
 
 def cleanup_test_fixture(fixture: Optional[Path], hwnd: int = 0, process: Optional[subprocess.Popen] = None) -> None:
-    """Close synthetic test tab and cleanly dismiss any save prompts."""
+    """Close only test-owned Notepad windows/processes; never force-kill pre-existing user Notepad sessions."""
     from engine.text_injector import TextInjector
 
+    is_owned_window = bool(hwnd and int(hwnd) in _OWNED_TEST_HWNDS)
     if hwnd and win32gui.IsWindow(hwnd):
-        try:
-            win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
-            time.sleep(0.2)
-            # Dismiss any potential 'Save changes' prompt by sending Alt+N (Don't Save)
-            win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
-            win32api.keybd_event(ord("N"), 0, 0, 0)
-            win32api.keybd_event(ord("N"), 0, win32con.KEYEVENTF_KEYUP, 0)
-            win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
-            time.sleep(0.2)
-        except Exception:
-            pass
-        if win32gui.IsWindow(hwnd):
+        title = (win32gui.GetWindowText(hwnd) or "").casefold()
+        matches_fixture = bool(fixture is not None and fixture.name.casefold() in title)
+        if is_owned_window:
             try:
-                _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                if pid:
-                    import psutil
-                    if psutil.pid_exists(pid):
-                        psutil.Process(pid).kill()
+                edit = TextInjector._find_edit_control(hwnd)
+                if edit and edit != hwnd and win32gui.IsWindow(edit):
+                    win32gui.SendMessage(edit, win32con.WM_SETTEXT, 0, "")
+            except Exception:
+                pass
+            try:
+                win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+                time.sleep(0.2)
+                if win32gui.IsWindow(hwnd) and _force_foreground(hwnd):
+                    win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
+                    win32api.keybd_event(ord("N"), 0, 0, 0)
+                    win32api.keybd_event(ord("N"), 0, win32con.KEYEVENTF_KEYUP, 0)
+                    win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+                    time.sleep(0.2)
+            except Exception:
+                pass
+            if win32gui.IsWindow(hwnd):
+                try:
+                    _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                    if pid and int(pid) in _OWNED_NEW_PIDS:
+                        import psutil
+                        if psutil.pid_exists(pid):
+                            psutil.Process(pid).kill()
+                        _OWNED_NEW_PIDS.discard(int(pid))
+                except Exception:
+                    pass
+            _OWNED_TEST_HWNDS.discard(int(hwnd))
+        elif matches_fixture:
+            # Tab opened inside a pre-existing user Notepad instance: clear test buffer only, never kill PID
+            try:
+                edit = TextInjector._find_edit_control(hwnd)
+                if edit and edit != hwnd and win32gui.IsWindow(edit):
+                    win32gui.SendMessage(edit, win32con.WM_SETTEXT, 0, "")
             except Exception:
                 pass
     if fixture is not None:
@@ -110,7 +170,9 @@ def cleanup_test_fixture(fixture: Optional[Path], hwnd: int = 0, process: Option
             pass
     if process and process.poll() is None:
         try:
-            process.terminate()
+            if process.pid in _OWNED_NEW_PIDS:
+                process.terminate()
+                _OWNED_NEW_PIDS.discard(process.pid)
         except Exception:
             pass
 

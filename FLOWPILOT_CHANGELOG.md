@@ -2,34 +2,39 @@
 
 This page distinguishes published releases from work on `master`. Check [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) for downloadable artifacts and [GitHub Actions](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for current verification status.
 
-## Unreleased source changes (GA Final Closure)
+## v3.1.3 — November 4, 2026
 
-- **Inno Setup 1-Click Zero-Admin Windows Installer (WP-1):** Production Inno Setup script (`installer/flowpilot_setup.iss`) and packaging pipeline (`scripts/package_installer.py`) targeting `{localappdata}\Programs\FlowPilot` without admin UAC elevation prompts, managing single-instance mutex detection, desktop/start shortcuts, and clean uninstallation.
-- **Universal Selection Rewriter & Instant Undo Latch (WP-2):** In-place selection replacement engine (`engine/selection_rewriter.py`) with instant rollback via **`Alt+Shift+U`**. Enforces FactGuard entity preservation, focus shift detection, terminal window protection, and credential window safety.
-- **Dedicated USB Audio Bus Hot-Plug Harness (WP-3):** Hardware-level PnP USB audio verification harness (`scripts/verify_usb_bus_hotplug.py`) validating hardware ID persistence and strict `DEVICE_MISSING_SENTINEL = -9999` refusal without silent microphone fallback.
-- **Authenticode Code Signing Pipeline (WP-4):** Automated Authenticode signing pipeline (`scripts/sign_authenticode.py`) with Windows SDK `signtool.exe` discovery, SHA-256 digests, dual RFC 3161 timestamping (DigiCert / Sectigo fallbacks), and signature verification.
-- **Universal Repetition Loop Suppression (WP-5):** Dual token and multi-word phrase loop suppression (`(?u)(?:^|\s)(.{3,35}?)(?:\s+\1){2,}(?=\s|$)` & `(?u)(?:^|\s)(\S+)(?:\s+\1){2,}(?=\s|$)`) eliminating acoustic repetition loops across Indic (Hindi, Tamil) and English speech.
-- **Selection Rewriter Orchestrator Integration:** Wired voice selection rewriting directly into orchestrator dictation sessions (triggered by `Ctrl+Alt+T` when text is selected), verified by unit and live runtime tests.
-- **Reserved Shortcut Collision Protection:** Registered `Alt+Shift+U` in `RESERVED_FLOWPILOT_SHORTCUTS` alongside `Alt+Shift+Z` and `Alt+Shift+X`, ensuring dictation key reassignments cannot collide with recovery shortcuts.
-
-- Removed obsolete cloud controls from the optional web companion. Unsupported cloud settings are rejected by the API, and old unused cloud keys are removed from the active local config on load.
-- Moved superseded verification and agent status reports into the dated archive, removed tracked scratch probes, and replaced workstation-specific public links.
+- **1-Click UI Model Provisioning for Tamil & Polish:** Added explicit, SHA-256-verified on-demand download actions in both `SettingsDialog` and first-run `SetupWizard` for **AI4Bharat IndicConformer Tamil Specialist (131 MB)** from `models-v1` and **Whisper Small (461 MB)** for Polish (`pl`) and Indic languages, alongside proactive system tray guidance when switching languages via `Ctrl+Alt+L` or the tray menu.
+- **Frozen Bundle & User Profile Model Resolution:** Updated `OnnxASRHarness` to resolve `~/.flowpilot/models/indicconformer-{lang}`, `FLOWPILOT_MODEL_DIR`, and PyInstaller frozen `_MEIPASS` / `_internal` directories so installed `FlowPilot.exe` users load downloaded specialist models out of the box without developer workspaces.
+- **NeMo-Exact Acoustic Frontend & CTC Boundary Repair:** Upgraded `OnnxASRHarness.extract_features` to NVIDIA NeMo's Slaney mel scale, triangle-area filterbank normalization, `0.97` pre-emphasis, centered `n_fft=512` STFT (`win_len=400`), and CTC subword lateral geminate boundary repair (`ள்ல்` / `ல்ள்`). Reduces Mozilla Common Voice Tamil read-speech WER from **22.0% to 18.5%** (**4.4% CER**, 3.93x faster than Whisper Small on CPU) and casual conversational Tanglish WER from **51.5% to 42.4%**.
+- **Pure-NumPy Audio Resampling:** Replaced optional `scipy.signal.resample_poly` usage in `OnnxASRHarness` with FlowPilot's native `engine.audio_recorder.resample_audio`, ensuring 44.1 kHz / 48 kHz inputs resample cleanly inside the minimal ~221 MB frozen runtime without `scipy`.
+- **User-Data Safety in Live Notepad Test Harness:** Isolated `tests/notepad_harness.py` via PID and window snapshots (`_OWNED_TEST_HWNDS` / `_OWNED_NEW_PIDS`) so live desktop verification never touches or closes pre-existing user Notepad windows or persisted Windows 11 `TabState` sessions.
+- **GitHub Actions CI Green & Node 24 Modernization:** Added a CC0 public-domain Mozilla Common Voice Tamil speech fixture (`tests/fixtures/ta-commonvoice-sample.wav`), provisioned `indicconformer-ta` into `~/.flowpilot/models` post-PyInstaller in CI, upgraded GitHub Actions to `v7` (Node 24), and configured `versioning-strategy: increase-if-necessary` for Dependabot.
+- **Authenticode CLI & Installer Sidecar Checksums:** Added CLI argument and environment certificate handling to `scripts/sign_authenticode.py` and automatic `.sha256` sidecar generation plus optional signing in `scripts/package_installer.py`.
 
 ## v3.1.2 — November 3, 2026
 
-- **Clean Minimal Runtime Rebuild:** Built exclusively in a clean Python 3.11 virtual environment from 
-equirements.txt, eliminating extraneous dependencies (scipy, cryptography, aiohttp, aioquic) and restoring the streamlined ~221 MB installer footprint and ~16 MB executable size.
-- **Accurate Model Provisioning & Benchmark Metrics:** Clarified that the Tamil specialist ASR model is provisioned on demand via Settings from public release assets (models-v1) rather than bundled. Updated benchmark figures to 22.0% WER / 3.0% CER on Mozilla Common Voice read speech and 4.3x CPU speedup over Whisper small.
-- **Regression Test Verification:** Formally integrated pre-flight URL verification in 	ests/test_model_downloader.py.
+- **Clean Minimal Runtime Rebuild:** Built exclusively in a clean Python 3.11 virtual environment from `requirements.txt`, eliminating extraneous dependencies (`scipy`, `cryptography`, `aiohttp`, `aioquic`) and restoring the streamlined ~221 MB installer footprint and ~16 MB executable size.
+- **Accurate Model Provisioning & Benchmark Metrics:** Clarified that the Tamil specialist ASR model is provisioned on demand from public release assets (`models-v1`) rather than bundled in the base installer. Recorded benchmark figures of 22.0% WER / 3.0% CER on Mozilla Common Voice read speech and 4.3x CPU speedup over Whisper `small`.
+- **Regression Test Verification:** Integrated pre-flight URL verification in `tests/test_model_downloader.py`.
 
 ## v3.1.1 — November 3, 2026
 
 - **Password Field Dictation & History Safety:** Enforced strict non-retention and blocked dictation in password fields (`ES_PASSWORD`, `UIA_IsPasswordPropertyId`). Text spoken into password fields is discarded immediately and never retained for re-paste or written to the History Vault.
-- **Specialist Multilingual ASR (IndicConformer for Tamil):** 100% offline, zero cloud egress ASR harness running AI4Bharat IndicConformer Medium (INT8 Quantized, 137 MB) via ONNX Runtime. Reduces Tamil acoustic WER from 65.0% to 23.7% and runs 4.3x faster than Whisper small on CPU (0.58s avg inference).
+- **Specialist Multilingual ASR (IndicConformer for Tamil):** 100% offline, zero cloud egress ASR harness running AI4Bharat IndicConformer Medium (INT8 Quantized, 137 MB) via ONNX Runtime.
 - **Tamil Unicode Boundary Repair:** Deterministic subword token joining repairing doubled consonants at boundaries (`தாவிக்கொண்டு`) and composing disjoined vowels without dropping grammatical letters.
 - **Context-Aware Colloquial Tanglish Loanwords:** Dual-mode script toggling (Tamil script vs Tanglish Latin phonetics). Restores 75+ colloquial English loanwords (`time`, `meeting`, `start`, `lunchukku`, `correct-aana`) with context-aware verbal disambiguation for homophones like `கால்` (mapping to English `call` when collocated with verbal auxiliaries like `பண்ணு`, preserving genuine Tamil in `கால் கிலோ` as `kaal kilo` and `ஒரு கோடு போடு` as `oru kodu podu`).
 - **Conditional Specialist Preload:** IndicConformer session preloads only when active language is Tamil (`ta`) or `auto`, saving ~168 MB RAM and 1.8s startup overhead during English dictation, with dynamic background preloading on `Ctrl+Alt+L` language quick-switch.
-- **Model Provisioning & Integrity Verification:** Integrated `indicconformer-ta` into `engine/model_downloader.py` with SHA-256 hash validation for 1-click on-demand setup, preserving the lightweight <250 MB installer footprint.
+- **Model Provisioning & Integrity Verification:** Integrated `indicconformer-ta` into `engine/model_downloader.py` with SHA-256 hash validation for on-demand setup, preserving the lightweight <250 MB installer footprint.
+
+## v3.1.0 — November 2, 2026
+
+- **Inno Setup 1-Click Zero-Admin Windows Installer:** Production Inno Setup script (`installer/flowpilot_setup.iss`) and packaging pipeline (`scripts/package_installer.py`) targeting `{localappdata}\Programs\FlowPilot` without admin UAC elevation prompts, managing single-instance mutex detection, desktop/start shortcuts, and clean uninstallation.
+- **Universal Selection Rewriter & Instant Undo Latch:** In-place selection replacement engine (`engine/selection_rewriter.py`) with instant rollback via **`Alt+Shift+U`**. Enforces FactGuard entity preservation, focus shift detection, terminal window protection, and credential window safety.
+- **Dedicated USB Audio Bus Hot-Plug Harness:** Hardware-level PnP USB audio verification harness (`scripts/verify_usb_bus_hotplug.py`) validating hardware ID persistence and strict `DEVICE_MISSING_SENTINEL = -9999` refusal without silent microphone fallback.
+- **Authenticode Code Signing Pipeline:** Automated Authenticode signing pipeline (`scripts/package_windows_release.py`, `scripts/sign_authenticode.py`) with Windows SDK `signtool.exe` discovery, SHA-256 digests, and RFC 3161 timestamping.
+- **Universal Repetition Loop Suppression:** Dual token and multi-word phrase loop suppression eliminating acoustic repetition loops across Indic (Hindi, Tamil) and English speech.
+- **Reserved Shortcut Collision Protection & Cloud Key Purge:** Registered `Alt+Shift+U` in `RESERVED_FLOWPILOT_SHORTCUTS` alongside `Alt+Shift+Z` and `Alt+Shift+X`, and removed obsolete cloud controls and unused cloud config keys on load.
 
 ## v3.1.0-RC11 — October 28, 2026
 
@@ -39,17 +44,12 @@ equirements.txt, eliminating extraneous dependencies (scipy, cryptography, aioht
 - **Two-Track Meeting Audio Separation:** WASAPI loopback system audio capture with acoustic energy bleed suppression, ensuring loud remote speaker turns do not leak into local mic turns.
 - **Synthetic Modifier Safety:** Hardened modifier release gate ensuring physical keys are unpressed before paste dispatches, tagging synthetic events with `'FPLT'` (`0x46504C54`).
 
-## v3.1.0 — October 20, 2026
+## v3.1.0-pilot — October 20, 2026
 
 - **Multilingual Offline Dictation:** Added tested acoustic support for German, French, Spanish, Japanese, Chinese, and Hindi using bundled Faster-Whisper base weights with zero network calls.
-- **Microphone Device Switching:** Input audio device selection in Settings Dialog and First-Run Wizard binds dynamically to the recorder stream without requiring application restart.
-- **Immediate Personalization:** Custom dictionary biasing and voice snippet expansions apply immediately to live dictation upon save without reloading the application.
-- **Safe "Paste Last" Injection:** Prevents blind keystrokes into FlowPilot's own windows (HUD, Dashboard, Tray), automatically restores focus to the previously active external editor, or safely stages to the clipboard.
-- **Slow-App Paste Resilience:** Introduced window-class adaptive timing profiles (dwell, hold, post-paste) for Outlook, Word, WhatsApp, remote desktop, and JetBrains IDEs.
-- **Text Injector Hardening:** Eliminated copy-failure UnboundLocalError; added focus-loss pre-dispatch abort with clipboard preservation and sequence guard against clipboard overwrite during hold.
-- **Truthful Status Reporting:** Distinguishes `CONFIRMED_INSERTED`, `SENT_UNVERIFIED`, and `FAILED_RECOVERY_AVAILABLE` in the HUD and tray, with dedicated instant recovery hotkeys (`Shift+Alt+Z` to paste last dictation, `Shift+Alt+X` to copy last dictation).
-- **First-Run Onboarding & Key Customization:** Added 5-step local Setup Wizard supporting single-key push-to-talk (e.g. `F9`) and conflict exemption protecting assigned recovery shortcuts (`Alt+Shift+Z`, `Alt+Shift+X`, `Ctrl+Alt+T`) from collision.
-- **Companion Studio & Dictation Vault:** Pixel companions, meeting notes, productivity insights, and local dictation History Vault with never-store mode support.
+- **Microphone Device Switching & Immediate Personalization:** Dynamic input audio device binding and immediate custom dictionary / snippet expansion updates without application restart.
+- **Safe "Paste Last" Injection & Slow-App Paste Resilience:** Window-class adaptive timing profiles and focus-loss pre-dispatch abort with clipboard preservation.
+- **Truthful Status Reporting & First-Run Onboarding:** Distinguishes `CONFIRMED_INSERTED`, `SENT_UNVERIFIED`, and `FAILED_RECOVERY_AVAILABLE` in the HUD and tray, paired with a 5-step local Setup Wizard and Companion Studio.
 
 ## v3.0.2 — published October 15, 2026
 

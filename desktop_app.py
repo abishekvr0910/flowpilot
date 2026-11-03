@@ -390,24 +390,40 @@ class FlowPilotApp:
             "auto": "Auto-Detect (99 Languages)"
         }
         self.config["language"] = lang_code
-        # Auto-promote to small model if switching to Tamil/Polish and small model is present
+        # Auto-promote to small model if switching to Tamil/Polish and small model is actually installed
         from engine.stt_engine import STTEngine
-        if lang_code in ("ta", "pl") and self.config.get("local_model_size") in ("tiny", "base"):
-            try:
-                small_path = STTEngine.resolve_model_path("small")
-                import os
-                if os.path.isdir(small_path):
-                    self.config["local_model_size"] = "small"
-            except Exception:
-                pass
+        has_small = False
+        try:
+            small_path = STTEngine.resolve_model_path("small")
+            has_small = bool(small_path and os.path.isfile(os.path.join(small_path, "model.bin")))
+            if lang_code in ("ta", "pl") and self.config.get("local_model_size") in ("tiny", "base") and has_small:
+                self.config["local_model_size"] = "small"
+        except Exception:
+            pass
 
         save_config(self.config)
         self.orchestrator.update_config(self.config)
+        has_ta_specialist = False
         if lang_code == "ta" and hasattr(self.orchestrator, "stt"):
-            self.orchestrator.stt.preload_specialist_model("ta")
+            has_ta_specialist = self.orchestrator.stt.is_specialist_available("ta")
+            if has_ta_specialist:
+                self.orchestrator.stt.preload_specialist_model("ta")
         self.tray.set_language_info(lang_code, self.config.get("translate_to_english", False))
         lang_name = NAMES.get(lang_code, lang_code.upper())
-        self.tray.show_notification("Dictation Language Updated", f"Active: {lang_name} (Cycle: Ctrl+Alt+L)")
+        if lang_code == "ta" and not has_ta_specialist and not self.config.get("translate_to_english", False):
+            self.tray.show_notification(
+                "Tamil Model Recommended",
+                f"Active: {lang_name}. Open Settings to download the 131 MB Tamil Specialist model.",
+                is_warning=True,
+            )
+        elif lang_code == "pl" and not has_small and self.config.get("local_model_size") != "small":
+            self.tray.show_notification(
+                "Polish Model Recommended",
+                f"Active: {lang_name}. Open Settings to download the 461 MB Multilingual model for best Polish accuracy.",
+                is_warning=True,
+            )
+        else:
+            self.tray.show_notification("Dictation Language Updated", f"Active: {lang_name} (Cycle: Ctrl+Alt+L)")
         print(f"[FlowPilot] Dictation language switched to: {lang_name} [{lang_code}]")
 
     def _on_tray_translate_toggled(self, enabled: bool):
@@ -602,15 +618,26 @@ def run_self_test_tamil() -> int:
         from engine.context_processor import ContextProcessor
         from engine.transliteration import apply_transliteration_if_enabled
 
-        resolved_path = STTEngine.resolve_model_path("small")
-        print(f"[Self-Test Tamil] Resolved offline model path: {resolved_path}")
-        assert os.path.exists(resolved_path), f"Resolved model path does not exist: {resolved_path}"
+        from engine.onnx_asr.harness import get_specialist_harness
+        has_specialist = get_specialist_harness().is_available("ta")
+        small_path = STTEngine.resolve_model_path("small")
+        has_small = bool(small_path and os.path.isfile(os.path.join(small_path, "model.bin")))
+        fallback_size = "small" if has_small else "base"
+        resolved_path = STTEngine.resolve_model_path(fallback_size)
+        print(f"[Self-Test Tamil] Specialist available: {has_specialist} | Whisper fallback ({fallback_size}): {resolved_path}")
+        assert has_specialist or has_small, "Neither IndicConformer Tamil nor Whisper small model is installed locally."
 
-        stt = STTEngine({"local_model_size": "small", "cpu_threads": min(4, os.cpu_count() or 2)})
-        stt.preload_model()
+        stt = STTEngine({"local_model_size": fallback_size, "cpu_threads": min(4, os.cpu_count() or 2)})
+        if not has_specialist:
+            stt.preload_model()
 
-        cv_fixture = os.path.join(os.path.dirname(__file__), "private", "corpus", "ta", "ta-conv-01.commonvoice-fixture.wav")
-        fixture_path = cv_fixture if os.path.isfile(cv_fixture) else os.path.join(os.path.dirname(__file__), "private", "corpus", "ta", "ta-conv-01.wav")
+        base_dir = os.path.dirname(__file__)
+        candidates = [
+            os.path.join(base_dir, "private", "corpus", "ta", "ta-conv-01.commonvoice-fixture.wav"),
+            os.path.join(base_dir, "tests", "fixtures", "ta-commonvoice-sample.wav"),
+            os.path.join(base_dir, "private", "corpus", "ta", "ta-conv-01.wav"),
+        ]
+        fixture_path = next((p for p in candidates if os.path.isfile(p)), candidates[0])
         if not os.path.isfile(fixture_path):
             print(f"[Self-Test Tamil] SKIP: fixture {fixture_path} not found")
             return 0

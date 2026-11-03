@@ -2,14 +2,14 @@
 """
 FlowPilot Windows Installer Packaging Script
 Compiles the Inno Setup script into a 1-click Windows installer:
-FlowPilot-Setup-v3.1.0.exe
+FlowPilot-Setup-v<version>.exe (plus .sha256 sidecar and optional Authenticode signing)
 """
 
-import os
-import sys
-import shutil
 import hashlib
+import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -23,18 +23,16 @@ COMMON_ISCC_PATHS = [
     Path(r"C:\Users") / os.environ.get("USERNAME", "") / "AppData" / "Local" / "Programs" / "Inno Setup 6" / "ISCC.exe"
 ]
 
+
 def find_iscc() -> Path:
-    # 1. Check PATH
     cmd = shutil.which("iscc") or shutil.which("ISCC")
     if cmd:
         return Path(cmd)
-    
-    # 2. Check common install directories
     for p in COMMON_ISCC_PATHS:
         if p.exists():
             return p
-            
     return None
+
 
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
@@ -42,6 +40,7 @@ def sha256_file(path: Path) -> str:
         while chunk := f.read(65536):
             h.update(chunk)
     return h.hexdigest().upper()
+
 
 def main():
     print("=" * 70)
@@ -67,7 +66,7 @@ def main():
 
     cmd = [str(iscc_exe), str(ISS_PATH)]
     res = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8", errors="replace")
-    
+
     if res.returncode != 0:
         print("[Error] ISCC failed with code", res.returncode)
         print("STDOUT:\n", res.stdout)
@@ -81,16 +80,28 @@ def main():
         print(f"[Error] Expected installer output missing: {installer_path}")
         sys.exit(1)
 
+    # Sign outer Setup.exe if signing secrets/certificates are configured in environment
+    if any(os.environ.get(k) for k in ("FLOWPILOT_SIGN_PFX_PATH", "FLOWPILOT_SIGN_CERT_BASE64", "FLOWPILOT_SIGN_THUMBPRINT")):
+        from scripts.sign_authenticode import main as sign_main
+        rc = sign_main(["--target", str(installer_path)])
+        if rc != 0:
+            print("[Error] Requested Authenticode signing of Setup installer failed.")
+            sys.exit(rc)
+
     size_mb = installer_path.stat().st_size / (1024 * 1024)
     file_hash = sha256_file(installer_path)
+    sidecar = Path(str(installer_path) + ".sha256")
+    sidecar.write_text(f"{file_hash.lower()}  {installer_path.name}\n", encoding="utf-8")
 
     print("\n" + "=" * 70)
-    print(f"SUCCESS: Installer built successfully!")
+    print("SUCCESS: Installer built successfully!")
     print(f"Path: {installer_path}")
     print(f"Size: {size_mb:.2f} MB")
     print(f"SHA-256: {file_hash}")
+    print(f"Sidecar: {sidecar}")
     print("=" * 70)
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

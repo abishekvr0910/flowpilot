@@ -16,16 +16,16 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
 
@@ -43,13 +43,17 @@ jobs:
         run: |
           python -m PyInstaller flowpilot.spec --noconfirm
 
+      - name: Provision Tamil Specialist ASR Model in User Profile
+        run: |
+          python -c "import os; from pathlib import Path; from engine.model_downloader import download_model; target = Path(os.path.expanduser('~/.flowpilot/models/indicconformer-ta')); ok, msg, _ = download_model('indicconformer-ta', target_dir=target); assert ok, msg"
+
       - name: Automated Security & SAST Audit (Bandit & pip-audit)
         run: |
           pip install bandit pip-audit
           bandit -r engine/ -ll -ii
           pip-audit -r requirements.txt
 
-      - name: Run Python Automated Master Regression Suite (63 Suites)
+      - name: Run Python Automated Master Regression Suite (67 Suites)
         run: |
           python -X utf8 tests/run_all_tests.py
 

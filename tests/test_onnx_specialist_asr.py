@@ -2,13 +2,16 @@
 Suite: ONNX Runtime Specialist ASR Harness (IndicConformer Medium).
 Validates offline specialist model discovery, NeMo log-mel feature extraction,
 CTC greedy decoding, STTEngine integration, custom vocabulary biasing,
-Tamil Unicode spelling repair, and zero network egress.
+Tamil Unicode spelling repair, frozen user-profile resolution, and zero network egress.
 Specification: docs/specs/0006-onnx-multilingual-specialist-asr-harness.md
 """
+import io
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -24,12 +27,23 @@ from engine.stt_engine import STTEngine
 from engine.transliteration import apply_transliteration_if_enabled
 
 
+def _resolve_tamil_fixture() -> Path:
+    candidates = [
+        PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.commonvoice-fixture.wav",
+        PROJECT_ROOT / "tests" / "fixtures" / "ta-commonvoice-sample.wav",
+        PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.wav",
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path
+    return candidates[1]
+
+
 class TestOnnxSpecialistASR(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.harness = get_specialist_harness()
-        cv_fixture = PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.commonvoice-fixture.wav"
-        cls.ta_fixture = cv_fixture if cv_fixture.exists() else PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.wav"
+        cls.ta_fixture = _resolve_tamil_fixture()
 
     def test_01_model_and_vocab_availability(self):
         """Verifies that the quantized IndicConformer model and vocab are available locally."""
@@ -41,7 +55,7 @@ class TestOnnxSpecialistASR(unittest.TestCase):
         self.assertTrue(vocab_path.is_file())
 
     def test_02_feature_extraction_properties(self):
-        """Verifies 80-channel log-mel filterbank extraction and CMVN normalization."""
+        """Verifies 80-channel Slaney log-mel filterbank extraction and CMVN normalization."""
         audio, sr = sf.read(str(self.ta_fixture))
         features = self.harness.extract_features(audio, sr=sr)
         self.assertEqual(features.shape[0], 80, "Must produce 80 mel channels")
@@ -118,6 +132,7 @@ class TestOnnxSpecialistASR(unittest.TestCase):
         self.assertEqual(clean, "அது தாவிக்கொண்டு சந்தோஷமாக")
         self.assertNotIn("ிி", clean)
         self.assertNotIn("்ொ", clean)
+        self.assertEqual(repair_tamil_unicode("தங்கள்ல் மனை"), "தங்கள் மனை")
 
     def test_08_dynamic_arbitrary_user_vocabulary_biasing(self):
         """Verifies dynamic arbitrary user-defined terms (names, new frameworks) bias correctly."""
@@ -167,6 +182,33 @@ class TestOnnxSpecialistASR(unittest.TestCase):
         vocab = ["Priya", "Kavitha"]
         self.assertIn("Priya", apply_custom_vocabulary_biasing("பிரியா வந்தாங்க", vocab))
         self.assertIn("Priya-ukku", apply_custom_vocabulary_biasing("பிரியாவுக்கு சொல்லு", vocab))
+
+    def test_12_frozen_user_profile_resolution_and_48khz_resampling(self):
+        """Verifies ~/.flowpilot/models/indicconformer-ta resolution in frozen builds and pure-NumPy 48kHz resampling."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            user_models = Path(tmp_dir) / ".flowpilot" / "models" / "indicconformer-ta"
+            user_models.mkdir(parents=True)
+            (user_models / "model.int8.onnx").write_bytes(b"onnx-stub")
+            (user_models / "vocab.txt").write_text("a 0\n<blk> 1\n", encoding="utf-8")
+
+            isolated = OnnxASRHarness()
+            isolated.models_dir = Path(tmp_dir) / "nonexistent_dev_models"
+            with patch.dict(os.environ, {"FLOWPILOT_MODEL_DIR": ""}), \
+                 patch.object(sys, "frozen", True, create=True), \
+                 patch("engine.onnx_asr.harness.os.path.expanduser", side_effect=lambda p: str(Path(tmp_dir) / ".flowpilot" / "models") if p.startswith("~/.flowpilot") else tmp_dir):
+                model_file, vocab_file = isolated._resolve_model_files("ta")
+                self.assertEqual(model_file, user_models / "model.int8.onnx")
+                self.assertEqual(vocab_file, user_models / "vocab.txt")
+
+        # Verify 48kHz WAV resampling succeeds without scipy installed
+        audio_16k, sr = sf.read(str(self.ta_fixture), dtype="float32")
+        self.assertEqual(sr, 16000)
+        from engine.audio_recorder import resample_audio
+        audio_48k = resample_audio(audio_16k, 16000, 48000)
+        buf = io.BytesIO()
+        sf.write(buf, audio_48k, 48000, format="WAV")
+        res = self.harness.transcribe(buf.getvalue(), language="ta")
+        self.assertIn("வணக்கம்", res["text"])
 
 
 if __name__ == "__main__":

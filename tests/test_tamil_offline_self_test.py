@@ -21,8 +21,12 @@ class TestTamilOfflineDictation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.small_model_path = STTEngine.resolve_model_path("small")
-        cv_fixture = PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.commonvoice-fixture.wav"
-        cls.conv_wav = cv_fixture if cv_fixture.exists() else PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.wav"
+        candidates = [
+            PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.commonvoice-fixture.wav",
+            PROJECT_ROOT / "tests" / "fixtures" / "ta-commonvoice-sample.wav",
+            PROJECT_ROOT / "private" / "corpus" / "ta" / "ta-conv-01.wav",
+        ]
+        cls.conv_wav = next((p for p in candidates if p.is_file()), candidates[1])
 
     def test_01_small_model_exists_locally(self):
         """Verifies that faster-whisper-small is present for zero-egress offline inference."""

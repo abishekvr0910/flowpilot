@@ -24,7 +24,7 @@ added_files = [
     ('assets', 'faster_whisper/assets'),
 ]
 # Default GA distribution bundles only faster-whisper-base (141 MB) to keep installer size <= 300 MB.
-# Additional models (e.g. small, medium) are downloaded on-demand by the user via Settings.
+# Additional models (e.g. small, medium, indicconformer-ta) are downloaded on-demand by the user via Settings.
 if os.path.isdir('models/faster-whisper-base'):
     added_files.append(('models/faster-whisper-base', 'models/faster-whisper-base'))
 added_files += collect_data_files('faster_whisper')
@@ -75,6 +75,10 @@ hidden_imports = [
     'engine.writing_intelligence',
     'engine.correction_intent',
     'engine.stt_engine',
+    'engine.onnx_asr',
+    'engine.onnx_asr.harness',
+    'engine.transliteration',
+    'engine.model_downloader',
     'engine.context_processor',
     'engine.audio_recorder',
     'engine.hotkey_service',
@@ -123,7 +127,7 @@ a = Analysis(
     # These optional stacks are not imported by FlowPilot. Keeping them out of
     # the frozen app removes hundreds of MB pulled in by broad dependency hooks.
     excludes=[
-        'tkinter', 'matplotlib', 'scipy.spatial.cKDTree',
+        'tkinter', 'matplotlib', 'scipy', 'scipy.spatial.cKDTree',
         'pyarrow', 'pandas', 'boto3', 'botocore', 'lxml',
         'psycopg', 'psycopg2', 'sqlalchemy',
     ],

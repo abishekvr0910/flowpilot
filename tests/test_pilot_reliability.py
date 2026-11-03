@@ -275,6 +275,61 @@ class PilotReliabilityTests(unittest.TestCase):
             wizard.close()
         app.processEvents()
 
+    def test_tamil_and_polish_model_download_provisioning(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from ui.settings_dialog import SettingsDialog
+        from ui.setup_wizard import SetupWizardDialog
+
+        app = _qt_app()
+        mock_harness_missing = MagicMock()
+        mock_harness_missing.is_available.return_value = False
+        mock_harness_ready = MagicMock()
+        mock_harness_ready.is_available.return_value = True
+
+        with tempfile.TemporaryDirectory() as empty_dir, \
+             patch("ui.audio_input_picker.populate_audio_inputs", side_effect=lambda combo, _: combo.addItem("Default", {"mode": "default"})), \
+             patch("engine.audio_devices.resolve_audio_input") as resolve, \
+             patch("engine.stt_engine.STTEngine.resolve_model_path", return_value=empty_dir), \
+             patch("ui.setup_wizard.STTEngine.resolve_model_path", return_value=empty_dir):
+            resolve.return_value.device_index = None
+
+            # 1. Clean machine without Tamil specialist offers 131 MB IndicConformer download
+            with patch("engine.onnx_asr.harness.get_specialist_harness", return_value=mock_harness_missing), \
+                 patch("engine.model_downloader.ModelDownloadWorker") as mock_worker_cls:
+                mock_worker = MagicMock()
+                mock_worker.isRunning.return_value = False
+                mock_worker_cls.return_value = mock_worker
+
+                settings = SettingsDialog(
+                    {"language": "en", "local_model_size": "base", "hotkey": "F9"},
+                    on_save=lambda _config: True, personalization=MagicMock(),
+                )
+                settings.combo_lang.setCurrentIndex(settings.combo_lang.findData("ta"))
+                self.assertFalse(settings.btn_download_tamil_specialist.isHidden())
+                settings._start_model_download("indicconformer-ta")
+                mock_worker_cls.assert_called_once_with(size="indicconformer-ta")
+
+                # Polish without small weights surfaces Polish guidance and small download button
+                settings.combo_lang.setCurrentIndex(settings.combo_lang.findData("pl"))
+                self.assertIn("Polish", settings.lbl_model_guidance.text())
+                self.assertFalse(settings.btn_download_small.isHidden())
+                settings.close()
+
+            # 2. Setup Wizard allows Tamil completion with IndicConformer alone (without Whisper small)
+            with patch("engine.onnx_asr.harness.get_specialist_harness", return_value=mock_harness_ready), \
+                 patch("ui.setup_wizard.QMessageBox.warning") as warning, \
+                 patch("ui.setup_wizard.save_config", return_value=True) as save_config:
+                wizard = SetupWizardDialog(config={"language": "en", "local_model_size": "base"})
+                wizard.combo_lang.setCurrentIndex(wizard.combo_lang.findData("ta"))
+                self.assertTrue(wizard.btn_download_model.isHidden())
+                wizard._finish_setup()
+                warning.assert_not_called()
+                save_config.assert_called_once()
+                self.assertEqual(wizard.config["language"], "ta")
+                self.assertEqual(wizard.config["local_model_size"], "base")
+                wizard.close()
+        app.processEvents()
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
