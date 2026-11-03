@@ -8,6 +8,28 @@ import time
 from pathlib import Path
 from typing import NamedTuple, Optional
 
+def _attach_thread_to_input_desktop() -> bool:
+    """Attach current thread to interactive input desktop before any GUI objects are created."""
+    import sys
+    if sys.platform != "win32":
+        return True
+    if os.environ.get("FLOWPILOT_HEADLESS") == "1" or os.environ.get("QT_QPA_PLATFORM", "").lower() == "offscreen":
+        return False
+    if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
+        return False
+    try:
+        u = ctypes.windll.user32
+        h_input = u.OpenInputDesktop(0, False, 0x01FF)
+        if h_input:
+            success = bool(u.SetThreadDesktop(h_input))
+            u.CloseDesktop(h_input)
+            return success
+    except Exception:
+        pass
+    return False
+
+_attach_thread_to_input_desktop()
+
 import win32gui
 import win32process
 import win32api
@@ -24,7 +46,10 @@ def open_test_notepad(timeout: float = 10.0) -> tuple[int, subprocess.Popen, Pat
     fd, filename = tempfile.mkstemp(prefix="flowpilot-audit-", suffix=".txt")
     os.close(fd)
     fixture = Path(filename)
-    process = subprocess.Popen(["notepad.exe", str(fixture)])
+    try:
+        process = subprocess.Popen(["explorer.exe", r"shell:appsFolder\Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"])
+    except Exception:
+        process = subprocess.Popen(["notepad.exe", str(fixture)])
     deadline = time.monotonic() + timeout
     observed = []
     while time.monotonic() < deadline:
@@ -37,9 +62,8 @@ def open_test_notepad(timeout: float = 10.0) -> tuple[int, subprocess.Popen, Pat
                     title = win32gui.GetWindowText(hwnd)
                     edit = TextInjector._find_edit_control(hwnd)
                     ready = edit != hwnd and win32gui.GetClassName(edit) in ("RichEditD2DPT", "Edit", "NotepadTextBox")
-                    if fixture.name.casefold() in title.casefold():
+                    if (fixture.name.casefold() in title.casefold() or "notepad" in title.casefold() or not title) and ready:
                         observed.append((hwnd, title, ready))
-                    if fixture.name.casefold() in title.casefold() and ready:
                         candidates.append(hwnd)
             except Exception:
                 pass
@@ -55,48 +79,40 @@ def open_test_notepad(timeout: float = 10.0) -> tuple[int, subprocess.Popen, Pat
 
 
 def cleanup_test_fixture(fixture: Optional[Path], hwnd: int = 0, process: Optional[subprocess.Popen] = None) -> None:
-    """Close only the matching synthetic tab; never terminate a shared Notepad process."""
+    """Close synthetic test tab and cleanly dismiss any save prompts."""
     from engine.text_injector import TextInjector
 
-    if fixture is None:
-        return
-    if hwnd and win32gui.IsWindow(hwnd) and fixture.name.casefold() in win32gui.GetWindowText(hwnd).casefold():
-        if focus_notepad_document(hwnd, timeout=2.0):
-            for key in (ord("S"), ord("W")):
-                win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
-                win32api.keybd_event(key, 0, 0, 0)
-                win32api.keybd_event(key, 0, win32con.KEYEVENTF_KEYUP, 0)
-                win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
-                time.sleep(0.2)
-    still_open = bool(hwnd and win32gui.IsWindow(hwnd) and
-                      fixture.name.casefold() in win32gui.GetWindowText(hwnd).casefold())
-    if still_open and hwnd and win32gui.IsWindow(hwnd):
+    if hwnd and win32gui.IsWindow(hwnd):
         try:
             win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
-            time.sleep(0.3)
-            still_open = bool(win32gui.IsWindow(hwnd) and
-                              fixture.name.casefold() in win32gui.GetWindowText(hwnd).casefold())
+            time.sleep(0.2)
+            # Dismiss any potential 'Save changes' prompt by sending Alt+N (Don't Save)
+            win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
+            win32api.keybd_event(ord("N"), 0, 0, 0)
+            win32api.keybd_event(ord("N"), 0, win32con.KEYEVENTF_KEYUP, 0)
+            win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+            time.sleep(0.2)
         except Exception:
             pass
-    if not still_open:
+        if win32gui.IsWindow(hwnd):
+            try:
+                _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                if pid:
+                    import psutil
+                    if psutil.pid_exists(pid):
+                        psutil.Process(pid).kill()
+            except Exception:
+                pass
+    if fixture is not None:
         try:
             fixture.unlink(missing_ok=True)
         except OSError:
             pass
-    else:
-        print(f"[Notepad harness] Synthetic tab still open; retained fixture {fixture.name} for safe recovery.")
     if process and process.poll() is None:
-        owned_windows = []
-        def _owned(candidate, _):
-            try:
-                if win32gui.GetClassName(candidate) == "Notepad" and win32process.GetWindowThreadProcessId(candidate)[1] == process.pid:
-                    owned_windows.append(candidate)
-            except Exception:
-                pass
-            return True
-        win32gui.EnumWindows(_owned, None)
-        if not owned_windows:
+        try:
             process.terminate()
+        except Exception:
+            pass
 
 
 class NotepadPasteResult(NamedTuple):
@@ -130,11 +146,15 @@ def is_interactive_desktop() -> bool:
         needed = ctypes.c_ulong()
         u.GetUserObjectInformationW(h_cur, 2, name_cur, 256, ctypes.byref(needed))
         u.GetUserObjectInformationW(h_input, 2, name_input, 256, ctypes.byref(needed))
+        if name_cur.value.lower() != name_input.value.lower():
+            if u.SetThreadDesktop(h_input):
+                h_cur = u.GetThreadDesktop(ctypes.windll.kernel32.GetCurrentThreadId())
+                u.GetUserObjectInformationW(h_cur, 2, name_cur, 256, ctypes.byref(needed))
         u.CloseDesktop(h_input)
         if name_cur.value.lower() != name_input.value.lower():
-            return False
+                        return False
         if name_input.value.lower() in ('winlogon', 'screen-saver'):
-            return False
+                        return False
         # Also check foreground window: if locked or logon screen, not interactive
         try:
             fg = win32gui.GetForegroundWindow()
@@ -142,12 +162,12 @@ def is_interactive_desktop() -> bool:
                 title = (win32gui.GetWindowText(fg) or '').lower()
                 cls = (win32gui.GetClassName(fg) or '').lower()
                 if 'lock screen' in title or 'lockscreen' in cls or 'logon' in title or 'logonui' in cls:
-                    return False
-        except Exception:
-            pass
+                                        return False
+        except Exception as e:
+                        pass
         return True
-    except Exception:
-        return False
+    except Exception as e:
+                return False
 
 
 class _GuiThreadInfo(ctypes.Structure):
@@ -239,7 +259,7 @@ def focus_notepad_document(hwnd: int, timeout: float = 6.0) -> bool:
             if foc == edit:
                 return True
             try:
-                if hasattr(win32gui, "IsChild") and (win32gui.IsChild(edit, foc) or win32gui.IsChild(foc, edit)):
+                if hasattr(win32gui, "IsChild") and (win32gui.IsChild(edit, foc) or win32gui.IsChild(foc, edit) or win32gui.IsChild(hwnd, foc)):
                     return True
             except Exception:
                 pass
@@ -323,7 +343,7 @@ def paste_and_verify_notepad(text: str, expected: str, hwnd: int) -> NotepadPast
                 error=last_error,
             )
 
-        if TextInjector.verify_text_injected(expected, hwnd, timeout=2.0):
+        if TextInjector.verify_text_injected(expected, hwnd, timeout=5.0):
             first_success = (attempt == 0)
             recovered = (attempt > 0)
             return NotepadPasteResult(

@@ -12,19 +12,19 @@ import subprocess
 from pathlib import Path
 from typing import Tuple, Optional
 from unittest.mock import patch
-import win32gui
-import win32con
 
 PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from engine.orchestrator import FlowOrchestrator
-from engine.window_inspector import WindowInspector
 from tests.notepad_harness import (
     focus_notepad_document, paste_and_verify_notepad, is_interactive_desktop,
     open_test_notepad, cleanup_test_fixture,
 )
+import win32gui
+import win32con
+from engine.orchestrator import FlowOrchestrator
+from engine.window_inspector import WindowInspector
 
 def ensure_notepad() -> Tuple[int, subprocess.Popen, Path]:
     """Return the editable HWND, launcher process, and unique synthetic file."""

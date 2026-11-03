@@ -33,6 +33,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from tests.notepad_harness import (
+    focus_notepad_document, paste_and_verify_notepad, is_interactive_desktop,
+    open_test_notepad, cleanup_test_fixture,
+)
 from engine.config import load_config, save_config
 from engine.single_instance import SingleInstance
 from engine.audio_recorder import AudioRecorder

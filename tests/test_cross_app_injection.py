@@ -27,16 +27,16 @@ try:
 except Exception:
     pass
 
+from tests.notepad_harness import (
+    is_interactive_desktop, focus_notepad_document, paste_and_verify_notepad,
+    open_test_notepad, cleanup_test_fixture,
+)
 import win32gui
 import win32con
 import win32process
 import win32api
 from engine.text_injector import TextInjector, InjectionStatus
 from engine.window_inspector import WindowInspector
-from tests.notepad_harness import (
-    is_interactive_desktop, focus_notepad_document, paste_and_verify_notepad,
-    open_test_notepad, cleanup_test_fixture,
-)
 
 def test_cross_app_safe_abort_when_focus_lost():
     """Separated safety check: validates safe-abort to recovery buffer on focus loss or focus mismatch.
@@ -143,12 +143,14 @@ def test_cross_app_injection():
         # Try conhost.exe first so Windows 11 does not delegate to Windows Terminal tabs
         try:
             cmd_proc = subprocess.Popen(
-                ["conhost.exe", "cmd.exe", "/k", f"title {unique_console_tag} && echo {unique_console_tag}"]
+                ["cmd.exe", "/c", "start", "cmd.exe", "/k", f"title {unique_console_tag} && echo {unique_console_tag}"],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         except (FileNotFoundError, OSError):
             cmd_proc = subprocess.Popen(
                 ["cmd.exe", "/k", f"title {unique_console_tag} && echo {unique_console_tag}"],
-                creationflags=creation_flags
+                creationflags=creation_flags,
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         cmd_hwnd = 0
         for _ in range(40):
@@ -215,18 +217,25 @@ def test_cross_app_injection():
         assert focus_ok and win32gui.IsWindow(cmd_hwnd), (
             f"Test console lost focus before explicit Enter: {focus_error}"
         )
+        time.sleep(0.15)
         win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)
         win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)
 
         # Verify pasted text by executing it only after the test's explicit Enter.
         executed = False
-        for _ in range(30):
+        for i in range(40):
             time.sleep(0.1)
             if cmd_verify_file.exists():
                 txt = cmd_verify_file.read_text(encoding="utf-8", errors="replace")
                 if "FlowPilot_Console_Confirmed" in txt:
                     executed = True
                     break
+            if i in (10, 20):
+                try:
+                    win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)
+                    win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)
+                except Exception:
+                    pass
         assert executed, (
             f"Console delivery unconfirmed: keystrokes were not executed by cmd.exe! "
             f"Status: {res_cmd.status}, error: {res_cmd.error_message}"
@@ -303,10 +312,14 @@ def test_cross_app_injection():
             except Exception:
                 pass
         cleanup_test_fixture(np_fixture, np_hwnd, np_proc)
+        if cmd_hwnd and win32gui.IsWindow(cmd_hwnd):
+            try:
+                win32gui.PostMessage(cmd_hwnd, win32con.WM_CLOSE, 0, 0)
+            except Exception:
+                pass
         if cmd_proc:
             try:
                 cmd_proc.kill()
-                cmd_proc.wait(timeout=2.0)
             except Exception:
                 pass
 

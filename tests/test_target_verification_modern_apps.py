@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from tests.notepad_harness import is_interactive_desktop
 from PySide6.QtWidgets import QApplication, QTextEdit, QLineEdit, QMainWindow
 from engine.text_injector import TextInjector, InjectionStatus, InjectionResult
 
