@@ -500,7 +500,7 @@ class STTEngine:
             duration_sec = len(audio_input) / 16000 if isinstance(audio_input, np.ndarray) else 30.0
             prompt_token_count = budget.count(initial_prompt) if initial_prompt else 0
             safe_max_tokens = max(32, 448 - prompt_token_count - 16)
-            max_new_tokens = min(safe_max_tokens, max(48, int(duration_sec * 14)))
+            max_new_tokens = min(256, safe_max_tokens, max(48, int(duration_sec * 14)))
 
             try:
                 segments, info = model.transcribe(

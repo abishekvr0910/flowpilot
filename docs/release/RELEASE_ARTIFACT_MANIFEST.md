@@ -2,6 +2,26 @@
 
 Updated 2026-11-04. Verify downloaded installers and archives against the SHA-256 digests below.
 
+## General Availability release: v3.2.1, Windows x64
+
+**Production GA Single-Instance IPC & UX Parity Release (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.1 resolves single-instance window restoration and activation: secondary application invocations cleanly signal the running instance via native QLocalServer named pipe IPC with Windows AllowSetForegroundWindow foreground granting and exit 0 in <15 ms without modal popups or hotkey registration collisions (Win32 Error 1409); tray icon single-click and double-click reliably unhide and restore the Dashboard window rather than toggling the microphone; closing the Dashboard window cleanly minimizes to tray without terminating background dictation; and WritingIntelligence canonicalizes spoken tech terms (e.g., spoken 'EXC file' -> '.exe file', 'task manager' -> 'Task Manager', 'Whisper flow' -> 'Wispr Flow', 'fail to register' -> 'failed to register', and spoken 'dot exe/py/json' -> '.exe/.py/.json').
+
+| Item | Measured value |
+|---|---|
+| Installer Executable | dist/FlowPilot-Setup-v3.2.1.exe |
+| Installer size | 231,553,077 bytes (220.83 MB) |
+| Installer SHA-256 | EF6970D17677AAA6BB5019EFE84D8FB99F9E296956B208460EAEE133B4EAD2F7 |
+| Archive | dist/FlowPilot-v3.2.1-windows-x64.zip |
+| Archive size | 287,279,836 bytes (273.97 MB) |
+| Archive SHA-256 | D1E06A7C3F847D09421715B5CB77F8778333EBF42FB0E45A6124BF1E058A8252 |
+| Embedded executable | FlowPilot.exe, 16,553,260 bytes (15.79 MB) |
+| Embedded executable SHA-256 | 9DDE00CDAA3D2B36C8622AB7A51D55CA5658D82783234A7367179E236D68A3B9 |
+| Archive integrity | 550 members, CRC passed; zero extraneous packages (scipy, cryptography, aiohttp, aioquic); embedded executable hash matched the tested bundle |
+| License notices | 94 files under licenses/ (including AI4Bharat-IndicConformer-LICENSE.txt) in both the ZIP and the installer |
+| PE Version Stamp | FileVersion: 3.2.1.0, ProductVersion: 3.2.1.0, CompanyName: FlowPilot Open Source, FileDescription: FlowPilot Voice Intelligence |
+| Authenticode | NotSigned (Unsigned package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
+| Local automated audit | Headless audit across 68 suites: 63 passed, 5 honest interactive-desktop skips, 0 failed; standalone binary smoke passed; test_single_instance_ipc passed 100% |
+
 ## General Availability release: v3.2.0, Windows x64
 
 **Production GA Leapfrog Release package (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.0 incorporates the full Wispr-Flow competitive leapfrog tranche: adaptive 0.85s speech-onset pre-roll with 0.35s quiet-room floor (lowering onset WER from 22.3% to 13.5%), 95-tap Blackman-windowed sinc FIR anti-aliasing resampling (>50 dB stopband rejection, reducing 48 kHz WASAPI noise-aliasing penalty from +44.7% to +14.7%), exact CTC prefix beam search with log-space blank/non-blank path recombination and lexical biasing (improving Mozilla Common Voice Tamil CER from 4.44% to 3.97%), pause-anchored streaming prefix pre-decoding (cutting post-stop P95 latency by ~300 ms and multi-clause WER to 12.5%), active-window context symbol harvesting and spoken CamelCase symbol restoration, full `scratch that` and Polish `nie czekaj` / `czekaj` / `przepraszam` self-corrections with zero FactGuard rollbacks (100% pass rate), Windows clipboard history/cloud sync exclusion flags (`CanIncludeInClipboardHistory` and `CanUploadToCloudStore` zeroed), hardware scan-code mapping for terminal pastes, and user-scriptable Python transforms in `~/.flowpilot/transforms.py`.

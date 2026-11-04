@@ -46,36 +46,28 @@ class FlowPilotApp:
         # 0. Enforce single instance
         self.single_instance = SingleInstance() if enforce_single_instance else None
         if self.single_instance and self.single_instance.is_already_running():
-            print("[FlowPilot] Another instance of FlowPilot is already running. Bringing window to front.")
+            print("[FlowPilot] Another instance of FlowPilot is already running. Signaling primary instance to restore window.")
+            pipe_name = os.environ.get("FLOWPILOT_PIPE_NAME", "FlowPilot_Desktop_SingleInstance_Pipe")
             if sys.platform == "win32":
                 try:
-                    import win32gui
-                    import win32con
-                    hwnd = win32gui.FindWindowW(None, "FlowPilot")
-                    if not hwnd:
-                        hwnd = win32gui.FindWindowW(None, "FlowPilot - Voice Intelligence Dashboard")
-                    if hwnd:
-                        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-                        win32gui.SetForegroundWindow(hwnd)
-                except Exception:
-                    pass
-            if sys.platform == "win32" and not os.environ.get("FLOWPILOT_NO_POPUP") and not os.environ.get("CI") and "FLOWPILOT_MUTEX_NAME" not in os.environ:
-                try:
                     import ctypes
-                    user32 = ctypes.windll.user32
-                    if hasattr(user32, "MessageBoxTimeoutW"):
-                        user32.MessageBoxTimeoutW(
-                            0,
-                            "FlowPilot is already running!\n\nLook for the companion on your screen or the FlowPilot icon in your System Tray (near the clock).\n\nUse your configured dictation shortcut to speak.",
-                            "FlowPilot Voice Intelligence",
-                            0x40,  # MB_ICONINFORMATION
-                            0,
-                            2500   # Auto-dismiss after 2.5 seconds to prevent modal hang
-                        )
-                    else:
-                        print("[FlowPilot Warning] FlowPilot is already running.")
+                    # Allow primary instance to take foreground focus
+                    ctypes.windll.user32.AllowSetForegroundWindow(-1)
                 except Exception:
                     pass
+            try:
+                from PySide6.QtCore import QCoreApplication
+                from PySide6.QtNetwork import QLocalSocket
+                _qapp = QCoreApplication.instance() or QCoreApplication(sys.argv)
+                sock = QLocalSocket()
+                sock.connectToServer(pipe_name)
+                if sock.waitForConnected(800):
+                    sock.write(b"RESTORE\n")
+                    sock.flush()
+                    sock.waitForReadyRead(800)
+                    sock.disconnectFromServer()
+            except Exception as exc:
+                print(f"[FlowPilot Warning] Single-instance IPC signal failed: {exc}")
             sys.exit(0)
 
         self.app = QApplication.instance() or QApplication(sys.argv)
@@ -139,6 +131,11 @@ class FlowPilotApp:
         cur_lang = self.config.get("language", "auto")
         is_trans = self.config.get("translate_to_english", False)
         self.tray.set_language_info(cur_lang, is_trans)
+
+        # Initialize single-instance IPC server for restoring dashboard
+        self._ipc_pipe_name = os.environ.get("FLOWPILOT_PIPE_NAME", "FlowPilot_Desktop_SingleInstance_Pipe")
+        self._ipc_server = None
+        self._init_single_instance_server()
 
         # 3. Connect UI Signals
         self.bridge.state_changed.connect(self._handle_state_update)
@@ -293,12 +290,44 @@ class FlowPilotApp:
         except Exception as _e:
             print(f"[FlowPilot Warning] Transforms hotkey handling: {_e}")
 
+    def _init_single_instance_server(self):
+        try:
+            from PySide6.QtNetwork import QLocalServer
+            QLocalServer.removeServer(self._ipc_pipe_name)
+            self._ipc_server = QLocalServer(self.app)
+            self._ipc_server.newConnection.connect(self._on_ipc_connection)
+            if not self._ipc_server.listen(self._ipc_pipe_name):
+                print(f"[FlowPilot Warning] Failed to listen on single-instance pipe: {self._ipc_pipe_name}")
+        except Exception as exc:
+            print(f"[FlowPilot Warning] Could not start single-instance IPC server: {exc}")
+
+    def _on_ipc_connection(self):
+        try:
+            sock = self._ipc_server.nextPendingConnection()
+            if sock:
+                self.show_dashboard()
+                sock.write(b"ACK\n")
+                sock.flush()
+                sock.disconnectFromServer()
+        except Exception as exc:
+            print(f"[FlowPilot Warning] Error handling IPC connection: {exc}")
+
     def show_dashboard(self):
         if hasattr(self, 'dashboard') and self.dashboard:
             self.dashboard.showNormal()
             self.dashboard.show()
             self.dashboard.raise_()
             self.dashboard.activateWindow()
+            if sys.platform == "win32":
+                try:
+                    import ctypes
+                    user32 = ctypes.windll.user32
+                    hwnd = int(self.dashboard.winId())
+                    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    user32.BringWindowToTop(hwnd)
+                    user32.SetForegroundWindow(hwnd)
+                except Exception:
+                    pass
 
     def show_setup_wizard(self):
         if not hasattr(self, 'wizard_dlg') or not self.wizard_dlg:
@@ -532,9 +561,17 @@ class FlowPilotApp:
             self.orchestrator.recorder.close()
         except Exception:
             pass
+        if hasattr(self, '_ipc_server') and self._ipc_server:
+            try:
+                self._ipc_server.close()
+                from PySide6.QtNetwork import QLocalServer
+                QLocalServer.removeServer(self._ipc_pipe_name)
+            except Exception:
+                pass
         if hasattr(self, 'single_instance') and self.single_instance:
             self.single_instance.release()
         if hasattr(self, 'dashboard') and self.dashboard:
+            self.dashboard._force_close = True
             self.dashboard.close()
         self.hud.close()
         self.app.quit()

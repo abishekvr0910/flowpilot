@@ -203,11 +203,12 @@ class TrayManager(QObject):
                 self.action_toggle.setText(f"Dictate ({clean_hk})")
 
     def _on_tray_activated(self, reason):
-        if reason == QSystemTrayIcon.Trigger:
-            # Single click toggles dictation
-            self.toggle_requested.emit()
-        elif reason == QSystemTrayIcon.DoubleClick:
+        if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
+            # Single click and double click restore/open the FlowPilot Dashboard
             self.dashboard_requested.emit()
+        elif reason == QSystemTrayIcon.MiddleClick:
+            # Middle click toggles dictation
+            self.toggle_requested.emit()
 
     def set_state(self, state: str):
         st = state.lower()

@@ -85,6 +85,7 @@ TESTS = [
     ("Multilingual Quick-Switch & Tray Integration", "tests/test_language_quick_switch.py"),
     ("Offline Tamil Synthetic & Speech Self-Test", "tests/test_tamil_offline_self_test.py"),
     ("Wispr-Flow-Class Competitive Leapfrog Upgrades", "tests/test_wispr_leapfrog_upgrades.py"),
+    ("Single-Instance IPC Window Activation & Tray UX", "tests/test_single_instance_ipc.py"),
 ]
 
 

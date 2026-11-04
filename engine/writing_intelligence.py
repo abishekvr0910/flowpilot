@@ -30,7 +30,11 @@ TECH_GLOSSARY = {
     "whisper": "Whisper", "llm": "LLM", "llms": "LLMs", "ui": "UI", "ux": "UX",
     "pr": "PR", "ci": "CI", "cd": "CD", "ci/cd": "CI/CD", "sdk": "SDK", "sdks": "SDKs",
     "url": "URL", "urls": "URLs", "uuid": "UUID", "jwt": "JWT", "oauth": "OAuth",
-    "oauth2": "OAuth2", "ctranslate2": "CTranslate2"
+    "oauth2": "OAuth2", "ctranslate2": "CTranslate2",
+    "whisper flow": "Wispr Flow", "wispr flow": "Wispr Flow",
+    "task manager": "Task Manager", "exe": "EXE", "exes": "EXEs",
+    "fail to register": "failed to register", "failed to register": "failed to register",
+    "ipc": "IPC", "gui": "GUI", "cli": "CLI", "hwnd": "HWND", "win32": "Win32", "macos": "macOS"
 }
 
 # Wordy phrase replacements for Concise style
@@ -813,11 +817,20 @@ class WritingIntelligence:
         return text, changes
 
     def _canonicalize_tech_terms(self, text: str, style: str = "professional") -> str:
+        # Spoken executable files and extensions (e.g. "EXC file", "dot exe")
+        text = re.sub(r"(?i)\b(?:exc|e\s*x\s*c|exe)\s+file(s?)\b", r".exe file\1", text)
+        text = re.sub(
+            r"(?i)\bdot\s+(exe|py|json|yaml|yml|md|txt|csv|ts|js|html|css|rs|go|cpp|c|h|sh|bat|ps1|zip|tar|gz)\b",
+            lambda m: f".{m.group(1).lower()}",
+            text
+        )
+
         for lower_term, canonical in TECH_GLOSSARY.items():
             if style == "terminal" and lower_term in ("git", "docker", "python", "sql", "html", "css"):
                 continue
-            pattern = rf"(?i)\b{re.escape(lower_term)}\b"
+            pattern = rf"(?i)(?<![\.\/])\b{re.escape(lower_term)}\b"
             text = re.sub(pattern, canonical, text)
+
         # Preserve lowercased URLs
         text = re.sub(r"(?i)\b(https?://[^\s]+)", lambda m: m.group(1).lower(), text)
         return text

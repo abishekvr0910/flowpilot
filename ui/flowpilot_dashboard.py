@@ -62,6 +62,7 @@ class FlowPilotDashboard(QMainWindow):
         self.on_dictate = on_dictate
         self.personalization = personalization or get_shared_personalization()
         self.store: CompanionStore = get_companion_store()
+        self._force_close = False
 
         self.setWindowTitle("FlowPilot")
         self.setMinimumSize(880, 580)
@@ -374,3 +375,11 @@ class FlowPilotDashboard(QMainWindow):
         self._apply_theme()
         self.home_page.refresh()
         return True
+
+    def closeEvent(self, event):
+        """Cleanly minimize to background/tray rather than destroying the application."""
+        if getattr(self, "_force_close", False):
+            event.accept()
+            return
+        event.ignore()
+        self.hide()
