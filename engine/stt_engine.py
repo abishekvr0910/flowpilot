@@ -492,11 +492,15 @@ class STTEngine:
             # Pre-gated dictation audio does not require redundant VAD chunking overhead (~480ms saved)
             vad_filter = self.config.get("vad_filter", False)
             # Whisper's default temperature list retries low-confidence segments.
-            # On short Indic speech this can repeatedly generate nonsense for tens
+            # On short speech this can repeatedly generate nonsense for tens
             # of seconds. Keep dictation deterministic and bound generated tokens
             # to the recorded duration, with room for subword-heavy scripts.
+            # Dynamically calculate maximum generation headroom to strictly prevent
+            # sequence length overflow (Whisper architecture hard limit = 448 tokens).
             duration_sec = len(audio_input) / 16000 if isinstance(audio_input, np.ndarray) else 30.0
-            max_new_tokens = min(256, max(48, int(duration_sec * 12)))
+            prompt_token_count = budget.count(initial_prompt) if initial_prompt else 0
+            safe_max_tokens = max(32, 448 - prompt_token_count - 16)
+            max_new_tokens = min(safe_max_tokens, max(48, int(duration_sec * 14)))
 
             try:
                 segments, info = model.transcribe(
@@ -513,7 +517,26 @@ class STTEngine:
                 )
                 segment_list = list(segments)
             except Exception as e:
-                if vad_filter:
+                # Catch sequence length / prompt overflow errors and retry safely
+                is_seq_overflow = isinstance(e, ValueError) and any(
+                    k in str(e).lower() for k in ("exceed", "max_length", "max_new_tokens")
+                )
+                if is_seq_overflow:
+                    print(f"[STT Warning] Prompt sequence length exceeded ({e}). Retrying with unconstrained tokens...")
+                    if not isinstance(audio_input, np.ndarray):
+                        audio_input.seek(0)
+                    segments, info = model.transcribe(
+                        audio_input,
+                        beam_size=beam_size,
+                        language=whisper_lang,
+                        task=task,
+                        initial_prompt=initial_prompt[:120] if initial_prompt else None,
+                        temperature=0.0,
+                        max_new_tokens=None,
+                        vad_filter=False,
+                    )
+                    segment_list = list(segments)
+                elif vad_filter:
                     print(f"[STT Warning] Transcribe with vad_filter failed ({e}). Falling back without vad_filter...")
                     if not isinstance(audio_input, np.ndarray):
                         audio_input.seek(0)

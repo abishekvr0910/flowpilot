@@ -267,6 +267,21 @@ class TestWisprLeapfrogUpgrades(unittest.TestCase):
         # Must execute cleanly on Windows without raising exceptions
         TextInjector._exclude_clipboard_from_history_and_cloud()
 
+    def test_long_prompt_and_duration_sequence_overflow_resilience(self):
+        # Verify that an oversized prompt (>200 tokens) combined with audio never triggers
+        # faster-whisper ValueError: combined length exceeds max_length of the Whisper model (448)
+        stt = STTEngine({"language": "en", "beam_size": 1, "vad_filter": False})
+        sr = 16000
+        t = np.arange(int(2.0 * sr), dtype=np.float32) / sr
+        audio = (0.05 * np.sin(2.0 * np.pi * 300.0 * t)).astype(np.float32)
+        massive_prompt = (
+            "Kubernetes Docker Microservices PostgreSQL Cassandra Redis Apache Kafka Elasticsearch "
+            "Grafana Prometheus Jaeger OpenTelemetry Terraform Ansible Helm ArgoCD Istio Envoy "
+        ) * 5
+        res = stt._transcribe_local(audio, massive_prompt, "en")
+        self.assertIsInstance(res, dict)
+        self.assertIn("text", res)
+
 
 if __name__ == "__main__":
     unittest.main()

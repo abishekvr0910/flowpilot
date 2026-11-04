@@ -9,13 +9,13 @@ Updated 2026-11-04. Verify downloaded installers and archives against the SHA-25
 | Item | Measured value |
 |---|---|
 | Installer Executable | dist/FlowPilot-Setup-v3.2.0.exe |
-| Installer size | 231,564,556 bytes (220.84 MB) |
-| Installer SHA-256 | 04DBFEC10C9DE46244A17071EC79C3E6E6049EE581061F7FC0154A009E1196FB |
+| Installer size | 231,560,647 bytes (220.83 MB) |
+| Installer SHA-256 | 316D777286B5D601F458D9FB1B1D309D911C15067E9606C85E02268AF53B3D56 |
 | Archive | dist/FlowPilot-v3.2.0-windows-x64.zip |
-| Archive size | 287,277,059 bytes (273.97 MB) |
-| Archive SHA-256 | E27FD1663BDAF09CE7C79B8ACB73F90A635B0058E4F37C4C1EA097363AE0B551 |
-| Embedded executable | FlowPilot.exe, 16,550,788 bytes (15.78 MB) |
-| Embedded executable SHA-256 | 833533BE08F59BD25CC412CC2570F01D4F4C5C91EA8D3E4555C1608C9B054517 |
+| Archive size | 287,277,767 bytes (273.97 MB) |
+| Archive SHA-256 | 2CF30D92CC7F792681D708F710809CB893674D9FECD8BB8BBF835DB2729C0A65 |
+| Embedded executable | FlowPilot.exe, 16,551,324 bytes (15.78 MB) |
+| Embedded executable SHA-256 | D7439559D794F8EE916EB2A3776AB30B786448C0C1F39D64F112160EF758BC5F |
 | Archive integrity | 550 members, CRC passed; zero extraneous packages (scipy, cryptography, aiohttp, aioquic); embedded executable hash matched the tested bundle |
 | License notices | 94 files under licenses/ (including AI4Bharat-IndicConformer-LICENSE.txt) in both the ZIP and the installer |
 | PE Version Stamp | FileVersion: 3.2.0.0, ProductVersion: 3.2.0.0, CompanyName: FlowPilot Open Source, FileDescription: FlowPilot Voice Intelligence |
