@@ -125,7 +125,7 @@ class TrayManager(QObject):
         self.action_duck.setChecked(True)
         self.action_duck.toggled.connect(self.ducking_toggled.emit)
 
-        self.action_reinject = self.menu.addAction("📋 Paste Last Dictation (Shift+Alt+Z)")
+        self.action_reinject = self.menu.addAction("📋 Paste Last Dictation (Ctrl+Alt+V)")
         self.action_reinject.triggered.connect(self.reinject_requested.emit)
 
         self.action_recopy = self.menu.addAction("📄 Copy Last Dictation (Shift+Alt+X)")

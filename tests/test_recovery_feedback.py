@@ -260,6 +260,43 @@ class TestRecoveryFeedback(unittest.TestCase):
         self.assertEqual(orch.state, AppState.IDLE)
 
 
+    def test_ctrl_alt_v_recovery_shortcut_resolution(self):
+        """Verify that Ctrl+Alt+V resolves to Win32 modifiers and VK codes and dispatches to re_inject_last."""
+        from engine.hotkey_service import parse_hotkey_string, MOD_CONTROL, MOD_ALT, VK_MAPPING, dictation_hotkey_conflict
+        mods, vk = parse_hotkey_string("Ctrl+Alt+V")
+        self.assertEqual(mods, MOD_CONTROL | MOD_ALT)
+        self.assertEqual(vk, VK_MAPPING["V"])
+        self.assertEqual(dictation_hotkey_conflict("Ctrl+Alt+V"), "Paste last dictation (Ctrl+Alt+V)")
+
+        # Verify orchestrator registers Ctrl+Alt+V
+        class FakeService:
+            def __init__(self):
+                self.keys = []
+                self.callbacks = {}
+                self.alive = False
+                self.stats = {"errors": []}
+            def is_alive(self):
+                return self.alive
+            def register(self, hk, cb, on_release=None):
+                self.keys.append(hk)
+                self.callbacks[hk] = cb
+                return len(self.keys)
+            def start(self, timeout=3.0):
+                self.alive = True
+                return True
+            def stop(self):
+                self.alive = False
+
+        orch = FlowOrchestrator.__new__(FlowOrchestrator)
+        orch.config = {"hotkey": "F9", "hotkey_mode": "toggle", "hotkey_exclusive": True}
+        orch.hotkey_service = FakeService()
+        orch._auxiliary_hotkeys = {}
+        orch.start_hotkey_listener()
+
+        self.assertIn("Ctrl+Alt+V", orch.hotkey_service.keys)
+        self.assertIn("Alt+Shift+Z", orch.hotkey_service.keys)
+        self.assertEqual(orch.hotkey_service.callbacks["Ctrl+Alt+V"], orch.re_inject_last)
+
     def test_hotkey_alias_normalization(self):
         """Verify that Alt+Shift+Z/X and Shift+Alt+Z/X resolve to identical Win32 modifiers and VK codes."""
         from engine.hotkey_service import parse_hotkey_string, MOD_ALT, MOD_SHIFT

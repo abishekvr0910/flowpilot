@@ -112,7 +112,7 @@ class WorkspaceHome(QScrollArea):
         recovery_layout.addWidget(self.last_preview)
         actions = QHBoxLayout()
         self.btn_paste = QPushButton("Paste last")
-        self.btn_paste.setToolTip("Paste last dictation · Alt+Shift+Z")
+        self.btn_paste.setToolTip("Paste last dictation · Ctrl+Alt+V")
         self.btn_paste.clicked.connect(dashboard._on_quick_paste_last)
         self.btn_copy = QPushButton("Copy text")
         self.btn_copy.setToolTip("Copy last dictation · Alt+Shift+X")

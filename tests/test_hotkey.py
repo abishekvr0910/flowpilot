@@ -40,6 +40,9 @@ def test_hotkey_resolution():
 
     # A custom key cannot take over FlowPilot recovery or transforms actions.
     assert dictation_hotkey_conflict("Control+Alt+T") == "Selected-text transforms (Ctrl+Alt+T)"
+    assert dictation_hotkey_conflict("Control+Alt+V") == "Paste last dictation (Ctrl+Alt+V)"
+    assert dictation_hotkey_conflict("Ctrl+Alt+V") == "Paste last dictation (Ctrl+Alt+V)"
+    assert dictation_hotkey_conflict("Ctrl+Alt+L") == "Quick switch language (Ctrl+Alt+L)"
     assert dictation_hotkey_conflict("Shift+Alt+Z") == "Paste last dictation (Alt+Shift+Z)"
     assert dictation_hotkey_conflict("Alt+Shift+X") == "Copy last dictation (Alt+Shift+X)"
     assert dictation_hotkey_conflict("F9") is None
@@ -84,7 +87,7 @@ def test_hotkey_resolution():
     with patch("engine.orchestrator.save_config", return_value=True), \
          patch("engine.hotkey_service.get_hotkey_service", side_effect=FakeService):
         assert legacy.update_config({"hotkey_exclusive": True}) is True
-    assert legacy.hotkey_service.keys == ["Ctrl+Shift+Space", "Alt+Shift+Z", "Alt+Shift+X", "Alt+Shift+U"]
+    assert legacy.hotkey_service.keys == ["Ctrl+Shift+Space", "Ctrl+Alt+V", "Alt+Shift+Z", "Alt+Shift+X", "Alt+Shift+U"]
     legacy.stop_hotkey_listener()
 
     isolated = FlowOrchestrator.__new__(FlowOrchestrator)
@@ -93,7 +96,7 @@ def test_hotkey_resolution():
     isolated._auxiliary_hotkeys = {}
     isolated.add_auxiliary_hotkey("Ctrl+Alt+T", lambda: None)
     isolated.start_hotkey_listener()
-    assert isolated.hotkey_service.keys == ["F9", "Ctrl+Alt+T", "Alt+Shift+Z", "Alt+Shift+X", "Alt+Shift+U"]
+    assert isolated.hotkey_service.keys == ["F9", "Ctrl+Alt+T", "Ctrl+Alt+V", "Alt+Shift+Z", "Alt+Shift+X", "Alt+Shift+U"]
     isolated.stt = SimpleNamespace(config=None)
     isolated.processor = SimpleNamespace(config=None)
     isolated.recorder = SimpleNamespace(device=None, set_device=MagicMock())
@@ -102,7 +105,8 @@ def test_hotkey_resolution():
          patch.object(Win32HotkeyService, "test_hotkey_availability", return_value=(True, "Available")):
         assert isolated.update_config({"hotkey": "Ctrl+F9"}) is True
         assert isolated.config["hotkey_exclusive"] is True
-        assert isolated.hotkey_service.keys == ["Ctrl+F9", "Ctrl+Alt+T", "Alt+Shift+Z", "Alt+Shift+X", "Alt+Shift+U"]
+        assert isolated.hotkey_service.keys == ["Ctrl+F9", "Ctrl+Alt+T", "Ctrl+Alt+V", "Alt+Shift+Z", "Alt+Shift+X", "Alt+Shift+U"]
+        assert isolated.update_config({"hotkey": "Ctrl+Alt+V"}) is False
         assert isolated.update_config({"hotkey": "Alt+Shift+Z"}) is False
         assert isolated.update_config({"hotkey": "Alt+Shift+U"}) is False
         assert isolated.config["hotkey"] == "Ctrl+F9"

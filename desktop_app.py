@@ -234,7 +234,7 @@ class FlowPilotApp:
         print("\n============================================================")
         print("   FLOWPILOT NATIVE DESKTOP APPLICATION ACTIVE")
         print("============================================================")
-        print(f"[*] Dictation shortcut: '{hk_str}' ({hk_mode}); transforms: 'Ctrl + Alt + T'")
+        print(f"[*] Dictation shortcut: '{hk_str}' ({hk_mode}); paste last: 'Ctrl + Alt + V'; transforms: 'Ctrl + Alt + T'")
         if not self.config.get("hotkey_exclusive", False):
             print("[*] Legacy dictation aliases remain active until you choose a shortcut in Settings: F9, Ctrl + Alt + Space")
         print("[*] Robot Companion:  Pilot Active (Draggable to any corner)")
@@ -272,6 +272,20 @@ class FlowPilotApp:
                         self.dashboard.notetaker_view.append_segment(fmt_text)
                     if hasattr(self.dashboard, 'history_view'):
                         self.dashboard.history_view.reload_history()
+
+        if payload.get("recovery_action", False):
+            if state in ("pasted", "success"):
+                prior_status = self.orchestrator.last_dictation.get("prior_injection_status") if hasattr(self, "orchestrator") and isinstance(getattr(self.orchestrator, "last_dictation", None), dict) else None
+                was_unverified = (prior_status == "sent_unverified")
+                if confirmed:
+                    self.tray.show_notification("FlowPilot: Confirmed Inserted", "Last dictation physically verified in target window.")
+                else:
+                    msg = "Keystrokes sent to target window (unverified target buffer)."
+                    if was_unverified:
+                        msg += " Prior attempt was also unverified; please check for duplicate text."
+                    self.tray.show_notification("FlowPilot: Sent (Unverified)", msg, is_warning=True)
+            elif notice == "Copied last dictation to clipboard":
+                self.tray.show_notification("FlowPilot: Copied", "Last dictation copied to clipboard.")
 
         if state == "error":
             err = payload.get("message", "Unknown error")
@@ -463,29 +477,10 @@ class FlowPilotApp:
         self.tray.show_notification("FlowPilot Translation", f"Real-time speech translation: {status_str}")
 
     def _on_reinject_last(self):
-        res = self.orchestrator.re_inject_last()
-        from engine.text_injector import InjectionStatus
-        prior_status = self.orchestrator.last_dictation.get("prior_injection_status")
-        was_unverified = (prior_status == InjectionStatus.SENT_UNVERIFIED.value)
-
-        if res.status == InjectionStatus.CONFIRMED_INSERTED:
-            self.tray.show_notification("FlowPilot: Confirmed Inserted", "Last dictation physically verified in target window.")
-        elif res.status == InjectionStatus.SENT_UNVERIFIED:
-            msg = "Keystrokes sent to target window (unverified target buffer)."
-            if was_unverified:
-                msg += " Prior attempt was also unverified; please check for duplicate text."
-            self.tray.show_notification("FlowPilot: Sent (Unverified)", msg, is_warning=True)
-        elif res.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE:
-            self.tray.show_notification("FlowPilot: Recovery Saved", "Target window focus lost. Text preserved in recovery buffer (Shift+Alt+X to copy).", is_warning=True)
-        else:
-            self.tray.show_notification("FlowPilot Error", res.error_message or "Could not paste last dictation.", is_error=True)
+        self.orchestrator.re_inject_last()
 
     def _on_recopy_last(self):
-        success = self.orchestrator.re_copy_last()
-        if success:
-            self.tray.show_notification("FlowPilot", "Last dictation copied to clipboard!")
-        else:
-            self.tray.show_notification("FlowPilot", "No previous dictation found to copy.")
+        self.orchestrator.re_copy_last()
 
     def show_companion_studio(self):
         # Open Studio window safely with keyboard focus enabled for custom creation

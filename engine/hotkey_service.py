@@ -46,6 +46,8 @@ VK_MAPPING = {
 # equivalent spellings (such as Control+Alt+T) cannot bypass this check.
 RESERVED_FLOWPILOT_SHORTCUTS = {
     (MOD_CONTROL | MOD_ALT, VK_MAPPING["T"]): "Selected-text transforms (Ctrl+Alt+T)",
+    (MOD_CONTROL | MOD_ALT, VK_MAPPING["V"]): "Paste last dictation (Ctrl+Alt+V)",
+    (MOD_CONTROL | MOD_ALT, VK_MAPPING["L"]): "Quick switch language (Ctrl+Alt+L)",
     (MOD_ALT | MOD_SHIFT, VK_MAPPING["Z"]): "Paste last dictation (Alt+Shift+Z)",
     (MOD_ALT | MOD_SHIFT, VK_MAPPING["X"]): "Copy last dictation (Alt+Shift+X)",
     (MOD_ALT | MOD_SHIFT, VK_MAPPING["U"]): "Undo last rewrite (Alt+Shift+U)",

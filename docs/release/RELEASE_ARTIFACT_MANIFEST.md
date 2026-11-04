@@ -2,6 +2,26 @@
 
 Updated 2026-11-04. Verify downloaded installers and archives against the SHA-256 digests below.
 
+## General Availability release: v3.2.2, Windows x64
+
+**Production GA Global Hotkey & Recovery Ergonomics Release (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.2 introduces global `Ctrl+Alt+V` "Paste Last" shortcut registration across HotkeyService, FlowOrchestrator, and Desktop App (Wispr Flow, Hex, and Raycast ergonomics parity); preserves `Alt+Shift+Z` as a fully functional alias; registers `Ctrl+Alt+V` and `Ctrl+Alt+L` in RESERVED_FLOWPILOT_SHORTCUTS to prevent collision with custom dictation triggers; unifies recovery action tray notifications (`Confirmed Inserted` vs `Sent (Unverified)`) across both physical keyboard triggers and tray menu clicks; and updates all desktop tooltips and settings documentation.
+
+| Item | Measured value |
+|---|---|
+| Installer Executable | dist/FlowPilot-Setup-v3.2.2.exe |
+| Installer size | 231,527,549 bytes (220.80 MB) |
+| Installer SHA-256 | 60517D23E767C48A926CC13639AD0C8D5ED0EEE0991DDA1DFD6D9732C1C57778 |
+| Archive | dist/FlowPilot-v3.2.2-windows-x64.zip |
+| Archive size | 287,280,230 bytes (273.97 MB) |
+| Archive SHA-256 | 6E296D11716CACB92A86829E17111E23C3F2F0FC282733E4EAB06218C23B71FF |
+| Embedded executable | FlowPilot.exe, 16,553,152 bytes (15.79 MB) |
+| Embedded executable SHA-256 | 0F8E624BCBABFFCB86F52FD1FC1BB708910074F5EEF1685F803E95EB6E8040F4 |
+| Archive integrity | 550 members, CRC passed; zero extraneous packages (scipy, cryptography, aiohttp, aioquic); embedded executable hash matched the tested bundle |
+| License notices | 94 files under licenses/ (including AI4Bharat-IndicConformer-LICENSE.txt) in both the ZIP and the installer |
+| PE Version Stamp | FileVersion: 3.2.2.0, ProductVersion: 3.2.2.0, CompanyName: FlowPilot Open Source, FileDescription: FlowPilot Voice Intelligence |
+| Authenticode | NotSigned (Unsigned package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
+| Local automated audit | Headless audit across 69 suites: 64 passed, 5 honest interactive-desktop skips, 0 failed; full hotkey resolution and recovery feedback verified |
+
 ## General Availability release: v3.2.1, Windows x64
 
 **Production GA Single-Instance IPC & UX Parity Release (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.1 resolves single-instance window restoration and activation: secondary application invocations cleanly signal the running instance via native QLocalServer named pipe IPC with Windows AllowSetForegroundWindow foreground granting and exit 0 in <15 ms without modal popups or hotkey registration collisions (Win32 Error 1409); tray icon single-click and double-click reliably unhide and restore the Dashboard window rather than toggling the microphone; closing the Dashboard window cleanly minimizes to tray without terminating background dictation; and WritingIntelligence canonicalizes spoken tech terms (e.g., spoken 'EXC file' -> '.exe file', 'task manager' -> 'Task Manager', 'Whisper flow' -> 'Wispr Flow', 'fail to register' -> 'failed to register', and spoken 'dot exe/py/json' -> '.exe/.py/.json').

@@ -328,7 +328,7 @@ class TestUserFacingFixes(unittest.TestCase):
         self.assertTrue("Invalid format" not in msg)
 
         # 2. FlowPilot default recovery shortcuts are exempted / conflict-flagged
-        for reserved_key in ["Alt+Shift+Z", "Shift+Alt+Z", "Alt+Shift+X", "Shift+Alt+X", "Ctrl+Alt+T"]:
+        for reserved_key in ["Alt+Shift+Z", "Shift+Alt+Z", "Alt+Shift+X", "Shift+Alt+X", "Ctrl+Alt+T", "Ctrl+Alt+V"]:
             avail, msg = Win32HotkeyService.test_hotkey_availability(reserved_key)
             self.assertFalse(avail, f"Expected {reserved_key} to be exempted from reassignment")
             self.assertIn("Conflict", msg)

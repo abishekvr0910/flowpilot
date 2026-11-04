@@ -332,7 +332,7 @@ class SettingsDialog(QDialog):
         lbl_hotkeys = QLabel(
             "Choose one dictation shortcut, such as F9, and select Toggle or Hold mode above. "
             "Only your chosen key will start dictation. FlowPilot reserves Ctrl+Alt+T for transforms, "
-            "Alt+Shift+Z for Paste Last, and Alt+Shift+X for Copy Last. "
+            "Ctrl+Alt+V (or Alt+Shift+Z) for Paste Last, and Alt+Shift+X for Copy Last. "
             "Test Availability checks whether Windows or another app already owns a shortcut."
         )
         lbl_hotkeys.setStyleSheet("color: #94A3B8; background: #0F172A; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.4;")

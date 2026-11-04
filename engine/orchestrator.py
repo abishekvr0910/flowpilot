@@ -1264,11 +1264,12 @@ class FlowOrchestrator:
             else:
                 self._mute_hotkey_registered = False
 
-            # Register Alt+Shift+Z (Paste Last) and Alt+Shift+X (Copy Last) for instant recovery (Wispr Flow alignment)
-            try:
-                self.hotkey_service.register("Alt+Shift+Z", self.re_inject_last)
-            except Exception:
-                pass
+            # Register Ctrl+Alt+V and Alt+Shift+Z (Paste Last) and Alt+Shift+X (Copy Last) for instant recovery (Wispr Flow / Hex alignment)
+            for hk in ("Ctrl+Alt+V", "Alt+Shift+Z"):
+                try:
+                    self.hotkey_service.register(hk, self.re_inject_last)
+                except Exception:
+                    pass
             try:
                 self.hotkey_service.register("Alt+Shift+X", self.re_copy_last)
             except Exception:
