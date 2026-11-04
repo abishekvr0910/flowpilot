@@ -264,6 +264,61 @@ class FlowOrchestrator:
 
         threading.Thread(target=watch, daemon=True, name="FlowPilot-CaptureWatchdog").start()
 
+        def prefix_predecoder():
+            import numpy as np
+            while not stop_event.wait(0.85):
+                if not self.config.get("enable_streaming_prefix", True):
+                    continue
+                with self._state_lock:
+                    if active_session != self._current_session or self.state != AppState.RECORDING or active_session.is_cancelled:
+                        return
+                get_snap = getattr(self.recorder, "get_active_recording_snapshot", None)
+                if not callable(get_snap):
+                    return
+                try:
+                    snap = get_snap()
+                except Exception:
+                    continue
+                if not isinstance(snap, np.ndarray) or len(snap) < int(2.8 * 16000):
+                    continue
+                find_split = getattr(self.stt, "find_pause_split_sample", None)
+                build_cp = getattr(self.stt, "build_pause_prefix_checkpoint", None)
+                if not callable(find_split) or not callable(build_cp):
+                    return
+                split_sample = find_split(snap)
+                if not isinstance(split_sample, int):
+                    continue
+                prev_cp = getattr(active_session, "prefix_checkpoint", None)
+                prev_split = int(prev_cp.get("split_sample", 0)) if isinstance(prev_cp, dict) else 0
+                if split_sample < prev_split + int(1.6 * 16000):
+                    continue
+                try:
+                    from engine.context_processor import ProfileResolver
+                    stt_profile = ProfileResolver.resolve(self.config, active_session.target_window_info, active_session.tone_mode)
+                    ctx_vocab = WindowInspector.extract_context_vocabulary(active_session.target_window_info)
+                    merged_vocab = list(dict.fromkeys(list(self.config.get("custom_vocabulary", [])) + ctx_vocab)) or None
+                    cp = build_cp(
+                        snap,
+                        language=getattr(active_session, "language", self.config.get("language", "auto")),
+                        task=getattr(active_session, "task", "transcribe"),
+                        profile=stt_profile,
+                        custom_vocabulary=merged_vocab,
+                    )
+                except Exception as exc:
+                    logger.debug("Streaming prefix checkpoint skipped: %s", exc)
+                    continue
+                if isinstance(cp, dict):
+                    with self._state_lock:
+                        if active_session == self._current_session and self.state == AppState.RECORDING and not active_session.is_cancelled:
+                            active_session.prefix_checkpoint = cp
+                            if cp.get("prefix_text"):
+                                self._notify("partial_transcript", {
+                                    "text": cp["prefix_text"],
+                                    "session_id": active_session.session_id,
+                                })
+
+        threading.Thread(target=prefix_predecoder, daemon=True, name="FlowPilot-PrefixPredecoder").start()
+
     def start_selection_rewrite(self) -> bool:
         """Captures active selection from foreground window and begins voice rewrite session."""
         if self.state != AppState.IDLE:
@@ -498,14 +553,37 @@ class FlowOrchestrator:
                     self.state = AppState.TRANSCRIBING
                 self._notify(AppState.TRANSCRIBING, {"session_id": active_session.session_id})
 
-                # 3. Transcribe audio (STT) - pass zero-copy float32 array if available
+                # 2.5 Harvest active-window & caret context symbols locally before STT
+                target_hwnd = active_session.target_window_info.get("hwnd") if active_session.target_window_info else None
+                preceding_text, following_text = None, None
+                if isinstance(target_hwnd, int) and target_hwnd > 0:
+                    try:
+                        preceding_text, following_text = TextInjector.get_caret_surrounding_text(target_hwnd)
+                    except Exception as e:
+                        logger.debug("Failed to query caret context: %s", e)
+                ctx_vocab = WindowInspector.extract_context_vocabulary(active_session.target_window_info, preceding_text)
+
+                # 3. Transcribe audio (STT) - pass zero-copy float32 array and pause checkpoint if available
                 t_stt_start = time.perf_counter()
                 stt_input = audio_array if audio_array is not None else wav_bytes
                 stt_task = getattr(active_session, "task", "transcribe")
                 stt_lang = getattr(active_session, "language", self.config.get("language", "auto"))
                 from engine.context_processor import ProfileResolver
                 stt_profile = ProfileResolver.resolve(self.config, active_session.target_window_info, active_session.tone_mode)
-                stt_result = self.stt.transcribe(stt_input, task=stt_task, language=stt_lang, profile=stt_profile)
+                prefix_cp = getattr(active_session, "prefix_checkpoint", None)
+                merged_vocab = list(dict.fromkeys(list(self.config.get("custom_vocabulary", [])) + ctx_vocab)) if ctx_vocab else None
+
+                if isinstance(prefix_cp, dict) and hasattr(self.stt, "transcribe_with_checkpoint"):
+                    stt_kwargs = {"task": stt_task, "language": stt_lang, "profile": stt_profile}
+                    if merged_vocab:
+                        stt_kwargs["custom_vocabulary"] = merged_vocab
+                    stt_result = self.stt.transcribe_with_checkpoint(stt_input, checkpoint=prefix_cp, **stt_kwargs)
+                elif merged_vocab:
+                    stt_result = self.stt.transcribe(
+                        stt_input, custom_vocabulary=merged_vocab, task=stt_task, language=stt_lang, profile=stt_profile
+                    )
+                else:
+                    stt_result = self.stt.transcribe(stt_input, task=stt_task, language=stt_lang, profile=stt_profile)
                 t_stt_end = time.perf_counter()
 
                 with self._state_lock:
@@ -540,14 +618,6 @@ class FlowOrchestrator:
                 # Post-process via ContextProcessor (using English formatting if translated, or detected language if original)
                 t_clean_start = time.perf_counter()
                 format_lang = "en" if stt_task == "translate" else detected_lang
-
-                target_hwnd = active_session.target_window_info.get("hwnd") if active_session.target_window_info else None
-                preceding_text, following_text = None, None
-                if target_hwnd:
-                    try:
-                        preceding_text, following_text = TextInjector.get_caret_surrounding_text(target_hwnd)
-                    except Exception as e:
-                        logger.debug("Failed to query caret context: %s", e)
 
                 formatted_text = self.processor.process(
                     raw_text,

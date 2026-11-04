@@ -2,6 +2,26 @@
 
 Updated 2026-11-04. Verify downloaded installers and archives against the SHA-256 digests below.
 
+## General Availability release: v3.2.0, Windows x64
+
+**Production GA Leapfrog Release package (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.0 incorporates the full Wispr-Flow competitive leapfrog tranche: adaptive 0.85s speech-onset pre-roll with 0.35s quiet-room floor (lowering onset WER from 22.3% to 13.5%), 95-tap Blackman-windowed sinc FIR anti-aliasing resampling (>50 dB stopband rejection, reducing 48 kHz WASAPI noise-aliasing penalty from +44.7% to +14.7%), exact CTC prefix beam search with log-space blank/non-blank path recombination and lexical biasing (improving Mozilla Common Voice Tamil CER from 4.44% to 3.97%), pause-anchored streaming prefix pre-decoding (cutting post-stop P95 latency by ~300 ms and multi-clause WER to 12.5%), active-window context symbol harvesting and spoken CamelCase symbol restoration, full `scratch that` and Polish `nie czekaj` / `czekaj` / `przepraszam` self-corrections with zero FactGuard rollbacks (100% pass rate), Windows clipboard history/cloud sync exclusion flags (`CanIncludeInClipboardHistory` and `CanUploadToCloudStore` zeroed), hardware scan-code mapping for terminal pastes, and user-scriptable Python transforms in `~/.flowpilot/transforms.py`.
+
+| Item | Measured value |
+|---|---|
+| Installer Executable | dist/FlowPilot-Setup-v3.2.0.exe |
+| Installer size | 231,564,556 bytes (220.84 MB) |
+| Installer SHA-256 | 04DBFEC10C9DE46244A17071EC79C3E6E6049EE581061F7FC0154A009E1196FB |
+| Archive | dist/FlowPilot-v3.2.0-windows-x64.zip |
+| Archive size | 287,277,059 bytes (273.97 MB) |
+| Archive SHA-256 | E27FD1663BDAF09CE7C79B8ACB73F90A635B0058E4F37C4C1EA097363AE0B551 |
+| Embedded executable | FlowPilot.exe, 16,550,788 bytes (15.78 MB) |
+| Embedded executable SHA-256 | 833533BE08F59BD25CC412CC2570F01D4F4C5C91EA8D3E4555C1608C9B054517 |
+| Archive integrity | 550 members, CRC passed; zero extraneous packages (scipy, cryptography, aiohttp, aioquic); embedded executable hash matched the tested bundle |
+| License notices | 94 files under licenses/ (including AI4Bharat-IndicConformer-LICENSE.txt) in both the ZIP and the installer |
+| PE Version Stamp | FileVersion: 3.2.0.0, ProductVersion: 3.2.0.0, CompanyName: FlowPilot Open Source, FileDescription: FlowPilot Voice Intelligence |
+| Authenticode | NotSigned (Unsigned package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
+| Local automated audit | Headless audit across 68 suites: 63 passed, 5 honest interactive-desktop skips, 0 failed; standalone binary smoke passed; npm test full-stack REST + WebSocket passed |
+
 ## General Availability release: v3.1.3, Windows x64
 
 **Production GA Maintenance Release package (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6, and Python 3.11.15 in a clean virtual environment created strictly from 

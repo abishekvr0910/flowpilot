@@ -7,8 +7,9 @@ Supports two distinct modes:
 """
 
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from engine.writing_intelligence import WritingIntelligence
+from engine.window_inspector import WindowInspector
 
 class ProfileResolver:
     """
@@ -163,7 +164,8 @@ class ContextProcessor:
         session_mode: Optional[str] = None,
         language: Optional[str] = None,
         preceding_text: Optional[str] = None,
-        following_text: Optional[str] = None
+        following_text: Optional[str] = None,
+        context_vocabulary: Optional[List[str]] = None,
     ) -> str:
         if not raw_text or not raw_text.strip():
             return ""
@@ -171,6 +173,11 @@ class ContextProcessor:
         raw_trimmed = raw_text.strip()
         style = ProfileResolver.resolve(self.config, active_window, session_mode)
         lang_str = language or self.config.get("language", "auto")
+        effective_ctx_vocab = (
+            context_vocabulary
+            if context_vocabulary is not None
+            else WindowInspector.extract_context_vocabulary(active_window, preceding_text)
+        )
 
         # 1. Check for Verbatim Mode
         if style == "verbatim":
@@ -179,7 +186,8 @@ class ContextProcessor:
                 mode="verbatim",
                 language=lang_str,
                 preceding_text=preceding_text,
-                following_text=following_text
+                following_text=following_text,
+                context_vocabulary=effective_ctx_vocab,
             )
             return res["text"]
 
@@ -190,7 +198,8 @@ class ContextProcessor:
             style=style,
             language=lang_str,
             preceding_text=preceding_text,
-            following_text=following_text
+            following_text=following_text,
+            context_vocabulary=effective_ctx_vocab,
         )
         polished_text = local_result["text"]
 
@@ -200,7 +209,25 @@ class ContextProcessor:
             if expanded:
                 polished_text = expanded
 
-        # 4. Deterministic FactGuard Semantic Verification & Zero Cloud Egress
+        # 4. Apply User Scriptable Transforms (~/.flowpilot/transforms.py)
+        try:
+            from engine.user_transforms import UserTransformManager
+            transformed, _ = UserTransformManager.get_instance().apply_transforms(
+                polished_text,
+                context={
+                    "window": active_window,
+                    "style": style,
+                    "language": lang_str,
+                    "preceding_text": preceding_text,
+                    "following_text": following_text,
+                },
+            )
+            if transformed:
+                polished_text = transformed
+        except Exception:
+            pass
+
+        # 5. Deterministic FactGuard Semantic Verification & Zero Cloud Egress
         # Remote cloud LLM dispatch is permanently disabled to guarantee zero network egress.
         # All formatting and polishing runs 100% locally with guaranteed preservation
         # of numbers, dates, negations, and technical entities.

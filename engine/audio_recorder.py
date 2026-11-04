@@ -13,18 +13,55 @@ from typing import Callable, Optional
 
 logger = logging.getLogger("FlowPilot.AudioRecorder")
 
+_RESAMPLE_FILTER_CACHE: dict = {}
+
+
+def _get_lowpass_kernel(orig_sr: int, target_sr: int, num_taps: int = 95) -> np.ndarray:
+    """Builds and caches a Blackman-windowed sinc anti-aliasing FIR filter."""
+    key = (orig_sr, target_sr, num_taps)
+    cached = _RESAMPLE_FILTER_CACHE.get(key)
+    if cached is not None:
+        return cached
+    fc = 0.44 * (float(target_sr) / float(orig_sr))
+    n = np.arange(num_taps, dtype=np.float64) - (num_taps - 1) / 2.0
+    kernel = 2.0 * fc * np.sinc(2.0 * fc * n) * np.blackman(num_taps)
+    kernel /= np.sum(kernel)
+    kernel_f32 = kernel.astype(np.float32)
+    if len(_RESAMPLE_FILTER_CACHE) > 16:
+        _RESAMPLE_FILTER_CACHE.clear()
+    _RESAMPLE_FILTER_CACHE[key] = kernel_f32
+    return kernel_f32
+
+
 def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
-    """Fast linear interpolation resampling for multi-device audio compatibility."""
+    """Anti-aliased windowed-sinc resampling for multi-device WASAPI audio compatibility."""
     if orig_sr == target_sr or len(audio) == 0:
         return audio
     duration = len(audio) / orig_sr
-    target_len = int(round(duration * target_sr))
-    orig_times = np.linspace(0, duration, len(audio), endpoint=False)
+    target_len = max(1, int(round(duration * target_sr)))
+
+    work = audio.astype(np.float32, copy=False)
+    if orig_sr > target_sr and len(work) > 16:
+        kernel = _get_lowpass_kernel(orig_sr, target_sr)
+        if work.ndim == 2:
+            work = np.column_stack(
+                [np.convolve(work[:, ch], kernel, mode="same") for ch in range(work.shape[1])]
+            ).astype(np.float32)
+        else:
+            work = np.convolve(work, kernel, mode="same").astype(np.float32)
+
+        if orig_sr % target_sr == 0:
+            step = orig_sr // target_sr
+            decimated = work[::step]
+            if len(decimated) == target_len:
+                return np.ascontiguousarray(decimated, dtype=np.float32)
+
+    orig_times = np.linspace(0, duration, len(work), endpoint=False)
     target_times = np.linspace(0, duration, target_len, endpoint=False)
-    if audio.ndim == 2:
-        channels = [np.interp(target_times, orig_times, audio[:, ch]) for ch in range(audio.shape[1])]
+    if work.ndim == 2:
+        channels = [np.interp(target_times, orig_times, work[:, ch]) for ch in range(work.shape[1])]
         return np.column_stack(channels).astype(np.float32)
-    return np.interp(target_times, orig_times, audio).astype(np.float32)
+    return np.interp(target_times, orig_times, work).astype(np.float32)
 
 class AudioRecorder:
     CAPTURE_STALL_SECONDS = 2.0
@@ -44,8 +81,9 @@ class AudioRecorder:
         self.level_callback: Optional[Callable[[float], None]] = None
         self._lock = threading.RLock()
 
-        # Pre-roll circular ring buffer (prevents clipping the first syllable)
+        # Pre-roll circular ring buffer (adaptive up to 0.85s on early speech onset; 0.35s quiet floor)
         self.preroll_seconds: float = 0.35
+        self.preroll_max_seconds: float = 0.85
         self.enable_preroll: bool = True
         self._preroll_buffer: collections.deque = collections.deque()
         self._pending_device: Optional[int] = None
@@ -73,10 +111,15 @@ class AudioRecorder:
                     self._capture_error = f"Microphone capture lost audio ({status}). Reconnect it and retry."
 
             if not self.is_recording:
-                # Maintain rolling pre-roll buffer while idle so first word is never clipped
+                # Maintain rolling pre-roll buffer while idle so early speech onset is never clipped
                 if self.enable_preroll and frames > 0:
                     self._preroll_buffer.append(indata.copy())
-                    max_chunks = max(1, int(self.capture_sample_rate * self.preroll_seconds / frames))
+                    effective_window = (
+                        max(self.preroll_seconds, self.preroll_max_seconds)
+                        if abs(self.preroll_seconds - 0.35) < 1e-6
+                        else self.preroll_seconds
+                    )
+                    max_chunks = max(1, int(round(self.capture_sample_rate * effective_window / frames)))
                     while len(self._preroll_buffer) > max_chunks:
                         self._preroll_buffer.popleft()
                 return
@@ -249,6 +292,40 @@ class AudioRecorder:
         with self._lock:
             self._warmup_stream_locked()
 
+    def _select_preroll_frames(self) -> list:
+        """Selects adaptive pre-roll frames: up to 0.85s when early speech precedes hotkey, else 0.35s."""
+        if not self._preroll_buffer:
+            return []
+        chunks = list(self._preroll_buffer)
+        if abs(self.preroll_seconds - 0.35) > 1e-6:
+            return chunks
+
+        min_tail_samples = int(round(self.capture_sample_rate * self.preroll_seconds))
+        acc_tail = 0
+        tail_start_idx = len(chunks)
+        while tail_start_idx > 0 and acc_tail < min_tail_samples:
+            tail_start_idx -= 1
+            acc_tail += len(chunks[tail_start_idx])
+
+        if tail_start_idx == 0:
+            return chunks
+
+        rms_vals = [float(np.sqrt(np.mean(c.astype(np.float32) ** 2))) for c in chunks]
+        sorted_rms = sorted(rms_vals)
+        p10_floor = sorted_rms[max(0, int(0.10 * (len(sorted_rms) - 1)))]
+        speech_thresh = max(0.008, min(p10_floor, 0.012) * 2.5)
+
+        pad_samples = int(round(self.capture_sample_rate * 0.14))
+        for idx in range(tail_start_idx):
+            if rms_vals[idx] >= speech_thresh:
+                start_idx = idx
+                acc_pad = 0
+                while start_idx > 0 and acc_pad < pad_samples:
+                    start_idx -= 1
+                    acc_pad += len(chunks[start_idx])
+                return chunks[start_idx:]
+        return chunks[tail_start_idx:]
+
     def start_recording(self):
         self._stop_event.clear()
         with self._lock:
@@ -268,7 +345,7 @@ class AudioRecorder:
             # 1. If stream is already hot and running (and not stalled by an idle unplug), start immediately!
             if self.has_healthy_hot_stream():
                 if self.enable_preroll and self._preroll_buffer:
-                    self.audio_frames = list(self._preroll_buffer)
+                    self.audio_frames = self._select_preroll_frames()
                     self._preroll_buffer.clear()
                 else:
                     self.audio_frames = []
@@ -285,7 +362,7 @@ class AudioRecorder:
                     raise RuntimeError(self.capture_health_error())
 
             if self.enable_preroll and self._preroll_buffer:
-                self.audio_frames = list(self._preroll_buffer)
+                self.audio_frames = self._select_preroll_frames()
                 self._preroll_buffer.clear()
             else:
                 self.audio_frames = []
@@ -474,3 +551,19 @@ class AudioRecorder:
         """Returns the last captured audio as a 1D float32 numpy array at 16kHz."""
         with self._lock:
             return getattr(self, "last_audio_array", None)
+
+    def get_active_recording_snapshot(self) -> Optional[np.ndarray]:
+        """Returns a non-destructive 16kHz mono float32 copy of audio captured so far during active recording."""
+        with self._lock:
+            if not self.is_recording or not self.audio_frames:
+                return None
+            frames_copy = list(self.audio_frames)
+            cap_sr = self.capture_sample_rate
+            target_sr = self.sample_rate
+            ch = self.channels
+        recording = np.concatenate(frames_copy, axis=0)
+        if recording.ndim == 2 and recording.shape[1] > 1 and ch == 1:
+            recording = np.mean(recording, axis=1, keepdims=True).astype(np.float32)
+        if cap_sr != target_sr:
+            recording = resample_audio(recording, cap_sr, target_sr)
+        return np.ascontiguousarray(recording.squeeze(), dtype=np.float32)

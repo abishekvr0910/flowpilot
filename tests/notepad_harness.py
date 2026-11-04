@@ -8,28 +8,6 @@ import time
 from pathlib import Path
 from typing import NamedTuple, Optional
 
-def _attach_thread_to_input_desktop() -> bool:
-    """Attach current thread to interactive input desktop before any GUI objects are created."""
-    import sys
-    if sys.platform != "win32":
-        return True
-    if os.environ.get("FLOWPILOT_HEADLESS") == "1" or os.environ.get("QT_QPA_PLATFORM", "").lower() == "offscreen":
-        return False
-    if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
-        return False
-    try:
-        u = ctypes.windll.user32
-        h_input = u.OpenInputDesktop(0, False, 0x01FF)
-        if h_input:
-            success = bool(u.SetThreadDesktop(h_input))
-            u.CloseDesktop(h_input)
-            return success
-    except Exception:
-        pass
-    return False
-
-_attach_thread_to_input_desktop()
-
 import win32gui
 import win32process
 import win32api
@@ -75,10 +53,7 @@ def open_test_notepad(timeout: float = 10.0) -> tuple[int, subprocess.Popen, Pat
     fd, filename = tempfile.mkstemp(prefix="flowpilot-audit-", suffix=".txt")
     os.close(fd)
     fixture = Path(filename)
-    try:
-        process = subprocess.Popen(["notepad.exe", str(fixture)])
-    except Exception:
-        process = subprocess.Popen(["explorer.exe", r"shell:appsFolder\Microsoft.WindowsNotepad_8wekyb3d8bbwe!App"])
+    process = subprocess.Popen(["notepad.exe", str(fixture)])
     deadline = time.monotonic() + timeout
     observed = []
     while time.monotonic() < deadline:
@@ -187,13 +162,11 @@ class NotepadPasteResult(NamedTuple):
 
 
 def is_interactive_desktop() -> bool:
-    """Returns True if the current thread is attached to the active interactive input desktop."""
+    """Returns True only when the current process executes directly on the active interactive input desktop."""
     import sys
     if os.environ.get("FLOWPILOT_HEADLESS") == "1" or os.environ.get("QT_QPA_PLATFORM", "").lower() == "offscreen":
         return False
     if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
-        # Hosted Windows runners can expose a Notepad shell without a usable
-        # RichEdit document or hardware-input desktop.
         return False
     if sys.platform != "win32":
         return True
@@ -208,28 +181,23 @@ def is_interactive_desktop() -> bool:
         needed = ctypes.c_ulong()
         u.GetUserObjectInformationW(h_cur, 2, name_cur, 256, ctypes.byref(needed))
         u.GetUserObjectInformationW(h_input, 2, name_input, 256, ctypes.byref(needed))
-        if name_cur.value.lower() != name_input.value.lower():
-            if u.SetThreadDesktop(h_input):
-                h_cur = u.GetThreadDesktop(ctypes.windll.kernel32.GetCurrentThreadId())
-                u.GetUserObjectInformationW(h_cur, 2, name_cur, 256, ctypes.byref(needed))
         u.CloseDesktop(h_input)
         if name_cur.value.lower() != name_input.value.lower():
-                        return False
-        if name_input.value.lower() in ('winlogon', 'screen-saver'):
-                        return False
-        # Also check foreground window: if locked or logon screen, not interactive
+            return False
+        if name_input.value.lower() in ("winlogon", "screen-saver"):
+            return False
         try:
             fg = win32gui.GetForegroundWindow()
             if fg and win32gui.IsWindow(fg):
-                title = (win32gui.GetWindowText(fg) or '').lower()
-                cls = (win32gui.GetClassName(fg) or '').lower()
-                if 'lock screen' in title or 'lockscreen' in cls or 'logon' in title or 'logonui' in cls:
-                                        return False
-        except Exception as e:
-                        pass
+                title = (win32gui.GetWindowText(fg) or "").lower()
+                cls = (win32gui.GetClassName(fg) or "").lower()
+                if "lock screen" in title or "lockscreen" in cls or "logon" in title or "logonui" in cls:
+                    return False
+        except Exception:
+            pass
         return True
-    except Exception as e:
-                return False
+    except Exception:
+        return False
 
 
 class _GuiThreadInfo(ctypes.Structure):
@@ -243,12 +211,7 @@ class _GuiThreadInfo(ctypes.Structure):
 
 
 def _force_foreground(hwnd: int) -> bool:
-    """Forcefully foreground a window, tolerating the background-window
-    SetForegroundWindow restriction. On Windows 11 the modern (Store) Notepad
-    runs each window in its own process; a sibling instance's shell window can
-    own the foreground and silently defeat a plain SetForegroundWindow call.
-    Uses the canonical AttachThreadInput recipe (attach caller + foreground
-    thread + target thread, raise the target, detach)."""
+    """Forcefully foreground a window on the active interactive desktop."""
     try:
         if win32gui.GetForegroundWindow() == hwnd and win32gui.IsWindowVisible(hwnd):
             return True
@@ -388,14 +351,13 @@ def paste_and_verify_notepad(text: str, expected: str, hwnd: int) -> NotepadPast
                 error=f"Could not focus document for HWND {hwnd}",
             )
 
-        # Legitimate product injection on every attempt; no artificial backdoors
         result = TextInjector.inject_with_status(text, hwnd)
         last_status = str(result.status)
         last_error = result.error_message
 
         if result.status not in (InjectionStatus.SENT_UNVERIFIED, InjectionStatus.CONFIRMED_INSERTED):
             if result.status == InjectionStatus.FAILED_RECOVERY_AVAILABLE and attempt == 0:
-                continue  # Target window was not ready or focus changed; allow one recovery attempt
+                continue
             return NotepadPasteResult(
                 verified=False,
                 retries=attempt,
@@ -416,7 +378,6 @@ def paste_and_verify_notepad(text: str, expected: str, hwnd: int) -> NotepadPast
                 status=last_status,
             )
 
-        # Catch any text that appeared at the polling boundary
         document = TextInjector.read_window_buffer(hwnd)
         if document is not None and expected.casefold() in document.casefold():
             first_success = (attempt == 0)

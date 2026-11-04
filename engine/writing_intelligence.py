@@ -85,7 +85,9 @@ class FactGuard:
     MULTILINGUAL_NEGATIONS = {
         "es": ["no", "nunca", "jamás", "jamas", "nadie", "nada", "ninguno", "ninguna", "sin", "tampoco"],
         "fr": ["pas", "jamais", "rien", "personne", "aucun", "aucune", "sans", "plus", "ni"],
-        "de": ["nicht", "nie", "niemals", "kein", "keine", "keiner", "keines", "nichts", "niemand", "ohne", "weder"]
+        "de": ["nicht", "nie", "niemals", "kein", "keine", "keiner", "keines", "nichts", "niemand", "ohne", "weder"],
+        "pl": ["nie", "nigdy", "nikt", "nic", "bez", "ani", "żaden", "żadna", "żadne"],
+        "ta": ["இல்லை", "இல்ல", "வேண்டாம்", "கூடாது", "ஒருபோதும்"],
     }
 
     NUMERIC_WORD_CONFUSIONS = {
@@ -128,7 +130,7 @@ class FactGuard:
                 neg_candidates.extend(extra_negs)
         neg_candidates = list(dict.fromkeys(neg_candidates))
         for neg in neg_candidates:
-            if re.search(r"\b" + re.escape(neg) + r"\b", lower):
+            if re.search(r"(?:^|(?<!\w))" + re.escape(neg) + r"(?:$|(?![\w\u0B80-\u0BFF]))", lower):
                 found_negations.append(neg)
 
         # 2. Raw Numbers, Currency, Percentages, Decimals
@@ -199,7 +201,9 @@ class FactGuard:
         for neg in raw_entities["negations"]:
             if neg in safe_retracted_negs:
                 continue
-            pol_has = bool(re.search(r"\b" + re.escape(neg) + r"\b", polished_text.lower()))
+            pol_has = bool(
+                re.search(r"(?:^|(?<!\w))" + re.escape(neg) + r"(?:$|(?![\w\u0B80-\u0BFF]))", polished_text.lower())
+            )
             if not pol_has:
                 # Check contraction equivalence
                 equivs = {
@@ -301,7 +305,8 @@ class WritingIntelligence:
         dialect: str = "",
         language: str = "",
         preceding_text: Optional[str] = None,
-        following_text: Optional[str] = None
+        following_text: Optional[str] = None,
+        context_vocabulary: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Main processing method.
@@ -364,9 +369,15 @@ class WritingIntelligence:
             changes.extend(url_changes)
 
         # 3. Wispr Flow Spoken Punctuation and Voice Commands (Multilingual)
-        text, voice_changes = self._apply_spoken_commands(text, style=style, language=effective_lang)
+        text, voice_changes, cmd_retracted_nums, cmd_retracted_negs = self._apply_spoken_commands(
+            text, style=style, language=effective_lang, return_retractions=True
+        )
         if voice_changes:
             changes.extend(voice_changes)
+        if cmd_retracted_nums:
+            retracted_nums.extend(cmd_retracted_nums)
+        if cmd_retracted_negs:
+            retracted_negs.extend(cmd_retracted_negs)
 
         # 4. Remove speech fillers and stutters (language-aware, preserving structural newlines)
         de_fillered, had_fillers = self._remove_fillers_and_stutters(text, language=effective_lang)
@@ -385,8 +396,12 @@ class WritingIntelligence:
             if tech_changes:
                 changes.extend(tech_changes)
 
-        # 6. Canonicalize known technical acronyms and terms
+        # 6. Canonicalize known technical acronyms and active-window context symbols
         text = self._canonicalize_tech_terms(text, style=style)
+        if context_vocabulary:
+            text, ctx_changes = self._apply_context_vocabulary(text, context_vocabulary)
+            if ctx_changes:
+                changes.extend(ctx_changes)
 
         # 7. Apply Personal Dictionary aliases & casing
         if self.personalization:
@@ -477,7 +492,13 @@ class WritingIntelligence:
             return text, False, [], []
         return corrected, True, nums, negs
 
-    def _apply_spoken_commands(self, text: str, style: str = "professional", language: str = "en") -> Tuple[str, List[str]]:
+    def _apply_spoken_commands(
+        self,
+        text: str,
+        style: str = "professional",
+        language: str = "en",
+        return_retractions: bool = False,
+    ):
         """
         Wispr Flow Spoken Punctuation and Voice Commands Engine:
         - Voice editing: 'scratch that' / 'delete that' (erases preceding sentence or clause)
@@ -487,17 +508,29 @@ class WritingIntelligence:
         - Spoken punctuation: comma, period, question mark, exclamation point, colon, semicolon, ellipsis, quotes, parens
         """
         changes: List[str] = []
+        cmd_retracted_nums: List[str] = []
+        cmd_retracted_negs: List[str] = []
         lang_prefix = (language or "en").lower().split("-")[0].split("_")[0]
 
         # 1. Voice Editing: "scratch that", "delete that", "cancel that"
         scratch_pat = r"(?:^|[.!?\n])\s*[^.!?\n]+?\s+(?:scratch that|delete that|cancel that)\b"
         if re.search(scratch_pat, text, flags=re.IGNORECASE):
+            for m in re.finditer(scratch_pat, text, flags=re.IGNORECASE):
+                erased = m.group(0)
+                erased_ents = FactGuard.extract_protected_entities(erased, language=language)
+                cmd_retracted_nums.extend(erased_ents["raw_nums"])
+                cmd_retracted_negs.extend(erased_ents["negations"])
             text = re.sub(scratch_pat, "", text, flags=re.IGNORECASE)
             changes.append("Executed voice editing: scratch that")
 
         # "scratch last word", "delete last word"
         scratch_word_pat = r"\b\S+\s+(?:scratch last word|delete last word)\b"
         if re.search(scratch_word_pat, text, flags=re.IGNORECASE):
+            for m in re.finditer(scratch_word_pat, text, flags=re.IGNORECASE):
+                erased = m.group(0)
+                erased_ents = FactGuard.extract_protected_entities(erased, language=language)
+                cmd_retracted_nums.extend(erased_ents["raw_nums"])
+                cmd_retracted_negs.extend(erased_ents["negations"])
             text = re.sub(scratch_word_pat, "", text, flags=re.IGNORECASE)
             changes.append("Executed voice editing: scratch last word")
 
@@ -567,6 +600,8 @@ class WritingIntelligence:
                 cleaned_lines.append(l)
             text = "\n".join(cleaned_lines)
 
+        if return_retractions:
+            return text.strip(), changes, cmd_retracted_nums, cmd_retracted_negs
         return text.strip(), changes
 
     def _remove_fillers_and_stutters(self, text: str, language: str = "en") -> Tuple[str, bool]:
@@ -787,6 +822,38 @@ class WritingIntelligence:
         text = re.sub(r"(?i)\b(https?://[^\s]+)", lambda m: m.group(1).lower(), text)
         return text
 
+    def _apply_context_vocabulary(self, text: str, context_vocabulary: List[str]) -> Tuple[str, List[str]]:
+        """Restores exact identifier casing and spoken multi-word CamelCase symbols harvested from the active window."""
+        changes: List[str] = []
+        for sym in context_vocabulary:
+            if not sym or len(sym) < 3:
+                continue
+            # 1. Exact single-token casing restoration
+            single_pat = rf"\b{re.escape(sym)}\b"
+            if re.search(single_pat, text, flags=re.IGNORECASE):
+                new_text = re.sub(single_pat, sym, text, flags=re.IGNORECASE)
+                if new_text != text:
+                    changes.append(f"Restored context symbol: {sym}")
+                    text = new_text
+
+            # 2. Spoken multi-word restoration for CamelCase / PascalCase identifiers (e.g., "onnx asr harness" -> "OnnxASRHarness")
+            if "_" not in sym and any(ch.isupper() for ch in sym[1:]):
+                parts = re.findall(r"[A-Z]+(?=[A-Z][a-z]|\d|$)|[A-Z]?[a-z]+|\d+", sym)
+                if 2 <= len(parts) <= 5:
+                    spoken_seq = r"\s+".join(re.escape(p) for p in parts)
+                    multi_pat = rf"(?:(\b(?:the|a|an)\s+))?\b({spoken_seq})\b"
+                    if re.search(multi_pat, text, flags=re.IGNORECASE):
+                        new_text = re.sub(
+                            multi_pat,
+                            lambda m, target=sym: m.group(0) if m.group(1) else target,
+                            text,
+                            flags=re.IGNORECASE,
+                        )
+                        if new_text != text:
+                            changes.append(f"Formatted spoken context symbol: {sym}")
+                            text = new_text
+        return text, changes
+
     def _format_spoken_lists(self, text: str) -> Tuple[str, bool]:
         ordinals = [
             (r"(?i)\b(?:first|firstly|number one)\b[:,]?", "\n- "),
@@ -887,7 +954,13 @@ class WritingIntelligence:
                 # Caret-aware formatting: Mid-sentence insertion suppresses initial capitalization
                 # except for canonical acronyms and single 'I'
                 words = text.split(maxsplit=1)
-                if words and words[0] != "I" and words[0].lower() not in ("api", "json", "sql", "http", "https"):
+                has_internal_caps = bool(words and any(ch.isupper() for ch in words[0][1:]))
+                if (
+                    words
+                    and not has_internal_caps
+                    and words[0] != "I"
+                    and words[0].lower() not in ("api", "json", "sql", "http", "https")
+                ):
                     text = text[0].lower() + text[1:]
             else:
                 # Capitalize start if alphabetic

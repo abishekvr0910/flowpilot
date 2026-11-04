@@ -447,6 +447,96 @@ class OnnxASRHarness:
             self._vocabs[language] = vocab
             return session, vocab
 
+    @staticmethod
+    def _ctc_prefix_beam_search(
+        logprobs: np.ndarray,
+        vocab: Dict[int, str],
+        blank_id: int,
+        beam_size: int = 6,
+        top_k: int = 8,
+        bias_token_ids: Optional[set] = None,
+    ) -> List[int]:
+        """
+        Exact CTC prefix beam search with blank/non-blank path recombination
+        and optional shallow-fusion subword biasing.
+        """
+        if logprobs.size == 0:
+            return []
+
+        # Ensure normalized log-probabilities along vocab dimension
+        max_lp = np.max(logprobs, axis=-1, keepdims=True)
+        lse = max_lp + np.log(np.sum(np.exp(logprobs - max_lp), axis=-1, keepdims=True))
+        norm_lp = logprobs - lse
+
+        neg_inf = -1e30
+        # prefix_tuple -> (log_p_blank, log_p_non_blank)
+        beams: Dict[Tuple[int, ...], Tuple[float, float]] = {(): (0.0, neg_inf)}
+        vocab_size = norm_lp.shape[1]
+        k = min(top_k + 1, vocab_size)
+
+        for t in range(norm_lp.shape[0]):
+            lp = norm_lp[t]
+            lp_blank = float(lp[blank_id])
+
+            # Fast path for high-confidence blank frames (>99.8% blank probability)
+            if lp_blank > -0.002:
+                fast_beams: Dict[Tuple[int, ...], Tuple[float, float]] = {}
+                for pref, (pb, pnb) in beams.items():
+                    total = float(np.logaddexp(pb, pnb))
+                    new_pb = total + lp_blank
+                    new_pnb = (pnb + float(lp[pref[-1]])) if pref else neg_inf
+                    fast_beams[pref] = (new_pb, new_pnb)
+                beams = fast_beams
+                continue
+
+            cand_indices = np.argpartition(lp, -k)[-k:]
+            next_beams: Dict[Tuple[int, ...], List[float]] = {}
+
+            for pref, (pb, pnb) in beams.items():
+                total = float(np.logaddexp(pb, pnb))
+
+                # 1. Blank transition keeps current prefix
+                cur_entry = next_beams.get(pref)
+                if cur_entry is None:
+                    cur_entry = [neg_inf, neg_inf]
+                    next_beams[pref] = cur_entry
+                cur_entry[0] = float(np.logaddexp(cur_entry[0], total + lp_blank))
+
+                # 2. Same-token collapse without intervening blank keeps current prefix
+                if pref:
+                    last_tok = pref[-1]
+                    cur_entry[1] = float(np.logaddexp(cur_entry[1], pnb + float(lp[last_tok])))
+
+                # 3. Extend prefix with top-K non-blank candidates
+                for c_raw in cand_indices:
+                    c = int(c_raw)
+                    if c == blank_id:
+                        continue
+                    lp_c = float(lp[c])
+                    if bias_token_ids and c in bias_token_ids:
+                        lp_c += 0.18
+                    ext_pref = pref + (c,)
+                    ext_entry = next_beams.get(ext_pref)
+                    if ext_entry is None:
+                        ext_entry = [neg_inf, neg_inf]
+                        next_beams[ext_pref] = ext_entry
+                    if pref and c == pref[-1]:
+                        # Repeated output token requires prior blank
+                        ext_entry[1] = float(np.logaddexp(ext_entry[1], pb + lp_c))
+                    else:
+                        ext_entry[1] = float(np.logaddexp(ext_entry[1], total + lp_c))
+
+            # Prune to top beam_size prefixes by combined log probability
+            scored = sorted(
+                next_beams.items(),
+                key=lambda kv: float(np.logaddexp(kv[1][0], kv[1][1])),
+                reverse=True,
+            )[:beam_size]
+            beams = {pref: (vals[0], vals[1]) for pref, vals in scored}
+
+        best_pref = max(beams.items(), key=lambda kv: float(np.logaddexp(kv[1][0], kv[1][1])))[0]
+        return list(best_pref)
+
     def transcribe(
         self,
         audio_data: Union[bytes, np.ndarray],
@@ -497,19 +587,22 @@ class OnnxASRHarness:
         outputs = session.run(None, inputs)
         logprobs = outputs[0][0]  # (time_steps, vocab_size)
 
-        # CTC Greedy Decoding
-        pred_ids = np.argmax(logprobs, axis=-1)
+        # CTC Prefix Beam Search with optional subword lexical shallow-fusion
         blank_id = len(vocab) - 1  # 256 is blank token (<blk>)
+        bias_ids: Optional[set] = None
+        if custom_vocabulary:
+            ta_terms = [t.strip() for t in custom_vocabulary if t and any("\u0B80" <= ch <= "\u0BFF" for ch in t)]
+            if ta_terms:
+                bias_ids = set()
+                for tid, piece in vocab.items():
+                    clean_piece = piece.replace("\u2581", "").replace("▁", "").strip()
+                    if len(clean_piece) >= 2 and any(clean_piece in term for term in ta_terms):
+                        bias_ids.add(tid)
 
-        tokens: List[str] = []
-        prev_id = -1
-        for idx in pred_ids:
-            if idx != prev_id:
-                if idx != blank_id:
-                    token = vocab.get(idx, "")
-                    if token:
-                        tokens.append(token)
-                prev_id = idx
+        pred_ids = self._ctc_prefix_beam_search(
+            logprobs, vocab=vocab, blank_id=blank_id, beam_size=6, top_k=8, bias_token_ids=bias_ids
+        )
+        tokens = [vocab.get(idx, "") for idx in pred_ids if vocab.get(idx, "")]
 
         raw_text = "".join(tokens).replace("\u2581", " ").replace("▁", " ").strip()
 

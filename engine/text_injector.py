@@ -188,12 +188,49 @@ class TextInjector:
                 return None
 
     @classmethod
+    def _exclude_clipboard_from_history_and_cloud(cls) -> bool:
+        """
+        Marks current clipboard contents to be excluded from Windows 10/11 Clipboard History (Win+V)
+        and Microsoft Cloud Clipboard synchronization, matching enterprise zero-retention standards.
+        """
+        if not HAS_WIN32 or sys.platform != "win32":
+            return False
+        try:
+            import ctypes
+            u32 = ctypes.windll.user32
+            k32 = ctypes.windll.kernel32
+            opened = False
+            for _ in range(3):
+                if u32.OpenClipboard(0):
+                    opened = True
+                    break
+                time.sleep(0.01)
+            if not opened:
+                return False
+            try:
+                for fmt_name in ("CanIncludeInClipboardHistory", "CanUploadToCloudStore"):
+                    fmt = u32.RegisterClipboardFormatW(fmt_name)
+                    if fmt:
+                        h_mem = k32.GlobalAlloc(0x0042, 4)
+                        if h_mem:
+                            u32.SetClipboardData(fmt, h_mem)
+                return True
+            finally:
+                u32.CloseClipboard()
+        except Exception:
+            return False
+
+    @classmethod
     def _safe_clipboard_copy(cls, text: str, max_retries: int = 8, retry_delay: float = 0.08) -> bool:
-        """Copies text to clipboard with retry backoff and lock recovery to survive OpenClipboard locks."""
+        """Copies text to clipboard with retry backoff, lock recovery, and Windows history/cloud exclusion."""
         for attempt in range(max_retries):
             try:
                 pyperclip.copy(text)
                 if sys.platform == "win32":
+                    try:
+                        cls._exclude_clipboard_from_history_and_cloud()
+                    except Exception:
+                        pass
                     try:
                         import ctypes
                         ctypes.windll.kernel32.SetLastError(0)
@@ -735,17 +772,31 @@ class TextInjector:
                 keys_dispatch_started = True
                 extra = cls.FLOWPILOT_SYNTHETIC_EXTRA_INFO
                 if is_terminal:
-                    win32api.keybd_event(win32con.VK_SHIFT, 0, 0, extra)
-                    win32api.keybd_event(win32con.VK_INSERT, 0, 0, extra)
+                    shift_scan = 0
+                    ins_scan = 0
+                    try:
+                        shift_scan = win32api.MapVirtualKey(win32con.VK_SHIFT, 0)
+                        ins_scan = win32api.MapVirtualKey(win32con.VK_INSERT, 0)
+                    except Exception:
+                        pass
+                    win32api.keybd_event(win32con.VK_SHIFT, shift_scan, 0, extra)
+                    win32api.keybd_event(win32con.VK_INSERT, ins_scan, 0, extra)
                     time.sleep(key_dwell_sec)
-                    win32api.keybd_event(win32con.VK_INSERT, 0, win32con.KEYEVENTF_KEYUP, extra)
-                    win32api.keybd_event(win32con.VK_SHIFT, 0, win32con.KEYEVENTF_KEYUP, extra)
+                    win32api.keybd_event(win32con.VK_INSERT, ins_scan, win32con.KEYEVENTF_KEYUP, extra)
+                    win32api.keybd_event(win32con.VK_SHIFT, shift_scan, win32con.KEYEVENTF_KEYUP, extra)
                 else:
-                    win32api.keybd_event(win32con.VK_CONTROL, 0, 0, extra)
-                    win32api.keybd_event(ord('V'), 0, 0, extra)
+                    v_scan = 0
+                    ctrl_scan = 0
+                    try:
+                        v_scan = win32api.MapVirtualKey(ord('V'), 0)
+                        ctrl_scan = win32api.MapVirtualKey(win32con.VK_CONTROL, 0)
+                    except Exception:
+                        pass
+                    win32api.keybd_event(win32con.VK_CONTROL, ctrl_scan, 0, extra)
+                    win32api.keybd_event(ord('V'), v_scan, 0, extra)
                     time.sleep(key_dwell_sec)
-                    win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, extra)
-                    win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, extra)
+                    win32api.keybd_event(ord('V'), v_scan, win32con.KEYEVENTF_KEYUP, extra)
+                    win32api.keybd_event(win32con.VK_CONTROL, ctrl_scan, win32con.KEYEVENTF_KEYUP, extra)
                 time.sleep(post_paste_delay)
             elif sys.platform == "darwin":
                 # macOS Cmd+V

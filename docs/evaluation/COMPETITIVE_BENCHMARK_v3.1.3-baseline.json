@@ -1,0 +1,36 @@
+{
+  "tag": "v3.1.3-baseline",
+  "timestamp": "2026-11-04 01:33:30",
+  "track1_onset_capture": {
+    "clips_evaluated": 10,
+    "early_onset_650ms_wer_pct": 22.32
+  },
+  "track2_48khz_antialiasing": {
+    "clips_evaluated": 10,
+    "clean_16khz_wer_pct": 13.57,
+    "48khz_hf_resampled_wer_pct": 58.26,
+    "aliasing_wer_penalty_pct": 44.69
+  },
+  "track3_multilingual": {
+    "tamil_cv_wer_pct": 18.47,
+    "tamil_cv_cer_pct": 4.44,
+    "tamil_cv_avg_ms": 717.9,
+    "user_casual_tamil_wer_pct": 58.59,
+    "user_casual_tanglish_wer_pct": 44.03,
+    "polish_cv_wer_pct": 18.0,
+    "polish_cv_cer_pct": 6.47
+  },
+  "track4_context_and_self_correction": {
+    "cases": 6,
+    "exact_intent_and_symbol_pass_rate_pct": 33.33,
+    "formatted_wer_pct": 66.67,
+    "context_symbols_harvested": 0
+  },
+  "track5_post_stop_latency": {
+    "multi_clause_trials": 8,
+    "post_stop_p50_ms": 721.07,
+    "post_stop_p95_ms": 1367.35,
+    "multi_clause_wer_pct": 16.45,
+    "wispr_flow_cloud_reference_p50_ms": "480-700 ms (cloud RTT + LLM)"
+  }
+}

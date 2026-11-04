@@ -67,6 +67,9 @@ EXPLICIT_TRIGGERS: List[Tuple[str, str, bool]] = [
     ("wait_no", r"wait\s+no", False),
     ("wait", r"wait", True),
     ("never_mind", r"never\s*mind", False),
+    ("scratch_that", r"scratch\s+that\b", True),
+    ("delete_that", r"delete\s+that\b", True),
+    ("cancel_that", r"cancel\s+that\b", True),
     ("i_mean", r"i\s+mean(?:t|s)?\b", False),
     ("sorry", r"sorry", True),
     ("correction", r"correction", False),
@@ -101,6 +104,15 @@ MULTILINGUAL_TRIGGERS: Dict[str, List[Tuple[str, str, bool]]] = {
         ("espera", r"espera\b", True),
         ("mejor", r"mejor\b", True),
         ("da_igual", r"da\s+igual\b", False),
+    ],
+    "pl": [
+        ("nie_czekaj", r"nie\s+czekaj\b", False),
+        ("czekaj_nie", r"czekaj\s+nie\b", False),
+        ("czekaj", r"czekaj\b", True),
+        ("przepraszam", r"przepraszam\b", True),
+        ("to_znaczy", r"to\s+znaczy\b", False),
+        ("wlasciwie", r"w[łl]a[śs]ciwie\b", False),
+        ("niewazne", r"niewa[żz]ne\b", False),
     ],
 }
 
@@ -142,17 +154,19 @@ FUNCTION_WORDS = {
     "and", "but", "or", "nor", "so", "yet", "if", "then", "else", "because",
     "while", "although", "though", "unless", "whether", "as", "than",
     "once", "whereas",
-    # auxiliaries / copulas / particles
+    # auxiliaries / copulas / particles / common multilingual prepositions
     "am", "is", "are", "was", "were", "be", "been", "being", "have", "has",
     "had", "having", "do", "does", "did", "doing", "will", "would", "shall",
     "should", "can", "could", "may", "might", "must", "there", "here",
     "not", "now", "just", "very",
+    "w", "we", "na", "o", "do", "z", "ze", "po", "za", "od", "dla", "się",
 }
 
 # Prepositions that bind a following noun into a replaceable value.
 BINDING_PREPOSITIONS = {
     "for", "on", "at", "by", "in", "to", "from", "until", "about", "with",
     "into", "onto", "over", "under", "after", "before", "between",
+    "w", "we", "na", "o", "do", "z", "ze", "po", "za", "od", "dla",
 }
 
 # Modifiers that may precede a temporal value ("next Tuesday").
@@ -167,6 +181,8 @@ TEMPORAL_PROPER_WORDS = {
     "sunday", "january", "february", "march", "april", "may", "june",
     "july", "august", "september", "october", "november", "december",
     "today", "tomorrow", "tonight", "yesterday",
+    "poniedziałek", "wtorek", "środa", "środę", "czwartek", "piątek",
+    "sobota", "sobotę", "niedziela", "niedzielę", "dzisiaj", "jutro", "wczoraj",
 }
 
 # Verb stems used to recognise verb inflections ("tastes", "enjoyed", "going").
@@ -211,13 +227,14 @@ UNIT_NOUNS = {
     "am", "o'clock", "oclock",
 }
 
-# Negations that may sit immediately before a retracted verb.
+# Negations that may sit immediately before a retracted verb or inside a trigger.
 NEGATION_TOKENS = {
     "not", "never", "no", "cannot", "cant", "don't", "dont", "doesn't",
     "doesnt", "didn't", "didnt", "won't", "wont", "shouldn't", "shouldnt",
     "wouldn't", "wouldnt", "couldn't", "couldnt", "isn't", "isnt",
     "aren't", "arent", "wasn't", "wasnt", "weren't", "werent", "hasn't",
     "hasnt", "haven't", "havent", "hadn't", "hadnt",
+    "nie", "nigdy", "nic", "nikt", "bez", "nein", "nicht", "non", "pas", "nunca",
 }
 
 _PUNCT_ONLY = re.compile(r"^[^\w]+$", re.UNICODE)
@@ -538,8 +555,38 @@ class CorrectionIntentResolver:
         new_core = _strip_edges(tokens[new_cursor][0])
         new_class = classify_value(new_core, at_sentence_start=False)
 
+        # Repeated anchor noun before value ("port 8080 scratch that port 8765").
+        if (
+            new_cursor + 1 < len(tokens)
+            and old_start - 1 >= 0
+            and _strip_edges(tokens[old_start - 1][0]).lower() == new_core.lower()
+        ):
+            nxt_core = _strip_edges(tokens[new_cursor + 1][0])
+            nxt_class = classify_value(nxt_core, at_sentence_start=False)
+            if nxt_class in ("number", "proper", "common"):
+                new_cursor += 1
+                new_start = new_cursor
+                new_end = new_cursor + 1
+                new_core = nxt_core
+                new_class = nxt_class
+        # Paired preposition + value replacement ("we wtorek nie czekaj w środę" / "in May wait on June").
+        elif (
+            new_core.lower() in BINDING_PREPOSITIONS
+            and new_cursor + 1 < len(tokens)
+            and old_start - 1 >= 0
+            and _strip_edges(tokens[old_start - 1][0]).lower() in BINDING_PREPOSITIONS
+        ):
+            nxt_core = _strip_edges(tokens[new_cursor + 1][0])
+            nxt_class = classify_value(nxt_core, at_sentence_start=False)
+            if nxt_class in ("number", "proper", "common"):
+                old_start -= 1
+                new_start = new_cursor
+                new_cursor += 1
+                new_end = new_cursor + 1
+                new_core = nxt_core
+                new_class = nxt_class
         # Skip a single intervening function word / verb ("no wait call Jane").
-        if new_class in ("func", "verb", None) and new_cursor + 1 < len(tokens):
+        elif new_class in ("func", "verb", None) and new_cursor + 1 < len(tokens):
             nxt_core = _strip_edges(tokens[new_cursor + 1][0])
             nxt_class = classify_value(nxt_core, at_sentence_start=False)
             if nxt_class in ("number", "proper", "common"):
@@ -617,7 +664,7 @@ class CorrectionIntentResolver:
         Only explicit retraction markers ("never mind") qualify; they drop the
         abandoned clause that precedes them.
         """
-        if name not in ("never_mind", "laisse_tombe", "da_igual"):
+        if name not in ("never_mind", "laisse_tombe", "da_igual", "niewazne"):
             return None
 
         trigger_offset = tokens[trig_start][1]

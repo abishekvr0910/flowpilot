@@ -29,6 +29,9 @@ def get_config_file() -> Path:
         return Path(env_dir) / "config.json"
     return Path.home() / ".flowpilot" / "config.json"
 
+def get_config_dir() -> Path:
+    return get_config_file().parent
+
 CONFIG_FILE = get_config_file()
 _CONFIG_WRITE_LOCK = threading.RLock()
 

@@ -1,8 +1,9 @@
 import sys
 import ctypes
 import os
+import re
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 
 from engine.companion_visibility import ContextSnapshot
 
@@ -112,6 +113,76 @@ class WindowInspector:
         except Exception as e:
             print(f"[WindowInspector Error] {e}")
             return info
+
+    _SENSITIVE_TITLE_MARKERS = (
+        "password",
+        "1password",
+        "bitwarden",
+        "keepass",
+        "lastpass",
+        "incognito",
+        "inprivate",
+        "private browsing",
+        "vault",
+    )
+    _CAMEL_IDENT_RE = re.compile(r"\b[A-Za-z][a-z0-9]*(?:[A-Z][a-z0-9]+|[A-Z]{2,}[a-z0-9]*)+[A-Za-z0-9]*\b")
+    _SNAKE_IDENT_RE = re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b")
+    _CONST_IDENT_RE = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
+    _IGNORE_SYMBOLS = {
+        "VisualStudio",
+        "VisualStudioCode",
+        "WindowsPowerShell",
+        "MicrosoftEdge",
+        "GoogleChrome",
+    }
+
+    @classmethod
+    def extract_context_vocabulary(
+        cls,
+        window_info: Optional[Dict[str, Any]],
+        surrounding_text: Optional[str] = None,
+        max_terms: int = 24,
+    ) -> List[str]:
+        """
+        Harvests code identifiers and technical symbols locally from the active window title
+        and caret context while strictly skipping password managers and private browsing windows.
+        """
+        title = str((window_info or {}).get("title") or "")
+        low_title = title.lower()
+        if any(marker in low_title for marker in cls._SENSITIVE_TITLE_MARKERS):
+            return []
+
+        corpus = f"{title}\n{surrounding_text or ''}"
+        if not corpus.strip():
+            return []
+
+        harvested: List[str] = []
+        seen = set()
+
+        def _add(sym: str):
+            if not sym or sym in cls._IGNORE_SYMBOLS or len(sym) < 3 or len(sym) > 64:
+                return
+            key = sym.lower()
+            if key not in seen:
+                seen.add(key)
+                harvested.append(sym)
+
+        for match in cls._CAMEL_IDENT_RE.finditer(corpus):
+            _add(match.group(0))
+            if len(harvested) >= max_terms:
+                return harvested
+
+        for match in cls._SNAKE_IDENT_RE.finditer(corpus):
+            _add(match.group(0))
+            if len(harvested) >= max_terms:
+                return harvested
+
+        for match in cls._CONST_IDENT_RE.finditer(corpus):
+            _add(match.group(0))
+            if len(harvested) >= max_terms:
+                return harvested
+
+        return harvested
 
 
 class ContextMonitor:

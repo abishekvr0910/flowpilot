@@ -476,18 +476,8 @@ class STTEngine:
                     if audio_input.ndim > 1:
                         audio_input = np.mean(audio_input, axis=1)
                     if sr != 16000 and len(audio_input) > 0:
-                        try:
-                            import math
-                            gcd = math.gcd(int(sr), 16000)
-                            from scipy.signal import resample_poly
-                            audio_input = resample_poly(audio_input, 16000 // gcd, int(sr) // gcd).astype(np.float32)
-                        except Exception:
-                            num_samples = int(len(audio_input) * 16000 / sr)
-                            audio_input = np.interp(
-                                np.linspace(0, len(audio_input), num_samples, endpoint=False),
-                                np.arange(len(audio_input)),
-                                audio_input
-                            ).astype(np.float32)
+                        from engine.audio_recorder import resample_audio
+                        audio_input = resample_audio(audio_input, int(sr), 16000)
                 except Exception:
                     audio_input = io.BytesIO(audio_data)
 
@@ -552,6 +542,150 @@ class STTEngine:
                 "duration": getattr(info, "duration", 0),
                 "task": task
             }
+
+    @staticmethod
+    def find_pause_split_sample(
+        audio_16k: np.ndarray,
+        min_prefix_sec: float = 2.2,
+        min_tail_sec: float = 0.28,
+        pause_ms: int = 180,
+        rms_thresh: float = 0.012,
+    ) -> Optional[int]:
+        """Finds the midpoint sample of the latest clean inter-clause pause (>= pause_ms) in 16kHz audio."""
+        if not isinstance(audio_16k, np.ndarray) or audio_16k.ndim != 1:
+            return None
+        sr = 16000
+        min_prefix = int(min_prefix_sec * sr)
+        min_tail = int(min_tail_sec * sr)
+        if len(audio_16k) < min_prefix + min_tail + int((pause_ms / 1000.0) * sr):
+            return None
+
+        frame = 320  # 20ms @ 16kHz
+        needed_frames = max(2, pause_ms // 20)
+        start_sample = min_prefix
+        end_sample = len(audio_16k) - min_tail
+        num_frames = (end_sample - start_sample) // frame
+        if num_frames < needed_frames:
+            return None
+
+        segment = audio_16k[start_sample : start_sample + num_frames * frame].reshape(num_frames, frame)
+        rms = np.sqrt(np.mean(segment * segment, axis=1))
+        quiet = rms < rms_thresh
+
+        run_len = 0
+        run_end = -1
+        for idx in range(num_frames - 1, -1, -1):
+            if quiet[idx]:
+                if run_len == 0:
+                    run_end = idx
+                run_len += 1
+            else:
+                if run_len >= needed_frames:
+                    mid_frame = run_end - (run_len // 2)
+                    return start_sample + mid_frame * frame + (frame // 2)
+                run_len = 0
+        if run_len >= needed_frames:
+            mid_frame = run_end - (run_len // 2)
+            return start_sample + mid_frame * frame + (frame // 2)
+        return None
+
+    def build_pause_prefix_checkpoint(
+        self,
+        audio_16k: np.ndarray,
+        language: Optional[str] = None,
+        task: str = "transcribe",
+        profile: Optional[str] = None,
+        custom_vocabulary: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Pre-decodes completed speech clauses up to the latest quiet boundary while recording continues."""
+        split_sample = self.find_pause_split_sample(audio_16k)
+        if split_sample is None or split_sample <= 0:
+            return None
+        prefix_audio = np.ascontiguousarray(audio_16k[:split_sample], dtype=np.float32)
+        res = self.transcribe(
+            prefix_audio,
+            custom_vocabulary=custom_vocabulary,
+            task=task,
+            language=language,
+            profile=profile,
+        )
+        return {
+            "split_sample": int(split_sample),
+            "prefix_text": (res.get("text") or "").strip(),
+            "detected_language": res.get("detected_language", "unknown"),
+            "engine": res.get("engine", "local_faster_whisper"),
+            "task": task,
+        }
+
+    def transcribe_with_checkpoint(
+        self,
+        full_audio_16k: Union[bytes, np.ndarray],
+        checkpoint: Optional[Dict[str, Any]],
+        custom_vocabulary: Optional[List[str]] = None,
+        task: str = "transcribe",
+        language: Optional[str] = None,
+        profile: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Finalizes transcription after hotkey release by decoding only the post-checkpoint tail."""
+        if (
+            checkpoint is None
+            or not isinstance(full_audio_16k, np.ndarray)
+            or checkpoint.get("task", "transcribe") != task
+        ):
+            return self.transcribe(
+                full_audio_16k,
+                custom_vocabulary=custom_vocabulary,
+                task=task,
+                language=language,
+                profile=profile,
+            )
+
+        split_sample = int(checkpoint.get("split_sample", 0))
+        if split_sample <= 0 or split_sample >= len(full_audio_16k):
+            return self.transcribe(
+                full_audio_16k,
+                custom_vocabulary=custom_vocabulary,
+                task=task,
+                language=language,
+                profile=profile,
+            )
+
+        prefix_text = (checkpoint.get("prefix_text") or "").strip()
+        det_lang = checkpoint.get("detected_language", "unknown")
+        tail = np.ascontiguousarray(full_audio_16k[split_sample:], dtype=np.float32)
+
+        # Fast-exit when no additional speech occurred after the pre-decoded pause boundary
+        if len(tail) < int(0.22 * 16000) or float(np.sqrt(np.mean(tail * tail))) < 0.008:
+            return {
+                "text": prefix_text,
+                "detected_language": det_lang,
+                "engine": checkpoint.get("engine", "local_faster_whisper"),
+                "duration": round(len(full_audio_16k) / 16000.0, 3),
+                "task": task,
+                "used_prefix_checkpoint": True,
+            }
+
+        eff_lang = language if language is not None else self.config.get("language", "auto")
+        if (not eff_lang or eff_lang == "auto") and det_lang and det_lang != "unknown":
+            eff_lang = det_lang
+
+        tail_res = self.transcribe(
+            tail,
+            custom_vocabulary=custom_vocabulary,
+            task=task,
+            language=eff_lang,
+            profile=profile,
+        )
+        tail_text = (tail_res.get("text") or "").strip()
+        joined = f"{prefix_text} {tail_text}".strip() if prefix_text and tail_text else (prefix_text or tail_text)
+        return {
+            "text": joined,
+            "detected_language": tail_res.get("detected_language") or det_lang,
+            "engine": tail_res.get("engine") or checkpoint.get("engine", "local_faster_whisper"),
+            "duration": round(len(full_audio_16k) / 16000.0, 3),
+            "task": task,
+            "used_prefix_checkpoint": True,
+        }
 
     def _transcribe_cloud(self, wav_bytes: bytes, initial_prompt: str, language: str) -> Dict[str, Any]:
         raise RuntimeError(
