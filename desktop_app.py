@@ -181,6 +181,7 @@ class FlowPilotApp:
         self.tray.visibility_mode_requested.connect(self.visibility.set_mode)
         self.tray.switch_visual_requested.connect(self.hud.toggle_visual_style)
         self.tray.ducking_toggled.connect(self._on_ducking_toggled)
+        self.tray.smart_pause_toggled.connect(self._on_smart_pause_toggled)
 
         self.hud.quit_requested.connect(self.quit)
         self.tray.quit_requested.connect(self.quit)
@@ -386,6 +387,22 @@ class FlowPilotApp:
     def _on_ducking_toggled(self, enabled: bool):
         self.orchestrator.ducker.duck_mode = "mute" if enabled else "off"
         print(f"[FlowPilot] Audio ducking mode set to: {self.orchestrator.ducker.duck_mode}")
+
+    def _on_smart_pause_toggled(self, enabled: bool):
+        self.orchestrator.config["smart_pause_during_calls"] = enabled
+        if enabled:
+            from engine.media_presence import SampledCaptureMonitor, NullCaptureMonitor
+            if not hasattr(self.orchestrator, "capture_monitor") or isinstance(self.orchestrator.capture_monitor, NullCaptureMonitor):
+                # Replace NullCaptureMonitor with real monitor
+                self.orchestrator.capture_monitor = SampledCaptureMonitor(interval_seconds=1.0)
+                self.orchestrator.capture_monitor.start()
+        else:
+            # Stop monitoring
+            if hasattr(self.orchestrator, "capture_monitor") and hasattr(self.orchestrator.capture_monitor, "stop"):
+                self.orchestrator.capture_monitor.stop()
+            from engine.media_presence import NullCaptureMonitor
+            self.orchestrator.capture_monitor = NullCaptureMonitor()
+        print(f"[FlowPilot] Smart Pause During Calls: {'enabled' if enabled else 'disabled'}")
 
     def show_settings(self):
         if not self.settings_dlg:

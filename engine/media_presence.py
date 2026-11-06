@@ -7,18 +7,39 @@ pixels, or recognizable content, and it never ties playback to a foreground
 window; a muted or paused stream does not count as audible. Fails soft: any
 COM or platform error permanently disables the probe for the process lifetime
 instead of breaking the visibility tick.
+
+Feature 27b: Capture Session Monitoring ("Smart Pause During Calls")
+
+Enumerates active capture sessions (eCapture endpoints) via IAudioSessionManager2
+to detect when communication applications (Zoom, Teams, Discord, Meet, Slack, etc.)
+are actively capturing the microphone. When a call holds the microphone, FlowPilot
+can automatically pause dictation to prevent accidental transcription leaks.
 """
 
 import logging
 import threading
 import time
-from typing import Callable, List, NamedTuple, Optional
+from typing import Callable, List, NamedTuple, Optional, Set
 
 log = logging.getLogger("FlowPilot.MediaPresence")
 
 PEAK_THRESHOLD = 0.02
 GRACE_SECONDS = 1.5
 SUSTAIN_SECONDS = 1.0
+
+# Communication applications that typically hold the microphone during calls
+CALL_PROCESS_NAMES: Set[str] = frozenset({
+    "zoom.exe", "zoom.workplace.exe", "teams.exe", "ms-teams.exe",
+    "discord.exe", "discordcanary.exe", "discordptb.exe",
+    "slack.exe", "slack-app.exe",
+    "webex.exe", "webexhost.exe", "webexmeetings.exe",
+    "gotomeeting.exe", "gotowebinar.exe",
+    "skype.exe", "lync.exe", "communicator.exe",
+    "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe",  # Browser-based Meet/Teams
+    "facetime.exe", "facetimehd.exe",
+    "teams.exe", "msteams.exe",
+    "googlemeet.exe", "meet.exe",
+})
 
 
 class SessionSample(NamedTuple):
@@ -187,6 +208,172 @@ class MediaAudioPresence:
                     comtypes.CoUninitialize()
                 except Exception:
                     pass
+
+
+class CaptureSessionMonitor:
+    """Monitors active capture (microphone) sessions to detect ongoing calls.
+
+    Uses IAudioSessionManager2 on eCapture endpoints to enumerate sessions.
+    When a known communication application holds an active capture session,
+    returns True to indicate a call is in progress. Fails soft: any COM error
+    permanently disables the probe for the process lifetime.
+    """
+
+    def __init__(
+        self,
+        call_process_names: Optional[Set[str]] = None,
+        provider: Optional[Callable[[], bool]] = None,
+    ):
+        self._call_process_names = call_process_names or CALL_PROCESS_NAMES
+        self._provider = provider or self._pycaw_provider
+        self._unavailable = False
+
+    def is_call_active(self) -> bool:
+        """Returns True if a known communication app is actively capturing."""
+        if self._unavailable:
+            return False
+        try:
+            return self._provider()
+        except Exception as exc:
+            self._unavailable = True
+            log.warning("Capture session monitor disabled after error: %s", exc)
+            return False
+
+    def _pycaw_provider(self) -> bool:
+        import comtypes
+        from pycaw.pycaw import AudioUtilities
+        from comtypes import CLSCTX_ALL
+
+        co_init = False
+        try:
+            try:
+                comtypes.CoInitialize()
+                co_init = True
+            except Exception:
+                pass
+
+            # eCapture = 0 (capture/microphone endpoints)
+            from comtypes.gen import MMDeviceAPI
+            enumerator = comtypes.CoCreateInstance(
+                MMDeviceAPI.MMDeviceEnumerator._reg_clsid_,
+                None,
+                CLSCTX_ALL,
+                MMDeviceAPI.IMMDeviceEnumerator._iid_,
+            )
+            endpoints = enumerator.EnumAudioEndpoints(MMDeviceAPI.eCapture, MMDeviceAPI.DEVICE_STATE_ACTIVE)
+
+            # Get IAudioSessionManager2 for each active capture endpoint
+            for i in range(endpoints.GetCount()):
+                endpoint = endpoints.Item(i)
+                session_manager = endpoint.Activate(
+                    MMDeviceAPI.IAudioSessionManager2._iid_,
+                    CLSCTX_ALL,
+                    None,
+                ).QueryInterface(MMDeviceAPI.IAudioSessionManager2)
+
+                session_enumerator = session_manager.GetSessionEnumerator()
+                for j in range(session_enumerator.GetCount()):
+                    session_control = session_enumerator.GetSession(j)
+                    session_control2 = session_control.QueryInterface(MMDeviceAPI.IAudioSessionControl2)
+
+                    # Get process ID and state
+                    pid = session_control2.GetProcessId()
+                    state = session_control.GetState()
+
+                    # AudioSessionStateActive = 1
+                    if state == 1 and pid > 0:
+                        try:
+                            import psutil
+                            proc = psutil.Process(pid)
+                            proc_name = proc.name().lower()
+                            if proc_name in self._call_process_names:
+                                log.debug("Active capture session detected: %s (PID %d)", proc_name, pid)
+                                return True
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            continue
+            return False
+        except Exception:
+            raise
+        finally:
+            if co_init:
+                try:
+                    comtypes.CoUninitialize()
+                except Exception:
+                    pass
+
+
+class SampledCaptureMonitor:
+    """Keep the potentially slow Windows audio query off the Qt event loop."""
+
+    def __init__(self, probe=None, interval_seconds: float = 1.0):
+        self._probe = probe if probe is not None else CaptureSessionMonitor()
+        self._interval_seconds = interval_seconds
+        self._active = False
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._thread = None
+
+    def start(self):
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._stop_event.clear()
+            self._thread = threading.Thread(
+                target=self._run, name="FlowPilotCaptureMonitor", daemon=True,
+            )
+            self._thread.start()
+
+    def stop(self):
+        self._stop_event.set()
+        with self._lock:
+            self._active = False
+            thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=0.1)
+
+    def is_call_active(self) -> bool:
+        with self._lock:
+            return self._active
+
+    def _run(self):
+        import comtypes
+        co_init = False
+        try:
+            comtypes.CoInitialize()
+            co_init = True
+        except Exception:
+            pass
+
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    active = self._probe.is_call_active()
+                except Exception as exc:
+                    log.warning("Capture monitor sampler stopped after error: %s", exc)
+                    active = False
+                    self._stop_event.set()
+                with self._lock:
+                    self._active = active and not self._stop_event.is_set()
+                self._stop_event.wait(self._interval_seconds)
+        finally:
+            if co_init:
+                try:
+                    comtypes.CoUninitialize()
+                except Exception:
+                    pass
+
+
+class NullCaptureMonitor:
+    """Hermetic default: never reports active call, never touches the OS."""
+
+    def is_call_active(self) -> bool:
+        return False
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
 
 
 class SampledMediaPresence:

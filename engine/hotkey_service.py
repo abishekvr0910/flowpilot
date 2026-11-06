@@ -25,6 +25,30 @@ MOD_SHIFT = 0x0004
 MOD_WIN = 0x0008
 MOD_NOREPEAT = 0x4000  # Windows 7+ avoids repeating messages when held
 
+WH_KEYBOARD_LL = 13
+HC_ACTION = 0
+WM_KEYDOWN = 0x0100
+WM_KEYUP = 0x0101
+WM_SYSKEYDOWN = 0x0104
+WM_SYSKEYUP = 0x0105
+LLKHF_INJECTED = 0x00000001
+
+if sys.platform == "win32":
+    LRESULT = ctypes.c_ssize_t
+    HOOKPROC = ctypes.WINFUNCTYPE(LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+
+    class KBDLLHOOKSTRUCT(ctypes.Structure):
+        _fields_ = [
+            ("vkCode", wintypes.DWORD),
+            ("scanCode", wintypes.DWORD),
+            ("flags", wintypes.DWORD),
+            ("time", wintypes.DWORD),
+            ("dwExtraInfo", ctypes.c_ulonglong)
+        ]
+else:
+    HOOKPROC = None
+    KBDLLHOOKSTRUCT = None
+
 # Virtual Key mapping
 VK_MAPPING = {
     "SPACE": 0x20,
@@ -214,6 +238,10 @@ class Win32HotkeyService:
         self._stop_event = threading.Event()
         self._ready_event = threading.Event()
         self._next_id = 1
+        self._hook = None
+        self._hook_proc = None
+        self._hook_active_hotkeys: Dict[int, int] = {}  # vk -> hk_id
+        self._last_hook_trigger: Dict[int, float] = {}  # hk_id -> timestamp
         if sys.platform == "win32":
             self._user32 = ctypes.windll.user32
             self._kernel32 = ctypes.windll.kernel32
@@ -221,6 +249,80 @@ class Win32HotkeyService:
             self._user32 = None
             self._kernel32 = None
         self.stats = {"events_received": 0, "registered_count": 0, "errors": []}
+
+    def _get_current_modifiers(self) -> int:
+        if not self._user32:
+            return 0
+        mods = 0
+        if self._user32.GetKeyState(0x11) & 0x8000:  # VK_CONTROL
+            mods |= MOD_CONTROL
+        if self._user32.GetKeyState(0x12) & 0x8000:  # VK_MENU (Alt)
+            mods |= MOD_ALT
+        if self._user32.GetKeyState(0x10) & 0x8000:  # VK_SHIFT
+            mods |= MOD_SHIFT
+        if (self._user32.GetKeyState(0x5B) & 0x8000) or (self._user32.GetKeyState(0x5C) & 0x8000):  # VK_LWIN / VK_RWIN
+            mods |= MOD_WIN
+        return mods
+
+    def _create_hook_proc(self):
+        if not HOOKPROC:
+            return None
+
+        @HOOKPROC
+        def hook_proc(nCode, wParam, lParam):
+            if nCode == HC_ACTION:
+                try:
+                    kb = KBDLLHOOKSTRUCT.from_address(lParam)
+                    # Never intercept synthetic/injected events from FlowPilot (SendInput)
+                    if kb.flags & LLKHF_INJECTED:
+                        return self._user32.CallNextHookEx(None, nCode, wParam, lParam)
+
+                    vk = kb.vkCode
+                    is_down = wParam in (WM_KEYDOWN, WM_SYSKEYDOWN)
+                    is_up = wParam in (WM_KEYUP, WM_SYSKEYUP)
+
+                    if is_down:
+                        if vk in self._hook_active_hotkeys:
+                            # Hardware auto-repeat while key is held down: suppress repeat chatter
+                            active_id = self._hook_active_hotkeys[vk]
+                            info = self._hotkeys.get(active_id)
+                            if info and info.get("suppress", True):
+                                return 1
+                        else:
+                            curr_mods = self._get_current_modifiers()
+                            for hk_id, info in self._hotkeys.items():
+                                if info["vk"] == vk and info["mods"] == curr_mods:
+                                    self._hook_active_hotkeys[vk] = hk_id
+                                    self._last_hook_trigger[hk_id] = time.monotonic()
+                                    cb = info["callback"]
+                                    threading.Thread(
+                                        target=cb,
+                                        daemon=True,
+                                        name=f"FlowPilot-HookAction-{hk_id}"
+                                    ).start()
+                                    if info.get("suppress", True):
+                                        return 1
+                                    break
+                    elif is_up:
+                        if vk in self._hook_active_hotkeys:
+                            active_id = self._hook_active_hotkeys.pop(vk, None)
+                            info = self._hotkeys.get(active_id)
+                            if info:
+                                rel = info.get("on_release")
+                                if rel:
+                                    threading.Thread(
+                                        target=rel,
+                                        daemon=True,
+                                        name=f"FlowPilot-HookRelease-{active_id}"
+                                    ).start()
+                                if info.get("suppress", True):
+                                    return 1
+                except Exception as exc:
+                    logger.debug(f"[HotkeyService] Hook callback exception: {exc}")
+
+            return self._user32.CallNextHookEx(None, nCode, wParam, lParam)
+
+        return hook_proc
 
     @staticmethod
     def test_hotkey_availability(hotkey_str: str, currently_active_hotkey: Optional[str] = None) -> Tuple[bool, str]:
@@ -269,10 +371,17 @@ class Win32HotkeyService:
                 return False, "Conflict: Key already registered by another application or reserved by Windows (Error 1409)."
             return False, f"Registration failed (Win32 Error {err})."
 
-    def register(self, hotkey_str: str, callback: Callable[[], None], on_release: Optional[Callable[[], None]] = None) -> int:
+    def register(
+        self,
+        hotkey_str: str,
+        callback: Callable[[], None],
+        on_release: Optional[Callable[[], None]] = None,
+        suppress: bool = True
+    ) -> int:
         """
         Registers a hotkey string (e.g. 'Ctrl+Shift+Space' or 'F9') with a callback.
         Optionally accepts an on_release callback for Push-to-Talk monitoring.
+        suppress: If True, uses WH_KEYBOARD_LL to suppress key repeat chatter and key leak into target apps.
         Returns the integer registration ID.
         """
         mods, vk = parse_hotkey_string(hotkey_str)
@@ -284,9 +393,10 @@ class Win32HotkeyService:
             "vk": vk,
             "callback": callback,
             "on_release": on_release,
+            "suppress": suppress,
             "registered": False,
         }
-        logger.info(f"[HotkeyService] Queued hotkey ID {hk_id}: {hotkey_str} (mods={hex(mods)}, vk={hex(vk)})")
+        logger.info(f"[HotkeyService] Queued hotkey ID {hk_id}: {hotkey_str} (mods={hex(mods)}, vk={hex(vk)}, suppress={suppress})")
         return hk_id
 
     register_hotkey = register

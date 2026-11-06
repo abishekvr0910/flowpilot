@@ -328,6 +328,12 @@ class SettingsDialog(QDialog):
         self.chk_sound.setChecked(self.config.get("sound_effects_enabled", True))
         vbox.addWidget(self.chk_sound)
 
+        # Smart Pause During Calls Checkbox
+        self.chk_smart_pause = QCheckBox("Auto-pause dictation when Zoom/Teams/Discord/etc. is using the microphone (Smart Pause During Calls)")
+        self.chk_smart_pause.setChecked(self.config.get("smart_pause_during_calls", True))
+        self.chk_smart_pause.setToolTip("When enabled, FlowPilot detects active calls (Zoom, Teams, Discord, Meet, Slack, etc.) holding the microphone and automatically pauses dictation to prevent accidental transcription leaks.")
+        vbox.addWidget(self.chk_smart_pause)
+
         # Hotkey safety banner
         lbl_hotkeys = QLabel(
             "Choose one dictation shortcut, such as F9, and select Toggle or Hold mode above. "
@@ -862,6 +868,7 @@ class SettingsDialog(QDialog):
         self.config["mute_hotkey"] = self.combo_mute_shortcut.currentText().strip()
         self.config["ducking_enabled"] = self.chk_ducking.isChecked()
         self.config["sound_effects_enabled"] = self.chk_sound.isChecked()
+        self.config["smart_pause_during_calls"] = self.chk_smart_pause.isChecked()
         if hasattr(self, "chk_auto_update"):
             self.config["check_for_updates"] = self.chk_auto_update.isChecked()
         

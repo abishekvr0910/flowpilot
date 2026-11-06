@@ -17,6 +17,7 @@ from engine.personalization import PersonalizationEngine, get_shared_personaliza
 from engine.session import DictationSession, SessionState
 from engine.audio_devices import resolve_audio_input, build_device_selection, migrate_legacy_audio_config, refresh_audio_devices
 from engine.pilot_telemetry import append_local_event
+from engine.media_presence import SampledCaptureMonitor, NullCaptureMonitor
 
 logger = logging.getLogger("FlowPilot.Orchestrator")
 
@@ -115,6 +116,13 @@ class FlowOrchestrator:
 
         # Start idle unloader schedule
         self._schedule_idle_unloader()
+
+        # Smart Pause During Calls: initialize capture session monitor
+        if self.config.get("smart_pause_during_calls", True):
+            self.capture_monitor = SampledCaptureMonitor(interval_seconds=1.0)
+            self.capture_monitor.start()
+        else:
+            self.capture_monitor = NullCaptureMonitor()
 
     def _cancel_idle_unloader(self):
         with self._state_lock:
@@ -264,6 +272,38 @@ class FlowOrchestrator:
 
         threading.Thread(target=watch, daemon=True, name="FlowPilot-CaptureWatchdog").start()
 
+        # Smart Pause During Calls: monitor for calls starting during recording
+        config = getattr(self, "config", {"smart_pause_during_calls": True})
+        if config.get("smart_pause_during_calls", True):
+            call_stop_event = threading.Event()
+            self._call_watchdog_stop = call_stop_event
+
+            def call_watch():
+                while not call_stop_event.wait(1.0):
+                    if self.capture_monitor.is_call_active():
+                        with self._state_lock:
+                            if active_session != self._current_session or self.state != AppState.RECORDING:
+                                return
+                            print("[Orchestrator] Call started during recording — Smart Pause stopping dictation.")
+                            active_session.transition_to(SessionState.FINALIZING)
+                            self.state = AppState.STOPPING_RECORDING
+                        call_stop_event.set()
+                        self._capture_watchdog_stop.set()
+                        if self._auto_stop_timer:
+                            self._auto_stop_timer.cancel()
+                            self._auto_stop_timer = None
+                        self.recorder.stop_recording()
+                        threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
+                        self.feedback.play_stop()
+                        self._notify(AppState.STOPPING_RECORDING, {
+                            "session_id": active_session.session_id,
+                            "notice": "Call detected — dictation auto-paused.",
+                            "paused_by_call": True
+                        })
+                        return
+
+            threading.Thread(target=call_watch, daemon=True, name="FlowPilot-CallWatchdog").start()
+
         def prefix_predecoder():
             import numpy as np
             while not stop_event.wait(0.85):
@@ -347,6 +387,18 @@ class FlowOrchestrator:
             self._last_speech_perf = 0.0
             self._speech_detected = False
             self._speech_start_time = 0.0
+
+        # Smart Pause During Calls: check if a communication app is holding the microphone
+        config = getattr(self, "config", {"smart_pause_during_calls": True})
+        if config.get("smart_pause_during_calls", True) and getattr(self, "capture_monitor", None) and self.capture_monitor.is_call_active():
+            print("[Orchestrator] Call detected — Smart Pause During Calls active. Dictation blocked.")
+            self._notify(AppState.IDLE, {
+                "notice": "Microphone in use by a call (Zoom/Teams/Discord/etc.). Dictation paused.",
+                "blocked_by_call": True
+            })
+            with self._state_lock:
+                self.state = AppState.IDLE
+            return
 
         # 1. Capture target window immediately at T0
         self.target_window_info = WindowInspector.get_active_window_info()
@@ -450,6 +502,9 @@ class FlowOrchestrator:
     def cancel_dictation(self):
         """Emergency cancel: Discards recording immediately without transcribing or inserting."""
         self._capture_watchdog_stop.set()
+        call_watchdog_stop = getattr(self, "_call_watchdog_stop", None)
+        if call_watchdog_stop:
+            call_watchdog_stop.set()
         with self._state_lock:
             if self.state == AppState.IDLE and (not self._current_session or not self._current_session.is_active()):
                 return

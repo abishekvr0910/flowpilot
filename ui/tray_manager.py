@@ -22,6 +22,7 @@ class TrayManager(QObject):
     studio_requested = Signal()
     quit_requested = Signal()
     ducking_toggled = Signal(bool)
+    smart_pause_toggled = Signal(bool)
     language_changed = Signal(str)
     cycle_language_requested = Signal()
     translate_toggled = Signal(bool)
@@ -124,6 +125,12 @@ class TrayManager(QObject):
         self.action_duck.setCheckable(True)
         self.action_duck.setChecked(True)
         self.action_duck.toggled.connect(self.ducking_toggled.emit)
+
+        self.action_smart_pause = self.menu.addAction("Smart Pause During Calls")
+        self.action_smart_pause.setCheckable(True)
+        self.action_smart_pause.setChecked(True)
+        self.action_smart_pause.setToolTip("Auto-pause dictation when Zoom/Teams/Discord/etc. is using the microphone")
+        self.action_smart_pause.toggled.connect(self.smart_pause_toggled.emit)
 
         self.action_reinject = self.menu.addAction("📋 Paste Last Dictation (Ctrl+Alt+V)")
         self.action_reinject.triggered.connect(self.reinject_requested.emit)
