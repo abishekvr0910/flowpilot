@@ -233,8 +233,25 @@ class STTEngine:
                 requested_size = "base"
                 self.config["local_model_size"] = "base"
             model_target = self.resolve_model_path(requested_size)
+            target_device = self.config.get("device", "cpu")
+            target_compute = self.config.get("compute_type", "int8")
+            if target_device == "auto":
+                try:
+                    import ctranslate2
+                    if hasattr(ctranslate2, "get_cuda_device_count") and ctranslate2.get_cuda_device_count() > 0:
+                        target_device = "cuda"
+                        target_compute = "float16" if target_compute == "auto" else target_compute
+                    else:
+                        target_device = "cpu"
+                        target_compute = "int8" if target_compute == "auto" else target_compute
+                except Exception:
+                    target_device = "cpu"
+                    target_compute = "int8" if target_compute == "auto" else target_compute
+            elif target_compute == "auto":
+                target_compute = "float16" if target_device == "cuda" else "int8"
+
             threads = self.config.get("cpu_threads") or min(8, os.cpu_count() or 4)
-            key = self.get_model_key(model_target, "cpu", "int8", threads)
+            key = self.get_model_key(model_target, target_device, target_compute, threads)
 
             # If already loaded with matching key and ready, return existing instance
             if self._local_model is not None and self._active_model_key == key and self._model_status == "ready":
@@ -246,31 +263,58 @@ class STTEngine:
             self._model_status = "loading"
             self._last_error = None
 
-        print(f"[STT] Loading local faster-whisper model '{requested_size}' (resolved: {model_target}) on CPU (int8, threads={threads})...")
+        print(f"[STT] Loading local faster-whisper model '{requested_size}' (resolved: {model_target}) on {target_device.upper()} ({target_compute}, threads={threads})...")
         candidate_model = None
         try:
             # Construct candidate model strictly offline
             candidate_model = WhisperModel(
                 model_target,
-                device="cpu",
-                compute_type="int8",
-                cpu_threads=threads,
+                device=target_device,
+                compute_type=target_compute,
+                cpu_threads=threads if target_device == "cpu" else 4,
                 local_files_only=True
             )
         except Exception as e:
-            err_msg = (
-                f"[STT Error] Offline Whisper model '{requested_size}' (resolved target: '{model_target}') not found ({e}). "
-                f"To preserve strict zero-egress offline operation, automatic runtime downloads are disabled. "
-                f"Please pre-provision model weights in models/ or verify ~/.cache/huggingface/hub."
-            )
-            with self._model_lock:
-                self._last_error = err_msg
-                # If an existing working model is present, keep it active and mark ready; otherwise failed
-                if self._local_model is not None:
-                    self._model_status = "ready"
-                else:
-                    self._model_status = "failed"
-            raise RuntimeError(err_msg) from e
+            if target_device == "cuda":
+                print(f"[STT] CUDA acceleration unavailable or failed ({e}). Gracefully falling back to CPU int8...")
+                target_device = "cpu"
+                target_compute = "int8"
+                key = self.get_model_key(model_target, target_device, target_compute, threads)
+                try:
+                    candidate_model = WhisperModel(
+                        model_target,
+                        device="cpu",
+                        compute_type="int8",
+                        cpu_threads=threads,
+                        local_files_only=True
+                    )
+                except Exception as cpu_e:
+                    err_msg = (
+                        f"[STT Error] Offline Whisper model '{requested_size}' (resolved target: '{model_target}') not found ({cpu_e}). "
+                        f"To preserve strict zero-egress offline operation, automatic runtime downloads are disabled. "
+                        f"Please pre-provision model weights in models/ or verify ~/.cache/huggingface/hub."
+                    )
+                    with self._model_lock:
+                        self._last_error = err_msg
+                        if self._local_model is not None:
+                            self._model_status = "ready"
+                        else:
+                            self._model_status = "failed"
+                    raise RuntimeError(err_msg) from cpu_e
+            else:
+                err_msg = (
+                    f"[STT Error] Offline Whisper model '{requested_size}' (resolved target: '{model_target}') not found ({e}). "
+                    f"To preserve strict zero-egress offline operation, automatic runtime downloads are disabled. "
+                    f"Please pre-provision model weights in models/ or verify ~/.cache/huggingface/hub."
+                )
+                with self._model_lock:
+                    self._last_error = err_msg
+                    # If an existing working model is present, keep it active and mark ready; otherwise failed
+                    if self._local_model is not None:
+                        self._model_status = "ready"
+                    else:
+                        self._model_status = "failed"
+                raise RuntimeError(err_msg) from e
 
         with self._model_lock:
             # Check if another request generation superseded this one while constructing

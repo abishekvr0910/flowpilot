@@ -38,6 +38,8 @@ _CONFIG_WRITE_LOCK = threading.RLock()
 DEFAULT_CONFIG: Dict[str, Any] = {
     "engine_mode": "local",  # Local Faster-Whisper; cloud mode is rejected by STTEngine
     "local_model_size": "base",  # "tiny", "base", "small", "medium"
+    "device": "auto",  # "auto", "cpu", "cuda" (auto-detects CUDA GPU with graceful CPU fallback)
+    "compute_type": "auto",  # "auto", "int8", "float16", "float32"
     "beam_size": 1,  # Default greedy decoding (3x faster than beam search on CPU)
     "vad_filter": False,  # Pre-gated dictation audio does not require redundant VAD chunking (~480ms saved)
     "language": "en",  # Default English avoids ~1,060ms language-detection pass; 'auto' available in settings

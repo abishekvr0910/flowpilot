@@ -1089,6 +1089,8 @@ class FlowOrchestrator:
         # Update submodules
         self.stt.config = self.config
         self.processor.config = self.config
+        if hasattr(self, "feedback"):
+            self.feedback.enabled = bool(self.config.get("sound_effects_enabled", True))
 
         # Update audio input device dynamically if changed
         old_dev = getattr(self.recorder, "device", None)

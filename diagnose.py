@@ -44,6 +44,17 @@ def main():
     log(f"Architecture:    {platform.machine()}")
     log(f"Python Runtime:  {sys.version.split()[0]} ({sys.executable})")
     log(f"Process Elevated:{' YES (Administrator)' if is_admin() else ' NO (Standard User Integrity)'}")
+
+    # 0. Python Version & Native Dependencies Check
+    log("\n[0] Checking Python Runtime Compatibility...")
+    major, minor = sys.version_info.major, sys.version_info.minor
+    if (major, minor) < (3, 10):
+        log("  [CRITICAL] Python 3.10+ is required. Please upgrade your Python runtime.")
+    elif (major, minor) > (3, 12):
+        log(f"  [WARNING] Python {major}.{minor} detected. Key C-extensions (like onnxruntime) do not publish wheels for Python > 3.12.")
+        log("            Recommended: Use Python 3.11/3.12, or run the standalone release installer (FlowPilot-Setup-v3.1.3.exe).")
+    else:
+        log(f"  [OK] Python {major}.{minor} matches FlowPilot's verified runtime range (3.10-3.12).")
     
     # 1. System Memory Check
     log("\n[1] Checking System Memory...")
