@@ -12,7 +12,7 @@ their completion labels do not establish the state of newer source or binaries.
 | Baseline GitHub CI | [Run 43343650063](https://github.com/abishekvr0910/flowpilot/actions/runs/43343650063) completed successfully; this does not prove interactive desktop gates |
 | Latest published application download | [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3), published 2026-11-04, unsigned installer and ZIP |
 | 3.2.0 / 3.2.1 / 3.2.2 artifacts | Local build records in the manifest; no corresponding published GitHub release found on the review date |
-| Current cleanup | Branch `fix/repository-consistency-handy-review`; proposed changes require review and a new build before reaching installed users |
+| Current cleanup | [Pull request #19](https://github.com/abishekvr0910/flowpilot/pull/19), code commit `d881cca`, branch `fix/repository-consistency-handy-review`; requires review and a new build before reaching installed users |
 | Handy reference | Source at `aca8985190c3ad7f361d8a80cb30f179513ed690` (v0.10.1); [comparison and sources](research/HANDY_SOURCE_REVIEW_2026-11-14.md) |
 
 The [artifact manifest](release/RELEASE_ARTIFACT_MANIFEST.md) preserves older build
