@@ -2,7 +2,9 @@
 
 **Verdict:** `READY TO PUBLISH AS AN UNSIGNED RELEASE` — see §5 for the independent verification and the two items still open before calling it GA  
 **Target Architecture:** Windows 10/11 x64 (Non-elevated user-space)  
-**PDF Review Document:** [flowpilot_v310_ga_review.pdf](file:///S:/APPs/New%20folder/docs/reviews/flowpilot_v310_ga_review.pdf)  
+**PDF Review Document:** [historical review PDF](flowpilot_v310_ga_review.pdf)
+
+> Historical review of an older build. Completion claims and the PDF do not establish current release readiness. See [current status](../STATUS.md).
 **Date:** 2026-11-02  
 
 ---
@@ -95,6 +97,6 @@ Re-verified on the owner's interactive Windows 11 desktop (i5-12500H, 16 GB) fro
 **Open before GA**
 - Code signing (SmartScreen will warn on the unsigned installer).
 - `tests/test_delivery_observer.py` measures real time in millisecond windows: 3–6 of its 17 tests fail when the CPU is saturated. One window was replaced by a read counter; injecting a fake clock into `DeliveryObserver` is the proper fix.
-- Historical reverse engineering records from commit `82530b6` and competitor internal database notes have been permanently purged from Git history.
+- Correction (2026-11-14): removal from the current file tree does not establish removal from Git history. Commit `82530b6` is still readable in this local repository; no permanent history-purge claim is supported by this review.
 
 The 1-page PDF (`flowpilot_v310_ga_review.pdf`) predates this section and still shows the superseded build.

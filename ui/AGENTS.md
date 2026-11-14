@@ -35,7 +35,7 @@ PySide6 windows for the whole desktop experience: dashboard, tray, floating comp
 
 - `desktop_app.py` mutates private FloatingHUD attributes directly for companion styles (`_visual_style`, `_cat_palette`, `_cat_pixmap_cache`, `_motion_preset`); renaming those attributes breaks that wiring.
 - Four files sit above 800 lines (`pet_sprites.py` 1480, `companion_renderer.py` 1460, `pixel_creator.py` 1042, `notetaker_view.py` 1033); `floating_hud.py` (759) is under the cap. Add to big files sparingly, prefer new modules.
-- `README.md` holds mojibake from an earlier encoding pass; fix reads by measuring the file, not trusting it.
+- Read UTF-8 documentation explicitly as UTF-8 in Windows PowerShell; its default decoding can display false mojibake.
 
 ## Related specs
 

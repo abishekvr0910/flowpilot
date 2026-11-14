@@ -6,7 +6,7 @@ These features cover the path from sound to safe text. The existing code is a fo
 
 ### 1. Offline capture and speech engine · existing
 
-Capture with a warm audio buffer, local activity detection, and local CPU speech recognition. Code in `engine/audio_recorder.py`, `engine/silero_vad.py`, and `engine/stt_engine.py`.
+Capture with a warm audio buffer, local activity detection, and local speech recognition (automatic CUDA selection with CPU fallback in current source). Code in `engine/audio_recorder.py`, `engine/silero_vad.py`, and `engine/stt_engine.py`.
 
 ### 2. Dictation controls and session lifecycle · existing
 
@@ -42,7 +42,7 @@ Prevent unsupported external replacements and revert attempts from dispatching i
 
 Plan and evidence: [remediation and release gate review](../reviews/2026-10-24-remediation-and-release-gate.md). Code in `engine/transforms_engine.py`, `ui/transforms_view.py`, and `tests/test_honest_transforms.py`.
 
-### 28. Persistent microphone selection · in-progress (3.5mm hot-plug verified; USB bus pending)
+### 28. Persistent microphone selection · candidate hardware verified (3.5mm and USB bus receipts)
 
 Keep the chosen physical input stable when Windows device enumeration changes. Settings currently persists a persistent endpoint contract (`name`, `host_api`, `max_channels`), and dynamic runtime resolution disambiguates host APIs (WASAPI, DirectSound, MME). Disconnected devices resolve to an explicit sentinel (`DEVICE_MISSING_SENTINEL = -9999`) preventing silent fallback to internal default mics, and `refresh_audio_devices()` re-enumerates PortAudio endpoints on hot-plug.
 
@@ -54,7 +54,7 @@ Keep the chosen physical input stable when Windows device enumeration changes. S
 - [x] Expose host API and disconnected indicators in UI: `ui/settings_dialog.py` and `ui/setup_wizard.py`
 - [x] Regression tests: `tests/test_audio_devices.py` (24 tests passed on 27 October 2026)
 - [x] Physical 3.5mm analog jack-sense WASAPI hot-plug unplug and reconnect confirmation: verified via `scripts/interactive_physical_mic_test.py` (`Verification Mode: PHYSICAL`, `analog_jack_hd_audio_endpoint`, `is_usb_bus_device=false`, [receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md), SHA-256 integrity digest `080F72FBF841FD6CF75513854B6DADDA295AC12986A08933B90F3E493A899890`) alongside `scripts/verify_audio_device_gate.py`.
-- [ ] Physical USB bus audio device (`USB\VID_...`) unplug and reconnect confirmation on external USB microphone hardware.
+- [x] Physical USB bus audio device (`USB\VID_...`) unplug/reconnect on candidate hardware: [dated receipt](../testing/PHYSICAL_USB_BUS_UNPLUG_RECEIPT_20261028_203758.md). Wider hardware coverage remains open.
 
 Code in `engine/audio_devices.py`, `engine/audio_recorder.py`, `engine/orchestrator.py`, `engine/config.py`, `ui/settings_dialog.py`, `ui/setup_wizard.py`, and `ui/scratchpad_view.py`.
 
@@ -105,14 +105,14 @@ Evaluate whether an isolated, quantized small language model (e.g. Qwen2.5-0.5B-
 **Strict boundary:** This is a text-generation infilling transform, **not** an acoustic speech recognizer (ASR). It cannot fix raw phonetic or acoustic errors in Indic languages (Hindi, Tamil, Malayalam) or English accents; acoustic accuracy is evaluated separately under Feature 15. The primary runtime baseline is CPU (AVX2/AVX-512); DirectML is exploratory and experimental.
 
 **Done when:**
-- Operates strictly within branch feature/local-slm-repair-sandbox without blocking the RC8 pilot intake.
+- Implemented in current source behind the disabled-by-default local_text_repair_enabled setting.
 - Enforces a Three-Tier Guard Protocol: Tier 1 slot-locks numbers, dates, negations, and identifiers; Tier 2 performs bounded infilling; Tier 3 executes FactGuard verification. Any altered or missing entity immediately vetoes the repair.
 - Execution deadline is <= 400 ms; failures, timeouts, or FactGuard vetoes immediately fall back to raw Whisper output within <= 5 ms.
 - P50 latency <= 300 ms on CPU for 30-word utterances.
 - Zero entity hallucinations or mutations across the 150-case adversarial corpus.
 
 - [x] Design it (spec): [spec 0004](../specs/0004-local-text-repair-sandbox.md)
-- [ ] Implement bounded prototype in sandbox: feature/local-slm-repair-sandbox
+- [x] Implement bounded prototype (present in source; experimental and opt-in).
 - [ ] Benchmark CPU latency, memory delta, and FactGuard veto rate: /test local text repair sandbox
 
 This follows the core pilot intake and runs in branch isolation. No general screenshot collection, workspace scanning, or cloud egress is permitted. Raw Whisper dictation remains the primary path.

@@ -9,7 +9,7 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 | File | Owns |
 |---|---|
 | orchestrator.py | The nine state loop from recording through validation to insertion, owns history saving and telemetry |
-| audio_recorder.py | sounddevice capture, 0.35s pre-roll ring buffer, level driven silence auto stop |
+| audio_recorder.py | sounddevice capture, adaptive 0.35 to 0.85s pre-roll ring buffer, level driven silence auto stop |
 | audio_devices.py | Persistent microphone identity and fail closed resolution of missing or ambiguous inputs |
 | stt_engine.py | faster-whisper load and transcribe, model path resolution, Silero asset patching at import |
 | text_injector.py | Focus verified clipboard paste plus keybd_event injection, InjectionStatus truthfulness, clipboard restore |
@@ -44,7 +44,7 @@ The engine holds the whole dictation pipeline: audio capture, speech to text wit
 - Importing `engine.stt_engine` monkeypatches `faster_whisper.utils.get_assets_path` for Silero assets; importing STT twice from cache layers is safe, changing the patch is not.
 - Process detection and adaptive timing depend on the existing `psutil` import; retain it and test detection when changing those paths.
 - `TextInjector` keeps `last_injected_text` and clipboard restore state as class attributes; overlapping sessions can race this state.
-- `engine/orchestrator.py` sits at 850 lines, over the 800 line cap; add to it sparingly.
+- `engine/orchestrator.py` exceeds the preferred module size; keep new responsibilities in focused modules.
 - Cross platform adapter paths silently call external tools (`pactl`, `osascript`, `xdotool`) that may not exist; they must fail soft, never crash the loop.
 
 ## Related specs

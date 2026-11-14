@@ -1,7 +1,7 @@
 # FlowPilot Privacy Policy & Architecture Disclosure
 
-**Last reviewed:** October 26, 2026<br/>
-**Scope:** Current `master` source (v3.1.0). The published v3.0.2 release is a different build.
+**Last reviewed:** November 14, 2026<br/>
+**Scope:** Version 3.2.2 source and the repository consistency cleanup. The latest published download checked on this date is v3.1.3; source changes do not update existing binaries.
 
 ---
 
@@ -9,7 +9,7 @@
 
 FlowPilot is designed for local speech processing. This page describes what the current source code does; it is not a third-party privacy certification.
 
-1. **100% Offline Local Inference:** All speech recognition is performed locally on your computer's CPU using `faster-whisper` and quantized INT8 models.
+1. **100% Offline Local Inference:** Speech recognition uses local models. Current source automatically selects CUDA where available, with CPU INT8 fallback; the optional Tamil specialist uses ONNX Runtime.
 2. **Local Dictation Path:** The core dictation path does not upload microphone audio to a remote speech service. Setup downloads, optional integrations, and the application receiving the text have separate network behavior.
 3. **Local Window Metadata:** FlowPilot reads the foreground window handle, title, and process name through Win32 APIs; it does not capture screenshots for dictation context. Current diagnostics can print the active window title.
 4. **Dictation Never-Store by Default:** With `save_history_text: false`, completed dictation transcripts and WAV audio are not added to the History Vault. Existing saved entries and meeting notes are separate and are not erased by changing this setting.
@@ -59,13 +59,15 @@ This test is useful evidence for those paths, not a guarantee about every runtim
 
 Optional local text transforms send selected text or the latest dictation to the configured loopback model service. That service is a separate process with its own logging, retention, and network configuration. The optional integration API requires a separate user-provided token for REST/WebSocket access; keep it on loopback and do not expose it through LAN bindings, port forwarding, or public tunnels. API uploads are a separate path from desktop microphone dictation, and the desktop never-store setting does not establish zero temporary-file usage in the HTTP framework.
 
+User-installed Python hooks in `~/.flowpilot/transforms.py` execute inside the application with the user's permissions and receive text and context. They are not sandboxed and have no enforced execution deadline or network restriction. Install only code you trust; the core offline-path guarantees do not constrain custom hooks.
+
 ### 3.1 Software Update Checks
 
 FlowPilot includes an optional, non-intrusive software update checker (`engine/update_checker.py`):
 - **Endpoint:** `https://api.github.com/repos/abishekvr0910/flowpilot/releases?per_page=20`
 - **Purpose:** Discovers new official FlowPilot releases and release notes.
 - **Cadence:** Evaluates once at application launch (after a 5-second warmup) and every 24 hours while running.
-- **Payload:** Strictly anonymous standard HTTPS GET request. The `User-Agent` HTTP header includes only the application identifier and current version (`FlowPilot-Desktop/3.1.0 (Windows NT 10.0; x64)`). No audio data, transcribed text, window metadata, telemetry, device identifiers, or IP addresses are ever stored or linked.
+- **Payload:** An HTTPS GET request with the application version in its `User-Agent` (`FlowPilot-Desktop/<version> (Windows NT 10.0; x64)`). The update request does not include audio, transcripts, or window metadata. GitHub and network intermediaries can observe ordinary connection metadata, including the source IP address; FlowPilot cannot guarantee their retention practices.
 - **User Control:** Automatic update checking can be toggled on or off at any time in **Settings > Check for updates automatically**.
 
 ---

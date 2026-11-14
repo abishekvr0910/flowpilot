@@ -1,13 +1,13 @@
 # Get started with FlowPilot on Windows
 
-FlowPilot turns speech into text using a local CPU model. You need a Windows PC, a microphone, and locally installed model weights. VB-Cable and traffic-capture tools are only for benchmarks.
+FlowPilot turns speech into text using a local speech model. You need a Windows PC, a microphone, and locally installed model weights. VB-Cable and traffic-capture tools are only for benchmarks.
 
 The [release page](https://github.com/abishekvr0910/flowpilot/releases) lists stable downloads and separately labeled pilot prereleases. Check the notes for the exact build you install.
 
 ## Install a published build
 
-1. Download either the 1-Click Setup installer (`FlowPilot-Setup.exe`) or the portable Windows ZIP from the repository's GitHub release page. Check its SHA-256 against the matching [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md).
-2. For the installer, run `FlowPilot-Setup.exe` (installs cleanly to `{localappdata}\Programs\FlowPilot` without requesting admin elevation). For the portable ZIP, extract the **whole folder**, including supporting libraries, and inspect the executable's publisher signature using the [release guide](docs/release/flowpilot_build_and_release.md). If Windows blocks the build, verify its origin before proceeding.
+1. Download either the 1-Click Setup installer (`FlowPilot-Setup-v<version>.exe`) or the portable Windows ZIP from the repository's GitHub release page. Check its SHA-256 against the matching [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md).
+2. For the installer, run the downloaded versioned installer (installs cleanly to `{localappdata}\Programs\FlowPilot` without requesting admin elevation). For the portable ZIP, extract the **whole folder**, including supporting libraries, and inspect the executable's publisher signature using the [release guide](docs/release/flowpilot_build_and_release.md). If Windows blocks the build, verify its origin before proceeding.
 3. Run `FlowPilot.exe` as a normal user. Use the tray icon to access settings and quit.
 4. Allow desktop microphone access in Windows Settings and select your intended recording device. Check that local model weights are available; current source will report a missing-model error rather than silently downloading them.
 
@@ -51,7 +51,7 @@ History-off prevents new completed dictations from being saved through the vault
 ## Try one sentence
 
 1. Open an ordinary, non-administrator Notepad window and click in its document.
-2. Press **Ctrl+Shift+Space**, say a made-up sentence, and press the shortcut again to stop. Automatic silence finalization may stop recording first.
+2. Press **Ctrl+Shift+Space**, say a made-up sentence, and press the shortcut again to stop. Automatic silence finalization is off by default; saved profiles may enable it.
 3. Wait for transcription and check the actual text in the document.
 4. Try your normal editor next; compatibility and timing can differ by application.
 
@@ -61,9 +61,9 @@ Other controls in current source:
 | --- | --- |
 | Push to talk | Hold F9, speak, then release |
 | Hands-free latch | Double-tap F9; tap again to stop |
-| Recover the latest dictation | Alt+Shift+Z, or tray > Copy Last Dictation |
+| Paste latest dictation | Ctrl+Alt+V or Alt+Shift+Z; check for duplicates first |
 | Copy latest dictation to clipboard | Alt+Shift+X |
-| Undo last selection rewrite | Alt+Shift+U |
+| Transform preview and Copy Output | Ctrl+Alt+T; external rewrite/undo is disabled |
 | Change appearance | Companion context menu or Companion Studio |
 | Move the companion | Drag, or use its placement menu |
 

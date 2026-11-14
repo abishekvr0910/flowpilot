@@ -9,6 +9,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Union
 import numpy as np
+
+logger = logging.getLogger("FlowPilot.STT")
 # Zero-Cloud-Egress: All external cloud speech providers (OpenAI/Groq) are hard-disabled.
 
 # Check if faster-whisper is available for offline transcription
@@ -92,6 +94,8 @@ class STTEngine:
         self._model_lock = threading.RLock()
         self._inference_cond = threading.Condition(self._model_lock)
         self._shutdown: bool = False
+        self._cuda_failed: bool = False
+        self._active_device: Optional[str] = None
 
     @classmethod
     def get_model_key(cls, model_target: str, device: str = "cpu", compute_type: str = "int8", threads: int = 4) -> str:
@@ -107,6 +111,7 @@ class STTEngine:
                 "active_size": self._active_model_size,
                 "active_target": self._active_model_target,
                 "active_key": self._active_model_key,
+                "active_device": self._active_device,
                 "status": self._model_status,
                 "last_error": self._last_error,
                 "active_inferences": self._active_inferences,
@@ -250,6 +255,9 @@ class STTEngine:
             elif target_compute == "auto":
                 target_compute = "float16" if target_device == "cuda" else "int8"
 
+            if target_device == "cuda" and self._cuda_failed:
+                target_device, target_compute = "cpu", "int8"
+
             threads = self.config.get("cpu_threads") or min(8, os.cpu_count() or 4)
             key = self.get_model_key(model_target, target_device, target_compute, threads)
 
@@ -276,6 +284,7 @@ class STTEngine:
             )
         except Exception as e:
             if target_device == "cuda":
+                self._cuda_failed = True
                 print(f"[STT] CUDA acceleration unavailable or failed ({e}). Gracefully falling back to CPU int8...")
                 target_device = "cpu"
                 target_compute = "int8"
@@ -329,9 +338,11 @@ class STTEngine:
             self._active_model_size = requested_size
             self._active_model_target = model_target
             self._active_model_key = key
+            self._active_device = target_device
             self._model_status = "ready"
             self._last_error = None
-            print(f"[STT] Local model '{requested_size}' loaded on CPU (int8, threads={threads}). Zero-egress offline mode active.")
+            logger.info("Local model %s loaded on %s (%s, threads=%s); offline mode.",
+                        requested_size, target_device, target_compute, threads)
             return self._local_model
 
     @contextmanager
@@ -370,6 +381,7 @@ class STTEngine:
                 self._active_model_size = None
                 self._active_model_target = None
                 self._active_model_key = None
+                self._active_device = None
                 import gc
                 gc.collect()
                 return True
@@ -383,6 +395,7 @@ class STTEngine:
             self._local_model = None
             self._active_model_key = None
             self._active_model_size = None
+            self._active_device = None
             self._inference_cond.notify_all()
 
     def build_bias_prompt(
@@ -491,6 +504,35 @@ class STTEngine:
         return self._transcribe_local(audio_data, initial_prompt, lang, task=task, hotwords=hotwords)
 
     def _transcribe_local(
+        self,
+        audio_data: Union[bytes, np.ndarray],
+        initial_prompt: str,
+        language: str,
+        task: str = "transcribe",
+        hotwords: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retry once on CPU when CUDA fails during lazy segment decoding."""
+        try:
+            return self._transcribe_local_once(audio_data, initial_prompt, language, task, hotwords)
+        except RuntimeError as exc:
+            gpu_failure = any(token in str(exc).lower() for token in ("cuda", "cublas", "cudnn"))
+            with self._model_lock:
+                if not gpu_failure or self.config.get("device", "cpu") not in ("auto", "cuda"):
+                    raise
+                if self._shutdown:
+                    raise
+                self._cuda_failed = True
+                if self._active_device == "cuda":
+                    self._local_model = None
+                    self._active_model_key = None
+                    self._active_model_size = None
+                    self._active_model_target = None
+                    self._active_device = None
+                    self._model_status = "unloaded"
+            logger.warning("CUDA decoding failed; retrying this recording once on CPU int8: %s", exc)
+            return self._transcribe_local_once(audio_data, initial_prompt, language, task, hotwords)
+
+    def _transcribe_local_once(
         self,
         audio_data: Union[bytes, np.ndarray],
         initial_prompt: str,

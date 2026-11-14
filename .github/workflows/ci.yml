@@ -53,7 +53,10 @@ jobs:
           bandit -r engine/ -ll -ii
           pip-audit -r requirements.txt
 
-      - name: Run Python Automated Master Regression Suite (67 Suites)
+      - name: Check Repository Consistency
+        run: python -X utf8 scripts/check_repository_consistency.py
+
+      - name: Run Python Automated Master Regression Suite
         run: |
           python -X utf8 tests/run_all_tests.py
 

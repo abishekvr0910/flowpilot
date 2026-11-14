@@ -74,7 +74,7 @@ RESERVED_FLOWPILOT_SHORTCUTS = {
     (MOD_CONTROL | MOD_ALT, VK_MAPPING["L"]): "Quick switch language (Ctrl+Alt+L)",
     (MOD_ALT | MOD_SHIFT, VK_MAPPING["Z"]): "Paste last dictation (Alt+Shift+Z)",
     (MOD_ALT | MOD_SHIFT, VK_MAPPING["X"]): "Copy last dictation (Alt+Shift+X)",
-    (MOD_ALT | MOD_SHIFT, VK_MAPPING["U"]): "Undo last rewrite (Alt+Shift+U)",
+    (MOD_ALT | MOD_SHIFT, VK_MAPPING["U"]): "Reserved external undo (currently unavailable)",
 }
 
 RESERVED_WINDOWS_SHORTCUTS = {

@@ -4,7 +4,7 @@ Current status and boundaries for the FlowPilot desktop dictation and writing pr
 
 ## At a glance
 
-FlowPilot is a Windows-first, 100% offline dictation and private writing tool. For the whole-product specification and verification standard across all 13 core subsystems, see the [Whole-Product Master Scope](FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md). For the commercial General Availability (GA) closure roadmap, see the [GA Final Closure Scope](FLOWPILOT_GA_FINAL_CLOSURE_SCOPE.md). The target production release is **v3.1.0 GA**. See the [release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) for artifact hashes, test evidence, and open gates.
+FlowPilot is a Windows-first, 100% offline dictation and private writing tool. For the whole-product specification and verification standard across all 13 core subsystems, see the [Whole-Product Master Scope](FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md). For the commercial General Availability (GA) closure roadmap, see the [GA Final Closure Scope](FLOWPILOT_GA_FINAL_CLOSURE_SCOPE.md). The current source version is **3.2.2**; the latest published application download checked on 2026-11-14 is **v3.1.3**, unsigned. [Current status and handoff](../STATUS.md) is the authority for current completion and next steps. See the [release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) for artifact hashes, test evidence, and open gates.
 
 | ID | Capability or milestone | Area | Status |
 |---|---|---|---|
@@ -29,14 +29,14 @@ FlowPilot is a Windows-first, 100% offline dictation and private writing tool. F
 | 15 | Real speaker language evaluation | Next release | planned |
 | 16 | Real application paste reliability | Next release | planned |
 | 25 | Runtime latency and resource evaluation | Next release | in-progress |
-| 17 | Distribution size and publisher identity | Next release | done (Inno Setup installer & Authenticode signing pipeline) |
+| 17 | Distribution size and publisher identity | Next release | partial (installer and signing tools implemented; published artifacts unsigned) |
 | 18 | Trust, security, and public claims review | Next release | planned |
 | 19 | Whole app usability and visual quality | Product quality | planned |
 | 20 | Context aware companion visibility | Product quality | in-progress |
 | 27 | Media audio aware hiding | Product quality | in-progress |
 | 21 | Original character quality and rights | Product quality | planned |
-| 22 | Safe editing beyond the scratchpad | Product quality | done (Universal Selection Rewriter with Alt+Shift+U undo) |
-| 30 | Optional local text repair and infilling | Product quality | done (sandbox) |
+| 22 | Safe editing beyond the scratchpad | Product quality | blocked (external rewrite/undo disabled pending verified revision adapter) |
+| 30 | Optional local text repair and infilling | Product quality | implemented, opt-in sandbox; broader validation pending |
 | 31 | Approved local correction learning | Product quality | done |
 | 23 | Optional editor presence | Later | planned |
 | 24 | Windowed media and screen share behavior | Later | closed (manual app rules) |
@@ -51,9 +51,9 @@ FlowPilot is a Windows-first, 100% offline dictation and private writing tool. F
 
 ## Order and boundaries
 
-The current source, RC8, and RC9 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Candidate hardware behavior and physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect have been verified via `scripts/verify_audio_device_gate.py` and `scripts/interactive_physical_mic_test.py` ([physical integrity receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md)), and dedicated USB bus audio device (`USB\VID_...`) hot-plug confirmation has been verified and logged via `scripts/verify_usb_bus_hotplug.py` ([physical USB bus receipt](../testing/PHYSICAL_USB_BUS_UNPLUG_RECEIPT_20261028_203758.md)); broad first-attempt paste reliability across heavy applications, diverse human speech, and paired competitor outcomes remain active evaluation tracks. Universal repetition loop suppression has resolved Indic and multilingual looping without hallucinatory padding. Inno Setup 1-click zero-admin packaging and an RFC 3161 Authenticode signing pipeline have closed the distribution and signing requirements. Feature 30 is a sandbox proposal, not a shipped post processor. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
+The current source, RC8, and RC9 refuse unsupported external Replace and Revert operations. Older candidates do not acquire later repairs from source edits. Persistent microphone identity, independent delivery observation, pilot capture guards, and terminal delivery hardening are present in source. Candidate hardware behavior and physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect have been verified via `scripts/verify_audio_device_gate.py` and `scripts/interactive_physical_mic_test.py` ([physical integrity receipt](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md)), and dedicated USB bus audio device (`USB\VID_...`) hot-plug confirmation has been verified and logged via `scripts/verify_usb_bus_hotplug.py` ([physical USB bus receipt](../testing/PHYSICAL_USB_BUS_UNPLUG_RECEIPT_20261028_203758.md)); broad first-attempt paste reliability across heavy applications, diverse human speech, and paired competitor outcomes remain active evaluation tracks. Universal repetition loop suppression has resolved Indic and multilingual looping without hallucinatory padding. Inno Setup packaging and an RFC 3161 signing pipeline are implemented. Published v3.1.3 packages remain unsigned; signing tooling does not close the publisher identity gate. Feature 30 exists in source behind an opt-in setting; it is not enabled by default. Define build identity, thresholds, and failure reporting before new trials. Product quality work can proceed separately without relabelling older release evidence.
 
-The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The full completion gates and proposed numerical targets are in the [Gemini handoff](GEMINI_SCOPE_EXECUTION_HANDOFF_2026-10-26.md); no claim of being "100% better" is authorized by a suite count or this scope.
+The initial competitive objective is better private developer dictation on Windows, measured as less time to correct, usable text without worse factual errors or unsafe delivery. General release readiness and competitive superiority are separate decisions. A result on one language, model, or machine does not establish universal superiority. The historical execution sequence is in the [Gemini handoff](GEMINI_SCOPE_EXECUTION_HANDOFF_2026-10-26.md), superseded for current status by [the current handoff](../STATUS.md); no claim of being "100% better" is authorized by a suite count or this scope.
 
 FlowPilot stays local first. The normal desktop path does not depend on a cloud model. Optional localhost integrations have their own trust boundary. A green automated suite is not proof of universal paste reliability, zero risk, regulatory compliance, or superiority over Wispr Flow. Character art and interface work must be original or properly licensed. We are not planning a competitor code clone.
 
@@ -62,4 +62,4 @@ Mobile apps, broad Linux and macOS release support, automatic actions in arbitra
 
 ## Legend
 
-\existing\ means implemented before this scope, not fully validated on customer hardware. \candidate-verified\ means verified on candidate hardware during pilot testing. \planned\ means not complete. eeds a decision\ means you may ask \/architect\ to settle behavior and tests before building. The first unticked box in a feature section is the suggested next step. This scope can be reconciled after each real milestone without treating a proposed spec as shipped code.
+`existing` means implemented, not fully validated on customer hardware. `candidate-verified` means verified on the recorded hardware and artifact only. `planned` means not complete. `needs a decision` means behavior and tests still need an agreed design. Follow the priorities in [current status](../STATUS.md); historical checklists may refer to older candidates.

@@ -1,254 +1,106 @@
-<div align="center">
+# FlowPilot
 
-# FlowPilot ⚡
+Local voice dictation for Windows, with a native PySide6 interface.
 
-### Local-first voice dictation for Windows
-CPU speech recognition, cursor insertion, and a native PySide6 desktop interface.
+[Get started](QUICKSTART.md) · [Current status and handoff](docs/STATUS.md) · [Privacy](PRIVACY.md) · [Support](SUPPORT.md) · [Downloads](https://github.com/abishekvr0910/flowpilot/releases)
 
-[Get started](QUICKSTART.md) · [Evaluate trust and privacy](TRUST.md) · [Get help](SUPPORT.md) · [Verify a download](docs/release/RELEASE_ARTIFACT_MANIFEST.md) · [Master Scope](docs/scope/FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md) · [GA Scope](docs/scope/FLOWPILOT_GA_FINAL_CLOSURE_SCOPE.md)
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078D6.svg)](README.md)
-[![Engine: faster--whisper](https://img.shields.io/badge/ASR-faster--whisper%20(INT8)-orange.svg)](https://github.com/SYSTRAN/faster-whisper)
-[![UI: PySide6 / Qt](https://img.shields.io/badge/GUI-PySide6%20%2F%20Qt6-41CD52.svg?logo=qt)](https://www.qt.io/)
 [![CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml)
+[![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-</div>
+## Current status
 
----
+As checked on November 14, 2026, the latest published Windows download is [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3). Its installer and ZIP are unsigned. Source is version **3.2.2** and includes later changes; local build records for 3.2.x do not establish a published release. See the [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md) for the distinction and checksums.
 
-## 📖 Overview
+FlowPilot has working dictation, formatting, recovery, model setup, and desktop tools. Broad editor compatibility, speech quality across speakers, and release readiness require continued measurement. The [scope](docs/scope/index.md) and [current handoff](docs/STATUS.md) track these limits.
 
-**FlowPilot** is an open-source, local-first desktop voice dictation assistant built for power users, developers, and privacy-conscious professionals.
+## What it does
 
-FlowPilot transcribes speech on the user's machine and inserts text at the active cursor. [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) lists the stable download and separately labeled pilot prereleases. Check the notes for the exact build you install and read [PRIVACY.md](PRIVACY.md) for current source behavior.
+- Transcribes locally using faster-whisper. Current source detects CUDA when available and falls back to CPU INT8; downloaded releases may use different device defaults.
+- Offers optional local Tamil specialist recognition and explicit model downloads in Settings. Model downloads require a network connection during setup; dictation does not download models.
+- Cleans text with deterministic formatting and FactGuard checks for critical facts. Recognition and formatting can still make mistakes.
+- Inserts at the active cursor with focus checks. Results distinguish confirmed text, sent but unverified input, and failed delivery with recovery.
+- Provides transform previews and Copy Output. External selection rewrite and undo are disabled pending document revision and selection verification. Scratchpad edits use separate transactions.
+- Includes optional local history, dictionary, snippets, meeting notes, companions, and a separately started loopback API.
 
-The current Windows pilot build is listed under [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases). Pilot builds are unsigned prereleases; verify the version and SHA-256 in the [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md) before testing. The stable release remains separately listed on GitHub.
+Dictation history is off for new profiles. Existing profiles retain their preferences. The microphone may remain open to maintain an adaptive audio buffer of approximately 0.35 to 0.85 seconds. See [privacy and data lifecycles](PRIVACY.md).
 
----
+## Install or run
 
-## ✨ Key Capabilities
+Download the versioned installer or portable ZIP from [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases). Verify the matching checksum and signing status before opening it.
 
-| Feature | Description |
-|:---|:---|
-| 🔒 **Local speech recognition** | Uses `faster-whisper` INT8 on CPU. Cloud STT branches are disabled in current source; the network regression test covers selected dictation paths. Dictation history is off by default. |
-| 🔌 **Optional local transcription API** | A separately started, token-protected subset of OpenAI-style audio endpoints on `127.0.0.1:8765`. Client compatibility must be tested individually. |
-| 🛡️ **FactGuard & Writing Intelligence** | Deterministic post-processing engineered to remove stutter and vocal fillers (`um`, `uh`), clean repeated words, auto-punctuate, and preserve numbers, dates, negations, and technical symbols. Includes universal repetition loop suppression for Indic (Hindi, Tamil) and multilingual speech. |
-| ✍️ **Caret-Aware Context Formatting** | Real-time Win32 `EM_GETSEL` and UIA `IUIAutomationTextPattern` inspection; avoids stray periods, eliminates duplicate punctuation, and automatically matches sentence capitalization when inserting into existing paragraphs. |
-| 🔄 **Universal Selection Rewriter & Undo** | Highlight text in any application and speak replacement or editing instructions. In-place replacements are protected by FactGuard invariants, focus shift checks, and terminal safeguards, with immediate rollback via **`Alt+Shift+U`**. |
-| 🤖 **Optional Local LLM Pass** | Current source can connect to a separately installed localhost model service for command and tone transforms. Offline behavior also depends on that service's configuration. Selected-Text Transforms (`Ctrl+Alt+T`) provide a preview and explicit Copy Output. External Replace and Revert are unavailable until document and selection verification exists; scratchpad edits have separate guarded transactions. **`Alt+Shift+Z`** requests recovery of the last dictation, subject to target-app behavior. |
-| ⚡ **Measured latency** | The [v3.0.2 release evaluation](docs/release/FLOWPILOT_V302_RELEASE_REPORT.md) reports 1,202 ms median and 1,460 ms p95 from stop action to visible text on one 8-thread Windows test host. These are historical host measurements, not a guarantee for current `master` or other hardware. |
-| 🎙️ **Flexible Voice Controls & TapLatch** | Choose a dictation key (for example, **F9**) and select toggle or push-to-talk in Settings. Push-to-talk supports TapLatch double-tap hands-free mode. Existing profiles retain the former F9 and Ctrl+Alt+Space aliases until a shortcut is explicitly saved. |
-| 🔄 **Continuous Pre-Roll Ring Buffer** | A 350 ms sliding float32 buffer and background stream warmup are designed to reduce first-syllable clipping; microphone and system timing still vary. |
-| 📋 **Instant Recovery & Clipboard Safety** | Triple-action hotkeys for complete dictation safety: **`Alt+Shift+Z`** re-pastes the last dictation buffer, **`Alt+Shift+X`** copies it directly to clipboard without pasting, and **`Alt+Shift+U`** restores previous text before a rewrite. Windows sequence checks help preserve newer user copies. |
-| 🧠 **Automatic Correction Learning** | Automatically detects user edits to recent dictations, tracks correction frequency across a 7-day window, and offers one-click persistent vocabulary additions in the Dictionary View. |
-| 💻 **Developer Vocabulary Biasing** | Built-in terminology dictionary biasing for engineering terms (`Kubernetes`, `GraphQL`, `FastAPI`, `Pydantic`, `TypeScript`, `Docker`, `PostgreSQL`). |
-| 📝 **Meeting Notetaker & History Vault** | Includes two-track meeting notes (microphone and WASAPI loopback system audio with acoustic energy bleed suppression) and an opt-in dictation vault for local transcripts and `.wav` audio. |
-| 📦 **1-Click Installer & Authenticode Pipeline** | Zero-admin Inno Setup installer (`installer/flowpilot_setup.iss`) targeting `{localappdata}` without UAC elevation prompts, paired with an RFC 3161 dual-digest Authenticode code signing harness. |
-| 🐾 **Customizable Desktop Companions** | Moveable desktop companions that sit anywhere on your screen (snaps to any corner/edge with zero text clutter). Includes the **Pixel Kitty** (adapted from SondeR cat by Verisonder, Apache-2.0; with 10 fur palettes and audio-reactive kneading paws), **Robot Mascot ("Pilot")**, **Retro Pixel Companions (Fox, Dino, Ghost, Bunny)**, and custom pixel art. Uses `WS_EX_NOACTIVATE` to preserve editor focus; validate behavior in your target apps. |
-
----
-
-## 🚀 Quick Start (Choose Your Preferred Method)
-
-*For model setup, a first dictation, and recovery instructions, see [QUICKSTART.md](QUICKSTART.md).*
-
-### Method A: Standalone Packaged Release or 1-Click Installer (Windows)
-*No Python or compiler required.*
-
-- **1-Click Setup Installer:** `FlowPilot-Setup.exe` installs directly to `{localappdata}\Programs\FlowPilot` without requesting administrator privileges.
-- **Distribution Archive:** Compressed Windows ZIP; size varies with bundled models ([GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases)).
-- **Primary Executable:** `FlowPilot.exe` inside the extracted Windows archive.
-
-1. Download the Windows ZIP for the release you intend to use and extract it. Pilot prereleases are labeled separately.
-2. Run **`FlowPilot.exe`** from the extracted folder.
-3. The **Pilot Companion** appears on your desktop (draggable anywhere, snaps to any corner), and the FlowPilot icon will sit in your System Tray.
-
-### Method B: Running the current source
+For source development, use Python 3.12 (CI target; package range is 3.10 through 3.12):
 
 ```powershell
-# Windows, with Python 3.11+ and audio dependencies available
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python desktop_app.py
+python -m pip install -r requirements.txt
+python -X utf8 desktop_app.py
 ```
 
-The current runtime requires locally provisioned model weights. Follow the [source setup instructions](QUICKSTART.md#running-current-source) before launching on a fresh machine. VB-Cable and traffic-capture software are benchmark tools; normal dictation does not need them.
+Provision local models using the explicit setup steps in [QUICKSTART.md](QUICKSTART.md#running-current-source). Normal dictation does not require VB-Cable or traffic capture tools. Windows is the supported release target; Linux and macOS adapters are development paths.
 
-Linux and macOS adapters exist in the source, but the published artifact and primary verification target Windows. See [QUICKSTART.md](QUICKSTART.md) for platform-specific development notes.
+## Dictation and recovery
 
----
+Place the cursor in your editor. With a new profile, press **Ctrl+Shift+Space**, speak, then press it again. Automatic silence stopping is **off by default**; enabling it uses a default 2.5-second timeout. Saved profiles may differ.
 
-## 🎙️ How to Dictate
+| Action | Control |
+| --- | --- |
+| Dictation | Shortcut and toggle/push-to-talk mode chosen in Settings |
+| Legacy F9 alias / TapLatch | Available while legacy aliases remain enabled; behavior follows the chosen mode |
+| Paste last dictation | Ctrl+Alt+V or Alt+Shift+Z |
+| Copy last dictation | Alt+Shift+X or the tray action |
+| Transform preview | Ctrl+Alt+T |
+| Switch language | Ctrl+Alt+L or the tray menu |
 
-1. **Place your cursor** into any text field or editor (VS Code, Notepad, Browser, Discord, Word).
-2. **Activate FlowPilot**:
-   - **Toggle Mode (Default):** Press **`Ctrl + Shift + Space`**. The HUD glows cyan indicating active listening. Speak naturally. Press **`Ctrl + Shift + Space`** again (or pause for 0.85s) to finalize.
-   - **Push-to-Talk Mode:** Press and hold **`F9`**. Speak your thought. Release **`F9`** to finalize.
-   - **TapLatch Hands-Free:** Rapid double-tap **`F9`** (<350ms) to lock dictation hands-free without holding the key. Tap **`F9`** once to finalize.
-   - **Selected-Text Transforms:** Highlight text and press **`Ctrl + Alt + T`** to preview a transform. Use **Copy Output** and paste manually into the intended editor.
-3. FlowPilot transcribes, formats, and inserts text at your cursor. The 350 ms pre-roll is intended to reduce first-syllable clipping.
-4. **Triple Recovery Hotkeys:**
-   - **`Alt + Shift + Z`**: Immediately re-pastes your last dictation buffer into the active window.
-   - **`Alt + Shift + X`**: Immediately copies your last dictation directly to the clipboard without pasting.
-   - **`Alt + Shift + U`**: Immediately undoes the last in-place selection rewrite and restores the original text.
-5. **Universal Selection Rewriter:** Highlight any text in your document and trigger dictation to replace or polish it in-place. FactGuard invariants prevent number or negation hallucinations.
-6. **Emergency Recovery:** If target application blocks clipboard pasting, your dictation is safely held in memory. Simply right-click the System Tray icon and select **"Copy Last Dictation"**.
+Check for delayed text before recovering to avoid duplicate insertion. Use the target editor's own Undo for external edits. Alt+Shift+U remains reserved but does not perform an external rewrite rollback.
 
----
+## Configuration
 
-## 🐾 Desktop Companions & Visual Styles
-
-FlowPilot gives you multiple visual companion options to match your workflow:
-
-| Visual Style | Appearance & Behavior | Interaction |
-|:---|:---|:---|
-| 🐾 **Pixel Kitty** (based on SondeR cat by Verisonder) | Upright 26x28 pixel cat with 10 fur palettes (Orange Tabby, Calico, Black, Gray, Siamese, Pink, White, Mint, Chocolate, Cream). Paws knead at voice speed when speaking, eyes glow during transcription, and floating hearts appear on paste with optional cheerful meows! | Right-click → **Appearance Style → Pixel Kitty (based on SondeR cat)**; choose fur color from **Kitty Fur Color...** |
-| 🤖 **Robot Mascot ("Pilot")** | Cute rounded companion robot with radiating acoustic antenna, expressive blinking eyes with real-time voice-reactive pupil dilation, thinking spiral eyes during transcription, and happy smile on paste. | Right-click → **Appearance Style → Robot Mascot Companion ('Pilot')** |
-| 🐶 **Pixel Pup & Shiba** | Playful pixelated dog companion with multiple breeds and tail-wag animation. | Right-click → **Appearance Style → Pixel Pup & Shiba** |
-| 🦊 **Retro Companion Series** | Pixel Fox, Dino, Ghost, and Bunny retro companion sprites with animated tail wags, hops, and glows. | Selected via Companion Studio dialog or Dashboard |
-| 📏 **Edge Line** | Ultra-minimal docked vertical line. Pulses with audio volume; zero screen distraction. | Right-click → **Appearance Style → Edge Line** |
-| 🌊 **Acoustic Wave Equalizer** | Five bars responding to speech level; an audio envelope visualization rather than a measured frequency spectrum. | Right-click → **Appearance Style → Acoustic Wave Equalizer** |
-
-### Positioning & Moving Companions
-- **Drag & Drop:** Click and hold the companion with your mouse to drag it to any pixel on your desktop.
-- **One-Click Snap:** Right-click the companion → **Move Companion to...** → Select **Bottom-Right**, **Bottom-Left**, **Top-Right**, **Top-Left**, **Left Edge (Middle)**, **Right Edge (Middle)**, or **Bottom-Center**.
-- **Style selection:** Use the right-click **Appearance Style** menu or Companion Studio. Double-click does not change appearance in current `master`.
-- **Zero Focus-Stealing:** On Windows, the passive HUD uses `WS_EX_NOACTIVATE` to avoid taking editor focus. Settings and Studio are interactive windows. Cross-platform adapters require separate verification.
-
----
-
-## 🔌 OpenAI-Compatible Local STT API
-
-FlowPilot provides a local subset of the OpenAI-style audio transcription interface at `http://127.0.0.1:8765/v1` when the integration server is running:
-
-This server is **not** started by the normal desktop launcher. Set `FLOWPILOT_API_TOKEN` to a random value of at least 32 characters in the server process environment, then run `npm run start:web` from the repository. Requests must send `Authorization: Bearer <your token>`; the browser companion asks for the same token for its WebSocket session. The server refuses to start without a suitable token. Keep it bound to loopback and do not share the token.
-
-- **Transcribe Audio:** `POST http://127.0.0.1:8765/v1/audio/transcriptions` (supports `json`, `text`, and `verbose_json` formats)
-- **Model Catalog:** `GET http://127.0.0.1:8765/v1/models` (reports `whisper-1`)
-
-### Connecting Third-Party Tools
-Configure a client that supports a custom audio-transcription endpoint to use `http://127.0.0.1:8765/v1` and send the configured token as its Bearer API key. Verify that client's expected request/response format and its own data handling; compatibility with every IDE or plugin is not established. A placeholder key such as `local` is not sufficient. Read [SECURITY.md](SECURITY.md) before enabling integrations.
-
----
-
-## ⚙️ Configuration & Customization
-
-FlowPilot stores its configuration locally in your user profile:
-`%USERPROFILE%\.flowpilot\config.json`
-
-You can customize settings via the System Tray context menu (**Right-Click Tray Icon → Settings**) or by editing `config.json` directly:
+Settings are stored at `%USERPROFILE%\.flowpilot\config.json`. Selected defaults in current source:
 
 ```json
 {
   "engine_mode": "local",
   "local_model_size": "base",
+  "device": "auto",
+  "compute_type": "auto",
   "language": "en",
   "hotkey": "<ctrl>+<shift>+<space>",
   "hotkey_mode": "toggle",
   "active_tone_mode": "developer",
-  "auto_stop_on_silence": true,
-  "silence_timeout_sec": 0.85,
-  "custom_vocabulary": [
-    "Kubernetes", "GraphQL", "FastAPI", "Pydantic", "PostgreSQL",
-    "Next.js", "TypeScript", "Python", "Whisper", "Docker"
-  ],
+  "auto_stop_on_silence": false,
+  "silence_timeout_sec": 2.5,
   "telemetry_enabled": false,
   "save_history_text": false
 }
 ```
 
-`save_history_text: false` is the default never-store dictation mode: completed audio and transcript text stay out of the History Vault, legacy config history, local insights, and pilot telemetry. The latest dictation remains in memory for recovery until replaced or the app exits. Set it to `true` to opt into persistent dictation history and audio replay. Changing the setting does not erase older saved entries or meeting notes; see [PRIVACY.md](PRIVACY.md).
+## Optional local API
 
-### Available Tone Modes
-- **`developer`** (Default): Preserves code identifiers, acronyms, and formatting while cleaning vocal fillers.
-- **`cleaned`**: Standard conversational cleanup with natural punctuation and capitalization.
-- **`verbatim`**: Minimal post-processing of the model's acoustic transcript; recognition errors remain possible.
-- **`casual`**: Conversational tone preserving expressive language.
-- **`email`**: Structured business formatting.
+The desktop launcher does not start the integration server. Set `FLOWPILOT_API_TOKEN` to a random value of at least 32 characters, then run `npm run start:web`. Clients must send that token as a Bearer credential.
 
----
+The server listens on `127.0.0.1:8765` and provides a subset of OpenAI-style transcription endpoints, including `/v1/audio/transcriptions` and `/v1/models`. Client compatibility must be checked individually. See [security boundaries](SECURITY.md).
 
-## 🏗️ Architecture
+## Verification
 
-```mermaid
-flowchart TD
-    HK["User-selected dictation hotkey"] -->|Win32 RegisterHotKey| ORCH["FlowOrchestrator"]
-    ORCH -->|CoreAudio Ducking| DUCK["AudioDucker (pycaw)"]
-    ORCH -->|Non-blocking Capture| REC["AudioRecorder (PortAudio)"]
-    ORCH -->|WS_EX_NOACTIVATE| HUD["FloatingHUD (PySide6)"]
-    
-    REC -->|Contiguous Float32 Array| STT["STTEngine (faster-whisper INT8)"]
-    STT -->|Raw Acoustic Transcript| WI["ContextProcessor & FactGuard"]
-    WI -->|Negation & Number Preservation| FORMAT["Cleaned Formatted Text"]
-    
-    FORMAT -->|Injection attempt| INJ["TextInjector (SendInput / Paste)"]
-    INJ -->|Focus checks; confirmation where supported| APP["Target Application (Active Window)"]
-    INJ -->|Text staging and guarded restore| CLIP["Windows System Clipboard"]
+```powershell
+python -X utf8 scripts/check_repository_consistency.py
+python -X utf8 tests/run_all_tests.py
+npm test
 ```
 
----
+The runner prints its suite count and separates passes, skips, and failures. Release verification adds `--require-all` and requires an interactive Windows desktop, microphone, local models, and a freshly built matching executable. Headless checks and an older binary do not verify a new release.
 
-## 🧪 Testing and limitations
+See [known issues](docs/testing/flowpilot_known_issues.md), the [benchmark protocol](docs/testing/FLOWPILOT_BENCHMARK_PROTOCOL.md), and [trust and evidence](TRUST.md). No paired benchmark in this cleanup establishes superiority over Handy or Wispr Flow.
 
-The current source defines 63 test suites in [`tests/run_all_tests.py`](tests/run_all_tests.py). Check the [live CI results](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for the status of `master`; historical release results do not establish the status of newer source. Hosted, non-interactive Windows CI skips physical microphone, audio-ducking, clipboard-sequence, and real-editor insertion checks; those skips are not hardware or paste passes. Run the physical checks separately on an interactive Windows desktop. Simulated editor tests alone do not prove compatibility with every application. See [known issues](docs/testing/flowpilot_known_issues.md) and the [benchmark protocol](docs/testing/FLOWPILOT_BENCHMARK_PROTOCOL.md) for scope and limitations.
+## Documentation and contributions
 
----
+- [Current status / next agent handoff](docs/STATUS.md)
+- [Scope and priorities](docs/scope/index.md)
+- [Handy source comparison](docs/research/HANDY_SOURCE_REVIEW_2026-11-14.md)
+- [Architecture](docs/architecture/flowpilot_desktop_architecture.md)
+- [Build and release](docs/release/flowpilot_build_and_release.md)
+- [Contributing](CONTRIBUTING.md)
+- [Historical documents](docs/archive/README.md)
 
-## 🔧 Troubleshooting & FAQ
-
-#### Win32 Hotkey Error 1409 (`ERROR_HOTKEY_ALREADY_REGISTERED`)
-- **Cause:** Another running application (e.g., PowerToys, Discord, or an older instance of FlowPilot) is already listening to `Ctrl+Shift+Space`.
-- **Solution:** Right-click the Tray icon, open **Settings**, and switch your shortcut to `Ctrl+Alt+Space` or `F9`. FlowPilot includes single-instance mutex enforcement to prevent duplicate background processes.
-
-#### Microphone Not Capturing Sound
-- Open Windows **Settings → Privacy & security → Microphone** and verify that desktop apps are permitted to access your microphone.
-- FlowPilot automatically detects your default Windows recording device.
-
-#### Text Doesn't Paste into an Elevated Application (Administrator Terminal)
-- Under Windows security architecture (UAC), a standard user process cannot inject input into an Administrator/elevated window.
-- **Recovery:** Check whether the text arrived, then use **Copy Last Dictation** and paste manually if needed. Keep normal dictation at standard user privilege; elevated workflows need separate testing.
-
----
-
-## 🔒 Privacy & Security
-
-FlowPilot processes dictation locally. [Evaluating FlowPilot](TRUST.md) connects each major claim to its evidence and remaining limits:
-- **Local Speech Inference:** Speech models (`faster-whisper`, `silero-vad`) execute purely on your local CPU via CTranslate2 and ONNX Runtime with `local_files_only=True`.
-- **Zero Screenshots:** FlowPilot never inspects or captures screen images.
-- **Network regression coverage:** [`tests/test_network_egress.py`](tests/test_network_egress.py) rejects attempted non-loopback connections in selected tested paths; this is not an independent certification of every runtime configuration.
-- **No Cloud Telemetry by Default:** Diagnostic telemetry is disabled by default (`telemetry_enabled: false`).
-- **Local retention:** Current `master` keeps completed dictations out of the History Vault by default (`save_history_text: false`). Opting in saves transcripts and WAV audio locally. Existing entries are not automatically erased when opting out. Read [PRIVACY.md](PRIVACY.md) for storage paths and deletion behavior.
-
-Read our complete [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) documents.
-
-The current source and published downloads have different feature and verification histories. Publisher signing, real-editor reliability, and optional API access controls are release assurance work; see [current status](TRUST.md#current-release-assurance). A passing suite does not certify privacy or establish a competitive performance advantage.
-
----
-
-## 📚 Project Documentation
-
-Detailed technical and engineering documentation is structured in [`docs/`](docs/):
-
-- **[Architecture](docs/architecture/flowpilot_desktop_architecture.md):** Desktop design and platform boundaries.
-- **[Testing](docs/testing/FLOWPILOT_BENCHMARK_PROTOCOL.md):** Benchmark methodology, plus [known issues](docs/testing/flowpilot_known_issues.md).
-- **[Release](docs/release/FLOWPILOT_V302_RELEASE_REPORT.md):** Historical v3.0.2 release evaluation; see [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) for published downloads.
-- **[Privacy](PRIVACY.md) and [security reporting](SECURITY.md):** Current-source data handling and vulnerability contact.
-- **[Whole-Product Master Scope](docs/scope/FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md):** 13 core subsystems verification standard and live runtime proofs.
-- **[GA Final Closure Scope](docs/scope/FLOWPILOT_GA_FINAL_CLOSURE_SCOPE.md):** Commercial release closure milestones (Inno Setup installer, Selection Rewriter, USB bus hot-plug, Authenticode signing, Repetition suppression).
-
----
-
-## 📜 Licensing & Attribution
-
-FlowPilot application code is released under the **MIT License**. See [LICENSE](LICENSE) for details.
-
-FlowPilot bundles third-party open-source components including:
-- **PySide6 / Qt 6** (review the applicable LGPL/GPL/commercial terms and redistribution requirements for the bundled components)
-- **faster-whisper** (MIT License, SYSTRAN)
-- **CTranslate2** (MIT License, OpenNMT)
-- **Silero VAD** (MIT License, Silero Team)
-- **sounddevice & PortAudio** (MIT / PortAudio License)
-
-See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for the component attribution summary; verify license notices in the distributed package as well.
+Application code is MIT licensed. See [LICENSE](LICENSE) and [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for dependency and asset attribution. Pixel Kitty is adapted from SondeR cat by Verisonder under Apache-2.0.

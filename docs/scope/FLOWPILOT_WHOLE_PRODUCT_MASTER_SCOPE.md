@@ -1,7 +1,9 @@
 # FlowPilot: Whole-Product Master Scope & Acceptance Criteria
 
+> Historical specification or evidence snapshot. Its release targets, completion labels, ratings, and instructions are not current status. See [current status and handoff](../STATUS.md). External selection rewrite/undo is disabled and published v3.1.3 binaries are unsigned.
+
 **Document Version:** 3.1.0-GA-SPEC  
-**Status:** Authoritative Product Scope & Verification Standard  
+**Status:** Historical acceptance criteria; current status is tracked separately
 **Target Release:** FlowPilot v3.1.0  
 **Target Architecture:** Windows 10/11 (64-bit, x64), Native Host-Isolated  
 

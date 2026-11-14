@@ -1,5 +1,7 @@
 # Gemini Scope Execution Handoff
 
+> Historical specification or evidence snapshot. Its release targets, completion labels, ratings, and instructions are not current status. See [current status and handoff](../STATUS.md). External selection rewrite/undo is disabled and published v3.1.3 binaries are unsigned.
+
 Status date: 2026-10-26
 
 ## Repository cleanup completed
