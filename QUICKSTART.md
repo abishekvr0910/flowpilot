@@ -40,7 +40,7 @@ python desktop_app.py
 
 If you select a different model, provision that model separately. For a disconnected deployment, prepare weights on a connected machine and transfer a complete model directory/cache through your normal approved process. Do not assume an empty Hugging Face cache folder contains model weights.
 
-Linux and macOS adapters exist for development; the documented packaged-release target is Windows.
+The supported release target is Windows 10/11 x64. macOS/Linux adapters are experimental source code; iOS/iPadOS and Android are unsupported. See the [platform support table](README.md#platform-support).
 
 ## Check privacy before the first dictation
 
@@ -59,8 +59,8 @@ Other controls in current source:
 
 | Action | Control |
 | --- | --- |
-| Push to talk | Hold F9, speak, then release |
-| Hands-free latch | Double-tap F9; tap again to stop |
+| Push to talk | Select push-to-talk mode in Settings; hold your configured dictation key, speak, then release |
+| Hands-free latch | In push-to-talk mode, double-tap your dictation key; tap again to stop |
 | Paste latest dictation | Ctrl+Alt+V or Alt+Shift+Z; check for duplicates first |
 | Copy latest dictation to clipboard | Alt+Shift+X |
 | Transform preview and Copy Output | Ctrl+Alt+T; external rewrite/undo is disabled |
@@ -77,6 +77,6 @@ See [SUPPORT.md](SUPPORT.md) for microphone, model, elevated-window, and reporti
 
 ## Voice formatting
 
-Current-source formatting supports commands such as `comma`, `new line`, `new paragraph`, `scratch that`, `camel case user profile`, and `snake case api key`. Universal selection rewriting allows highlighting text in any application and dictating replacement instructions directly in-place, with instant rollback via **`Alt+Shift+U`**. Recognition and formatting can still be wrong: review numbers, negations, identifiers, and commands before using the result. Choose verbatim mode when minimal post-processing is preferred.
+Current-source formatting supports commands such as `comma`, `new line`, `new paragraph`, `scratch that`, `camel case user profile`, and `snake case api key`. For selected text, **Ctrl+Alt+T** opens a transform preview with explicit **Copy Output**; paste manually into the intended editor. External selection rewrite and **Alt+Shift+U** rollback are unavailable until document revision and selection verification exists. Scratchpad edits have separate guarded transactions. Recognition and formatting can still be wrong: review numbers, negations, identifiers, and commands before using the result. Choose verbatim mode when minimal post-processing is preferred.
 
 For configuration, optional local integrations, and architecture, see the [README](README.md). For release evidence and remaining limitations, see [Evaluating FlowPilot](TRUST.md).

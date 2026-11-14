@@ -34,6 +34,9 @@ hashes. This cleanup does not revalidate those bytes or promote a release.
 
 ## Inconsistencies addressed by this cleanup
 
+- Platform support is explicit: Windows 10/11 x64 releases, experimental macOS/Linux
+  source adapters, and no iOS/iPadOS or Android app. Package classifiers advertise
+  only the supported Windows target and are checked in CI.
 - README defaults now match configuration: manual stop by default, 2.5-second
   optional silence timeout, automatic device selection, and current recovery keys.
 - Node metadata agrees with Python, installer, and PE version metadata.

@@ -7,6 +7,16 @@ Local voice dictation for Windows, with a native PySide6 interface.
 [![CI](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+## Platform support
+
+| Platform | Current support |
+| --- | --- |
+| Windows 10/11, x64 | Supported desktop release target; installer and portable ZIP available |
+| macOS and Linux | Experimental source adapters only; no supported release or verified end-to-end compatibility |
+| iOS/iPadOS and Android | Not supported; no mobile app |
+
+macOS is Apple's desktop operating system; it is separate from iOS/iPadOS.
+
 ## Current status
 
 As checked on November 14, 2026, the latest published Windows download is [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3). Its installer and ZIP are unsigned. Source is version **3.2.2** and includes later changes; local build records for 3.2.x do not establish a published release. See the [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md) for the distinction and checksums.
@@ -37,7 +47,7 @@ python -m pip install -r requirements.txt
 python -X utf8 desktop_app.py
 ```
 
-Provision local models using the explicit setup steps in [QUICKSTART.md](QUICKSTART.md#running-current-source). Normal dictation does not require VB-Cable or traffic capture tools. Windows is the supported release target; Linux and macOS adapters are development paths.
+Provision local models using the explicit setup steps in [QUICKSTART.md](QUICKSTART.md#running-current-source). Normal dictation does not require VB-Cable or traffic capture tools. See [platform support](#platform-support) before choosing a development platform.
 
 ## Dictation and recovery
 

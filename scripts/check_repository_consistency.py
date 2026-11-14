@@ -38,6 +38,9 @@ def check():
     for path, actual in versions.items():
         if actual != version:
             errors.append(f"{path}: version {actual} differs from engine {version}")
+    platforms = re.findall(r'^\s*"Operating System :: ([^"]+)"', read("pyproject.toml"), re.M)
+    if platforms != ["Microsoft :: Windows"]:
+        errors.append("pyproject.toml: supported-platform classifiers must match the Windows release scope")
     pe = read("version_info.txt")
     for field in ("FileVersion", "ProductVersion"):
         if f"StringStruct('{field}', '{version}.0')" not in pe:
