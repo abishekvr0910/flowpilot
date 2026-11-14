@@ -91,6 +91,7 @@ TESTS = [
     ("Offline Tamil Synthetic & Speech Self-Test", "tests/test_tamil_offline_self_test.py"),
     ("Wispr-Flow-Class Competitive Leapfrog Upgrades", "tests/test_wispr_leapfrog_upgrades.py"),
     ("Single-Instance IPC Window Activation & Tray UX", "tests/test_single_instance_ipc.py"),
+    ("Idle Microphone Stream Backoff", "tests/test_idle_mic_backoff.py"),
 ]
 
 

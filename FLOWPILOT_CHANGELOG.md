@@ -2,7 +2,15 @@
 
 This page distinguishes published releases from work on `master`. Check [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) for downloadable artifacts and [GitHub Actions](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for current verification status.
 
-## Unreleased (source version 3.2.2)
+## Unreleased candidate (source version 3.2.3)
+
+- Wired low-level `WH_KEYBOARD_LL` hotkey hook installation/unhook, 64-bit ctypes signatures, key-repeat and passthrough leak suppression, and `WM_HOTKEY` debounce (`0.3s`) in `Win32HotkeyService`.
+- Added upfront `cublas64_12.dll` availability probing in `STTEngine` when `device="auto"` so CPU fallback selects `CPU (int8)` directly without an avoidable CUDA probe failure.
+- Added `idle_mic_backoff_sec` (`60.0` default) in `DEFAULT_CONFIG`, `AudioRecorder`, and `FlowOrchestrator` to release an idle standby WASAPI microphone stream cleanly when returning to `IDLE`, cancelling on new dictation starts and config updates.
+- Added spoken developer operators (`->`, `=>`, `:=`, `::`, `===`, `!=`, `??`, `&&`, `||`) for `developer`, `technical`, and `terminal` styles with `FactGuard` parity (`not equals` retraction), identifier preservation, and command-order guards.
+- Bumped version metadata to `3.2.3`; built unsigned Windows x64 pilot artifacts (`dist/FlowPilot-v3.2.3-windows-x64.zip` and `dist/FlowPilot-Setup-v3.2.3.exe`).
+
+## Source 3.2.2 (merged to `master` via PR #19, unpublished download)
 
 - Restored preview-only external transforms; blocked unverified selection replacement and undo.
 - Corrected Windows clipboard exclusion format names and native handle handling.

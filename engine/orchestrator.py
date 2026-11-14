@@ -91,6 +91,8 @@ class FlowOrchestrator:
         self._tap_latch: Optional[Any] = None
         self._idle_unload_timer: Optional[threading.Timer] = None
         self._idle_unload_timeout_sec: float = float(self.config.get("idle_model_unload_sec", 600.0))
+        self._idle_mic_timer: Optional[threading.Timer] = None
+        self._idle_mic_backoff_sec: float = float(self.config.get("idle_mic_backoff_sec", 60.0))
 
         # External rewrite compatibility boundary; mutation remains disabled.
         from engine.selection_rewriter import SelectionRewriter
@@ -116,6 +118,7 @@ class FlowOrchestrator:
 
         # Start idle unloader schedule
         self._schedule_idle_unloader()
+        self._schedule_idle_mic_backoff()
 
         # Smart Pause During Calls: initialize capture session monitor
         if self.config.get("smart_pause_during_calls", True):
@@ -129,6 +132,38 @@ class FlowOrchestrator:
             if getattr(self, "_idle_unload_timer", None) is not None:
                 self._idle_unload_timer.cancel()
                 self._idle_unload_timer = None
+
+    def _cancel_idle_mic_backoff(self):
+        with self._state_lock:
+            if getattr(self, "_idle_mic_timer", None) is not None:
+                self._idle_mic_timer.cancel()
+                self._idle_mic_timer = None
+
+    def _schedule_idle_mic_backoff(self):
+        with self._state_lock:
+            if getattr(self, "_idle_mic_timer", None) is not None:
+                self._idle_mic_timer.cancel()
+                self._idle_mic_timer = None
+            timeout = float(getattr(self, "_idle_mic_backoff_sec", 60.0))
+            if timeout > 0:
+                t = threading.Timer(timeout, self._on_idle_mic_timeout)
+                t.daemon = True
+                self._idle_mic_timer = t
+                t.start()
+
+    def _on_idle_mic_timeout(self):
+        with self._state_lock:
+            rec = getattr(self.recorder, "is_recording", False) if hasattr(self, "recorder") else False
+            if self.state != AppState.IDLE or rec or getattr(self, "is_processing", False):
+                return
+            self._idle_mic_timer = None
+        releaser = getattr(self.recorder, "release_idle_stream", None) if hasattr(self, "recorder") else None
+        if callable(releaser):
+            try:
+                if releaser():
+                    logger.info("[Orchestrator] Idle mic backoff reached. Released standby audio stream.")
+            except Exception as e:
+                logger.debug("Idle mic stream release exception: %s", e)
 
     def _schedule_idle_unloader(self):
         with self._state_lock:
@@ -370,11 +405,12 @@ class FlowOrchestrator:
             get_update_checker().abort()
         except Exception:
             pass
-        self._cancel_idle_unloader()
         with self._state_lock:
             if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
                 print(f"[Orchestrator] start_dictation ignored: currently in state {self.state}")
                 return
+            self._cancel_idle_unloader()
+            self._cancel_idle_mic_backoff()
             self.state = AppState.STARTING_RECORDING
             self._stop_pending = False
             self.is_processing = False
@@ -393,6 +429,8 @@ class FlowOrchestrator:
             })
             with self._state_lock:
                 self.state = AppState.IDLE
+                self._schedule_idle_unloader()
+                self._schedule_idle_mic_backoff()
             return
 
         # 1. Capture target window immediately at T0
@@ -491,6 +529,8 @@ class FlowOrchestrator:
                     if self.state == AppState.ERROR:
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
+                        self._schedule_idle_unloader()
+                        self._schedule_idle_mic_backoff()
 
         threading.Thread(target=start_worker, args=(session,), daemon=True, name="FlowPilot-MicStarter").start()
 
@@ -533,6 +573,8 @@ class FlowOrchestrator:
             if self.state == AppState.CANCELLED:
                 self.state = AppState.IDLE
                 self._notify(AppState.IDLE)
+                self._schedule_idle_unloader()
+                self._schedule_idle_mic_backoff()
         self._apply_pending_model_switch_if_idle()
 
     def stop_dictation_and_process(self, is_silence_stop: bool = False):
@@ -587,6 +629,8 @@ class FlowOrchestrator:
                         active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self.is_processing = False
+                        self._schedule_idle_unloader()
+                        self._schedule_idle_mic_backoff()
                     self._notify(AppState.IDLE, {"notice": "Audio too short."})
                     return
 
@@ -879,6 +923,8 @@ class FlowOrchestrator:
                         if self.state == AppState.ERROR:
                             self.state = AppState.IDLE
                             self._notify(AppState.IDLE)
+                            self._schedule_idle_unloader()
+                            self._schedule_idle_mic_backoff()
                     return
 
                 # 7. Transition to SUCCESS with truthful confirmation reporting
@@ -909,6 +955,8 @@ class FlowOrchestrator:
                         active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
+                        self._schedule_idle_unloader()
+                        self._schedule_idle_mic_backoff()
 
             except Exception as e:
                 print(f"[Orchestrator Error] Processing failed: {e}")
@@ -922,6 +970,8 @@ class FlowOrchestrator:
                     if self.state == AppState.ERROR:
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
+                        self._schedule_idle_unloader()
+                        self._schedule_idle_mic_backoff()
             finally:
                 # Ensure audio ducking is always cleanly restored
                 try:
@@ -1062,6 +1112,14 @@ class FlowOrchestrator:
         self.processor.config = self.config
         if hasattr(self, "feedback"):
             self.feedback.enabled = bool(self.config.get("sound_effects_enabled", True))
+        self._idle_unload_timeout_sec = float(self.config.get("idle_model_unload_sec", 600.0))
+        self._idle_mic_backoff_sec = float(self.config.get("idle_mic_backoff_sec", 60.0))
+        state_lock = getattr(self, "_state_lock", None)
+        if state_lock is not None:
+            with state_lock:
+                if getattr(self, "state", None) == AppState.IDLE:
+                    self._schedule_idle_unloader()
+                    self._schedule_idle_mic_backoff()
 
         # Update audio input device dynamically if changed
         old_dev = getattr(self.recorder, "device", None)
@@ -1221,6 +1279,8 @@ class FlowOrchestrator:
                 if self.state == AppState.SUCCESS and self._success_generation == generation:
                     self.state = AppState.IDLE
                     self._notify(AppState.IDLE)
+                    self._schedule_idle_unloader()
+                    self._schedule_idle_mic_backoff()
         threading.Thread(target=_reset_idle, daemon=True).start()
         return res
 
@@ -1329,6 +1389,8 @@ class FlowOrchestrator:
     def stop(self):
         """Clean shutdown of all orchestrator services."""
         self._capture_watchdog_stop.set()
+        self._cancel_idle_unloader()
+        self._cancel_idle_mic_backoff()
         monitor = getattr(self, "capture_monitor", None)
         if monitor is not None:
             monitor.stop()

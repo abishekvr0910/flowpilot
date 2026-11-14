@@ -28,7 +28,7 @@ New profiles default to no persisted dictation history (`save_history_text: fals
 
 ### 13. Published Windows builds · existing
 
-The latest published application download checked on 2026-11-14 is v3.1.3, with unsigned installer and ZIP artifacts. Source is version 3.2.2. The [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) distinguishes published downloads from local build records, including historical RC8 results. Any current source repair requires a new candidate build and fresh verification. See [current status](../STATUS.md); hosted skips do not prove physical desktop behavior.
+The latest published application download checked on 2026-11-14 is v3.1.3, with unsigned installer and ZIP artifacts. Source is version 3.2.3. The [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) distinguishes published downloads from local build records, including historical RC8 results. Any current source repair requires a new candidate build and fresh verification. See [current status](../STATUS.md); hosted skips do not prove physical desktop behavior.
 
 ## Next release
 

@@ -254,15 +254,22 @@ class Win32HotkeyService:
         if not self._user32:
             return 0
         mods = 0
-        if self._user32.GetKeyState(0x11) & 0x8000:  # VK_CONTROL
+        if self._user32.GetAsyncKeyState(0x11) & 0x8000:  # VK_CONTROL
             mods |= MOD_CONTROL
-        if self._user32.GetKeyState(0x12) & 0x8000:  # VK_MENU (Alt)
+        if self._user32.GetAsyncKeyState(0x12) & 0x8000:  # VK_MENU (Alt)
             mods |= MOD_ALT
-        if self._user32.GetKeyState(0x10) & 0x8000:  # VK_SHIFT
+        if self._user32.GetAsyncKeyState(0x10) & 0x8000:  # VK_SHIFT
             mods |= MOD_SHIFT
-        if (self._user32.GetKeyState(0x5B) & 0x8000) or (self._user32.GetKeyState(0x5C) & 0x8000):  # VK_LWIN / VK_RWIN
+        if (self._user32.GetAsyncKeyState(0x5B) & 0x8000) or (self._user32.GetAsyncKeyState(0x5C) & 0x8000):  # VK_LWIN / VK_RWIN
             mods |= MOD_WIN
         return mods
+
+    @staticmethod
+    def _invoke_safe(fn: Callable[[], None], label: str) -> None:
+        try:
+            fn()
+        except Exception as e:
+            logger.error(f"[HotkeyService] {label} error: {e}")
 
     def _create_hook_proc(self):
         if not HOOKPROC:
@@ -290,13 +297,15 @@ class Win32HotkeyService:
                                 return 1
                         else:
                             curr_mods = self._get_current_modifiers()
-                            for hk_id, info in self._hotkeys.items():
+                            for hk_id, info in list(self._hotkeys.items()):
                                 if info["vk"] == vk and info["mods"] == curr_mods:
                                     self._hook_active_hotkeys[vk] = hk_id
                                     self._last_hook_trigger[hk_id] = time.monotonic()
+                                    self.stats["events_received"] += 1
                                     cb = info["callback"]
                                     threading.Thread(
-                                        target=cb,
+                                        target=self._invoke_safe,
+                                        args=(cb, "Callback"),
                                         daemon=True,
                                         name=f"FlowPilot-HookAction-{hk_id}"
                                     ).start()
@@ -311,7 +320,8 @@ class Win32HotkeyService:
                                 rel = info.get("on_release")
                                 if rel:
                                     threading.Thread(
-                                        target=rel,
+                                        target=self._invoke_safe,
+                                        args=(rel, "OnRelease"),
                                         daemon=True,
                                         name=f"FlowPilot-HookRelease-{active_id}"
                                     ).start()
@@ -421,18 +431,51 @@ class Win32HotkeyService:
             return False
         return True
 
+    def _configure_win32_signatures(self):
+        """Ensure 64-bit safe argtypes/restype on hook and key-state Win32 calls."""
+        if not self._user32 or HOOKPROC is None:
+            return
+        try:
+            self._user32.CallNextHookEx.argtypes = [wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM]
+            self._user32.CallNextHookEx.restype = LRESULT
+            self._user32.SetWindowsHookExW.argtypes = [ctypes.c_int, HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD]
+            self._user32.SetWindowsHookExW.restype = wintypes.HHOOK
+            self._user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
+            self._user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+            self._user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
+            self._user32.GetAsyncKeyState.restype = wintypes.SHORT
+        except Exception as e:
+            logger.debug(f"[HotkeyService] Failed to configure Win32 hook signatures: {e}")
+
     def _message_loop(self):
         """
         Runs the Win32 message pump for hotkeys.
+        Installs WH_KEYBOARD_LL when suppressible hotkeys are configured so key repeats
+        and primary keystrokes do not leak into target applications, while retaining
+        RegisterHotKey / WM_HOTKEY as a fallback.
         """
         self._thread_id = self._kernel32.GetCurrentThreadId()
+        self._configure_win32_signatures()
 
         # Force creation of the message queue for this thread
         msg = wintypes.MSG()
         self._user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 0)
 
+        # Install low-level keyboard hook on this pumping thread
+        self._hook = None
+        self._hook_proc = self._create_hook_proc()
+        if self._hook_proc is not None:
+            hook_handle = self._user32.SetWindowsHookExW(WH_KEYBOARD_LL, self._hook_proc, None, 0)
+            if hook_handle:
+                self._hook = hook_handle
+                logger.info("[HotkeyService] Installed WH_KEYBOARD_LL suppression hook.")
+            else:
+                err = self._kernel32.GetLastError()
+                self._hook_proc = None
+                logger.warning(f"[HotkeyService] SetWindowsHookExW(WH_KEYBOARD_LL) failed (Win32 Error: {err}); falling back to RegisterHotKey only.")
+
         # Register each configured hotkey with the thread queue
-        for hk_id, info in self._hotkeys.items():
+        for hk_id, info in list(self._hotkeys.items()):
             mods = info["mods"] | MOD_NOREPEAT
             vk = info["vk"]
             success = self._user32.RegisterHotKey(None, hk_id, mods, vk)
@@ -461,40 +504,47 @@ class Win32HotkeyService:
 
             if msg.message == WM_HOTKEY:
                 hk_id = msg.wParam
-                self.stats["events_received"] += 1
-                logger.info(f"[HotkeyService] WM_HOTKEY received for ID {hk_id}")
                 if hk_id in self._hotkeys:
                     info = self._hotkeys[hk_id]
-                    callback = info["callback"]
-                    on_release = info.get("on_release")
                     vk = info["vk"]
+                    last_hook_ts = self._last_hook_trigger.get(hk_id, 0.0)
+                    if self._hook_active_hotkeys.get(vk) == hk_id or (last_hook_ts and (time.monotonic() - last_hook_ts) < 0.3):
+                        logger.debug(f"[HotkeyService] Debounced duplicate WM_HOTKEY for ID {hk_id} (handled by hook).")
+                    else:
+                        self.stats["events_received"] += 1
+                        logger.info(f"[HotkeyService] WM_HOTKEY received for ID {hk_id}")
+                        callback = info["callback"]
+                        on_release = info.get("on_release")
 
-                    def run_action(cb=callback, rel=on_release, target_vk=vk):
-                        import time
-                        try:
-                            cb()
-                        except Exception as e:
-                            logger.error(f"[HotkeyService] Callback error: {e}")
-                        if rel:
-                            # Push-to-talk release monitor: responsive 10ms polling
-                            time.sleep(0.01)
-                            while not self._stop_event.is_set():
-                                state = self._user32.GetAsyncKeyState(target_vk)
-                                if not (state & 0x8000):
-                                    try:
-                                        rel()
-                                    except Exception as e:
-                                        logger.error(f"[HotkeyService] OnRelease error: {e}")
-                                    break
+                        def run_action(cb=callback, rel=on_release, target_vk=vk):
+                            self._invoke_safe(cb, "Callback")
+                            if rel:
+                                # Push-to-talk release monitor: responsive 10ms polling
                                 time.sleep(0.01)
+                                while not self._stop_event.is_set():
+                                    state = self._user32.GetAsyncKeyState(target_vk)
+                                    if not (state & 0x8000):
+                                        self._invoke_safe(rel, "OnRelease")
+                                        break
+                                    time.sleep(0.01)
 
-                    threading.Thread(target=run_action, daemon=True, name=f"FlowPilot-HotkeyAction-{hk_id}").start()
+                        threading.Thread(target=run_action, daemon=True, name=f"FlowPilot-HotkeyAction-{hk_id}").start()
 
             self._user32.TranslateMessage(ctypes.byref(msg))
             self._user32.DispatchMessageW(ctypes.byref(msg))
 
         # Cleanup on exit
-        for hk_id, info in self._hotkeys.items():
+        if self._hook:
+            try:
+                self._user32.UnhookWindowsHookEx(self._hook)
+            except Exception:
+                pass
+            self._hook = None
+        self._hook_proc = None
+        self._hook_active_hotkeys.clear()
+        self._last_hook_trigger.clear()
+
+        for hk_id, info in list(self._hotkeys.items()):
             if info["registered"]:
                 self._user32.UnregisterHotKey(None, hk_id)
                 info["registered"] = False
@@ -511,6 +561,8 @@ class Win32HotkeyService:
             self._thread.join(timeout=2.0)
         self._thread = None
         self._thread_id = None
+        self._hook_active_hotkeys.clear()
+        self._last_hook_trigger.clear()
         logger.info("[HotkeyService] Stopped.")
 
     def is_alive(self) -> bool:
@@ -562,7 +614,14 @@ class PynputHotkeyService:
             pass
         return str(key).upper()
 
-    def register(self, hotkey_str: str, callback: Callable[[], None], on_release: Optional[Callable[[], None]] = None) -> int:
+    def register(
+        self,
+        hotkey_str: str,
+        callback: Callable[[], None],
+        on_release: Optional[Callable[[], None]] = None,
+        suppress: bool = True,
+    ) -> int:
+        _ = suppress
         clean = hotkey_str.replace("<", "").replace(">", "").strip()
         parts = {p.strip().upper() for p in clean.replace(" ", "").split("+")}
         normalized_parts = set()

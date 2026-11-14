@@ -1,7 +1,7 @@
 # FlowPilot Privacy Policy & Architecture Disclosure
 
 **Last reviewed:** November 14, 2026<br/>
-**Scope:** Version 3.2.2 source and the repository consistency cleanup. The latest published download checked on this date is v3.1.3; source changes do not update existing binaries.
+**Scope:** Version 3.2.3 source and follow-up runtime hardening. The latest published download checked on this date is v3.1.3; source changes do not update existing binaries.
 
 ---
 
@@ -32,7 +32,7 @@ FlowPilot is designed for local speech processing. This page describes what the 
 ## 2. Local Data Lifecycle
 
 - **Recording Buffer:** Audio frames are captured in RAM for transcription. With dictation history enabled, completed audio is saved as a WAV file in the vault. Python memory management does not guarantee forensic erasure of old buffers.
-- **Warm Microphone:** Desktop startup opens a microphone stream to maintain the short pre-roll buffer before a dictation trigger. The microphone can therefore remain open while the app is idle; quitting releases the stream. History-off does not mean the microphone stream is closed.
+- **Warm Microphone:** Desktop startup opens a microphone stream to maintain the short pre-roll buffer before a dictation trigger; idle standby streams release automatically after `idle_mic_backoff_sec` (60 seconds by default), and quitting releases the stream immediately. History-off does not mean the active/warm stream is closed until backoff or quit.
 - **Dictation History:** `save_history_text: false` (default) prevents new dictation audio, transcript text, legacy config history, insights, and pilot metrics from being written. It does not erase existing records. When explicitly enabled, `~/.flowpilot/history/history_vault.json` stores raw and formatted transcripts, date, language, duration, and target application; `~/.flowpilot/history/audio/` stores associated WAV files. `FLOWPILOT_CONFIG_DIR` can relocate this data. The History view can delete individual entries or clear unstarred entries. Starred entries remain until separately deleted.
 - **Meeting Notes:** Meeting transcription and notes are stored locally under `~/.flowpilot/meetings/` when the meeting feature is used.
 - **Scratchpad:** Text entered into the scratchpad is autosaved separately to `~/.flowpilot/scratchpad_autosave.txt`. Dictation-history settings do not disable this feature's storage.

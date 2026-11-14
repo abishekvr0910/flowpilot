@@ -2,7 +2,22 @@
 
 Publication status checked 2026-11-14. The latest published application release is [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3). Its installer SHA-256 is `8930e37fdcf55854aaf22fa9885f43779219ddb379bbb7798e7a498125c3632e`; its ZIP SHA-256 is `4a17a2cec7494c1ac2d1aade42f4580666f89c12dcbf1f95abf40950ab8180c3`. Both are unsigned according to their release notes.
 
-The 3.2.x entries below are prior local build records, not published GitHub releases. Their stated hashes and test counts have not been revalidated by this cleanup. Do not attribute later source changes to those binary bytes. See [current status](../STATUS.md).
+The 3.2.x entries below are local build records, not published GitHub releases. The `v3.2.3` record reflects the latest local packaging run prior to interactive Windows desktop sign-off and code signing; earlier 3.2.0–3.2.2 entries are prior local build records whose binary bytes were not revalidated. Do not attribute later source changes to earlier binary bytes. See [current status](../STATUS.md).
+
+## Local build record: v3.2.3, Windows x64 (unpublished candidate)
+
+| Item | Value |
+| --- | --- |
+| Target platform | Windows 10/11 x64 |
+| Source base | `feat/v323-runtime-fixes-and-release` (off `master` `4785a8862eedd3b9ef67fe341baab30925c86b12`) |
+| Portable ZIP | `FlowPilot-v3.2.3-windows-x64.zip` (`287,296,510` bytes, `551` members, `94` notice files, CRC passed) |
+| Portable ZIP SHA-256 | `0B9A1145FB0F5093128C0F0013969D019092FB0D9691821B15BBD7CB73A8920F` |
+| Installer EXE | `FlowPilot-Setup-v3.2.3.exe` (`231,571,236` bytes / `220.84 MB`, `FileVersion` `3.2.3`, `ProductVersion` `3.2.3.0`) |
+| Installer SHA-256 | `07CDC1C9468B4DA6E571BCEB4611F291A2F98AD77F8E2414F762F54901EF7D67` |
+| Packaged EXE | `dist/FlowPilot/FlowPilot.exe` (`16,563,541` bytes, `FileVersion` `3.2.3.0`, `ProductVersion` `3.2.3.0`) |
+| Packaged EXE SHA-256 | `E57508A25AF63092BDD7C401B56B3F2792A863B889D645DADD7A8B05B4268E88` |
+| Authenticode signing | `NotSigned` (`UNSIGNED_PILOT`; no `signtool.exe` or code-signing certificate present on build host) |
+| Observed verification | `tests/run_all_tests.py`: `69` passed, `5` skipped (`Text Injection & Clipboard Safety`, `End-to-End 5-Cycle Notepad Dictation`, `Cross-Application Injection & Focus`, `18-Scenario Full Specification End-to-End`, `Modern UI Automation & Focus Robustness` on isolated `exebox` desktop), `0` failed in `166.72s` ([2026-11-14-v323-audit.json](../reviews/evidence/2026-11-14-v323-audit.json)); `desktop_app.py --self-test` passed (`0.71s`, direct `CPU (int8)`); `npm test` passed. |
 
 ## Local build record: v3.2.2, Windows x64 (unpublished)
 

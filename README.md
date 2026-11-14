@@ -19,7 +19,7 @@ macOS is Apple's desktop operating system; it is separate from iOS/iPadOS.
 
 ## Current status
 
-As checked on November 14, 2026, the latest published Windows download is [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3). Its installer and ZIP are unsigned. Source is version **3.2.2** and includes later changes; local build records for 3.2.x do not establish a published release. See the [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md) for the distinction and checksums.
+As checked on November 14, 2026, the latest published Windows download is [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3). Its installer and ZIP are unsigned. Source is version **3.2.3** and includes later changes; local build records for 3.2.x do not establish a published release. See the [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md) for the distinction and checksums.
 
 FlowPilot has working dictation, formatting, recovery, model setup, and desktop tools. Broad editor compatibility, speech quality across speakers, and release readiness require continued measurement. The [scope](docs/scope/index.md) and [current handoff](docs/STATUS.md) track these limits.
 
@@ -32,7 +32,7 @@ FlowPilot has working dictation, formatting, recovery, model setup, and desktop 
 - Provides transform previews and Copy Output. External selection rewrite and undo are disabled pending document revision and selection verification. Scratchpad edits use separate transactions.
 - Includes optional local history, dictionary, snippets, meeting notes, companions, and a separately started loopback API.
 
-Dictation history is off for new profiles. Existing profiles retain their preferences. The microphone may remain open to maintain an adaptive audio buffer of approximately 0.35 to 0.85 seconds. See [privacy and data lifecycles](PRIVACY.md).
+Dictation history is off for new profiles. Existing profiles retain their preferences. The microphone may remain open to maintain an adaptive audio buffer of approximately 0.35 to 0.85 seconds, and standby streams release automatically after 60 seconds idle by default. See [privacy and data lifecycles](PRIVACY.md).
 
 ## Install or run
 

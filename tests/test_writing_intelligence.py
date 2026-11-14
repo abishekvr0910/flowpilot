@@ -231,10 +231,55 @@ def test_universal_repetition_loop_suppression():
     print("[RESULT] Universal Repetition Loop Suppression PASSED 100%.")
 
 
+def test_developer_spoken_operators_and_factguard():
+    print("\n" + "=" * 65)
+    print("AUDIT TEST: SPOKEN DEVELOPER OPERATORS & FACTGUARD COMPATIBILITY")
+    print("=" * 65)
+    wi = WritingIntelligence()
+
+    cases = [
+        ("fn add x thin arrow result", "Fn add x -> result"),
+        ("items map x fat arrow x", "Items map x => x"),
+        ("snake case user count colon equals 10", "user_count := 10"),
+        ("std double colon vector", "std::vector"),
+        ("a triple equals 42", "A === 42"),
+        ("status not equals 200", "Status != 200"),
+        ("token bang equals 0", "Token != 0"),
+        ("value double question mark fallback", "Value ?? fallback"),
+        ("ready double ampersand active", "Ready && active"),
+        ("cached double pipe fresh", "Cached || fresh"),
+    ]
+    for spoken, expected in cases:
+        res = wi.polish(spoken, mode="polished", style="developer")
+        assert res["text"] == expected, f"Expected {expected!r} for {spoken!r}, got {res['text']!r}"
+
+    # Terminal style keeps initial lowercase on identifiers/commands while formatting operators
+    res_term = wi.polish("x thin arrow y double pipe z", mode="polished", style="terminal")
+    assert res_term["text"] == "x -> y || z", res_term
+
+    # FactGuard must still protect other negations & numeric invariants alongside 'not equals'
+    res_fg = wi.polish("do not proceed if status not equals 404", mode="polished", style="developer")
+    assert "not" in res_fg["text"].lower() and "!= 404" in res_fg["text"], res_fg
+
+    # FactGuard veto test: dropping a critical negation manually still restores raw even with !=
+    guarded, safe, warnings = FactGuard.validate_and_guard(
+        "do not check a != 5",
+        "do check a != 5",
+    )
+    assert not safe and guarded == "do not check a != 5", (guarded, safe, warnings)
+
+    # Non-developer styles must NOT rewrite natural English prose into code operators
+    res_prof = wi.polish("turn right arrow keys off and logical and check", mode="polished", style="professional")
+    assert "->" not in res_prof["text"] and "&&" not in res_prof["text"], res_prof
+
+    print("[RESULT] Spoken Developer Operators & FactGuard PASSED 100%.")
+
+
 if __name__ == "__main__":
     test_writing_intelligence()
     test_wispr_flow_spoken_commands()
     test_caret_aware_context_formatting()
     test_automatic_correction_detector()
     test_universal_repetition_loop_suppression()
+    test_developer_spoken_operators_and_factguard()
     sys.exit(0)

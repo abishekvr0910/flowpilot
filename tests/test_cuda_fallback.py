@@ -32,6 +32,7 @@ class CudaFallbackTests(unittest.TestCase):
 
         config = {"local_model_size": "base", "device": "auto", "compute_type": "auto"}
         with patch("ctranslate2.get_cuda_device_count", return_value=1), \
+             patch("engine.stt_engine._has_cuda_runtime_libs", return_value=True), \
              patch("engine.stt_engine.WhisperModel", side_effect=factory):
             engine = STTEngine(config, personalization=object())
             for _ in range(2):
@@ -76,6 +77,30 @@ class CudaFallbackTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "CPU failed"):
                 engine._transcribe_local(np.zeros(16000, dtype=np.float32), "", "en")
         self.assertEqual(devices, ["cuda", "cpu"])
+
+    def test_auto_device_skips_cuda_when_cublas_missing(self):
+        devices = []
+        def factory(target, **kwargs):
+            devices.append((kwargs["device"], kwargs["compute_type"]))
+            return self.model("cpu")
+        config = {"local_model_size": "base", "device": "auto", "compute_type": "auto"}
+        with patch("ctranslate2.get_cuda_device_count", return_value=1), \
+             patch("engine.stt_engine._has_cuda_runtime_libs", return_value=False), \
+             patch("engine.stt_engine.WhisperModel", side_effect=factory):
+            engine = STTEngine(config, personalization=object())
+            result = engine._transcribe_local(np.zeros(16000, dtype=np.float32), "", "en")
+            self.assertEqual(result["text"], "Recovered on CPU")
+        self.assertEqual(devices, [("cpu", "int8")])
+        self.assertEqual(engine.get_model_status()["active_device"], "cpu")
+
+    def test_has_cuda_runtime_libs_win32_probe(self):
+        import ctypes
+        from engine.stt_engine import _has_cuda_runtime_libs
+        with patch("engine.stt_engine.sys.platform", "win32"):
+            with patch.object(ctypes, "WinDLL", side_effect=OSError("missing cublas64_12.dll")):
+                self.assertFalse(_has_cuda_runtime_libs())
+            with patch.object(ctypes, "WinDLL", return_value=object()):
+                self.assertTrue(_has_cuda_runtime_libs())
 
 
 if __name__ == "__main__":

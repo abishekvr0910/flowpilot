@@ -78,6 +78,19 @@ try:
 except ImportError:
     HAS_REGISTRY = False
 
+
+def _has_cuda_runtime_libs() -> bool:
+    """Verify required CUDA runtime DLLs before attempting GPU inference."""
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        ctypes.WinDLL("cublas64_12.dll")
+        return True
+    except OSError:
+        return False
+
+
 class STTEngine:
     def __init__(self, config: Dict[str, Any], personalization: Optional[Any] = None):
         self.config = config
@@ -243,10 +256,13 @@ class STTEngine:
             if target_device == "auto":
                 try:
                     import ctranslate2
-                    if hasattr(ctranslate2, "get_cuda_device_count") and ctranslate2.get_cuda_device_count() > 0:
+                    has_cuda_gpu = hasattr(ctranslate2, "get_cuda_device_count") and ctranslate2.get_cuda_device_count() > 0
+                    if has_cuda_gpu and _has_cuda_runtime_libs():
                         target_device = "cuda"
                         target_compute = "float16" if target_compute == "auto" else target_compute
                     else:
+                        if has_cuda_gpu:
+                            logger.info("[STT] CUDA GPU detected, but cublas64_12.dll is unavailable; selecting CPU int8 directly.")
                         target_device = "cpu"
                         target_compute = "int8" if target_compute == "auto" else target_compute
                 except Exception:

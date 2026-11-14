@@ -394,8 +394,13 @@ class WritingIntelligence:
         if num_changes:
             changes.extend(num_changes)
 
-        # 5. Format technical identifiers if developer mode or code dictation
+        # 5. Format spoken developer operators & technical identifiers in code styles
         if style in ("developer", "technical", "terminal"):
+            text, op_changes, op_retracted_negs = self._format_spoken_operators(text)
+            if op_changes:
+                changes.extend(op_changes)
+            if op_retracted_negs:
+                retracted_negs.extend(op_retracted_negs)
             text, tech_changes = self._format_code_identifiers(text)
             if tech_changes:
                 changes.extend(tech_changes)
@@ -558,10 +563,21 @@ class WritingIntelligence:
 
         # 4. Spoken Punctuation (English + Native Spanish/French/German)
         # Order compound expressions (semicolon, colon, question mark) before single-word tokens (comma, period)
+        dev_style = style in ("developer", "technical", "terminal")
+        colon_pat = (
+            r"\s*(?<!\bdouble\s)\b(?:colon|dos puntos|deux points|doppelpunkt)\b(?!\s*(?://|slash\s+slash|equals?\b))"
+            if dev_style else
+            r"\s*\b(?:colon|dos puntos|deux points|doppelpunkt)\b(?!\s*//|\s*slash\s*slash)"
+        )
+        question_pat = (
+            r"\s*(?<!\bdouble\s)\b(?:question mark|signo de interrogaci[oó]n|point d'interrogation|fragezeichen)\b"
+            if dev_style else
+            r"\s*\b(?:question mark|signo de interrogaci[oó]n|point d'interrogation|fragezeichen)\b"
+        )
         punc_patterns = [
             (r"\s*\b(?:semicolon|punto y coma|point-virgule|semikolon|strichpunkt)\b", ";", "semicolon"),
-            (r"\s*\b(?:colon|dos puntos|deux points|doppelpunkt)\b(?!\s*//|\s*slash\s*slash)", ":", "colon"),
-            (r"\s*\b(?:question mark|signo de interrogaci[oó]n|point d'interrogation|fragezeichen)\b", "?", "question mark"),
+            (colon_pat, ":", "colon"),
+            (question_pat, "?", "question mark"),
             (r"\s*\b(?:exclamation mark|exclamation point|signo de exclamaci[oó]n|signo de admiraci[oó]n|point d'exclamation|ausrufezeichen)\b", "!", "exclamation point"),
             (r"\s*\b(?:comma|coma|virgule|komma)\b", ",", "comma"),
             (r"\s*\b(?:ellipsis|dot dot dot|puntos suspensivos|points de suspension|auslassungspunkte)\b", "...", "ellipsis"),
@@ -770,8 +786,41 @@ class WritingIntelligence:
 
         return text, changes
 
+    def _format_spoken_operators(self, text: str) -> Tuple[str, List[str], List[str]]:
+        """Formats spoken programming operators in developer/technical/terminal styles."""
+        changes: List[str] = []
+        retracted_negs: List[str] = []
+
+        # Ordered from longer/specific phrases to shorter forms
+        operator_rules = [
+            (r"\b(?:triple equals?|strict equals?)\b", " === ", False, "triple equals (===)"),
+            (r"\b(?:bang equals?|exclamation equals?)\b", " != ", False, "not-equals (!=)"),
+            (r"\bnot equals\b", " != ", True, "not-equals (!=)"),
+            (r"\b(?:walrus operator|colon equals?)\b", " := ", False, "walrus operator (:=)"),
+            (r"\b(?:double colon|scope operator)\b", "::", False, "scope operator (::)"),
+            (r"\b(?:fat arrow|double arrow|lambda arrow|hash rocket)\b", " => ", False, "fat arrow (=>)"),
+            (r"\b(?:thin arrow|skinny arrow|right arrow|arrow operator|dash greater than)\b", " -> ", False, "arrow (->)"),
+            (r"\b(?:double question mark|nullish coalescing(?:\s+operator)?)\b", " ?? ", False, "nullish coalescing (??)"),
+            (r"\b(?:double ampersand|ampersand ampersand|logical and)\b", " && ", False, "logical and (&&)"),
+            (r"\b(?:double pipe|pipe pipe|double vertical bar|logical or)\b", " || ", False, "logical or (||)"),
+        ]
+
+        for pat, replacement, retracts_not, label in operator_rules:
+            full_pat = rf"[ \t]*(?:{pat})[ \t]*"
+            if re.search(full_pat, text, flags=re.IGNORECASE):
+                text = re.sub(full_pat, replacement, text, flags=re.IGNORECASE)
+                changes.append(f"Formatted spoken operator: {label}")
+                if retracts_not:
+                    retracted_negs.append("not")
+
+        if changes:
+            text = re.sub(r"[ \t]{2,}", " ", text).strip()
+
+        return text, changes, retracted_negs
+
     def _format_code_identifiers(self, text: str) -> Tuple[str, List[str]]:
         changes = []
+        op_boundary = r"\s+(?:and|or|then|snake case|kebab case)\b|\s*(?:->|=>|:=|::|===|!=|\?\?|&&|\|\|)|[,\.\?!]|$"
 
         # camel case <words>
         def camel_rep(m):
@@ -783,7 +832,7 @@ class WritingIntelligence:
             return res
 
         text = re.sub(
-            r"(?i)\bcamel case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?=\s+(?:and|or|then|snake case|kebab case)\b|[,\.\?!]|$)",
+            rf"(?i)\bcamel case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?={op_boundary})",
             camel_rep,
             text
         )
@@ -795,8 +844,9 @@ class WritingIntelligence:
             changes.append(f"Formatted snake_case: {res}")
             return res
 
+        snake_boundary = r"\s+(?:and|or|then|camel case|kebab case)\b|\s*(?:->|=>|:=|::|===|!=|\?\?|&&|\|\|)|[,\.\?!]|$"
         text = re.sub(
-            r"(?i)\bsnake case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?=\s+(?:and|or|then|camel case|kebab case)\b|[,\.\?!]|$)",
+            rf"(?i)\bsnake case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?={snake_boundary})",
             snake_rep,
             text
         )
@@ -808,8 +858,9 @@ class WritingIntelligence:
             changes.append(f"Formatted kebab-case: {res}")
             return res
 
+        kebab_boundary = r"\s+(?:and|or|then|camel case|snake case)\b|\s*(?:->|=>|:=|::|===|!=|\?\?|&&|\|\|)|[,\.\?!]|$"
         text = re.sub(
-            r"(?i)\bkebab case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?=\s+(?:and|or|then|camel case|snake case)\b|[,\.\?!]|$)",
+            rf"(?i)\bkebab case\s+([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*?)(?={kebab_boundary})",
             kebab_rep,
             text
         )
@@ -950,11 +1001,13 @@ class WritingIntelligence:
             "cd", "ls", "cat", "grep", "curl", "wget", "ssh", "scp", "tar", "zip",
             "cargo", "go", "make", "cmake", "npx", "node", "deno", "bun", "mv", "cp", "rm"
         )
-        first_word = text.split()[0].lower() if text.split() else ""
+        first_token = text.split()[0] if text.split() else ""
+        first_word = first_token.lower()
         is_cli_cmd = first_word in KNOWN_COMMANDS
 
-        is_camel_case = bool(re.match(r"^[a-z]+[A-Z][a-zA-Z0-9]*$", text))
-        is_snake_case = bool(re.match(r"^[a-z0-9]+(?:_[a-z0-9]+)+$", text))
+        is_camel_case = bool(re.match(r"^[a-z]+[A-Z][a-zA-Z0-9]*$", first_token if style in ("developer", "technical", "terminal") else text))
+        is_snake_case = bool(re.match(r"^[a-z0-9]+(?:_[a-z0-9]+)+$", first_token if style in ("developer", "technical", "terminal") else text))
+        is_scoped_symbol = style in ("developer", "technical", "terminal") and "::" in first_token
 
         is_mid_sentence = False
         if preceding_text is not None and preceding_text.strip():
@@ -962,7 +1015,7 @@ class WritingIntelligence:
             if p_tail and p_tail[-1] not in (".", "!", "?", ":", "\n", "\r"):
                 is_mid_sentence = True
 
-        if style != "terminal" and not is_cli_cmd and not is_camel_case and not is_snake_case:
+        if style != "terminal" and not is_cli_cmd and not is_camel_case and not is_snake_case and not is_scoped_symbol:
             if is_mid_sentence:
                 # Caret-aware formatting: Mid-sentence insertion suppresses initial capitalization
                 # except for canonical acronyms and single 'I'
