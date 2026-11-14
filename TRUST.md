@@ -1,6 +1,6 @@
 # Evaluating FlowPilot
 
-FlowPilot is an open-source Windows dictation app with speech recognition on your CPU. This page connects product claims to their implementation, test coverage, and remaining limits so you can decide whether it fits your workflow.
+FlowPilot is an open-source Windows dictation app with speech recognition on your computer. This page connects product claims to their implementation, test coverage, and remaining limits so you can decide whether it fits your workflow.
 
 **Scope:** current source and the separately listed build records in the [artifact manifest](docs/release/RELEASE_ARTIFACT_MANIFEST.md). A source commit and a passing local test run do not update an existing download; use the release notes for the exact archive you install.
 
@@ -8,7 +8,7 @@ FlowPilot is an open-source Windows dictation app with speech recognition on you
 
 | Question | Current source behavior | Evidence and limits |
 | --- | --- | --- |
-| Where is speech recognized? | `faster-whisper` runs on CPU with local model loading. Cloud STT mode is rejected. | [STT engine](engine/stt_engine.py), [network regression](tests/test_network_egress.py). Provision model weights during setup. Tests cover selected execution paths, not every dependency or configuration. |
+| Where is speech recognized? | `faster-whisper` uses automatic CUDA selection with CPU INT8 fallback and local model loading. Cloud STT mode is rejected. | [STT engine](engine/stt_engine.py), [network regression](tests/test_network_egress.py). Provision model weights during setup. Tests cover selected execution paths, not every dependency or configuration. |
 | Is my dictation saved? | New profiles default to `save_history_text: false`. The completed-dictation persistence path returns without writing vault audio/text, legacy history, insights, or pilot metrics. The latest text remains in memory for recovery. | [Defaults](engine/config.py), [persistence path](engine/orchestrator.py), [history tests](tests/test_transforms_and_history.py). Existing profile choices persist. Meeting notes, scratchpad, settings, logs, and the Windows clipboard have separate lifecycles; see [privacy](PRIVACY.md). |
 | What can leave the app? | Dictation is inserted into another application through Windows input/clipboard facilities. Optional text transforms can call a separate loopback model service. | [Injector](engine/text_injector.py), [local model adapter](engine/local_llm.py). The destination application, clipboard tools, and separate model server have their own storage and network behavior. |
 | Does local mean access-controlled? | The optional integration server requires a user-provided API token for REST and WebSocket routes and rejects cross-origin browser clients. | [Server](engine/server.py), [security boundaries](SECURITY.md). This is not isolation from a malicious process running as the same Windows user; keep the token private and the listener on loopback. |

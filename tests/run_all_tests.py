@@ -4,6 +4,7 @@ import sys
 import subprocess
 import time
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -16,6 +17,10 @@ except Exception:
     pass
 
 TESTS = [
+    ("Smart Pause Capture and Cancellation", "tests/test_smart_pause.py"),
+    ("Audit Runner Skip Accounting", "tests/test_audit_runner.py"),
+    ("CUDA Runtime CPU Fallback", "tests/test_cuda_fallback.py"),
+    ("Windows Clipboard Privacy Markers", "tests/test_clipboard_exclusion.py"),
     ("Microphone & Audio Capture", "tests/test_audio.py"),
     ("Local Whisper Speech-to-Text Model", "tests/test_stt.py"),
     ("Text Injection & Clipboard Safety", "tests/test_text_injector.py"),
@@ -78,7 +83,7 @@ TESTS = [
     ("Transparent Dictation Recovery & Visual Feedback", "tests/test_recovery_feedback.py"),
     ("Local Text Repair Sandbox & Three-Tier Guard Protocol", "tests/test_local_text_repair.py"),
     ("Caret Observer & Text Correction Integration", "tests/test_caret_and_corrections_integration.py"),
-    ("Selection Rewriter & In-Place Text Transactions", "tests/test_selection_rewriter.py"),
+    ("External Selection Rewrite Refusal", "tests/test_selection_rewriter.py"),
     ("Strict PEP 440 Semantic Versioning & Update Checker", "tests/test_update_checker.py"),
     ("Deterministic Tamil & Tanglish Transliteration", "tests/test_transliteration.py"),
     ("ONNX Specialist ASR Harness (IndicConformer)", "tests/test_onnx_specialist_asr.py"),
@@ -125,7 +130,11 @@ def run_suite(require_all: bool = False):
                 stderr += f"\nSuite exceeded 240 seconds: {script}"
         dur = time.time() - t0
         passed = (returncode == 0)
-        is_skipped = passed and ("[RESULT] SKIPPED:" in stdout or "[SKIP]" in stdout)
+        combined_output = stdout + "\n" + stderr
+        is_skipped = passed and bool(
+            "[RESULT] SKIPPED:" in combined_output or "[SKIP]" in combined_output
+            or re.search(r"\bskipped=[1-9]\d*\b|\b[1-9]\d* skipped\b", combined_output)
+        )
         results.append((name, passed, is_skipped, dur, stdout, stderr))
         status_str = "SKIPPED" if is_skipped else ("PASSED" if passed else "FAILED")
         print(f"Status: {status_str} ({dur:.2f}s)", flush=True)

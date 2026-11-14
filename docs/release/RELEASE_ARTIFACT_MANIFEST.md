@@ -1,10 +1,12 @@
 # FlowPilot release artifact manifest
 
-Updated 2026-11-04. Verify downloaded installers and archives against the SHA-256 digests below.
+Publication status checked 2026-11-14. The latest published application release is [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3). Its installer SHA-256 is `8930e37fdcf55854aaf22fa9885f43779219ddb379bbb7798e7a498125c3632e`; its ZIP SHA-256 is `4a17a2cec7494c1ac2d1aade42f4580666f89c12dcbf1f95abf40950ab8180c3`. Both are unsigned according to their release notes.
 
-## General Availability release: v3.2.2, Windows x64
+The 3.2.x entries below are prior local build records, not published GitHub releases. Their stated hashes and test counts have not been revalidated by this cleanup. Do not attribute later source changes to those binary bytes. See [current status](../STATUS.md).
 
-**Production GA Global Hotkey & Recovery Ergonomics Release (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.2 introduces global `Ctrl+Alt+V` "Paste Last" shortcut registration across HotkeyService, FlowOrchestrator, and Desktop App (Wispr Flow, Hex, and Raycast ergonomics parity); preserves `Alt+Shift+Z` as a fully functional alias; registers `Ctrl+Alt+V` and `Ctrl+Alt+L` in RESERVED_FLOWPILOT_SHORTCUTS to prevent collision with custom dictation triggers; unifies recovery action tray notifications (`Confirmed Inserted` vs `Sent (Unverified)`) across both physical keyboard triggers and tray menu clicks; and updates all desktop tooltips and settings documentation.
+## Local build record: v3.2.2, Windows x64 (unpublished)
+
+**Local Global Hotkey & Recovery Ergonomics Build (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.2 introduces global `Ctrl+Alt+V` "Paste Last" shortcut registration across HotkeyService, FlowOrchestrator, and Desktop App (Wispr Flow, Hex, and Raycast ergonomics parity); preserves `Alt+Shift+Z` as a fully functional alias; registers `Ctrl+Alt+V` and `Ctrl+Alt+L` in RESERVED_FLOWPILOT_SHORTCUTS to prevent collision with custom dictation triggers; unifies recovery action tray notifications (`Confirmed Inserted` vs `Sent (Unverified)`) across both physical keyboard triggers and tray menu clicks; and updates all desktop tooltips and settings documentation.
 
 | Item | Measured value |
 |---|---|
@@ -22,9 +24,9 @@ Updated 2026-11-04. Verify downloaded installers and archives against the SHA-25
 | Authenticode | NotSigned (Unsigned package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
 | Local automated audit | Headless audit across 69 suites: 64 passed, 5 honest interactive-desktop skips, 0 failed; full hotkey resolution and recovery feedback verified |
 
-## General Availability release: v3.2.1, Windows x64
+## Local build record: v3.2.1, Windows x64 (unpublished)
 
-**Production GA Single-Instance IPC & UX Parity Release (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.1 resolves single-instance window restoration and activation: secondary application invocations cleanly signal the running instance via native QLocalServer named pipe IPC with Windows AllowSetForegroundWindow foreground granting and exit 0 in <15 ms without modal popups or hotkey registration collisions (Win32 Error 1409); tray icon single-click and double-click reliably unhide and restore the Dashboard window rather than toggling the microphone; closing the Dashboard window cleanly minimizes to tray without terminating background dictation; and WritingIntelligence canonicalizes spoken tech terms (e.g., spoken 'EXC file' -> '.exe file', 'task manager' -> 'Task Manager', 'Whisper flow' -> 'Wispr Flow', 'fail to register' -> 'failed to register', and spoken 'dot exe/py/json' -> '.exe/.py/.json').
+**Local Single-Instance IPC & UX Parity Build (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.1 resolves single-instance window restoration and activation: secondary application invocations cleanly signal the running instance via native QLocalServer named pipe IPC with Windows AllowSetForegroundWindow foreground granting and exit 0 in <15 ms without modal popups or hotkey registration collisions (Win32 Error 1409); tray icon single-click and double-click reliably unhide and restore the Dashboard window rather than toggling the microphone; closing the Dashboard window cleanly minimizes to tray without terminating background dictation; and WritingIntelligence canonicalizes spoken tech terms (e.g., spoken 'EXC file' -> '.exe file', 'task manager' -> 'Task Manager', 'Whisper flow' -> 'Wispr Flow', 'fail to register' -> 'failed to register', and spoken 'dot exe/py/json' -> '.exe/.py/.json').
 
 | Item | Measured value |
 |---|---|
@@ -42,7 +44,7 @@ Updated 2026-11-04. Verify downloaded installers and archives against the SHA-25
 | Authenticode | NotSigned (Unsigned package; Windows SmartScreen advisory applies until production EV/OV certificate promotion) |
 | Local automated audit | Headless audit across 68 suites: 63 passed, 5 honest interactive-desktop skips, 0 failed; standalone binary smoke passed; test_single_instance_ipc passed 100% |
 
-## General Availability release: v3.2.0, Windows x64
+## Local build record: v3.2.0, Windows x64 (unpublished)
 
 **Production GA Leapfrog Release package (2026-11-04).** Built locally with PyInstaller 6.22.3, Inno Setup 6.7.3, and Python 3.11.15 in a clean virtual environment created strictly from requirements.txt. FlowPilot v3.2.0 incorporates the full Wispr-Flow competitive leapfrog tranche: adaptive 0.85s speech-onset pre-roll with 0.35s quiet-room floor (lowering onset WER from 22.3% to 13.5%), 95-tap Blackman-windowed sinc FIR anti-aliasing resampling (>50 dB stopband rejection, reducing 48 kHz WASAPI noise-aliasing penalty from +44.7% to +14.7%), exact CTC prefix beam search with log-space blank/non-blank path recombination and lexical biasing (improving Mozilla Common Voice Tamil CER from 4.44% to 3.97%), pause-anchored streaming prefix pre-decoding (cutting post-stop P95 latency by ~300 ms and multi-clause WER to 12.5%), active-window context symbol harvesting and spoken CamelCase symbol restoration, full `scratch that` and Polish `nie czekaj` / `czekaj` / `przepraszam` self-corrections with zero FactGuard rollbacks (100% pass rate), Windows clipboard history/cloud sync exclusion flags (`CanIncludeInClipboardHistory` and `CanUploadToCloudStore` zeroed), hardware scan-code mapping for terminal pastes, and user-scriptable Python transforms in `~/.flowpilot/transforms.py`.
 

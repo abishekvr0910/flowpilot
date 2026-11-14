@@ -26,15 +26,15 @@ An optional token protected server exposes a subset of audio endpoints on loopba
 
 New profiles default to no persisted dictation history (`save_history_text: false`), while meetings, scratchpad, settings, and the last in-memory recovery text have separate lifecycles. Selected paths have socket-level egress tests. Code in `engine/config.py`, `engine/orchestrator.py`, `engine/history_vault.py`, and `tests/test_network_egress.py`.
 
-### 13. Windows RC8 pilot candidate · existing
+### 13. Published Windows builds · existing
 
-The published pilot prerelease is RC8, built from committed source and verified by [hosted CI](https://github.com/abishekvr0910/flowpilot/actions/runs/40348691736). It is unsigned and is not a general release. The [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) records its exact hashes, the 59/59 strict local gate, and the hosted 50 passed, 9 skipped gate. Current `master` adds documentation and the local text repair specification after the RC8 artifact, so those source changes require a new build. Earlier candidate results remain historical, and hosted skips do not prove physical desktop behavior.
+The latest published application download checked on 2026-11-14 is v3.1.3, with unsigned installer and ZIP artifacts. Source is version 3.2.2. The [artifact manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) distinguishes published downloads from local build records, including historical RC8 results. Any current source repair requires a new candidate build and fresh verification. See [current status](../STATUS.md); hosted skips do not prove physical desktop behavior.
 
 ## Next release
 
 ### 32. Pilot reliability hardening · in-progress
 
-Current source contains bounded microphone open and close handling, capture stall detection, fail-safe elevated-window insertion, bounded opt-in local metrics, and Indic model guidance. RC9 includes PortAudio hot-plug re-enumeration and WASAPI worker-thread COM initialization; physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect is verified in [`PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md`](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md) (`analog_jack_hd_audio_endpoint`, `is_usb_bus_device=false`) alongside `scripts/verify_audio_device_gate.py`, while dedicated USB bus audio device (`USB\VID_...`) hot-plug confirmation, broad editor reliability (Word, Slack, Notion), and real speech quality in Indic languages remain open evidence gates. See the [pilot hardening review](../reviews/2026-10-25-pilot-reliability-and-competitive-position.md) and [real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md).
+Current source contains bounded microphone open and close handling, capture stall detection, fail-safe elevated-window insertion, bounded opt-in local metrics, and Indic model guidance. RC9 includes PortAudio hot-plug re-enumeration and WASAPI worker-thread COM initialization; physical 3.5mm Realtek WASAPI hot-plug unplug/reconnect is verified in [`PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md`](../testing/PHYSICAL_USB_UNPLUG_RECEIPT_20261027_000556.md) (`analog_jack_hd_audio_endpoint`, `is_usb_bus_device=false`) alongside `scripts/verify_audio_device_gate.py`, and dedicated USB bus hot-plug has a [dated candidate receipt](../testing/PHYSICAL_USB_BUS_UNPLUG_RECEIPT_20261028_203758.md). Broad editor reliability (Word, Slack, Notion), wider hardware coverage, and real speech quality across Indic speakers remain open evidence gates. See the [pilot hardening review](../reviews/2026-10-25-pilot-reliability-and-competitive-position.md) and [real speech diagnostic](../evaluation/EN_HI_TA_ML_REAL_VOICE_BASELINE_2026-10-26.md).
 
 **Done when:** the new candidate passes the full strict desktop gate, a real USB disconnect and reconnect trial, elevated and opaque editor safety trials, a fresh package smoke and offline self-test, and hosted CI from its source commit. Metrics and public copy must describe measured boundaries.
 
@@ -42,7 +42,7 @@ Current source contains bounded microphone open and close handling, capture stal
 
 Let a small group use the exact candidate archive on their own Windows machines and report what happens during normal work. Keep sensitive transcript collection off by default.
 
-**Done when:** the repaired pilot candidate has consent, reviewed instructions, a fixed artifact hash, clear tasks, separate delivery outcome counts, and a decision to fix, continue testing, or release. The published RC8 archive is the current pilot reference; any source repair requires a new artifact.
+**Done when:** the repaired pilot candidate has consent, reviewed instructions, a fixed artifact hash, clear tasks, separate delivery outcome counts, and a decision to fix, continue testing, or release. Select the current candidate from the artifact manifest; any source repair requires a new artifact.
 
 - [ ] Design it (spec): `/architect consented Windows pilot`
 

@@ -2,9 +2,9 @@
 
 ## Stack
 
-- **Language / Runtime**: Python 3.10 or newer, targeted at 3.12 (64-bit), Windows-first
+- **Language / Runtime**: Python 3.10 through 3.12, targeted at 3.12 (64-bit), Windows-first
 - **Framework**: PySide6 (Qt6) desktop app, optional FastAPI web companion on 127.0.0.1
-- **Key dependencies**: faster-whisper (CTranslate2 int8, CPU), sounddevice plus soundfile for capture, pywin32 plus pycaw for Windows audio, onnxruntime for Silero VAD
+- **Key dependencies**: faster-whisper (CTranslate2, automatic CUDA with CPU int8 fallback), sounddevice plus soundfile for capture, pywin32 plus pycaw for Windows audio, onnxruntime for Silero VAD
 - **Package manager**: pip (`requirements.txt`; `pyproject.toml` holds metadata and a console script)
 
 ## Build approach
@@ -23,7 +23,7 @@ python desktop_app.py
 # Offline self-test (Windows only, synthesizes speech through SAPI and decodes on CPU)
 python desktop_app.py --self-test
 
-# Full audit suite, 64 suites; release promotion also requires --require-all
+# Full audit suite (count printed by runner); release promotion also requires --require-all
 python -X utf8 tests/run_all_tests.py
 
 # Run single suite
@@ -62,4 +62,4 @@ Stored in `docs/specs/` as `NNNN-title.md`:
 
 - [engine/AGENTS.md](engine/AGENTS.md): Pipeline invariants, module responsibilities, import-time hazards, and cross-platform tiers.
 - [ui/AGENTS.md](ui/AGENTS.md): Qt window hierarchy, HUD non-activating behavior, companion stack, and web shell.
-- [tests/AGENTS.md](tests/AGENTS.md): 60-suite runner rules, environment staging, and testing conventions.
+- [tests/AGENTS.md](tests/AGENTS.md): Suite runner rules, environment staging, and testing conventions.

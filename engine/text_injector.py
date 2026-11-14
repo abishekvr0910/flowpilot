@@ -189,35 +189,35 @@ class TextInjector:
 
     @classmethod
     def _exclude_clipboard_from_history_and_cloud(cls) -> bool:
-        """
-        Marks current clipboard contents to be excluded from Windows 10/11 Clipboard History (Win+V)
-        and Microsoft Cloud Clipboard synchronization, matching enterprise zero-retention standards.
-        """
+        """Request Windows history/cloud exclusion; third-party readers may ignore it."""
         if not HAS_WIN32 or sys.platform != "win32":
             return False
         try:
-            import ctypes
-            u32 = ctypes.windll.user32
-            k32 = ctypes.windll.kernel32
-            opened = False
-            for _ in range(3):
-                if u32.OpenClipboard(0):
-                    opened = True
+            # pywin32 owns native HANDLE conversion on both 32-bit and 64-bit hosts.
+            import win32clipboard
+            for attempt in range(3):
+                try:
+                    win32clipboard.OpenClipboard()
                     break
-                time.sleep(0.01)
-            if not opened:
-                return False
+                except Exception:
+                    if attempt == 2:
+                        return False
+                    time.sleep(0.01)
             try:
-                for fmt_name in ("CanIncludeInClipboardHistory", "CanUploadToCloudStore"):
-                    fmt = u32.RegisterClipboardFormatW(fmt_name)
-                    if fmt:
-                        h_mem = k32.GlobalAlloc(0x0042, 4)
-                        if h_mem:
-                            u32.SetClipboardData(fmt, h_mem)
+                for name, value in (
+                    ("ExcludeClipboardContentFromMonitorProcessing", 1),
+                    ("CanIncludeInClipboardHistory", 0),
+                    ("CanUploadToCloudClipboard", 0),
+                ):
+                    fmt = win32clipboard.RegisterClipboardFormat(name)
+                    if not fmt:
+                        return False
+                    win32clipboard.SetClipboardData(fmt, value.to_bytes(4, "little"))
                 return True
             finally:
-                u32.CloseClipboard()
+                win32clipboard.CloseClipboard()
         except Exception:
+            logger.debug("Windows clipboard exclusion markers could not be applied.", exc_info=True)
             return False
 
     @classmethod

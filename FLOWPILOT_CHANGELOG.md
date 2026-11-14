@@ -2,14 +2,23 @@
 
 This page distinguishes published releases from work on `master`. Check [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) for downloadable artifacts and [GitHub Actions](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for current verification status.
 
-## v3.2.0 — November 4, 2026
+## Unreleased (source version 3.2.2)
+
+- Restored preview-only external transforms; blocked unverified selection replacement and undo.
+- Corrected Windows clipboard exclusion format names and native handle handling.
+- Added CPU retry for CUDA failures during lazy decoding, and truthful active-device logs.
+- Fixed Smart Pause capture-session imports, cancellation recovery, and sampler shutdown.
+- Reconciled metadata, defaults, release publication status, and project handoff.
+- Source changes since 3.2.0 also include single-instance window restoration, Ctrl+Alt+V recovery, and smart pause during calls. No 3.2.x GitHub release was published as of 2026-11-14.
+
+## v3.2.0 — source changes / local build, November 4, 2026
 
 - **Adaptive 0.85s Speech-Onset Pre-Roll:** Dynamically retains up to 0.85s of pre-hotkey speech in `AudioRecorder` while maintaining a 0.35s quiet-room floor, dropping casual early speech-onset WER from **22.3% to 13.5%**.
 - **95-Tap Windowed-Sinc Anti-Aliasing Resampling:** Replaced linear interpolation in `resample_audio` with a 95-tap Blackman-windowed sinc FIR low-pass filter ($>50\text{ dB}$ stopband attenuation), dropping 48 kHz WASAPI noise-aliased WER from **58.3% to 28.3%** (+14.7% penalty down from +44.7%).
 - **Exact CTC Prefix Beam Search & Lexical Biasing:** Upgraded `OnnxASRHarness` with prefix beam search recombining blank/non-blank paths in log space and boosting custom vocabulary tokens. Reduces Mozilla Common Voice Tamil CER from **4.44% to 3.97%**.
 - **Pause-Anchored Streaming Prefix Pre-Decoder:** Implemented `get_active_recording_snapshot`, `build_pause_prefix_checkpoint`, and `transcribe_with_checkpoint` in `STTEngine` and `FlowOrchestrator`, pre-decoding completed clauses during mid-utterance pauses to cut post-stop P95 latency by **~300 ms** and multi-clause WER to **12.5%**.
 - **Active-Window Context Symbol Harvesting & Multilingual Self-Correction:** Added `WindowInspector.extract_context_vocabulary` (with strict password manager and private browsing exclusions), spoken CamelCase symbol restoration (`onnx asr harness` $\rightarrow$ `OnnxASRHarness`), and full `scratch that` + Polish `nie czekaj`, `czekaj`, `przepraszam` self-corrections with zero FactGuard rollbacks (100% pass rate).
-- **Windows Clipboard Privacy & Cloud Sync Exclusion:** Native Win32 `CanIncludeInClipboardHistory` and `CanUploadToCloudStore` zero-flag registration in `TextInjector`, ensuring dictated text is never indexed in Windows Clipboard History (`Win+V`) or synced across devices to the cloud.
+- **Windows Clipboard Privacy & Cloud Sync Exclusion:** Native Win32 `CanIncludeInClipboardHistory` and `CanUploadToCloudClipboard` (corrected in unreleased source) zero-flag registration in `TextInjector`, requesting exclusion from Windows history and cloud clipboard. This does not constrain third-party readers.
 - **Hardware Scan Code Terminal Key Mapping:** Mapped `ord('V')`, `VK_CONTROL`, `VK_SHIFT`, and `VK_INSERT` through `win32api.MapVirtualKey(..., 0)` so terminal emulators (VS Code xterm.js, Windows Terminal, mintty) never produce raw `^V` control sequences on non-US or localized keyboard layouts.
 - **User-Scriptable Python Transforms Engine:** Native custom transform execution engine in `engine/user_transforms.py` reading user hooks from `~/.flowpilot/transforms.py`, matching and exceeding Hex's config system without external Node.js or QuickJS runtimes.
 - **Suite 68 Automated Audit Test:** Added `tests/test_wispr_leapfrog_upgrades.py` validating pre-roll adaptation, filter attenuation, CTC beam search recombination, streaming prefix checkpoints, context symbol harvesting, user transforms, and clipboard privacy flags.

@@ -1,5 +1,7 @@
 # FlowPilot audit summary
 
+> Historical specification or evidence snapshot. Its release targets, completion labels, ratings, and instructions are not current status. See [current status and handoff](../STATUS.md). External selection rewrite/undo is disabled and published v3.1.3 binaries are unsigned.
+
 Updated 2026-10-26 for the RC8 pilot candidate. This page is a map to current evidence, not a claim that every feature or target app is verified.
 
 ## What was checked

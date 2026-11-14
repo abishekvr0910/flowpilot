@@ -1,7 +1,9 @@
 # FlowPilot: 10/10 General Availability (GA) Execution Scope
 
+> Historical specification or evidence snapshot. Its release targets, completion labels, ratings, and instructions are not current status. See [current status and handoff](../STATUS.md). External selection rewrite/undo is disabled and published v3.1.3 binaries are unsigned.
+
 **Document Version:** 3.3.0-GA-TEN-OUT-OF-TEN-SPEC  
-**Status:** In Progress / Active Execution  
+**Status:** Historical planning snapshot
 **Target Architecture:** Windows 10/11 x64 Native  
 **Target Release:** FlowPilot v3.1.0-RC12 / v3.1.0-GA  
 

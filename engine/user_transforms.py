@@ -1,7 +1,7 @@
 """
 FlowPilot User Scriptable Transforms Module.
 Allows power users to write custom Python transformations in ~/.flowpilot/transforms.py
-matching and exceeding Hex's hex.config.ts without Node.js or QuickJS dependencies.
+Hooks are trusted user code and execute with the application's permissions.
 """
 
 import importlib.util
@@ -19,7 +19,8 @@ logger = logging.getLogger("FlowPilot.UserTransforms")
 class UserTransformManager:
     """
     Loads, caches, and executes user-defined text transformation hooks from ~/.flowpilot/transforms.py.
-    Provides graceful error isolation, execution time limits, and FactGuard validation.
+    Catches hook exceptions and records elapsed time after completion. This is not
+    a sandbox, an enforced deadline, or a separate FactGuard validation boundary.
     """
 
     _instance: Optional["UserTransformManager"] = None

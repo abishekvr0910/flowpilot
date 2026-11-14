@@ -1,5 +1,7 @@
 # FlowPilot: General Availability (GA) Final Closure Scope
 
+> Historical specification or evidence snapshot. Its release targets, completion labels, ratings, and instructions are not current status. See [current status and handoff](../STATUS.md). External selection rewrite/undo is disabled and published v3.1.3 binaries are unsigned.
+
 **Document Version:** 3.2.0-GA-CLOSURE-SPEC  
 **Status:** Completed & Verified in Source (v3.1.0 GA / Unsigned Pilot Release)  
 **Target Release:** FlowPilot v3.1.0  

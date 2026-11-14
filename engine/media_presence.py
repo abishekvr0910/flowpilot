@@ -242,6 +242,8 @@ class CaptureSessionMonitor:
     def _pycaw_provider(self) -> bool:
         import comtypes
         from pycaw.pycaw import AudioUtilities
+        from pycaw.api.audiopolicy import IAudioSessionManager2, IAudioSessionControl2
+        from pycaw.constants import EDataFlow, DEVICE_STATE
         from comtypes import CLSCTX_ALL
 
         co_init = False
@@ -252,29 +254,23 @@ class CaptureSessionMonitor:
             except Exception:
                 pass
 
-            # eCapture = 0 (capture/microphone endpoints)
-            from comtypes.gen import MMDeviceAPI
-            enumerator = comtypes.CoCreateInstance(
-                MMDeviceAPI.MMDeviceEnumerator._reg_clsid_,
-                None,
-                CLSCTX_ALL,
-                MMDeviceAPI.IMMDeviceEnumerator._iid_,
-            )
-            endpoints = enumerator.EnumAudioEndpoints(MMDeviceAPI.eCapture, MMDeviceAPI.DEVICE_STATE_ACTIVE)
+            # Use pycaw's shipped interfaces; no generated MMDeviceAPI typelib.
+            enumerator = AudioUtilities.GetDeviceEnumerator()
+            endpoints = enumerator.EnumAudioEndpoints(EDataFlow.eCapture.value, DEVICE_STATE.ACTIVE.value)
 
             # Get IAudioSessionManager2 for each active capture endpoint
             for i in range(endpoints.GetCount()):
                 endpoint = endpoints.Item(i)
                 session_manager = endpoint.Activate(
-                    MMDeviceAPI.IAudioSessionManager2._iid_,
+                    IAudioSessionManager2._iid_,
                     CLSCTX_ALL,
                     None,
-                ).QueryInterface(MMDeviceAPI.IAudioSessionManager2)
+                ).QueryInterface(IAudioSessionManager2)
 
                 session_enumerator = session_manager.GetSessionEnumerator()
                 for j in range(session_enumerator.GetCount()):
                     session_control = session_enumerator.GetSession(j)
-                    session_control2 = session_control.QueryInterface(MMDeviceAPI.IAudioSessionControl2)
+                    session_control2 = session_control.QueryInterface(IAudioSessionControl2)
 
                     # Get process ID and state
                     pid = session_control2.GetProcessId()

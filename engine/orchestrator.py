@@ -92,7 +92,7 @@ class FlowOrchestrator:
         self._idle_unload_timer: Optional[threading.Timer] = None
         self._idle_unload_timeout_sec: float = float(self.config.get("idle_model_unload_sec", 600.0))
 
-        # Universal Selection Rewriter & Undo Latch (WP-2)
+        # External rewrite compatibility boundary; mutation remains disabled.
         from engine.selection_rewriter import SelectionRewriter
         self.selection_rewriter = SelectionRewriter()
 
@@ -275,7 +275,7 @@ class FlowOrchestrator:
         # Smart Pause During Calls: monitor for calls starting during recording
         config = getattr(self, "config", {"smart_pause_during_calls": True})
         if config.get("smart_pause_during_calls", True):
-            call_stop_event = threading.Event()
+            call_stop_event = stop_event
             self._call_watchdog_stop = call_stop_event
 
             def call_watch():
@@ -284,22 +284,7 @@ class FlowOrchestrator:
                         with self._state_lock:
                             if active_session != self._current_session or self.state != AppState.RECORDING:
                                 return
-                            print("[Orchestrator] Call started during recording — Smart Pause stopping dictation.")
-                            active_session.transition_to(SessionState.FINALIZING)
-                            self.state = AppState.STOPPING_RECORDING
-                        call_stop_event.set()
-                        self._capture_watchdog_stop.set()
-                        if self._auto_stop_timer:
-                            self._auto_stop_timer.cancel()
-                            self._auto_stop_timer = None
-                        self.recorder.stop_recording()
-                        threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
-                        self.feedback.play_stop()
-                        self._notify(AppState.STOPPING_RECORDING, {
-                            "session_id": active_session.session_id,
-                            "notice": "Call detected — dictation auto-paused.",
-                            "paused_by_call": True
-                        })
+                        self._discard_recording_for_call(active_session)
                         return
 
             threading.Thread(target=call_watch, daemon=True, name="FlowPilot-CallWatchdog").start()
@@ -359,17 +344,27 @@ class FlowOrchestrator:
 
         threading.Thread(target=prefix_predecoder, daemon=True, name="FlowPilot-PrefixPredecoder").start()
 
+    def _discard_recording_for_call(self, active_session):
+        """Use the complete cancellation lifecycle instead of stranding STOPPING."""
+        with self._state_lock:
+            if active_session != self._current_session or self.state != AppState.RECORDING:
+                return False
+            self.cancel_dictation(reason="call_detected")
+            self._notify(self.state, {
+                "session_id": active_session.session_id,
+                "notice": "Call detected; current dictation discarded. Start again after the call.",
+                "paused_by_call": True,
+            })
+            return True
+
     def start_selection_rewrite(self) -> bool:
-        """Captures active selection from foreground window and begins voice rewrite session."""
-        if self.state != AppState.IDLE:
-            return False
-        sel_text, hwnd, title, proc_name = self.selection_rewriter.capture_selection()
-        if not sel_text or not sel_text.strip():
-            return False
-        self.start_dictation(is_selection_rewrite=True, pre_selected_text=sel_text)
-        return True
+        """External edits require a document revision and selection adapter."""
+        return False
 
     def start_dictation(self, translation_mode: Optional[bool] = None, is_selection_rewrite: bool = False, pre_selected_text: Optional[str] = None):
+        if is_selection_rewrite:
+            logger.info("External selection rewriting is unavailable; use transform preview.")
+            return False
         try:
             from engine.update_checker import get_update_checker
             get_update_checker().abort()
@@ -499,7 +494,7 @@ class FlowOrchestrator:
 
         threading.Thread(target=start_worker, args=(session,), daemon=True, name="FlowPilot-MicStarter").start()
 
-    def cancel_dictation(self):
+    def cancel_dictation(self, reason: str = "user_cancelled"):
         """Emergency cancel: Discards recording immediately without transcribing or inserting."""
         self._capture_watchdog_stop.set()
         call_watchdog_stop = getattr(self, "_call_watchdog_stop", None)
@@ -509,12 +504,12 @@ class FlowOrchestrator:
             if self.state == AppState.IDLE and (not self._current_session or not self._current_session.is_active()):
                 return
             if self._current_session:
-                self._current_session.cancel("user_cancelled")
+                self._current_session.cancel(reason)
             self.state = AppState.CANCELLED
             self._stop_pending = False
             self.is_processing = False
 
-        print("[Orchestrator] Dictation cancelled by user.")
+        logger.info("Dictation cancelled (%s).", reason)
         if self._auto_stop_timer:
             self._auto_stop_timer.cancel()
             self._auto_stop_timer = None
@@ -736,37 +731,13 @@ class FlowOrchestrator:
                 target_hwnd = active_session.target_window_info.get("hwnd")
                 injection_method = "clipboard_paste"
                 from engine.text_injector import InjectionStatus, InjectionResult
-                if getattr(active_session, "is_selection_rewrite", False) and getattr(active_session, "selected_text", None):
-                    print("[Orchestrator] Executing in-place selection rewrite via SelectionRewriter...")
-                    rewrite_res = self.selection_rewriter.process_and_rewrite(
-                        formatted_text,
-                        selected_text=active_session.selected_text,
-                        target_hwnd=target_hwnd
+                if getattr(active_session, "is_selection_rewrite", False):
+                    inj_res = InjectionResult(
+                        status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
+                        target_hwnd=target_hwnd,
+                        error_message="External selection rewriting requires a verified revision adapter.",
+                        recovery_available=False,
                     )
-                    if rewrite_res.status == "applied":
-                        success = True
-                        inj_res = InjectionResult(
-                            status=InjectionStatus.CONFIRMED_INSERTED,
-                            chars_sent=len(rewrite_res.replacement_text),
-                            target_hwnd=target_hwnd
-                        )
-                        formatted_text = rewrite_res.replacement_text
-                        self._notify(AppState.SUCCESS, {
-                            "notice": f"Replaced selection ({rewrite_res.intent})",
-                            "can_undo": True,
-                            "undo_hotkey": "Alt+Shift+U"
-                        })
-                    else:
-                        success = False
-                        inj_res = InjectionResult(
-                            status=InjectionStatus.FAILED_RECOVERY_AVAILABLE,
-                            target_hwnd=target_hwnd,
-                            error_message=rewrite_res.error_message or "Rewrite blocked"
-                        )
-                        self._notify(AppState.ERROR, {
-                            "notice": rewrite_res.error_message or "Selection rewrite failed",
-                            "message": rewrite_res.error_message
-                        })
                 else:
                     inj_res = TextInjector.inject_with_status(formatted_text, target_hwnd, verify_confirmation=True)
                 success = bool(inj_res)
@@ -1138,20 +1109,11 @@ class FlowOrchestrator:
         return is_muted
 
     def undo_last_rewrite(self) -> bool:
-        """Rolls back the last in-place selection rewrite transaction via SelectionRewriter."""
-        if hasattr(self, "selection_rewriter"):
-            success = self.selection_rewriter.undo_last_rewrite()
-            if success:
-                self._notify(AppState.IDLE, {
-                    "notice": "Reverted last text rewrite",
-                    "recovery_action": True
-                })
-            else:
-                self._notify(AppState.IDLE, {
-                    "notice": "Nothing to undo",
-                    "recovery_action": True
-                })
-            return success
+        """Explain why external undo is unavailable without dispatching input."""
+        self._notify(self.state, {
+            "notice": "External rewrite undo is unavailable. Use your editor's Undo.",
+            "recovery_action": True,
+        })
         return False
 
     def re_copy_last(self) -> bool:
@@ -1367,6 +1329,9 @@ class FlowOrchestrator:
     def stop(self):
         """Clean shutdown of all orchestrator services."""
         self._capture_watchdog_stop.set()
+        monitor = getattr(self, "capture_monitor", None)
+        if monitor is not None:
+            monitor.stop()
         self.stop_hotkey_listener()
         if self.text_repair is not None:
             try:
