@@ -69,6 +69,46 @@ def test_pynput_hotkey_service_registration_and_normalization():
     service._on_release(pk.Key.space)
     service._on_release(pk.Key.shift_r)
     service._on_release(pk.Key.ctrl_l)
+    service.stop()
+
+
+def test_pynput_hotkey_service_stop_and_restart_rearms_dispatch():
+    """Validates stop() suppresses late pynput callbacks and start() re-arms dispatch."""
+    import threading
+    import pynput.keyboard as pk
+
+    service = PynputHotkeyService()
+    triggered = []
+    first = threading.Event()
+    rearmed = threading.Event()
+
+    def on_f9():
+        triggered.append("press")
+        if len(triggered) == 1:
+            first.set()
+        else:
+            rearmed.set()
+
+    service.register("F9", on_f9)
+
+    fake_listener = MagicMock()
+    with patch("pynput.keyboard.Listener", return_value=fake_listener):
+        assert service.start() is True
+        service._on_press(pk.Key.f9)
+        assert first.wait(timeout=1.5)
+        service._on_release(pk.Key.f9)
+
+        service.stop()
+        service._on_press(pk.Key.f9)
+        time.sleep(0.05)
+        assert len(triggered) == 1
+
+        assert service.start() is True
+        service._on_press(pk.Key.f9)
+        assert rearmed.wait(timeout=1.5)
+        service.stop()
+
+    assert triggered == ["press", "press"]
 
 
 def test_cross_platform_hotkey_factory():
@@ -124,6 +164,7 @@ def test_cross_platform_audio_ducker():
 
 if __name__ == "__main__":
     test_pynput_hotkey_service_registration_and_normalization()
+    test_pynput_hotkey_service_stop_and_restart_rearms_dispatch()
     test_cross_platform_hotkey_factory()
     test_cross_platform_clipboard_sequence()
     test_cross_platform_window_inspector()

@@ -531,6 +531,17 @@ class AudioRecorder:
             logger.info("Recording mute %s", "enabled" if self.is_muted else "disabled")
             return self.is_muted
 
+    def release_idle_stream(self) -> bool:
+        """Releases a hot pre-roll stream while idle so OS audio endpoints can sleep."""
+        with self._lock:
+            if self.is_recording or self.stream is None:
+                return False
+            old_stream = self.stream
+            self.stream = None
+            self._last_callback_at = 0.0
+            self._preroll_buffer.clear()
+            return self._release_stream_bounded(old_stream)
+
     def close(self):
         self._stop_event.set()
         """Cleanly terminates and releases the underlying audio device."""

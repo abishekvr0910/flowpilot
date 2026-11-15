@@ -2,7 +2,17 @@
 
 This page distinguishes published releases from work on `master`. Check [GitHub Releases](https://github.com/abishekvr0910/flowpilot/releases) for downloadable artifacts and [GitHub Actions](https://github.com/abishekvr0910/flowpilot/actions/workflows/ci.yml) for current verification status.
 
-## Unreleased (source version 3.2.2)
+## Unreleased candidate (source version 3.2.3)
+
+- Wired low-level `WH_KEYBOARD_LL` hotkey hook installation/unhook, 64-bit ctypes signatures, key-repeat and passthrough leak suppression, and `WM_HOTKEY` debounce (`0.3s`) in `Win32HotkeyService`.
+- Added upfront `cublas64_12.dll` availability probing in `STTEngine` when `device="auto"` so CPU fallback selects `CPU (int8)` directly without an avoidable CUDA probe failure.
+- Added `idle_mic_backoff_sec` (`60.0` default) in `DEFAULT_CONFIG`, `AudioRecorder`, and `FlowOrchestrator` to release an idle standby WASAPI microphone stream cleanly when returning to `IDLE`, cancelling on new dictation starts and config updates.
+- Added spoken developer operators (`->`, `=>`, `:=`, `::`, `===`, `!=`, `??`, `&&`, `||`) for `developer`, `technical`, and `terminal` styles with `FactGuard` parity (`not equals` retraction), identifier preservation, and command-order guards.
+- Bumped version metadata to `3.2.3`; built unsigned Windows x64 pilot artifacts (`dist/FlowPilot-v3.2.3-windows-x64.zip` and `dist/FlowPilot-Setup-v3.2.3.exe`) at `a86b722`, then rebuilt them from `1bd9337` after the PR #20 review fixes; the interactive `--require-all` desktop gate passed `74/74` on `1bd9337` with the rebuilt bundle ([evidence](docs/reviews/evidence/2026-11-15-v323-1bd9337-desktop-gate.json)). The binaries remain unsigned.
+- Fixed `tests/test_stt.py` so the weights-presence check uses the engine's own `STTEngine.resolve_model_path("base")` chain and asserts a `.bin` weight file exists there. The old check hardcoded the user-profile HuggingFace hub cache path (`~/.cache/huggingface/hub/models--Systran--faster-whisper-base`), which the engine never reads; the suite started failing on 2026-11-15 after that unrelated cache directory was removed during host disk cleanup, while dictation itself kept working from the bundled `models/faster-whisper-base`.
+- Addressed PR #20 code-review and shutdown-lifecycle findings: restricted `Win32HotkeyService` `WH_KEYBOARD_LL` interception/suppression strictly to successfully `registered` hotkeys and serialized press/release callbacks through `_SerialCallbackDispatcher` with shutdown invalidation, rejection after `stop()`, and overlap-free worker preservation across `stop()`/`reset()`; reordered `FlowOrchestrator.stop()` to stop hotkey dispatch before closing `AudioRecorder`, guarded post-shutdown dictation/hotkey/idle-timer entry points and async mic startup (`start_worker`), ensured all `AppState.IDLE` return paths (including no-speech and capture-watchdog recovery) reschedule `idle_mic_backoff_sec` and serialized timeout stream release via `_mic_release_lock` and generation tokens; scoped `not equals` FactGuard retraction (`not equals->!=`) so separate `not` tokens remain guarded and removed the `"right arrow"` collision with navigation speech; expanded `_has_cuda_runtime_libs()` to check `cublas64_12.dll` + `cublasLt64_12.dll` across `CUDA_PATH\bin`, `nvidia/*/bin`, and `PATH` (and removed temp-dir dependence in `tests/test_cuda_fallback.py`).
+
+## Source 3.2.2 (merged to `master` via PR #19, unpublished download)
 
 - Restored preview-only external transforms; blocked unverified selection replacement and undo.
 - Corrected Windows clipboard exclusion format names and native handle handling.

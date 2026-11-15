@@ -4,7 +4,7 @@ Current status and boundaries for the FlowPilot desktop dictation and writing pr
 
 ## At a glance
 
-FlowPilot is a Windows-first, 100% offline dictation and private writing tool. For the whole-product specification and verification standard across all 13 core subsystems, see the [Whole-Product Master Scope](FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md). For the commercial General Availability (GA) closure roadmap, see the [GA Final Closure Scope](FLOWPILOT_GA_FINAL_CLOSURE_SCOPE.md). The current source version is **3.2.2**; the latest published application download checked on 2026-11-14 is **v3.1.3**, unsigned. [Current status and handoff](../STATUS.md) is the authority for current completion and next steps. See the [release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) for artifact hashes, test evidence, and open gates.
+FlowPilot is a Windows-first, 100% offline dictation and private writing tool. For the whole-product specification and verification standard across all 13 core subsystems, see the [Whole-Product Master Scope](FLOWPILOT_WHOLE_PRODUCT_MASTER_SCOPE.md). For the commercial General Availability (GA) closure roadmap, see the [GA Final Closure Scope](FLOWPILOT_GA_FINAL_CLOSURE_SCOPE.md). The current source version is **3.2.3**; the latest published application download checked on 2026-11-14 is **v3.1.3**, unsigned. [Current status and handoff](../STATUS.md) is the authority for current completion and next steps. See the [release manifest](../release/RELEASE_ARTIFACT_MANIFEST.md) for artifact hashes, test evidence, and open gates.
 
 | ID | Capability or milestone | Area | Status |
 |---|---|---|---|

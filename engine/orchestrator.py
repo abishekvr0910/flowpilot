@@ -20,6 +20,7 @@ from engine.pilot_telemetry import append_local_event
 from engine.media_presence import SampledCaptureMonitor, NullCaptureMonitor
 
 logger = logging.getLogger("FlowPilot.Orchestrator")
+_ORCH_INIT_LOCK = threading.Lock()
 
 
 def injection_completion_timing(
@@ -70,6 +71,9 @@ class FlowOrchestrator:
         self.state = AppState.IDLE
         self._current_session: Optional[DictationSession] = None
         self._state_lock = threading.RLock()
+        self._mic_release_lock = threading.RLock()
+        self._idle_mic_generation = 0
+        self._stopped = False
         self._success_generation = 0
         self._stop_pending = False
         self.is_processing = False
@@ -91,6 +95,8 @@ class FlowOrchestrator:
         self._tap_latch: Optional[Any] = None
         self._idle_unload_timer: Optional[threading.Timer] = None
         self._idle_unload_timeout_sec: float = float(self.config.get("idle_model_unload_sec", 600.0))
+        self._idle_mic_timer: Optional[threading.Timer] = None
+        self._idle_mic_backoff_sec: float = float(self.config.get("idle_mic_backoff_sec", 60.0))
 
         # External rewrite compatibility boundary; mutation remains disabled.
         from engine.selection_rewriter import SelectionRewriter
@@ -115,7 +121,7 @@ class FlowOrchestrator:
                 logger.warning("LocalTextRepair initialization failed: %s", e)
 
         # Start idle unloader schedule
-        self._schedule_idle_unloader()
+        self._schedule_idle_timers()
 
         # Smart Pause During Calls: initialize capture session monitor
         if self.config.get("smart_pause_during_calls", True):
@@ -130,8 +136,66 @@ class FlowOrchestrator:
                 self._idle_unload_timer.cancel()
                 self._idle_unload_timer = None
 
+    def _get_mic_release_lock(self) -> threading.RLock:
+        lock = getattr(self, "_mic_release_lock", None)
+        if lock is None:
+            with _ORCH_INIT_LOCK:
+                lock = getattr(self, "_mic_release_lock", None)
+                if lock is None:
+                    lock = threading.RLock()
+                    self._mic_release_lock = lock
+        return lock
+
+    def _schedule_idle_timers(self):
+        self._schedule_idle_unloader()
+        self._schedule_idle_mic_backoff()
+
+    def _cancel_idle_mic_backoff(self):
+        with self._state_lock:
+            self._idle_mic_generation = getattr(self, "_idle_mic_generation", 0) + 1
+            if getattr(self, "_idle_mic_timer", None) is not None:
+                self._idle_mic_timer.cancel()
+                self._idle_mic_timer = None
+
+    def _schedule_idle_mic_backoff(self):
+        with self._state_lock:
+            gen = getattr(self, "_idle_mic_generation", 0) + 1
+            self._idle_mic_generation = gen
+            if getattr(self, "_idle_mic_timer", None) is not None:
+                self._idle_mic_timer.cancel()
+                self._idle_mic_timer = None
+            if getattr(self, "_stopped", False):
+                return
+            timeout = float(getattr(self, "_idle_mic_backoff_sec", 60.0))
+            if timeout > 0:
+                t = threading.Timer(timeout, self._on_idle_mic_timeout, args=(gen,))
+                t.daemon = True
+                self._idle_mic_timer = t
+                t.start()
+
+    def _on_idle_mic_timeout(self, expected_gen: Optional[int] = None):
+        with self._get_mic_release_lock():
+            with self._state_lock:
+                if getattr(self, "_stopped", False):
+                    return
+                if expected_gen is not None and expected_gen != getattr(self, "_idle_mic_generation", 0):
+                    return
+                rec = getattr(self.recorder, "is_recording", False) if hasattr(self, "recorder") else False
+                if self.state != AppState.IDLE or rec or getattr(self, "is_processing", False):
+                    return
+                self._idle_mic_timer = None
+            releaser = getattr(self.recorder, "release_idle_stream", None) if hasattr(self, "recorder") else None
+            if callable(releaser):
+                try:
+                    if releaser():
+                        logger.info("[Orchestrator] Idle mic backoff reached. Released standby audio stream.")
+                except Exception as e:
+                    logger.debug("Idle mic stream release exception: %s", e)
+
     def _schedule_idle_unloader(self):
         with self._state_lock:
+            if getattr(self, "_stopped", False):
+                return
             if getattr(self, "_idle_unload_timer", None) is not None:
                 self._idle_unload_timer.cancel()
                 self._idle_unload_timer = None
@@ -267,7 +331,7 @@ class FlowOrchestrator:
                         active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
-                        self._schedule_idle_unloader()
+                        self._schedule_idle_timers()
                 return
 
         threading.Thread(target=watch, daemon=True, name="FlowPilot-CaptureWatchdog").start()
@@ -370,18 +434,23 @@ class FlowOrchestrator:
             get_update_checker().abort()
         except Exception:
             pass
-        self._cancel_idle_unloader()
-        with self._state_lock:
-            if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
-                print(f"[Orchestrator] start_dictation ignored: currently in state {self.state}")
-                return
-            self.state = AppState.STARTING_RECORDING
-            self._stop_pending = False
-            self.is_processing = False
-            self._last_speech_time = 0.0
-            self._last_speech_perf = 0.0
-            self._speech_detected = False
-            self._speech_start_time = 0.0
+        with self._get_mic_release_lock():
+            with self._state_lock:
+                if getattr(self, "_stopped", False):
+                    print("[Orchestrator] start_dictation ignored: orchestrator stopped")
+                    return
+                if self.state in (AppState.RECORDING, AppState.STARTING_RECORDING, AppState.STOPPING_RECORDING, AppState.TRANSCRIBING, AppState.VALIDATING, AppState.INSERTING_TEXT):
+                    print(f"[Orchestrator] start_dictation ignored: currently in state {self.state}")
+                    return
+                self._cancel_idle_unloader()
+                self._cancel_idle_mic_backoff()
+                self.state = AppState.STARTING_RECORDING
+                self._stop_pending = False
+                self.is_processing = False
+                self._last_speech_time = 0.0
+                self._last_speech_perf = 0.0
+                self._speech_detected = False
+                self._speech_start_time = 0.0
 
         # Smart Pause During Calls: check if a communication app is holding the microphone
         config = getattr(self, "config", {"smart_pause_during_calls": True})
@@ -392,7 +461,11 @@ class FlowOrchestrator:
                 "blocked_by_call": True
             })
             with self._state_lock:
+                if getattr(self, "_stopped", False):
+                    return
                 self.state = AppState.IDLE
+                self._schedule_idle_unloader()
+                self._schedule_idle_mic_backoff()
             return
 
         # 1. Capture target window immediately at T0
@@ -412,6 +485,9 @@ class FlowOrchestrator:
         session.is_selection_rewrite = is_selection_rewrite
         session.selected_text = pre_selected_text
         with self._state_lock:
+            if getattr(self, "_stopped", False):
+                self.state = AppState.CANCELLED
+                return
             self._current_session = session
 
         # 2. Immediately notify UI of STARTING_RECORDING (zero latency visual feedback)
@@ -427,47 +503,94 @@ class FlowOrchestrator:
         threading.Thread(target=self.ducker.start_ducking, daemon=True, name="FlowPilot-DuckerStart").start()
 
         def start_worker(active_session: DictationSession):
+            stop_pending_requested = False
             try:
-                # Enumeration can change since startup or the last settings save.
-                if not self.recorder.has_healthy_hot_stream():
-                    self.recorder.close()
-                    refresh_audio_devices()
-                resolution = resolve_audio_input(self._device_selection)
-                previous = self._last_device_resolution
-                if resolution.device_index != self.recorder.device:
-                    self.recorder.set_device(resolution.device_index)
-                elif (isinstance(self._device_selection, dict)
-                      and self._device_selection.get("mode") == "default"
-                      and resolution.device_info != previous.device_info):
-                    self.recorder.close()
-                self._last_device_resolution = resolution
-                if resolution.device_index is not None and resolution.device_index < 0:
-                    raise RuntimeError(resolution.error_message or "Select an available microphone in Settings.")
-                self.recorder.start_recording()
+                with self._get_mic_release_lock():
+                    with self._state_lock:
+                        if (
+                            getattr(self, "_stopped", False)
+                            or active_session.is_cancelled
+                            or active_session != self._current_session
+                            or self.state != AppState.STARTING_RECORDING
+                        ):
+                            print(f"[Orchestrator] Recording startup aborted before mic open (state={self.state})")
+                            return
+                    # Enumeration can change since startup or the last settings save.
+                    if not self.recorder.has_healthy_hot_stream():
+                        self.recorder.close()
+                        refresh_audio_devices()
+                    resolution = resolve_audio_input(self._device_selection)
+                    previous = self._last_device_resolution
+                    if resolution.device_index != self.recorder.device:
+                        self.recorder.set_device(resolution.device_index)
+                    elif (isinstance(self._device_selection, dict)
+                          and self._device_selection.get("mode") == "default"
+                          and resolution.device_info != previous.device_info):
+                        self.recorder.close()
+                    self._last_device_resolution = resolution
+                    if resolution.device_index is not None and resolution.device_index < 0:
+                        raise RuntimeError(resolution.error_message or "Select an available microphone in Settings.")
+                    with self._state_lock:
+                        if (
+                            getattr(self, "_stopped", False)
+                            or active_session.is_cancelled
+                            or active_session != self._current_session
+                            or self.state != AppState.STARTING_RECORDING
+                        ):
+                            print(f"[Orchestrator] Recording startup aborted before start_recording (state={self.state})")
+                            return
+                    self.recorder.start_recording()
 
-                with self._state_lock:
-                    if active_session.is_cancelled or active_session != self._current_session or self.state != AppState.STARTING_RECORDING:
-                        print(f"[Orchestrator] Recording startup aborted because state changed or session was cancelled (state={self.state})")
-                        self.recorder.stop_recording()
-                        return
-                    if self._stop_pending:
-                        print("[Orchestrator] Stop was requested during microphone initialization.")
-                        self._stop_pending = False
-                        self.state = AppState.RECORDING
-                        active_session.transition_to(SessionState.RECORDING)
-                        self.stop_dictation_and_process(is_silence_stop=True)
-                        return
-                    self.state = AppState.RECORDING
-                    active_session.transition_to(SessionState.RECORDING)
+                    with self._state_lock:
+                        if (
+                            getattr(self, "_stopped", False)
+                            or active_session.is_cancelled
+                            or active_session != self._current_session
+                            or self.state != AppState.STARTING_RECORDING
+                        ):
+                            print(f"[Orchestrator] Recording startup aborted because state changed or session was cancelled (state={self.state})")
+                            self.recorder.stop_recording()
+                            if getattr(self, "_stopped", False):
+                                try:
+                                    self.recorder.close()
+                                except Exception:
+                                    pass
+                            return
+                        if self._stop_pending:
+                            print("[Orchestrator] Stop was requested during microphone initialization.")
+                            self._stop_pending = False
+                            self.state = AppState.RECORDING
+                            active_session.transition_to(SessionState.RECORDING)
+                            stop_pending_requested = True
+                        else:
+                            self.state = AppState.RECORDING
+                            active_session.transition_to(SessionState.RECORDING)
+
+                if stop_pending_requested:
+                    self.stop_dictation_and_process(is_silence_stop=True)
+                    return
 
                 self.feedback.play_start()
 
                 # Start safety auto-stop timer (120 seconds max recording)
-                if self._auto_stop_timer:
-                    self._auto_stop_timer.cancel()
-                self._auto_stop_timer = threading.Timer(120.0, self._on_auto_stop)
-                self._auto_stop_timer.daemon = True
-                self._auto_stop_timer.start()
+                with self._state_lock:
+                    stopped_late = bool(getattr(self, "_stopped", False))
+                    abort_after_lock = stopped_late or active_session.is_cancelled or active_session != self._current_session
+                    if not abort_after_lock:
+                        if self._auto_stop_timer:
+                            self._auto_stop_timer.cancel()
+                        self._auto_stop_timer = threading.Timer(120.0, self._on_auto_stop)
+                        self._auto_stop_timer.daemon = True
+                        self._auto_stop_timer.start()
+                if stopped_late:
+                    with self._get_mic_release_lock():
+                        try:
+                            self.recorder.close()
+                        except Exception:
+                            pass
+                    return
+                if abort_after_lock:
+                    return
 
                 self._notify(AppState.RECORDING, {
                     "session_id": active_session.session_id,
@@ -477,20 +600,33 @@ class FlowOrchestrator:
                 self._start_capture_watchdog(active_session)
             except Exception as e:
                 with self._state_lock:
-                    if active_session.is_cancelled or self.state == AppState.CANCELLED:
-                        print(f"[Orchestrator] Exception after cancellation (state={self.state}); preserving CANCELLED state.")
-                        return
-                    active_session.transition_to(SessionState.ERROR)
-                    self.state = AppState.ERROR
+                    stopped = bool(getattr(self, "_stopped", False))
+                    aborted = stopped or active_session.is_cancelled or self.state == AppState.CANCELLED
+                    if aborted:
+                        print(f"[Orchestrator] Exception after stop/cancellation (state={self.state}); preserving state.")
+                    else:
+                        active_session.transition_to(SessionState.ERROR)
+                        self.state = AppState.ERROR
+                if stopped:
+                    with self._get_mic_release_lock():
+                        try:
+                            self.recorder.close()
+                        except Exception:
+                            pass
+                    return
+                if aborted:
+                    return
                 threading.Thread(target=self.ducker.stop_ducking, daemon=True).start()
                 self.feedback.play_error()
                 print(f"[Orchestrator Error] Failed to start recorder: {e}")
                 self._notify(AppState.ERROR, {"message": str(e), "session_id": active_session.session_id})
                 time.sleep(2.0)
                 with self._state_lock:
-                    if self.state == AppState.ERROR:
+                    if not getattr(self, "_stopped", False) and self.state == AppState.ERROR:
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
+                        self._schedule_idle_unloader()
+                        self._schedule_idle_mic_backoff()
 
         threading.Thread(target=start_worker, args=(session,), daemon=True, name="FlowPilot-MicStarter").start()
 
@@ -533,6 +669,8 @@ class FlowOrchestrator:
             if self.state == AppState.CANCELLED:
                 self.state = AppState.IDLE
                 self._notify(AppState.IDLE)
+                self._schedule_idle_unloader()
+                self._schedule_idle_mic_backoff()
         self._apply_pending_model_switch_if_idle()
 
     def stop_dictation_and_process(self, is_silence_stop: bool = False):
@@ -587,6 +725,8 @@ class FlowOrchestrator:
                         active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self.is_processing = False
+                        self._schedule_idle_unloader()
+                        self._schedule_idle_mic_backoff()
                     self._notify(AppState.IDLE, {"notice": "Audio too short."})
                     return
 
@@ -653,6 +793,7 @@ class FlowOrchestrator:
                         active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self.is_processing = False
+                        self._schedule_idle_timers()
                     self._notify(AppState.IDLE, {"notice": "No speech detected."})
                     return
 
@@ -879,6 +1020,8 @@ class FlowOrchestrator:
                         if self.state == AppState.ERROR:
                             self.state = AppState.IDLE
                             self._notify(AppState.IDLE)
+                            self._schedule_idle_unloader()
+                            self._schedule_idle_mic_backoff()
                     return
 
                 # 7. Transition to SUCCESS with truthful confirmation reporting
@@ -909,6 +1052,8 @@ class FlowOrchestrator:
                         active_session.transition_to(SessionState.IDLE)
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
+                        self._schedule_idle_unloader()
+                        self._schedule_idle_mic_backoff()
 
             except Exception as e:
                 print(f"[Orchestrator Error] Processing failed: {e}")
@@ -922,6 +1067,8 @@ class FlowOrchestrator:
                     if self.state == AppState.ERROR:
                         self.state = AppState.IDLE
                         self._notify(AppState.IDLE)
+                        self._schedule_idle_unloader()
+                        self._schedule_idle_mic_backoff()
             finally:
                 # Ensure audio ducking is always cleanly restored
                 try:
@@ -935,6 +1082,8 @@ class FlowOrchestrator:
     def toggle_dictation(self, translation_mode: Optional[bool] = None):
         # Hold-to-Toggle Latching: If recording was initiated via push-to-talk,
         # tapping toggle latches into hands-free mode without stopping recording.
+        if getattr(self, "_stopped", False):
+            return
         tap_latch = getattr(self, "_tap_latch", None)
         if tap_latch and hasattr(tap_latch, "latch_to_toggle") and tap_latch.state == getattr(tap_latch, "HELD", None):
             if self._tap_latch.latch_to_toggle():
@@ -942,6 +1091,8 @@ class FlowOrchestrator:
                 return
 
         with self._state_lock:
+            if getattr(self, "_stopped", False):
+                return
             cur = self.state
 
         if cur == AppState.IDLE:
@@ -1062,16 +1213,24 @@ class FlowOrchestrator:
         self.processor.config = self.config
         if hasattr(self, "feedback"):
             self.feedback.enabled = bool(self.config.get("sound_effects_enabled", True))
+        self._idle_unload_timeout_sec = float(self.config.get("idle_model_unload_sec", 600.0))
+        self._idle_mic_backoff_sec = float(self.config.get("idle_mic_backoff_sec", 60.0))
+        with self._get_mic_release_lock():
+            state_lock = getattr(self, "_state_lock", None)
+            if state_lock is not None:
+                with state_lock:
+                    if getattr(self, "state", None) == AppState.IDLE:
+                        self._schedule_idle_timers()
 
-        # Update audio input device dynamically if changed
-        old_dev = getattr(self.recorder, "device", None)
-        self._device_selection = self.config["audio_input_selection"]
-        self._last_device_resolution = resolution
-        new_dev = resolution.device_index
+            # Update audio input device dynamically if changed
+            old_dev = getattr(self.recorder, "device", None)
+            self._device_selection = self.config["audio_input_selection"]
+            self._last_device_resolution = resolution
+            new_dev = resolution.device_index
 
-        if new_dev != old_dev or getattr(self.recorder, "_device_change_pending", False):
-            print(f"[Orchestrator] Audio input device changed ({old_dev} -> {new_dev}). Updating recorder.")
-            self.recorder.set_device(new_dev, defer_if_recording=True)
+            if new_dev != old_dev or getattr(self.recorder, "_device_change_pending", False):
+                print(f"[Orchestrator] Audio input device changed ({old_dev} -> {new_dev}). Updating recorder.")
+                self.recorder.set_device(new_dev, defer_if_recording=True)
 
         print("[Orchestrator] Configuration updated.")
 
@@ -1221,6 +1380,8 @@ class FlowOrchestrator:
                 if self.state == AppState.SUCCESS and self._success_generation == generation:
                     self.state = AppState.IDLE
                     self._notify(AppState.IDLE)
+                    self._schedule_idle_unloader()
+                    self._schedule_idle_mic_backoff()
         threading.Thread(target=_reset_idle, daemon=True).start()
         return res
 
@@ -1232,6 +1393,8 @@ class FlowOrchestrator:
         chooses a shortcut. After that, only their chosen key controls dictation.
         Auxiliary actions retain their dedicated shortcuts across changes.
         """
+        if getattr(self, "_stopped", False):
+            return
         try:
             from engine.hotkey_service import TapLatch
             if self.hotkey_service.is_alive():
@@ -1328,24 +1491,67 @@ class FlowOrchestrator:
 
     def stop(self):
         """Clean shutdown of all orchestrator services."""
-        self._capture_watchdog_stop.set()
+        capture_stop = getattr(self, "_capture_watchdog_stop", None)
+        if capture_stop is not None:
+            capture_stop.set()
+
+        state_lock = getattr(self, "_state_lock", None)
+
+        def _mark_stopped_state():
+            self._stopped = True
+            self._stop_pending = False
+            self.is_processing = False
+            session = getattr(self, "_current_session", None)
+            if session is not None:
+                try:
+                    session.cancel("orchestrator_stopped")
+                except Exception:
+                    pass
+                self._current_session = None
+            auto_timer = getattr(self, "_auto_stop_timer", None)
+            if auto_timer is not None:
+                auto_timer.cancel()
+                self._auto_stop_timer = None
+            if getattr(self, "state", None) in (AppState.STARTING_RECORDING, AppState.RECORDING):
+                self.state = AppState.CANCELLED
+            if state_lock is not None:
+                self._cancel_idle_unloader()
+                self._cancel_idle_mic_backoff()
+
+        if state_lock is not None:
+            with state_lock:
+                _mark_stopped_state()
+        else:
+            _mark_stopped_state()
+
+        # Drain/stop hotkey callbacks before closing the microphone so queued
+        # starts cannot reopen audio capture during shutdown.
+        self.stop_hotkey_listener()
+
         monitor = getattr(self, "capture_monitor", None)
         if monitor is not None:
             monitor.stop()
-        self.stop_hotkey_listener()
-        if self.text_repair is not None:
+
+        with self._get_mic_release_lock():
+            recorder = getattr(self, "recorder", None)
+            if recorder is not None:
+                try:
+                    recorder.close()
+                except Exception:
+                    pass
+
+        text_repair = getattr(self, "text_repair", None)
+        if text_repair is not None:
             try:
-                self.text_repair.shutdown()
+                text_repair.shutdown()
             except Exception as e:
                 logger.warning("LocalTextRepair shutdown error: %s", e)
-        try:
-            self.ducker.stop_ducking()
-        except Exception:
-            pass
-        try:
-            self.recorder.close()
-        except Exception:
-            pass
+        ducker = getattr(self, "ducker", None)
+        if ducker is not None:
+            try:
+                ducker.stop_ducking()
+            except Exception:
+                pass
 
     def _persist_completed_dictation(
         self,

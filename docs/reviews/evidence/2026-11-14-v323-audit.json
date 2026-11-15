@@ -1,0 +1,386 @@
+{
+  "timestamp_utc": "2026-11-14T21:24:06.810589+00:00",
+  "base_commit": "4785a8862eedd3b9ef67fe341baab30925c86b12",
+  "interactive_desktop_attached": false,
+  "thread_desktop": "exebox-27ZH55UNHJBDIBCO3FOALXVLJR",
+  "command": "S:\\APPs\\New folder\\.venv\\Scripts\\python.exe -X utf8 tests/run_all_tests.py",
+  "exit_code": 0,
+  "duration_s": 166.72,
+  "total": 74,
+  "passed": 69,
+  "skipped": 5,
+  "failed": 0,
+  "verdict": "PASSED WITH SKIPPED SUITES",
+  "suites": [
+    {
+      "status": "PASS",
+      "suite": "Smart Pause Capture and Cancellation",
+      "duration_s": 1.11
+    },
+    {
+      "status": "PASS",
+      "suite": "Audit Runner Skip Accounting",
+      "duration_s": 0.23
+    },
+    {
+      "status": "PASS",
+      "suite": "CUDA Runtime CPU Fallback",
+      "duration_s": 0.73
+    },
+    {
+      "status": "PASS",
+      "suite": "Windows Clipboard Privacy Markers",
+      "duration_s": 0.26
+    },
+    {
+      "status": "PASS",
+      "suite": "Microphone & Audio Capture",
+      "duration_s": 2.63
+    },
+    {
+      "status": "PASS",
+      "suite": "Local Whisper Speech-to-Text Model",
+      "duration_s": 2.09
+    },
+    {
+      "status": "SKIP",
+      "suite": "Text Injection & Clipboard Safety",
+      "duration_s": 0.72
+    },
+    {
+      "status": "PASS",
+      "suite": "Windows Audio Ducking & Error Recovery",
+      "duration_s": 0.87
+    },
+    {
+      "status": "PASS",
+      "suite": "UI REST API & WebSocket Protocol",
+      "duration_s": 2.89
+    },
+    {
+      "status": "PASS",
+      "suite": "Global Hotkey Resolution & Normalization",
+      "duration_s": 1.4
+    },
+    {
+      "status": "PASS",
+      "suite": "Win32 RegisterHotKey & Message Loop",
+      "duration_s": 0.91
+    },
+    {
+      "status": "PASS",
+      "suite": "Native PySide6 Desktop HUD & Tray Lifecycle",
+      "duration_s": 2.79
+    },
+    {
+      "status": "PASS",
+      "suite": "Multilingual Language Registry",
+      "duration_s": 0.09
+    },
+    {
+      "status": "PASS",
+      "suite": "Writing Intelligence & FactGuard",
+      "duration_s": 0.31
+    },
+    {
+      "status": "PASS",
+      "suite": "FactGuard Adversarial Guardrails",
+      "duration_s": 0.28
+    },
+    {
+      "status": "PASS",
+      "suite": "Correction Intent & Self-Correction Engine",
+      "duration_s": 0.25
+    },
+    {
+      "status": "PASS",
+      "suite": "Forensic Zero Network Egress",
+      "duration_s": 3.11
+    },
+    {
+      "status": "PASS",
+      "suite": "Multilingual Script Validation",
+      "duration_s": 0.75
+    },
+    {
+      "status": "PASS",
+      "suite": "Multilingual Acoustic Reality Assessment",
+      "duration_s": 0.66
+    },
+    {
+      "status": "PASS",
+      "suite": "Personalization & Voice Snippets",
+      "duration_s": 0.24
+    },
+    {
+      "status": "PASS",
+      "suite": "Settings Dialog & Hotkey Conflict Inspector",
+      "duration_s": 1.41
+    },
+    {
+      "status": "PASS",
+      "suite": "Extended Speech Model Benchmarks",
+      "duration_s": 11.57
+    },
+    {
+      "status": "PASS",
+      "suite": "Orchestrator 9-State Machine & Robustness",
+      "duration_s": 13.51
+    },
+    {
+      "status": "PASS",
+      "suite": "Dictation Session Lifecycle & Ownership",
+      "duration_s": 1.4
+    },
+    {
+      "status": "PASS",
+      "suite": "FactGuard v2 Conservative Entity Guard",
+      "duration_s": 0.14
+    },
+    {
+      "status": "PASS",
+      "suite": "Application Profiles & Precedence",
+      "duration_s": 0.31
+    },
+    {
+      "status": "PASS",
+      "suite": "Voice Snippets Hardening & Literal Safety",
+      "duration_s": 0.21
+    },
+    {
+      "status": "PASS",
+      "suite": "Silero VAD ONNX Asset Resolution",
+      "duration_s": 5.05
+    },
+    {
+      "status": "SKIP",
+      "suite": "End-to-End 5-Cycle Notepad Dictation",
+      "duration_s": 0.97
+    },
+    {
+      "status": "PASS",
+      "suite": "Dissected Competitive Upgrades",
+      "duration_s": 3.35
+    },
+    {
+      "status": "PASS",
+      "suite": "Cross-Platform Linux & macOS Adapters",
+      "duration_s": 0.67
+    },
+    {
+      "status": "PASS",
+      "suite": "SondeR-Cat Pixel Kitty Companion",
+      "duration_s": 0.7
+    },
+    {
+      "status": "SKIP",
+      "suite": "Cross-Application Injection & Focus",
+      "duration_s": 0.43
+    },
+    {
+      "status": "SKIP",
+      "suite": "18-Scenario Full Specification End-to-End",
+      "duration_s": 1.15
+    },
+    {
+      "status": "PASS",
+      "suite": "Standalone Windows Binary Packaging Smoke",
+      "duration_s": 1.9
+    },
+    {
+      "status": "PASS",
+      "suite": "Companion Studio & Local Learning",
+      "duration_s": 1.68
+    },
+    {
+      "status": "PASS",
+      "suite": "Context Aware Companion Visibility",
+      "duration_s": 4.43
+    },
+    {
+      "status": "PASS",
+      "suite": "Productivity Insights Engine",
+      "duration_s": 0.19
+    },
+    {
+      "status": "PASS",
+      "suite": "Meeting Notetaker Engine & Extractive Summary",
+      "duration_s": 2.03
+    },
+    {
+      "status": "PASS",
+      "suite": "Meeting Notetaker Streaming & Library v2",
+      "duration_s": 2.97
+    },
+    {
+      "status": "PASS",
+      "suite": "Meeting Deliberation & Intelligence",
+      "duration_s": 0.75
+    },
+    {
+      "status": "PASS",
+      "suite": "Retro Pixel Companions & Creator",
+      "duration_s": 0.76
+    },
+    {
+      "status": "PASS",
+      "suite": "FlowPilot Master Dashboard & Scratchpad",
+      "duration_s": 4.74
+    },
+    {
+      "status": "PASS",
+      "suite": "Native Workspace Presentation & Bindings",
+      "duration_s": 12.03
+    },
+    {
+      "status": "PASS",
+      "suite": "Selected-Text Transforms & Dictation History Vault",
+      "duration_s": 1.08
+    },
+    {
+      "status": "PASS",
+      "suite": "Multilingual Workstation & Real-Time Translation",
+      "duration_s": 0.76
+    },
+    {
+      "status": "PASS",
+      "suite": "User-Facing Fixes (Mic Device, Dynamic Personalization & Safe Targeting)",
+      "duration_s": 1.73
+    },
+    {
+      "status": "PASS",
+      "suite": "STTEngine Model Lifecycle & Orchestrator Ownership",
+      "duration_s": 0.99
+    },
+    {
+      "status": "PASS",
+      "suite": "Multilingual Model Provisioning & Integrity",
+      "duration_s": 7.84
+    },
+    {
+      "status": "PASS",
+      "suite": "Honest Transforms & Enforced Apply Guardrails",
+      "duration_s": 0.46
+    },
+    {
+      "status": "PASS",
+      "suite": "Multilingual Evaluation Metrics & Corpus Schema",
+      "duration_s": 0.34
+    },
+    {
+      "status": "PASS",
+      "suite": "Evaluation Metrics Cross-Language Regression",
+      "duration_s": 0.31
+    },
+    {
+      "status": "PASS",
+      "suite": "Personalization & Bounded Prompt Budgeting (PR 3)",
+      "duration_s": 0.73
+    },
+    {
+      "status": "PASS",
+      "suite": "Bounded Voice Editing & Atomic Transactions (PR 4)",
+      "duration_s": 0.84
+    },
+    {
+      "status": "PASS",
+      "suite": "Kiki Anime Companion Prototype & States (Gemini B)",
+      "duration_s": 0.34
+    },
+    {
+      "status": "PASS",
+      "suite": "Handoff Integration & Adversarial Safety",
+      "duration_s": 1.89
+    },
+    {
+      "status": "PASS",
+      "suite": "Voice Command Mode & Local LLM Rewriting (PR 5)",
+      "duration_s": 2.24
+    },
+    {
+      "status": "SKIP",
+      "suite": "Modern UI Automation & Focus Robustness",
+      "duration_s": 1.54
+    },
+    {
+      "status": "PASS",
+      "suite": "Release Integrity Regression Guards",
+      "duration_s": 3.78
+    },
+    {
+      "status": "PASS",
+      "suite": "Persistent Audio Input Identity and Resolution",
+      "duration_s": 1.06
+    },
+    {
+      "status": "PASS",
+      "suite": "Benchmark Visible Delivery Observer and Latency",
+      "duration_s": 1.26
+    },
+    {
+      "status": "PASS",
+      "suite": "Pilot Capture, Integrity, and Local Metrics",
+      "duration_s": 1.82
+    },
+    {
+      "status": "PASS",
+      "suite": "Transparent Dictation Recovery & Visual Feedback",
+      "duration_s": 6.96
+    },
+    {
+      "status": "PASS",
+      "suite": "Local Text Repair Sandbox & Three-Tier Guard Protocol",
+      "duration_s": 2.62
+    },
+    {
+      "status": "PASS",
+      "suite": "Caret Observer & Text Correction Integration",
+      "duration_s": 0.57
+    },
+    {
+      "status": "PASS",
+      "suite": "External Selection Rewrite Refusal",
+      "duration_s": 1.48
+    },
+    {
+      "status": "PASS",
+      "suite": "Strict PEP 440 Semantic Versioning & Update Checker",
+      "duration_s": 1.47
+    },
+    {
+      "status": "PASS",
+      "suite": "Deterministic Tamil & Tanglish Transliteration",
+      "duration_s": 1.17
+    },
+    {
+      "status": "PASS",
+      "suite": "ONNX Specialist ASR Harness (IndicConformer)",
+      "duration_s": 14.29
+    },
+    {
+      "status": "PASS",
+      "suite": "Multilingual Quick-Switch & Tray Integration",
+      "duration_s": 1.42
+    },
+    {
+      "status": "PASS",
+      "suite": "Offline Tamil Synthetic & Speech Self-Test",
+      "duration_s": 5.58
+    },
+    {
+      "status": "PASS",
+      "suite": "Wispr-Flow-Class Competitive Leapfrog Upgrades",
+      "duration_s": 2.37
+    },
+    {
+      "status": "PASS",
+      "suite": "Single-Instance IPC Window Activation & Tray UX",
+      "duration_s": 3.86
+    },
+    {
+      "status": "PASS",
+      "suite": "Idle Microphone Stream Backoff",
+      "duration_s": 1.07
+    }
+  ]
+}

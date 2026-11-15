@@ -1,3 +1,10 @@
+"""Local integration check for provisioned Faster-Whisper 'base' model loading and output shape.
+
+Depends on a locally provisioned 'base' model via STTEngine.resolve_model_path('base').
+Uses a synthetic audio buffer to verify model initialization, inference execution, and
+output dictionary structure; this does not measure speech recognition accuracy (WER).
+"""
+
 import sys
 import os
 import io
@@ -18,22 +25,27 @@ def test_stt_model():
     print("AUDIT TEST 2: LOCAL SPEECH-RECOGNITION MODEL & WEIGHTS")
     print("=" * 60)
 
-    # 1. Verify weights presence on disk
-    cache_dir = Path.home() / ".cache" / "huggingface" / "hub" / "models--Systran--faster-whisper-base"
-    print(f"Checking model weights directory:\n  {cache_dir}")
-    if not cache_dir.exists():
-        print("FAILED: Model directory does not exist on disk!")
+    # 1. Verify weights presence on disk via the engine's own resolution chain
+    # (FLOWPILOT_MODEL_DIR > bundled app dirs > project models/ > user models dir),
+    # not a hardcoded HuggingFace cache path the engine never reads.
+    resolved = STTEngine.resolve_model_path("base")
+    print(f"Engine-resolved model weights directory:\n  {resolved}")
+    model_dir = Path(resolved) if resolved else None
+    if model_dir is None or not model_dir.exists():
+        print("FAILED: Engine could not resolve a local 'base' model directory on disk!")
+        return False
+    if not STTEngine.is_model_available("base"):
+        print("FAILED: STTEngine reports bundled 'base' model unavailable!")
         return False
 
-    snapshot_dir = cache_dir / "snapshots"
-    snapshots = list(snapshot_dir.glob("*")) if snapshot_dir.exists() else []
-    print(f"Snapshots found: {[s.name for s in snapshots]}")
-    
-    files_found = list(cache_dir.rglob("*.*"))
+    files_found = sorted(model_dir.rglob("*.*"))
     print(f"Total model files on disk: {len(files_found)}")
     for f in files_found:
-        if f.suffix in ('.bin', '.json'):
+        if f.suffix in (".bin", ".json"):
             print(f"  - {f.name} ({f.stat().st_size:,} bytes)")
+    if not any(f.suffix == ".bin" for f in files_found):
+        print("FAILED: No .bin weight file in resolved model directory!")
+        return False
 
     # 2. Load model via STTEngine
     config = load_config()

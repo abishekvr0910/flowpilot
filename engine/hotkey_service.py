@@ -9,6 +9,7 @@ import sys
 import ctypes
 from ctypes import wintypes
 import threading
+from collections import deque
 import logging
 import time
 from typing import Callable, Dict, Optional, Tuple
@@ -230,6 +231,93 @@ class TapLatch:
             self.state = self.IDLE
 
 
+class _SerialCallbackDispatcher:
+    """Executes hotkey press and release callbacks strictly in FIFO order."""
+
+    def __init__(self, thread_name: str = "FlowPilot-HotkeyDispatcher"):
+        self._thread_name = thread_name
+        self._cond = threading.Condition()
+        self._items: deque = deque()
+        self._accepting: bool = True
+        self._generation: int = 0
+        self._worker: Optional[threading.Thread] = None
+
+    @staticmethod
+    def _invoke_safe(fn: Callable[[], None], label: str) -> None:
+        try:
+            fn()
+        except Exception as e:
+            logger.error(f"[HotkeyService] {label} error: {e}")
+
+    def _run(self):
+        me = threading.current_thread()
+        while True:
+            with self._cond:
+                while not self._items and self._accepting:
+                    self._cond.wait()
+                if not self._accepting:
+                    self._items.clear()
+                    if self._worker is me:
+                        self._worker = None
+                    self._cond.notify_all()
+                    return
+                item_gen, fn, label = self._items.popleft()
+                if item_gen != self._generation:
+                    continue
+            self._invoke_safe(fn, label)
+
+    def reset(self) -> None:
+        """Re-arm callback acceptance on service start without creating duplicate workers."""
+        with self._cond:
+            self._accepting = True
+            self._generation += 1
+            self._items.clear()
+            self._cond.notify_all()
+
+    def cancel_pending(self) -> None:
+        """Reject subsequent enqueues and discard all queued-but-unstarted callbacks."""
+        with self._cond:
+            self._accepting = False
+            self._generation += 1
+            self._items.clear()
+            self._cond.notify_all()
+
+    def enqueue(self, fn: Callable[[], None], label: str) -> bool:
+        with self._cond:
+            if not self._accepting:
+                return False
+            if self._worker is None or not self._worker.is_alive():
+                self._worker = threading.Thread(
+                    target=self._run,
+                    daemon=True,
+                    name=self._thread_name,
+                )
+                self._worker.start()
+            self._items.append((self._generation, fn, label))
+            self._cond.notify_all()
+            return True
+
+    def stop(self, timeout: float = 1.5) -> bool:
+        with self._cond:
+            self._accepting = False
+            self._generation += 1
+            self._items.clear()
+            worker = self._worker
+            self._cond.notify_all()
+        if worker is not None and worker is not threading.current_thread() and worker.is_alive():
+            worker.join(timeout=timeout)
+            with self._cond:
+                if worker.is_alive():
+                    return False
+                if self._worker is worker:
+                    self._worker = None
+        else:
+            with self._cond:
+                if self._worker is worker and (worker is None or not worker.is_alive()):
+                    self._worker = None
+        return True
+
+
 class Win32HotkeyService:
     def __init__(self):
         self._hotkeys: Dict[int, Dict] = {}
@@ -242,6 +330,7 @@ class Win32HotkeyService:
         self._hook_proc = None
         self._hook_active_hotkeys: Dict[int, int] = {}  # vk -> hk_id
         self._last_hook_trigger: Dict[int, float] = {}  # hk_id -> timestamp
+        self._dispatcher = _SerialCallbackDispatcher("FlowPilot-HotkeyDispatcher")
         if sys.platform == "win32":
             self._user32 = ctypes.windll.user32
             self._kernel32 = ctypes.windll.kernel32
@@ -254,15 +343,22 @@ class Win32HotkeyService:
         if not self._user32:
             return 0
         mods = 0
-        if self._user32.GetKeyState(0x11) & 0x8000:  # VK_CONTROL
+        if self._user32.GetAsyncKeyState(0x11) & 0x8000:  # VK_CONTROL
             mods |= MOD_CONTROL
-        if self._user32.GetKeyState(0x12) & 0x8000:  # VK_MENU (Alt)
+        if self._user32.GetAsyncKeyState(0x12) & 0x8000:  # VK_MENU (Alt)
             mods |= MOD_ALT
-        if self._user32.GetKeyState(0x10) & 0x8000:  # VK_SHIFT
+        if self._user32.GetAsyncKeyState(0x10) & 0x8000:  # VK_SHIFT
             mods |= MOD_SHIFT
-        if (self._user32.GetKeyState(0x5B) & 0x8000) or (self._user32.GetKeyState(0x5C) & 0x8000):  # VK_LWIN / VK_RWIN
+        if (self._user32.GetAsyncKeyState(0x5B) & 0x8000) or (self._user32.GetAsyncKeyState(0x5C) & 0x8000):  # VK_LWIN / VK_RWIN
             mods |= MOD_WIN
         return mods
+
+    @staticmethod
+    def _invoke_safe(fn: Callable[[], None], label: str) -> None:
+        try:
+            fn()
+        except Exception as e:
+            logger.error(f"[HotkeyService] {label} error: {e}")
 
     def _create_hook_proc(self):
         if not HOOKPROC:
@@ -271,6 +367,8 @@ class Win32HotkeyService:
         @HOOKPROC
         def hook_proc(nCode, wParam, lParam):
             if nCode == HC_ACTION:
+                if self._stop_event.is_set():
+                    return self._user32.CallNextHookEx(None, nCode, wParam, lParam)
                 try:
                     kb = KBDLLHOOKSTRUCT.from_address(lParam)
                     # Never intercept synthetic/injected events from FlowPilot (SendInput)
@@ -286,20 +384,16 @@ class Win32HotkeyService:
                             # Hardware auto-repeat while key is held down: suppress repeat chatter
                             active_id = self._hook_active_hotkeys[vk]
                             info = self._hotkeys.get(active_id)
-                            if info and info.get("suppress", True):
+                            if info and info.get("registered") and info.get("suppress", True):
                                 return 1
                         else:
                             curr_mods = self._get_current_modifiers()
-                            for hk_id, info in self._hotkeys.items():
-                                if info["vk"] == vk and info["mods"] == curr_mods:
+                            for hk_id, info in list(self._hotkeys.items()):
+                                if info.get("registered") and info["vk"] == vk and info["mods"] == curr_mods:
                                     self._hook_active_hotkeys[vk] = hk_id
                                     self._last_hook_trigger[hk_id] = time.monotonic()
-                                    cb = info["callback"]
-                                    threading.Thread(
-                                        target=cb,
-                                        daemon=True,
-                                        name=f"FlowPilot-HookAction-{hk_id}"
-                                    ).start()
+                                    self.stats["events_received"] += 1
+                                    self._dispatcher.enqueue(info["callback"], "Callback")
                                     if info.get("suppress", True):
                                         return 1
                                     break
@@ -307,14 +401,10 @@ class Win32HotkeyService:
                         if vk in self._hook_active_hotkeys:
                             active_id = self._hook_active_hotkeys.pop(vk, None)
                             info = self._hotkeys.get(active_id)
-                            if info:
+                            if info and info.get("registered"):
                                 rel = info.get("on_release")
                                 if rel:
-                                    threading.Thread(
-                                        target=rel,
-                                        daemon=True,
-                                        name=f"FlowPilot-HookRelease-{active_id}"
-                                    ).start()
+                                    self._dispatcher.enqueue(rel, "OnRelease")
                                 if info.get("suppress", True):
                                     return 1
                 except Exception as exc:
@@ -412,6 +502,9 @@ class Win32HotkeyService:
 
         self._stop_event.clear()
         self._ready_event.clear()
+        self.stats["registered_count"] = 0
+        self.stats["errors"] = []
+        self._dispatcher.reset()
         self._thread = threading.Thread(target=self._message_loop, daemon=True, name="FlowPilot-HotkeyMsgLoop")
         self._thread.start()
 
@@ -421,18 +514,51 @@ class Win32HotkeyService:
             return False
         return True
 
+    def _configure_win32_signatures(self):
+        """Ensure 64-bit safe argtypes/restype on hook and key-state Win32 calls."""
+        if not self._user32 or HOOKPROC is None:
+            return
+        try:
+            self._user32.CallNextHookEx.argtypes = [wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM]
+            self._user32.CallNextHookEx.restype = LRESULT
+            self._user32.SetWindowsHookExW.argtypes = [ctypes.c_int, HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD]
+            self._user32.SetWindowsHookExW.restype = wintypes.HHOOK
+            self._user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
+            self._user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+            self._user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
+            self._user32.GetAsyncKeyState.restype = wintypes.SHORT
+        except Exception as e:
+            logger.debug(f"[HotkeyService] Failed to configure Win32 hook signatures: {e}")
+
     def _message_loop(self):
         """
         Runs the Win32 message pump for hotkeys.
+        Installs WH_KEYBOARD_LL when suppressible hotkeys are configured so key repeats
+        and primary keystrokes do not leak into target applications, while retaining
+        RegisterHotKey / WM_HOTKEY as a fallback.
         """
         self._thread_id = self._kernel32.GetCurrentThreadId()
+        self._configure_win32_signatures()
 
         # Force creation of the message queue for this thread
         msg = wintypes.MSG()
         self._user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 0)
 
+        # Install low-level keyboard hook on this pumping thread
+        self._hook = None
+        self._hook_proc = self._create_hook_proc()
+        if self._hook_proc is not None:
+            hook_handle = self._user32.SetWindowsHookExW(WH_KEYBOARD_LL, self._hook_proc, None, 0)
+            if hook_handle:
+                self._hook = hook_handle
+                logger.info("[HotkeyService] Installed WH_KEYBOARD_LL suppression hook.")
+            else:
+                err = self._kernel32.GetLastError()
+                self._hook_proc = None
+                logger.warning(f"[HotkeyService] SetWindowsHookExW(WH_KEYBOARD_LL) failed (Win32 Error: {err}); falling back to RegisterHotKey only.")
+
         # Register each configured hotkey with the thread queue
-        for hk_id, info in self._hotkeys.items():
+        for hk_id, info in list(self._hotkeys.items()):
             mods = info["mods"] | MOD_NOREPEAT
             vk = info["vk"]
             success = self._user32.RegisterHotKey(None, hk_id, mods, vk)
@@ -460,41 +586,50 @@ class Win32HotkeyService:
                 break
 
             if msg.message == WM_HOTKEY:
+                if self._stop_event.is_set():
+                    continue
                 hk_id = msg.wParam
-                self.stats["events_received"] += 1
-                logger.info(f"[HotkeyService] WM_HOTKEY received for ID {hk_id}")
                 if hk_id in self._hotkeys:
                     info = self._hotkeys[hk_id]
-                    callback = info["callback"]
-                    on_release = info.get("on_release")
                     vk = info["vk"]
+                    last_hook_ts = self._last_hook_trigger.get(hk_id, 0.0)
+                    if self._hook_active_hotkeys.get(vk) == hk_id or (last_hook_ts and (time.monotonic() - last_hook_ts) < 0.3):
+                        logger.debug(f"[HotkeyService] Debounced duplicate WM_HOTKEY for ID {hk_id} (handled by hook).")
+                    else:
+                        self.stats["events_received"] += 1
+                        logger.info(f"[HotkeyService] WM_HOTKEY received for ID {hk_id}")
+                        callback = info["callback"]
+                        on_release = info.get("on_release")
+                        self._dispatcher.enqueue(callback, "Callback")
 
-                    def run_action(cb=callback, rel=on_release, target_vk=vk):
-                        import time
-                        try:
-                            cb()
-                        except Exception as e:
-                            logger.error(f"[HotkeyService] Callback error: {e}")
-                        if rel:
-                            # Push-to-talk release monitor: responsive 10ms polling
-                            time.sleep(0.01)
-                            while not self._stop_event.is_set():
-                                state = self._user32.GetAsyncKeyState(target_vk)
-                                if not (state & 0x8000):
-                                    try:
-                                        rel()
-                                    except Exception as e:
-                                        logger.error(f"[HotkeyService] OnRelease error: {e}")
-                                    break
+                        if on_release:
+                            def poll_release(rel=on_release, target_vk=vk):
+                                # Push-to-talk release monitor: responsive 10ms polling
                                 time.sleep(0.01)
+                                while not self._stop_event.is_set():
+                                    state = self._user32.GetAsyncKeyState(target_vk)
+                                    if not (state & 0x8000):
+                                        self._dispatcher.enqueue(rel, "OnRelease")
+                                        break
+                                    time.sleep(0.01)
 
-                    threading.Thread(target=run_action, daemon=True, name=f"FlowPilot-HotkeyAction-{hk_id}").start()
+                            threading.Thread(target=poll_release, daemon=True, name=f"FlowPilot-HotkeyRelease-{hk_id}").start()
 
             self._user32.TranslateMessage(ctypes.byref(msg))
             self._user32.DispatchMessageW(ctypes.byref(msg))
 
         # Cleanup on exit
-        for hk_id, info in self._hotkeys.items():
+        if self._hook:
+            try:
+                self._user32.UnhookWindowsHookEx(self._hook)
+            except Exception:
+                pass
+            self._hook = None
+        self._hook_proc = None
+        self._hook_active_hotkeys.clear()
+        self._last_hook_trigger.clear()
+
+        for hk_id, info in list(self._hotkeys.items()):
             if info["registered"]:
                 self._user32.UnregisterHotKey(None, hk_id)
                 info["registered"] = False
@@ -505,12 +640,16 @@ class Win32HotkeyService:
         Cleanly stops the message loop and unregisters all hotkeys.
         """
         self._stop_event.set()
+        self._dispatcher.cancel_pending()
         if self._thread_id:
             self._user32.PostThreadMessageW(self._thread_id, WM_QUIT, 0, 0)
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2.0)
+        self._dispatcher.stop()
         self._thread = None
         self._thread_id = None
+        self._hook_active_hotkeys.clear()
+        self._last_hook_trigger.clear()
         logger.info("[HotkeyService] Stopped.")
 
     def is_alive(self) -> bool:
@@ -534,6 +673,8 @@ class PynputHotkeyService:
         self._lock = threading.Lock()
         self._next_id = 1
         self._running = False
+        self._stop_event = threading.Event()
+        self._dispatcher = _SerialCallbackDispatcher("FlowPilot-PynputDispatcher")
         self.stats = {"events_received": 0, "registered_count": 0, "errors": []}
 
     @staticmethod
@@ -562,7 +703,14 @@ class PynputHotkeyService:
             pass
         return str(key).upper()
 
-    def register(self, hotkey_str: str, callback: Callable[[], None], on_release: Optional[Callable[[], None]] = None) -> int:
+    def register(
+        self,
+        hotkey_str: str,
+        callback: Callable[[], None],
+        on_release: Optional[Callable[[], None]] = None,
+        suppress: bool = True,
+    ) -> int:
+        _ = suppress
         clean = hotkey_str.replace("<", "").replace(">", "").strip()
         parts = {p.strip().upper() for p in clean.replace(" ", "").split("+")}
         normalized_parts = set()
@@ -592,6 +740,8 @@ class PynputHotkeyService:
         with self._lock:
             if self._running and self._listener:
                 return True
+            self._stop_event.clear()
+            self._dispatcher.reset()
             try:
                 import pynput.keyboard as pk
                 self._listener = pk.Listener(
@@ -611,6 +761,8 @@ class PynputHotkeyService:
     def _on_press(self, key):
         norm = self._normalize_key(key)
         with self._lock:
+            if self._stop_event.is_set():
+                return
             self._active_keys.add(norm)
             self.stats["events_received"] += 1
 
@@ -618,14 +770,15 @@ class PynputHotkeyService:
                 req = info["parts"]
                 if req.issubset(self._active_keys) and hk_id not in self._triggered_hotkeys:
                     self._triggered_hotkeys.add(hk_id)
-                    cb = info["callback"]
-                    threading.Thread(target=cb, daemon=True, name=f"PynputAction-{hk_id}").start()
+                    self._dispatcher.enqueue(info["callback"], "PynputAction")
 
     def _on_release(self, key):
         norm = self._normalize_key(key)
         with self._lock:
             if norm in self._active_keys:
                 self._active_keys.remove(norm)
+            if self._stop_event.is_set():
+                return
 
             for hk_id in list(self._triggered_hotkeys):
                 info = self._hotkeys.get(hk_id)
@@ -635,10 +788,12 @@ class PynputHotkeyService:
                         self._triggered_hotkeys.remove(hk_id)
                         rel = info["on_release"]
                         if rel:
-                            threading.Thread(target=rel, daemon=True, name=f"PynputRelease-{hk_id}").start()
+                            self._dispatcher.enqueue(rel, "PynputRelease")
 
     def stop(self):
         with self._lock:
+            self._stop_event.set()
+            self._dispatcher.cancel_pending()
             if self._listener:
                 try:
                     self._listener.stop()
@@ -648,6 +803,7 @@ class PynputHotkeyService:
             self._running = False
             self._active_keys.clear()
             self._triggered_hotkeys.clear()
+        self._dispatcher.stop()
 
     def is_alive(self) -> bool:
         return self._running and self._listener is not None

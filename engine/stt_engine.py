@@ -78,6 +78,89 @@ try:
 except ImportError:
     HAS_REGISTRY = False
 
+
+_CUDA_DLL_DIR_HANDLES = []
+
+
+def _candidate_cuda_dll_dirs() -> List[str]:
+    """Collect candidate Windows CUDA runtime DLL directories without mutating PATH."""
+    dirs: List[str] = []
+    seen = set()
+
+    def _add(p: Optional[str]):
+        if not p:
+            return
+        norm = os.path.normcase(os.path.abspath(p))
+        if norm not in seen and os.path.isdir(p):
+            seen.add(norm)
+            dirs.append(p)
+
+    cuda_path = os.environ.get("CUDA_PATH")
+    if cuda_path:
+        _add(os.path.join(cuda_path, "bin"))
+
+    try:
+        import site
+        roots = list(site.getsitepackages())
+        user_site = site.getusersitepackages()
+        if user_site:
+            roots.append(user_site)
+        for root in roots:
+            nv_root = os.path.join(root, "nvidia")
+            if os.path.isdir(nv_root):
+                for entry in sorted(os.listdir(nv_root)):
+                    _add(os.path.join(nv_root, entry, "bin"))
+    except Exception:
+        pass
+
+    for entry in os.environ.get("PATH", "").split(os.pathsep):
+        _add(entry)
+    return dirs
+
+
+def _has_cuda_runtime_libs() -> bool:
+    """Verify required CUDA 12 cuBLAS runtime DLLs before attempting GPU inference."""
+    if sys.platform != "win32":
+        return True
+    import ctypes
+
+    required_dlls = ("cublas64_12.dll", "cublasLt64_12.dll")
+    search_dirs: Optional[List[str]] = None
+
+    for dll_name in required_dlls:
+        try:
+            ctypes.WinDLL(dll_name)
+            continue
+        except OSError:
+            pass
+
+        if search_dirs is None:
+            search_dirs = _candidate_cuda_dll_dirs()
+        loaded = False
+        for directory in search_dirs:
+            candidate = os.path.join(directory, dll_name)
+            if not os.path.isfile(candidate):
+                continue
+            handle = None
+            try:
+                if hasattr(os, "add_dll_directory"):
+                    handle = os.add_dll_directory(directory)
+                ctypes.WinDLL(candidate)
+                if handle is not None:
+                    _CUDA_DLL_DIR_HANDLES.append(handle)
+                loaded = True
+                break
+            except OSError:
+                if handle is not None:
+                    try:
+                        handle.close()
+                    except Exception:
+                        pass
+        if not loaded:
+            return False
+    return True
+
+
 class STTEngine:
     def __init__(self, config: Dict[str, Any], personalization: Optional[Any] = None):
         self.config = config
@@ -243,10 +326,13 @@ class STTEngine:
             if target_device == "auto":
                 try:
                     import ctranslate2
-                    if hasattr(ctranslate2, "get_cuda_device_count") and ctranslate2.get_cuda_device_count() > 0:
+                    has_cuda_gpu = hasattr(ctranslate2, "get_cuda_device_count") and ctranslate2.get_cuda_device_count() > 0
+                    if has_cuda_gpu and _has_cuda_runtime_libs():
                         target_device = "cuda"
                         target_compute = "float16" if target_compute == "auto" else target_compute
                     else:
+                        if has_cuda_gpu:
+                            logger.info("[STT] CUDA GPU detected, but required CUDA 12 cuBLAS runtime DLLs are unavailable; selecting CPU int8 directly.")
                         target_device = "cpu"
                         target_compute = "int8" if target_compute == "auto" else target_compute
                 except Exception:
