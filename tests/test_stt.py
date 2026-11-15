@@ -1,3 +1,10 @@
+"""Local integration check for provisioned Faster-Whisper 'base' model loading and output shape.
+
+Depends on a locally provisioned 'base' model via STTEngine.resolve_model_path('base').
+Uses a synthetic audio buffer to verify model initialization, inference execution, and
+output dictionary structure; this does not measure speech recognition accuracy (WER).
+"""
+
 import sys
 import os
 import io

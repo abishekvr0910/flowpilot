@@ -12,7 +12,7 @@ their completion labels do not establish the state of newer source or binaries.
 | Post-merge `master` desktop gate | `73 total, 73 passed, 0 skipped, 0 failed` (`342.01s`, `--require-all`, `interactive_desktop: true`) on `4785a88` ([post-merge evidence](reviews/evidence/2026-11-14-postmerge-desktop-gate.json)) |
 | Latest published application download | [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3), published 2026-11-04, unsigned installer and ZIP |
 | 3.2.0 / 3.2.1 / 3.2.2 / 3.2.3 artifacts | Local build records in the manifest; no corresponding published GitHub release found on the review date |
-| Active candidate branch | `feat/v323-runtime-fixes-and-release` (`3.2.3` source + unsigned Windows x64 candidate); interactive `Default`-desktop `--require-all` gate passed 2026-11-15 (`74 total, 74 passed, 0 skipped, 0 failed`, with the `tests/test_stt.py` resolution fix in tree — [evidence](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)); still requires PR approval and signing before public release |
+| Active candidate branch | `feat/v323-runtime-fixes-and-release` (`3.2.3` source + earlier `a86b722` unsigned Windows x64 pilot build); interactive `--require-all` gate passed on the `ce59ddc` tree 2026-11-15 (`74/74` — [evidence](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)), followed by PR #20 review fixes; requires re-running the interactive `--require-all` gate, rebuilding the binary/installer, PR approval, and signing before public release |
 | Handy reference | Source at `aca8985190c3ad7f361d8a80cb30f179513ed690` (v0.10.1); [comparison and sources](research/HANDY_SOURCE_REVIEW_2026-11-14.md) |
 
 The [artifact manifest](release/RELEASE_ARTIFACT_MANIFEST.md) preserves older build
@@ -22,10 +22,10 @@ hashes. This cleanup does not revalidate those bytes or promote a release.
 
 | Area | Implementation and remaining evidence |
 | --- | --- |
-| Windows dictation | Local capture, VAD, Whisper, formatting, and delivery exist. `device="auto"` now probes `cublas64_12.dll` upfront (`_has_cuda_runtime_libs`) before CTranslate2 load, plus retains lazy CPU fallback. `Win32HotkeyService` wires `WH_KEYBOARD_LL` hook suppression and `0.3s` `WM_HOTKEY` debounce; `WritingIntelligence` adds spoken developer operators with `FactGuard` parity. |
+| Windows dictation | Local capture, VAD, Whisper, formatting, and delivery exist. `device="auto"` probes `cublas64_12.dll` and `cublasLt64_12.dll` (`_has_cuda_runtime_libs`, including `CUDA_PATH\bin`, `nvidia/*/bin`, and `PATH` lookup) before CTranslate2 load, plus retains lazy CPU fallback. `Win32HotkeyService` wires `WH_KEYBOARD_LL` hook suppression for `registered` hotkeys only, serializes press/release callbacks via `_SerialCallbackDispatcher` (with shutdown invalidation and overlap-free `stop()`/`reset()`), and applies `0.3s` `WM_HOTKEY` debounce; `WritingIntelligence` adds spoken developer operators with scoped `FactGuard` parity (`not equals->!=`). |
 | Text delivery and recovery | Focus checks, status distinctions, terminal protections, and recovery exist. Broad first-attempt reliability across real editors still requires an interactive matrix. |
 | External text editing | Transform preview and Copy Output work. External rewrite and undo are disabled because a window handle and a copied selection do not verify the document revision or current range. Scratchpad transactions remain separate. |
-| Microphone identity | Persistent identity, missing-device refusal, and `idle_mic_backoff_sec` (`60.0` default) standby WASAPI stream release exist. Dated 3.5mm and USB bus receipts cover specific hardware, not all devices. |
+| Microphone identity | Persistent identity, missing-device refusal, and `idle_mic_backoff_sec` (`60.0` default) standby WASAPI stream release exist (serialized against start/config/stop transitions via `_mic_release_lock` and generation tokens; `FlowOrchestrator.stop()` drains hotkey dispatch before closing capture and guards post-shutdown mic startup). Releasing an idle stream clears its pre-roll buffer and trades away pre-roll after inactivity until the next cold open (`0` disables backoff; cold-start delay and onset loss remain unmeasured on hardware matrices). Dated 3.5mm and USB bus receipts cover specific hardware, not all devices. |
 | Languages and models | Whisper and a Tamil ONNX specialist exist, with explicit model provisioning and bounded benchmark reports. Diverse speakers and code switching need further evaluation. |
 | Local text repair | Implemented, experimental, disabled by default. Its presence in master supersedes the old claim that it exists only on a sandbox branch. |
 | Privacy | Offline model use, history off for new profiles, loopback integrations, and clipboard exclusion requests exist. User scripts, destination apps, clipboard readers, and separately configured model services have separate boundaries. |
@@ -84,12 +84,12 @@ Two findings from that session, both fixed or explained in the evidence file:
 
 ## Next work, in order
 
-1. Obtain external PR approval on GitHub (`master` branch protection requires 1 approving review) and verify hosted CI passes on the `3.2.3` PR.
-2. ~~Run `.\.venv\Scripts\python.exe -X utf8 tests/run_all_tests.py --require-all` from an unlocked interactive Windows `Default` desktop session against the `v3.2.3` build so all 74 suites execute with zero skips~~ — done 2026-11-15 ([evidence](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)). The manual matrix checks across Notepad, VS Code, Chrome, Word, Slack, Notion, and Terminal remain open.
+1. Obtain external PR approval on GitHub (`master` branch protection requires 1 approving review) and verify hosted CI passes on the updated `3.2.3` PR commit.
+2. Run `.\.venv\Scripts\python.exe -X utf8 tests/run_all_tests.py --require-all` from an unlocked interactive Windows `Default` desktop session on the final PR #20 commit (prior `74/74` [evidence](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json) predates the post-review fixes) and complete the manual matrix checks across Notepad, VS Code, Chrome, Word, Slack, Notion, and Terminal.
 3. Expand consented speech evaluation across speakers and languages. Report model, host, corpus, errors, fact preservation, and correction time separately.
 4. Evaluate Handy's clipboard receipt and download-resume designs in small scoped changes. Preserve FlowPilot's stronger requirement that confirmed delivery means observing text in the destination, not merely a clipboard read.
 5. Implement external editing only with verified document revision, selection/range, and post-edit checks. Do not re-enable it by accepting a caller-supplied label.
-6. Sign `FlowPilot.exe` and `FlowPilot-Setup-v3.2.3.exe` via Authenticode, reconcile release assets and SHA-256 checksums, and publish only after interactive `--require-all` sign-off.
+6. Rebuild `FlowPilot.exe` and `FlowPilot-Setup-v3.2.3.exe` from the final verified commit, sign via Authenticode, reconcile release assets and SHA-256 checksums, and publish only after interactive `--require-all` sign-off.
 
 Historical branches and releases were inspected, not deleted. The absence of a
 current file does not prove sensitive material was erased from Git history. No

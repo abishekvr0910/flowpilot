@@ -9,7 +9,7 @@ The 3.2.x entries below are local build records, not published GitHub releases. 
 | Item | Value |
 | --- | --- |
 | Target platform | Windows 10/11 x64 |
-| Source base | `feat/v323-runtime-fixes-and-release` (off `master` `4785a8862eedd3b9ef67fe341baab30925c86b12`) |
+| Source base | `feat/v323-runtime-fixes-and-release` at `a86b722` (prior to `ce59ddc` and follow-up review fixes; rebuild required before release) |
 | Portable ZIP | `FlowPilot-v3.2.3-windows-x64.zip` (`287,296,510` bytes, `551` members, `94` notice files, CRC passed) |
 | Portable ZIP SHA-256 | `0B9A1145FB0F5093128C0F0013969D019092FB0D9691821B15BBD7CB73A8920F` |
 | Installer EXE | `FlowPilot-Setup-v3.2.3.exe` (`231,571,236` bytes / `220.84 MB`, `FileVersion` `3.2.3`, `ProductVersion` `3.2.3.0`) |
@@ -17,7 +17,7 @@ The 3.2.x entries below are local build records, not published GitHub releases. 
 | Packaged EXE | `dist/FlowPilot/FlowPilot.exe` (`16,563,541` bytes, `FileVersion` `3.2.3.0`, `ProductVersion` `3.2.3.0`) |
 | Packaged EXE SHA-256 | `E57508A25AF63092BDD7C401B56B3F2792A863B889D645DADD7A8B05B4268E88` |
 | Authenticode signing | `NotSigned` (`UNSIGNED_PILOT`; no `signtool.exe` or code-signing certificate present on build host) |
-| Observed verification | `tests/run_all_tests.py`: `69` passed, `5` skipped (`Text Injection & Clipboard Safety`, `End-to-End 5-Cycle Notepad Dictation`, `Cross-Application Injection & Focus`, `18-Scenario Full Specification End-to-End`, `Modern UI Automation & Focus Robustness` on isolated `exebox` desktop), `0` failed in `166.72s` ([2026-11-14-v323-audit.json](../reviews/evidence/2026-11-14-v323-audit.json)); `desktop_app.py --self-test` passed (`0.71s`, direct `CPU (int8)`); `npm test` passed. |
+| Observed verification | At `a86b722` on isolated `exebox` desktop: `tests/run_all_tests.py`: `69` passed, `5` skipped, `0` failed in `166.72s` ([2026-11-14-v323-audit.json](../reviews/evidence/2026-11-14-v323-audit.json)); `desktop_app.py --self-test` passed (`0.71s`, direct `CPU (int8)`); `npm test` passed. At `ce59ddc` on interactive desktop: `74` passed, `0` skipped, `0` failed in `256.06s` ([2026-11-15-v323-branch-desktop-gate.json](../reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)). Later review fixes require a fresh rebuild and `--require-all` interactive gate before release. |
 
 ## Local build record: v3.2.2, Windows x64 (unpublished)
 

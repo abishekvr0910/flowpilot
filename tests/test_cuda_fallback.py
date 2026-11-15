@@ -95,11 +95,43 @@ class CudaFallbackTests(unittest.TestCase):
 
     def test_has_cuda_runtime_libs_win32_probe(self):
         import ctypes
+        import os
         from engine.stt_engine import _has_cuda_runtime_libs
         with patch("engine.stt_engine.sys.platform", "win32"):
             with patch.object(ctypes, "WinDLL", side_effect=OSError("missing cublas64_12.dll")):
                 self.assertFalse(_has_cuda_runtime_libs())
             with patch.object(ctypes, "WinDLL", return_value=object()):
+                self.assertTrue(_has_cuda_runtime_libs())
+
+            # Partial dependency chain: cublas64_12.dll present, cublasLt64_12.dll missing -> False
+            def partial_dll(name):
+                if name == "cublasLt64_12.dll":
+                    raise OSError("missing cublasLt64_12.dll")
+                return object()
+
+            with patch("engine.stt_engine._candidate_cuda_dll_dirs", return_value=[]):
+                with patch.object(ctypes, "WinDLL", side_effect=partial_dll):
+                    self.assertFalse(_has_cuda_runtime_libs())
+
+            # Fallback directory discovery (e.g. CUDA_PATH\bin) avoids unnecessary downgrade
+            fake_cuda_bin = r"C:\fake-cuda\bin"
+            expected_paths = {
+                os.path.normcase(os.path.join(fake_cuda_bin, dll))
+                for dll in ("cublas64_12.dll", "cublasLt64_12.dll")
+            }
+
+            def fake_isfile(path):
+                return os.path.normcase(str(path)) in expected_paths
+
+            def dir_lookup(name):
+                if name in ("cublas64_12.dll", "cublasLt64_12.dll"):
+                    raise OSError("not on default DLL search path")
+                return object()
+
+            with patch("engine.stt_engine._candidate_cuda_dll_dirs", return_value=[fake_cuda_bin]), \
+                 patch("engine.stt_engine.os.path.isfile", side_effect=fake_isfile), \
+                 patch("engine.stt_engine.os.add_dll_directory", return_value=SimpleNamespace(close=lambda: None)), \
+                 patch.object(ctypes, "WinDLL", side_effect=dir_lookup):
                 self.assertTrue(_has_cuda_runtime_libs())
 
 

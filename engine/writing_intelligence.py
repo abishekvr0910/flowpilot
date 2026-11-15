@@ -202,8 +202,26 @@ class FactGuard:
         pol_entities = cls.extract_protected_entities(polished_text, custom_terms, language=language)
 
         # 1. Verify Negations
+        not_pat = r"(?:^|(?<!\w))not(?:$|(?![\w\u0B80-\u0BFF]))"
+        raw_not_count = len(re.findall(not_pat, raw_text.lower()))
+        pol_not_count = len(re.findall(not_pat, polished_text.lower()))
+        converted_neq = min(
+            safe_retracted_negs.count("not equals->!="),
+            max(0, polished_text.count("!=") - raw_text.count("!=")),
+        )
+
         for neg in raw_entities["negations"]:
             if neg in safe_retracted_negs:
+                continue
+            if neg == "not" and converted_neq > 0:
+                required_not = max(0, raw_not_count - converted_neq)
+                if pol_not_count >= required_not:
+                    continue
+                warnings.append(
+                    f"FactGuard Warning: Negation token 'not' was dropped by polishing "
+                    f"(expected {required_not} remaining after != conversion, found {pol_not_count}). Enforcing raw clause."
+                )
+                is_safe = False
                 continue
             pol_has = bool(
                 re.search(r"(?:^|(?<!\w))" + re.escape(neg) + r"(?:$|(?![\w\u0B80-\u0BFF]))", polished_text.lower())
@@ -799,7 +817,7 @@ class WritingIntelligence:
             (r"\b(?:walrus operator|colon equals?)\b", " := ", False, "walrus operator (:=)"),
             (r"\b(?:double colon|scope operator)\b", "::", False, "scope operator (::)"),
             (r"\b(?:fat arrow|double arrow|lambda arrow|hash rocket)\b", " => ", False, "fat arrow (=>)"),
-            (r"\b(?:thin arrow|skinny arrow|right arrow|arrow operator|dash greater than)\b", " -> ", False, "arrow (->)"),
+            (r"\b(?:thin arrow|skinny arrow|arrow operator|dash greater than)\b", " -> ", False, "arrow (->)"),
             (r"\b(?:double question mark|nullish coalescing(?:\s+operator)?)\b", " ?? ", False, "nullish coalescing (??)"),
             (r"\b(?:double ampersand|ampersand ampersand|logical and)\b", " && ", False, "logical and (&&)"),
             (r"\b(?:double pipe|pipe pipe|double vertical bar|logical or)\b", " || ", False, "logical or (||)"),
@@ -807,11 +825,11 @@ class WritingIntelligence:
 
         for pat, replacement, retracts_not, label in operator_rules:
             full_pat = rf"[ \t]*(?:{pat})[ \t]*"
-            if re.search(full_pat, text, flags=re.IGNORECASE):
-                text = re.sub(full_pat, replacement, text, flags=re.IGNORECASE)
+            text, count = re.subn(full_pat, replacement, text, flags=re.IGNORECASE)
+            if count > 0:
                 changes.append(f"Formatted spoken operator: {label}")
                 if retracts_not:
-                    retracted_negs.append("not")
+                    retracted_negs.extend(["not equals->!="] * count)
 
         if changes:
             text = re.sub(r"[ \t]{2,}", " ", text).strip()

@@ -268,6 +268,24 @@ def test_developer_spoken_operators_and_factguard():
     )
     assert not safe and guarded == "do not check a != 5", (guarded, safe, warnings)
 
+    # Scoped retraction test: 'not equals->!=' must NOT exempt a separate 'not' in the same sentence
+    guarded_mixed, safe_mixed, warnings_mixed = FactGuard.validate_and_guard(
+        "do not deploy if status not equals 200",
+        "do deploy if status != 200",
+        retracted_negations=["not equals->!="],
+    )
+    assert not safe_mixed and guarded_mixed == "do not deploy if status not equals 200", (
+        guarded_mixed, safe_mixed, warnings_mixed
+    )
+
+    # Multiple 'not equals' conversions without other negations remain safe
+    res_multi = wi.polish("a not equals 1 and b not equals 2", mode="polished", style="developer")
+    assert res_multi["text"] == "A != 1 and b != 2", res_multi
+
+    # Ordinary navigation speech in developer style must NOT turn 'right arrow' into '->'
+    res_nav = wi.polish("press the right arrow key", mode="polished", style="developer")
+    assert res_nav["text"] == "Press the right arrow key", res_nav
+
     # Non-developer styles must NOT rewrite natural English prose into code operators
     res_prof = wi.polish("turn right arrow keys off and logical and check", mode="polished", style="professional")
     assert "->" not in res_prof["text"] and "&&" not in res_prof["text"], res_prof
