@@ -12,7 +12,7 @@ their completion labels do not establish the state of newer source or binaries.
 | Post-merge `master` desktop gate | `73 total, 73 passed, 0 skipped, 0 failed` (`342.01s`, `--require-all`, `interactive_desktop: true`) on `4785a88` ([post-merge evidence](reviews/evidence/2026-11-14-postmerge-desktop-gate.json)) |
 | Latest published application download | [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3), published 2026-11-04, unsigned installer and ZIP |
 | 3.2.0 / 3.2.1 / 3.2.2 / 3.2.3 artifacts | Local build records in the manifest; no corresponding published GitHub release found on the review date |
-| Active candidate branch | `feat/v323-runtime-fixes-and-release` (`3.2.3` source + earlier `a86b722` unsigned Windows x64 pilot build); interactive `--require-all` gate passed on the `ce59ddc` tree 2026-11-15 (`74/74` — [evidence](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)), followed by PR #20 review fixes; requires re-running the interactive `--require-all` gate, rebuilding the binary/installer, PR approval, and signing before public release |
+| Active candidate branch | `feat/v323-runtime-fixes-and-release` (`3.2.3` source); unsigned Windows x64 pilot build rebuilt from `1bd9337` (PR #20 review fixes) on 2026-11-15, and the interactive `--require-all` gate passed on that commit with the rebuilt bundle (`74/74` — [evidence](reviews/evidence/2026-11-15-v323-1bd9337-desktop-gate.json)); hosted CI run `43720284097` succeeded on the same commit; requires the manual application matrix, PR approval, and signing before public release |
 | Handy reference | Source at `aca8985190c3ad7f361d8a80cb30f179513ed690` (v0.10.1); [comparison and sources](research/HANDY_SOURCE_REVIEW_2026-11-14.md) |
 
 The [artifact manifest](release/RELEASE_ARTIFACT_MANIFEST.md) preserves older build
@@ -82,14 +82,23 @@ Two findings from that session, both fixed or explained in the evidence file:
   document focus. The suite passed standalone and in the recorded contiguous re-run; live
   desktop suites remain sensitive to concurrent user input during the gate.
 
+After the PR #20 review fixes landed as `1bd9337`, the bundle, portable ZIP, and installer
+were rebuilt from that commit (clean working tree) and the same gate was re-run on it with
+the rebuilt `FlowPilot.exe` `1492c507…` present: **74 total, 74 passed, 0 skipped, 0 failed**
+(`248.91s`,
+[2026-11-15-v323-1bd9337-desktop-gate.json](reviews/evidence/2026-11-15-v323-1bd9337-desktop-gate.json)).
+The rebuilt binaries remain `NotSigned`; hashes are in the
+[artifact manifest](release/RELEASE_ARTIFACT_MANIFEST.md). The manual application matrix was
+not part of this run.
+
 ## Next work, in order
 
 1. Obtain external PR approval on GitHub (`master` branch protection requires 1 approving review) and verify hosted CI passes on the updated `3.2.3` PR commit.
-2. Run `.\.venv\Scripts\python.exe -X utf8 tests/run_all_tests.py --require-all` from an unlocked interactive Windows `Default` desktop session on the final PR #20 commit (prior `74/74` [evidence](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json) predates the post-review fixes) and complete the manual matrix checks across Notepad, VS Code, Chrome, Word, Slack, Notion, and Terminal.
+2. Complete the manual matrix checks across Notepad, VS Code, Chrome, Word, Slack, Notion, and Terminal, plus microphone reacquisition after `idle_mic_backoff_sec`, on the `1bd9337` build. The automated interactive `--require-all` gate already passed on `1bd9337` (`74/74`, [evidence](reviews/evidence/2026-11-15-v323-1bd9337-desktop-gate.json)); re-run it if any further source commit lands before release.
 3. Expand consented speech evaluation across speakers and languages. Report model, host, corpus, errors, fact preservation, and correction time separately.
 4. Evaluate Handy's clipboard receipt and download-resume designs in small scoped changes. Preserve FlowPilot's stronger requirement that confirmed delivery means observing text in the destination, not merely a clipboard read.
 5. Implement external editing only with verified document revision, selection/range, and post-edit checks. Do not re-enable it by accepting a caller-supplied label.
-6. Rebuild `FlowPilot.exe` and `FlowPilot-Setup-v3.2.3.exe` from the final verified commit, sign via Authenticode, reconcile release assets and SHA-256 checksums, and publish only after interactive `--require-all` sign-off.
+6. Sign the `1bd9337` rebuild of `FlowPilot.exe` and `FlowPilot-Setup-v3.2.3.exe` via Authenticode (signing changes the bytes, so re-record SHA-256 checksums afterwards), reconcile release assets, and publish only after the manual matrix sign-off. Rebuild and re-gate first if the source changes again.
 
 Historical branches and releases were inspected, not deleted. The absence of a
 current file does not prove sensitive material was erased from Git history. No

@@ -2,22 +2,22 @@
 
 Publication status checked 2026-11-14. The latest published application release is [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3). Its installer SHA-256 is `8930e37fdcf55854aaf22fa9885f43779219ddb379bbb7798e7a498125c3632e`; its ZIP SHA-256 is `4a17a2cec7494c1ac2d1aade42f4580666f89c12dcbf1f95abf40950ab8180c3`. Both are unsigned according to their release notes.
 
-The 3.2.x entries below are local build records, not published GitHub releases. The `v3.2.3` record reflects the latest local packaging run prior to interactive Windows desktop sign-off and code signing; earlier 3.2.0–3.2.2 entries are prior local build records whose binary bytes were not revalidated. Do not attribute later source changes to earlier binary bytes. See [current status](../STATUS.md).
+The 3.2.x entries below are local build records, not published GitHub releases. The `v3.2.3` record reflects the local rebuild from `1bd9337`, which passed the interactive Windows desktop gate but is not yet code signed or published; earlier 3.2.0–3.2.2 entries are prior local build records whose binary bytes were not revalidated. Do not attribute later source changes to earlier binary bytes. See [current status](../STATUS.md).
 
 ## Local build record: v3.2.3, Windows x64 (unpublished candidate)
 
 | Item | Value |
 | --- | --- |
 | Target platform | Windows 10/11 x64 |
-| Source base | `feat/v323-runtime-fixes-and-release` at `a86b722` (prior to `ce59ddc` and follow-up review fixes; rebuild required before release) |
-| Portable ZIP | `FlowPilot-v3.2.3-windows-x64.zip` (`287,296,510` bytes, `551` members, `94` notice files, CRC passed) |
-| Portable ZIP SHA-256 | `0B9A1145FB0F5093128C0F0013969D019092FB0D9691821B15BBD7CB73A8920F` |
-| Installer EXE | `FlowPilot-Setup-v3.2.3.exe` (`231,571,236` bytes / `220.84 MB`, `FileVersion` `3.2.3`, `ProductVersion` `3.2.3.0`) |
-| Installer SHA-256 | `07CDC1C9468B4DA6E571BCEB4611F291A2F98AD77F8E2414F762F54901EF7D67` |
-| Packaged EXE | `dist/FlowPilot/FlowPilot.exe` (`16,563,541` bytes, `FileVersion` `3.2.3.0`, `ProductVersion` `3.2.3.0`) |
-| Packaged EXE SHA-256 | `E57508A25AF63092BDD7C401B56B3F2792A863B889D645DADD7A8B05B4268E88` |
+| Source base | `feat/v323-runtime-fixes-and-release` at `1bd9337` (clean working tree; rebuilt 2026-11-15 with PyInstaller 6.22.3 and Inno Setup 6, superseding the earlier `a86b722` build bytes) |
+| Portable ZIP | `FlowPilot-v3.2.3-windows-x64.zip` (`287,417,879` bytes, `551` members, `94` notice files, CRC passed) |
+| Portable ZIP SHA-256 | `7FDE6AA58DD6054197AB9E815021C2C938FD6942D1778EC6E92C7828C72DE8E7` |
+| Installer EXE | `FlowPilot-Setup-v3.2.3.exe` (`231,790,412` bytes / `221.05 MB`, `FileVersion` `3.2.3`, `ProductVersion` `3.2.3.0`) |
+| Installer SHA-256 | `65C61C3B5DBC84DF4F845379B4836E3507A8F735CA80D783F50E783FB2B73127` |
+| Packaged EXE | `dist/FlowPilot/FlowPilot.exe` (`16,571,256` bytes, `FileVersion` `3.2.3.0`, `ProductVersion` `3.2.3.0`) |
+| Packaged EXE SHA-256 | `1492C507B0E3BF1E23ED6C3FB1A4C1DF0F198BBA2771BC87E45B2CD2FD9BC663` |
 | Authenticode signing | `NotSigned` (`UNSIGNED_PILOT`; no `signtool.exe` or code-signing certificate present on build host) |
-| Observed verification | At `a86b722` on isolated `exebox` desktop: `tests/run_all_tests.py`: `69` passed, `5` skipped, `0` failed in `166.72s` ([2026-11-14-v323-audit.json](../reviews/evidence/2026-11-14-v323-audit.json)); `desktop_app.py --self-test` passed (`0.71s`, direct `CPU (int8)`); `npm test` passed. At `ce59ddc` on interactive desktop: `74` passed, `0` skipped, `0` failed in `256.06s` ([2026-11-15-v323-branch-desktop-gate.json](../reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)). Later review fixes require a fresh rebuild and `--require-all` interactive gate before release. |
+| Observed verification | At `1bd9337` on an interactive `Default` desktop with the rebuilt bundle present: `tests/run_all_tests.py --require-all`: `74` passed, `0` skipped, `0` failed in `248.91s` ([2026-11-15-v323-1bd9337-desktop-gate.json](../reviews/evidence/2026-11-15-v323-1bd9337-desktop-gate.json)); hosted CI run `43720284097` on the same commit concluded `success`. The manual application matrix and signing remain outstanding. Earlier runs on `a86b722` ([audit](../reviews/evidence/2026-11-14-v323-audit.json)) and `ce59ddc` ([gate](../reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)) describe superseded trees and binaries. |
 
 ## Local build record: v3.2.2, Windows x64 (unpublished)
 
