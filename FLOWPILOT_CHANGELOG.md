@@ -9,6 +9,7 @@ This page distinguishes published releases from work on `master`. Check [GitHub 
 - Added `idle_mic_backoff_sec` (`60.0` default) in `DEFAULT_CONFIG`, `AudioRecorder`, and `FlowOrchestrator` to release an idle standby WASAPI microphone stream cleanly when returning to `IDLE`, cancelling on new dictation starts and config updates.
 - Added spoken developer operators (`->`, `=>`, `:=`, `::`, `===`, `!=`, `??`, `&&`, `||`) for `developer`, `technical`, and `terminal` styles with `FactGuard` parity (`not equals` retraction), identifier preservation, and command-order guards.
 - Bumped version metadata to `3.2.3`; built unsigned Windows x64 pilot artifacts (`dist/FlowPilot-v3.2.3-windows-x64.zip` and `dist/FlowPilot-Setup-v3.2.3.exe`).
+- Fixed `tests/test_stt.py` so the weights-presence check uses the engine's own `STTEngine.resolve_model_path("base")` chain and asserts a `.bin` weight file exists there. The old check hardcoded the user-profile HuggingFace hub cache path (`~/.cache/huggingface/hub/models--Systran--faster-whisper-base`), which the engine never reads; the suite started failing on 2026-11-15 after that unrelated cache directory was removed during host disk cleanup, while dictation itself kept working from the bundled `models/faster-whisper-base`.
 
 ## Source 3.2.2 (merged to `master` via PR #19, unpublished download)
 

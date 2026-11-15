@@ -12,7 +12,7 @@ their completion labels do not establish the state of newer source or binaries.
 | Post-merge `master` desktop gate | `73 total, 73 passed, 0 skipped, 0 failed` (`342.01s`, `--require-all`, `interactive_desktop: true`) on `4785a88` ([post-merge evidence](reviews/evidence/2026-11-14-postmerge-desktop-gate.json)) |
 | Latest published application download | [v3.1.3](https://github.com/abishekvr0910/flowpilot/releases/tag/v3.1.3), published 2026-11-04, unsigned installer and ZIP |
 | 3.2.0 / 3.2.1 / 3.2.2 / 3.2.3 artifacts | Local build records in the manifest; no corresponding published GitHub release found on the review date |
-| Active candidate branch | `feat/v323-runtime-fixes-and-release` (`3.2.3` source + unsigned Windows x64 candidate); requires PR approval, interactive `Default`-desktop `--require-all` verification, and signing before public release |
+| Active candidate branch | `feat/v323-runtime-fixes-and-release` (`3.2.3` source + unsigned Windows x64 candidate); interactive `Default`-desktop `--require-all` gate passed 2026-11-15 (`74 total, 74 passed, 0 skipped, 0 failed`, with the `tests/test_stt.py` resolution fix in tree — [evidence](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)); still requires PR approval and signing before public release |
 | Handy reference | Source at `aca8985190c3ad7f361d8a80cb30f179513ed690` (v0.10.1); [comparison and sources](research/HANDY_SOURCE_REVIEW_2026-11-14.md) |
 
 The [artifact manifest](release/RELEASE_ARTIFACT_MANIFEST.md) preserves older build
@@ -65,10 +65,27 @@ On `feat/v323-runtime-fixes-and-release` (`3.2.3`), `tests/run_all_tests.py` exe
 - **Additional post-build checks passed:** `desktop_app.py --self-test` loaded `CPU (int8, threads=8)` directly without CUDA retry error and transcribed `'FlowPilot offline dictation verified.'` in `0.71s`; `npm test` (`flowpilot@3.2.3`) passed REST/WebSocket integration checks.
 - **Signing status:** No `signtool.exe` or Authenticode certificate is present on this build host; `dist/FlowPilot/FlowPilot.exe` (`3.2.3.0`) and `dist/FlowPilot-Setup-v3.2.3.exe` (`3.2.3`) report `NotSigned` (`UNSIGNED_PILOT`).
 
+On 2026-11-15, the interactive `Default`-desktop `--require-all` gate ran on the branch
+(`.venv` interpreter, packaged `FlowPilot.exe` `e57508a2…` present) and passed
+**74 total, 74 passed, 0 skipped, 0 failed** (`256.06s`,
+[2026-11-15-v323-branch-desktop-gate.json](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)).
+Two findings from that session, both fixed or explained in the evidence file:
+
+- `tests/test_stt.py` had silently depended on the user-profile HuggingFace hub cache
+  (`~/.cache/huggingface/hub/models--Systran--faster-whisper-base`), a path the engine never
+  reads. Host disk cleanup removed that cache and the suite failed while dictation itself kept
+  working from the bundled `models/faster-whisper-base`. The weights check now uses
+  `STTEngine.resolve_model_path("base")` and asserts a `.bin` weight file in the resolved
+  directory, so it measures the path the engine actually loads.
+- One gate attempt failed `End-to-End 5-Cycle Notepad Dictation` because the Windows Search
+  flyout (`Windows.UI.Core.CoreWindow`) held foreground while the harness waited for Notepad
+  document focus. The suite passed standalone and in the recorded contiguous re-run; live
+  desktop suites remain sensitive to concurrent user input during the gate.
+
 ## Next work, in order
 
 1. Obtain external PR approval on GitHub (`master` branch protection requires 1 approving review) and verify hosted CI passes on the `3.2.3` PR.
-2. Run `.\.venv\Scripts\python.exe -X utf8 tests/run_all_tests.py --require-all` from an unlocked interactive Windows `Default` desktop session against the `v3.2.3` build so all 74 suites execute with zero skips (plus manual matrix checks across Notepad, VS Code, Chrome, Word, Slack, Notion, and Terminal).
+2. ~~Run `.\.venv\Scripts\python.exe -X utf8 tests/run_all_tests.py --require-all` from an unlocked interactive Windows `Default` desktop session against the `v3.2.3` build so all 74 suites execute with zero skips~~ — done 2026-11-15 ([evidence](reviews/evidence/2026-11-15-v323-branch-desktop-gate.json)). The manual matrix checks across Notepad, VS Code, Chrome, Word, Slack, Notion, and Terminal remain open.
 3. Expand consented speech evaluation across speakers and languages. Report model, host, corpus, errors, fact preservation, and correction time separately.
 4. Evaluate Handy's clipboard receipt and download-resume designs in small scoped changes. Preserve FlowPilot's stronger requirement that confirmed delivery means observing text in the destination, not merely a clipboard read.
 5. Implement external editing only with verified document revision, selection/range, and post-edit checks. Do not re-enable it by accepting a caller-supplied label.
